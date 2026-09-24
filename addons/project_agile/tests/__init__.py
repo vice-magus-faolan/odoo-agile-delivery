@@ -1,1 +1,1 @@
-"""Tests for the project_agile module."""
+from . import test_project_agile_domain

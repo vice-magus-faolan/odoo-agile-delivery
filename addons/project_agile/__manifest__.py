@@ -6,7 +6,7 @@
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project"],
-    "data": [],
+    "data": ["security/ir.model.access.csv"],
     "installable": True,
     "application": False,
 }

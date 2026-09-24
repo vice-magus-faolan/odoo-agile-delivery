@@ -1,0 +1,39 @@
+name: odoo-agile-delivery
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: "no"
+
+  odoo:
+    image: odoo:19.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      PORT: 5432
+      USER: odoo
+      PASSWORD: ${POSTGRES_PASSWORD:-odoo}
+    ports:
+      - "127.0.0.1:${ODOO_HTTP_PORT:-8079}:8069"
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./addons:/mnt/extra-addons:rw
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+    restart: "no"
+
+volumes:
+  odoo-data:
+  postgres-data:

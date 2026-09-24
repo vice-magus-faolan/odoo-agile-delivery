@@ -1,0 +1,26 @@
+# Local configuration
+/.env
+
+# Python/Odoo caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+
+# Odoo generated state and local artifacts
+*.log
+*.dump
+*.sql
+/filestore/
+/sessions/
+
+# Test and build outputs
+/dist/
+/build/
+*.egg-info/

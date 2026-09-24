@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$ROOT"
+
+python3 -m compileall -q addons
+docker compose config --quiet
+
+if [[ ! -f addons/project_agile/__manifest__.py ]]; then
+  printf '%s\n' 'Bootstrap verification passed (project_agile not yet present).'
+  exit 0
+fi
+
+docker compose up -d db
+for _ in $(seq 1 30); do
+  if docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null
+docker compose exec -T db dropdb -U odoo --if-exists odoo_agile_verify
+docker compose run --rm odoo \
+  --stop-after-init \
+  --database odoo_agile_verify \
+  --init project_agile \
+  --test-enable \
+  --without-demo all \
+  --log-level test
+printf '%s\n' 'Odoo install and test verification passed.'

@@ -18,6 +18,14 @@ readonly `agile_key` field. A database uniqueness constraint will back the ORM
 invariant. Existing keys will never be recomputed when a project key changes;
 that configuration change is rejected once a project has assigned task keys.
 
+Cross-project moves of a task that already has an `agile_key` are rejected
+with an actionable `ValidationError`: the key identifies its original Agile
+project and must not be regenerated or reassigned. To move the work, a user
+creates or copies a new task in the target project, which receives a key in
+the target-project namespace. The database uniqueness constraint is global on `agile_key`, not
+project-local, so every issued key remains an unambiguous instance-wide
+reference.
+
 Odoo's sequence allocation is used instead of custom counters or Python
 `max(...) + 1`, because the latter races under concurrent creates. Non-Agile
 projects do not allocate a sequence or receive an Agile key.

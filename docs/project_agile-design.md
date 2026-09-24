@@ -84,12 +84,14 @@ invented from memory.
 
 The skeleton contract test verifies the narrow manifest and absence of custom
 JavaScript. The domain slice must add Odoo tests for clean install, Agile key
-generation/uniqueness/stability, no effect on ordinary projects, valid and
+generation/uniqueness/stability, rejection of cross-project moves for keyed
+Agile tasks, no effect on ordinary projects, valid and
 invalid type policy, native cycle handling, project isolation, story-point
-validation, type reconfiguration, and manager/employee ORM access. Run the
-focused tests and `./scripts/verify` against the disposable verification
-database. Recovery is a clean database/container rerun; no persistent volume is
-deleted.
+validation, type reconfiguration, and manager/employee ORM access. It must
+specifically prove that moving a keyed Agile task between projects raises a
+clear validation error and leaves its key and project unchanged. Run the focused
+tests and `./scripts/verify` against the disposable verification database.
+Recovery is a clean database/container rerun; no persistent volume is deleted.
 
 ## Open questions
 

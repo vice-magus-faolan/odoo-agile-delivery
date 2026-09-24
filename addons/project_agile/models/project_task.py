@@ -8,6 +8,9 @@ _FIBONACCI_STORY_POINTS = {0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89}
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
+    agile_project_enabled = fields.Boolean(
+        related="project_id.agile_enabled", string="Agile Project Enabled", readonly=True
+    )
     agile_item_type_id = fields.Many2one(
         "project.agile.item.type", string="Agile Item Type", ondelete="restrict"
     )

@@ -8,9 +8,9 @@ class TestProjectAgileDomain(TransactionCase):
     def setUp(self):
         super().setUp()
         self.item_type_model = self.env["project.agile.item.type"]
-        self.epic_type = self.item_type_model.create({"name": "Epic", "code": "epic"})
-        self.story_type = self.item_type_model.create({"name": "Story", "code": "story"})
-        self.task_type = self.item_type_model.create({"name": "Task", "code": "task"})
+        self.epic_type = self.item_type_model.create({"name": "Epic", "code": "test_epic"})
+        self.story_type = self.item_type_model.create({"name": "Story", "code": "test_story"})
+        self.task_type = self.item_type_model.create({"name": "Task", "code": "test_task"})
         self.epic_type.write({"allowed_child_type_ids": [Command.set(self.story_type.ids)]})
         self.story_type.write({"allowed_child_type_ids": [Command.set(self.task_type.ids)]})
         self.project = self._create_agile_project("Engineering", "ENG")
@@ -150,7 +150,7 @@ class TestProjectAgileDomain(TransactionCase):
             self.env, "Agile employee", groups="project.group_project_user"
         )
 
-        self.item_type_model.with_user(manager).create({"name": "Spike", "code": "spike"})
+        self.item_type_model.with_user(manager).create({"name": "Configured Type", "code": "configured_type"})
         self.item_type_model.with_user(employee).read(["name"])
         with self.assertRaises(AccessError):
             self.item_type_model.with_user(employee).create({"name": "Blocked", "code": "blocked"})
@@ -159,3 +159,49 @@ class TestProjectAgileDomain(TransactionCase):
             {"name": "Employee work", "project_id": self.project.id}
         )
         self.assertEqual(task.agile_key, "ENG-1")
+
+
+    def test_seeded_item_types_and_stable_ui_xml_ids_are_installed(self):
+        epic = self.env.ref("project_agile.project_agile_item_type_epic")
+        story = self.env.ref("project_agile.project_agile_item_type_story")
+        task = self.env.ref("project_agile.project_agile_item_type_task")
+
+        self.assertEqual((epic.code, story.code, task.code), ("epic", "story", "task"))
+        self.assertIn(story, epic.allowed_child_type_ids)
+        self.assertIn(task, story.allowed_child_type_ids)
+
+        for xml_id in (
+            "project_agile.view_project_form_agile",
+            "project_agile.view_task_form_agile",
+            "project_agile.view_task_list_agile",
+            "project_agile.view_task_kanban_agile",
+            "project_agile.view_task_search_agile",
+            "project_agile.action_project_agile_backlog",
+            "project_agile.action_project_agile_item_type",
+        ):
+            self.assertTrue(self.env.ref(xml_id))
+
+        backlog_action = self.env.ref("project_agile.action_project_agile_backlog")
+        self.assertEqual(backlog_action.res_model, "project.task")
+        self.assertIn("project_id.agile_enabled", backlog_action.domain)
+
+    def test_backlog_ordering_respects_explicit_sequence_and_opt_in(self):
+        later = self._create_task("Later backlog item", agile_backlog_sequence=30)
+        earlier = self._create_task("Earlier backlog item", agile_backlog_sequence=10)
+        ordinary_project = self.env["project.project"].create(
+            {"name": "Ordinary", "privacy_visibility": "employees"}
+        )
+        ordinary = self.env["project.task"].create(
+            {
+                "name": "Ordinary task",
+                "project_id": ordinary_project.id,
+                "agile_backlog_sequence": 1,
+            }
+        )
+
+        backlog = self.env["project.task"].search(
+            [("project_id.agile_enabled", "=", True)], order="agile_backlog_sequence, id"
+        )
+
+        self.assertLess(backlog.ids.index(earlier.id), backlog.ids.index(later.id))
+        self.assertNotIn(ordinary, backlog)

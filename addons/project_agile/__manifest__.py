@@ -6,7 +6,13 @@
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project"],
-    "data": ["security/ir.model.access.csv"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/project_agile_item_type_data.xml",
+        "views/project_agile_project_views.xml",
+        "views/project_agile_task_views.xml",
+        "views/project_agile_item_type_views.xml",
+    ],
     "installable": True,
     "application": False,
 }

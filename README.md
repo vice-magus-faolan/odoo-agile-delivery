@@ -67,3 +67,32 @@ docs/research/   ecosystem and dependency research
 - Scrum remains a separate module.
 - No custom OWL planning UI in Milestone 1.
 - Git connectors record facts; configurable automation decides workflow effects.
+
+
+## Milestone 1 verification boundary
+
+`./scripts/verify` is the Milestone 1 release-candidate check. It fails fast on
+syntax, static-contract, Compose, or Odoo-test failures and exercises all three
+supported module lifecycles on a clean Odoo 19 database:
+
+- clean install of `project_agile`;
+- install followed by `--update project_agile`;
+- install, ORM-driven module uninstall, then reinstall.
+
+On the Odoo 19.0-20260908 run completed on 2026-09-24, the standalone runner
+completed two static contract tests. Each lifecycle logged 14 discovered project_agile
+tests and reported `0 failed, 0 errors of 12 tests`. Those are the two counts
+emitted by Odoo; this documentation deliberately does not collapse them into a
+single total.
+
+The check only starts the Compose `db` service and uses transient `docker compose
+run --rm` Odoo containers. It drops only its three named disposable databases
+(`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
+`odoo_agile_verify_reinstall`), never force-drops a database, and does not remove
+Compose volumes or touch unrelated services or databases.
+
+`project_agile` depends only on the Odoo Community `project` module. Knowledge
+integration is deliberately not part of Milestone 1: Odoo Knowledge is an
+Enterprise module and belongs to a future optional `project_agile_knowledge`
+integration. The module contains no custom JavaScript or OWL assets; ordinary
+Odoo views are the supported interface for this milestone.

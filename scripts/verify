@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
+# The Odoo container runs as a non-root user; a restrictive checkout umask can
+# otherwise make this bind-mounted, tracked configuration unreadable.
+chmod a+r "$ROOT/config/odoo.conf"
+chmod -R a+rX "$ROOT/addons"
+
 python3 -m compileall -q addons
 docker compose config --quiet
 
@@ -20,12 +25,14 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null
-docker compose exec -T db dropdb -U odoo --if-exists odoo_agile_verify
+docker compose exec -T db dropdb -U odoo --if-exists --force odoo_agile_verify
 docker compose run --rm odoo \
+  odoo --config=/etc/odoo/odoo.conf \
   --stop-after-init \
   --database odoo_agile_verify \
   --init project_agile \
   --test-enable \
-  --without-demo all \
+  --test-tags /project_agile \
+  --without-demo=True \
   --log-level test
 printf '%s\n' 'Odoo install and test verification passed.'

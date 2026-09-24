@@ -32,7 +32,7 @@ Release management remains intentionally unavailable until its workflow, numberi
 
 ## Evidence
 
-- [Mission brief: release/version target](../mission-brief.md#north-star)
+- [Mission brief: release/version target](../mission-brief.md#1-north-star)
 - [Mission brief: future release notes](../mission-brief.md#11-phase-4--knowledge-integration)
 - [OCA `project_version` 19.0 manifest][3]
 

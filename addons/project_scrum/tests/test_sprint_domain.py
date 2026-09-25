@@ -121,6 +121,54 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(events.mapped("task_id"), self.task | added | added)
         self.assertEqual(events.mapped("story_points"), [5, 3, 3])
 
+    def test_active_sprint_records_native_done_and_reopen_edges_once(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        self.task.write({"state": "1_done"})
+        self.task.write({"state": "1_done"})
+        self.task.write({"state": "01_in_progress"})
+        self.task.write({"state": "01_in_progress"})
+
+        events = self.env["project.sprint.scope.event"].search(
+            [("sprint_id", "=", sprint.id)], order="event_at, id"
+        )
+        self.assertEqual(events.mapped("event_type"), ["committed", "completed", "reopened"])
+        self.assertEqual(events.mapped("task_id"), self.task | self.task | self.task)
+        self.assertEqual(events.mapped("story_points"), [5, 5, 5])
+
+    def test_active_sprint_records_bulk_native_done_edges(self):
+        second_task = self.env["project.task"].create(
+            {"name": "Second work item", "project_id": self.project.id, "agile_story_points": 3}
+        )
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set((self.task | second_task).ids)])
+        sprint.action_start()
+
+        (self.task | second_task).write({"state": "1_done"})
+
+        completed_events = sprint.scope_event_ids.filtered(lambda event: event.event_type == "completed")
+        self.assertEqual(completed_events.task_id, self.task | second_task)
+        self.assertEqual(completed_events.mapped("story_points"), [5, 3])
+
+    def test_project_user_native_done_write_records_the_actual_actor(self):
+        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        self.task.with_user(user).write({"state": "1_done"})
+
+        completed_event = sprint.scope_event_ids.filtered(lambda event: event.event_type == "completed")
+        self.assertEqual(completed_event.actor_id, user)
+
+    def test_closed_sprint_freezes_completion_history(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        sprint.action_close()
+
+        self.task.write({"state": "1_done"})
+
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+
 
     def test_task_sprint_assignment_rejects_cross_project_assignment(self):
         sprint = self._create_sprint("Sprint 1")

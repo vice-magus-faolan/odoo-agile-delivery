@@ -16,12 +16,17 @@ The `project_scrum` module keeps Sprint lifecycle separate from milestones and
 records an immutable commitment snapshot when a Sprint starts. It appends
 `project.sprint.scope.event` records for committed, added, and removed scope.
 Each record retains the Sprint, task, story-point value observed at the event,
-timestamp, actor, and optional reason. Completed and reopened events remain
-deferred until workflow semantics are explicitly designed.
+timestamp, actor, and optional reason. Native Odoo 19 state `1_done` owns
+completion: a non-done to `1_done` edge appends `completed`, and a `1_done` to
+non-done edge appends `reopened`. `is_closed` and folded stages are rejected as
+signals because `1_canceled` is closed but not completed. The task write path
+captures pre-write state, so repeated writes are idempotent and bulk, UI, and
+RPC writes share the same evidence.
 
-Ordinary ORM users cannot create, change, or delete scope events. Superuser
-correction is the explicit administrative recovery boundary; it is trusted
-administration rather than ordinary Sprint workflow.
+Only transitions while the assigned Sprint is active append completion facts.
+After close, native task state may change but cannot mutate the closed ledger or
+historical numbers. Ordinary ORM users cannot create, change, or delete scope
+events. Superuser correction is the explicit administrative recovery boundary.
 
 ## Alternatives
 
@@ -41,7 +46,6 @@ access, and correction rules.
 
 ## Open Questions
 
-- Which transition owns completed and reopened events?
 - How should estimation changes during an active Sprint be represented?
 - Which events become immutable at close versus visible as later corrections?
 

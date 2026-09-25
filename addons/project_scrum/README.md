@@ -20,7 +20,9 @@ Git or Knowledge integration.
 - Starting a Sprint stores its committed task relation and appends one immutable
   `committed` scope event per task. Adding or removing a task while the Sprint is
   active appends `added` or `removed` events with observed story points, actor,
-  and timestamp.
+  and timestamp. Native `state` edges into `1_done` append `completed`, while
+  edges out append `reopened`; repeated writes do not duplicate facts. A closed
+  Sprint freezes this ledger even though native task state can still change.
 
 ## Scope-history trust boundary
 

@@ -24,17 +24,27 @@ class ProjectTask(models.Model):
         return tasks
 
     def write(self, values):
-        if "sprint_id" not in values:
-            return super().write(values)
-        original_sprints = {task.id: task.sprint_id for task in self}
+        track_sprint_assignment = "sprint_id" in values
+        track_completion = "state" in values
+        original_sprints = {task.id: task.sprint_id for task in self} if track_sprint_assignment else {}
+        original_done_states = {task.id: task.state == "1_done" for task in self} if track_completion else {}
         result = super().write(values)
-        for task in self:
-            previous_sprint = original_sprints[task.id]
-            current_sprint = task.sprint_id
-            if previous_sprint == current_sprint:
-                continue
-            if previous_sprint.state == "active":
-                previous_sprint._append_scope_events("removed", task)
-            if current_sprint.state == "active":
-                current_sprint._append_scope_events("added", task)
+        if track_sprint_assignment:
+            for task in self:
+                previous_sprint = original_sprints[task.id]
+                current_sprint = task.sprint_id
+                if previous_sprint == current_sprint:
+                    continue
+                if previous_sprint.state == "active":
+                    previous_sprint._append_scope_events("removed", task)
+                if current_sprint.state == "active":
+                    current_sprint._append_scope_events("added", task)
+        if track_completion:
+            for task in self:
+                sprint = task.sprint_id
+                was_done = original_done_states[task.id]
+                is_done = task.state == "1_done"
+                if sprint.state != "active" or was_done == is_done:
+                    continue
+                sprint._append_scope_events("completed" if is_done else "reopened", task)
         return result

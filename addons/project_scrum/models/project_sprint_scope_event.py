@@ -13,7 +13,13 @@ class ProjectSprintScopeEvent(models.Model):
     sprint_id = fields.Many2one("project.sprint", required=True, ondelete="restrict", index=True)
     task_id = fields.Many2one("project.task", required=True, ondelete="restrict", index=True)
     event_type = fields.Selection(
-        [("committed", "Committed"), ("added", "Added"), ("removed", "Removed")],
+        [
+            ("committed", "Committed"),
+            ("added", "Added"),
+            ("removed", "Removed"),
+            ("completed", "Completed"),
+            ("reopened", "Reopened"),
+        ],
         required=True,
         index=True,
     )

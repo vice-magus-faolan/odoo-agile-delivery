@@ -24,10 +24,10 @@ class ProjectTask(models.Model):
         return tasks
 
     def write(self, values):
+        if "sprint_id" not in values:
+            return super().write(values)
         original_sprints = {task.id: task.sprint_id for task in self}
         result = super().write(values)
-        if "sprint_id" not in values:
-            return result
         for task in self:
             previous_sprint = original_sprints[task.id]
             current_sprint = task.sprint_id

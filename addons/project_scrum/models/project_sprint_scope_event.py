@@ -24,7 +24,7 @@ class ProjectSprintScopeEvent(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if not (self.env.is_superuser() or self.env.context.get("project_scrum_allow_event_create")):
+        if not self.env.is_superuser():
             raise AccessError(_("Sprint scope events are created only by Sprint lifecycle actions."))
         return super().create(vals_list)
 

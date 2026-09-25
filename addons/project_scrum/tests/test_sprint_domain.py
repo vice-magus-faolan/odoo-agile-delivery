@@ -1,4 +1,4 @@
-from odoo import Command
+from odoo import Command, fields
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
@@ -66,9 +66,14 @@ class TestProjectScrumDomain(TransactionCase):
 
     def test_lifecycle_state_cannot_bypass_start_action(self):
         sprint = self._create_sprint("Sprint 1")
+        manager = mail_new_test_user(self.env, "Sprint manager", groups="project.group_project_manager")
 
         with self.assertRaises(ValidationError):
             sprint.write({"state": "active"})
+        with self.assertRaises(ValidationError):
+            sprint.with_user(manager).with_context(
+                project_scrum_lifecycle_transition=True
+            ).write({"state": "active"})
         with self.assertRaises(ValidationError):
             self.env["project.sprint"].create(
                 {
@@ -134,6 +139,19 @@ class TestProjectScrumDomain(TransactionCase):
             event.with_user(manager).write({"reason": "rewrite history"})
         with self.assertRaises(AccessError):
             event.with_user(manager).unlink()
+        with self.assertRaises(AccessError):
+            self.env["project.sprint.scope.event"].with_user(manager).with_context(
+                project_scrum_allow_event_create=True
+            ).create(
+                {
+                    "sprint_id": sprint.id,
+                    "task_id": self.task.id,
+                    "event_type": "added",
+                    "story_points": self.task.agile_story_points,
+                    "actor_id": manager.id,
+                    "event_at": fields.Datetime.now(),
+                }
+            )
 
 
     def test_task_sprint_assignment_rejects_cross_company_assignment(self):

@@ -1,4 +1,6 @@
-from odoo import _, api, fields, models
+from psycopg2 import IntegrityError
+
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
@@ -42,7 +44,7 @@ class ProjectSprint(models.Model):
         return super().create(vals_list)
 
     def write(self, values):
-        if "state" in values and not self.env.context.get("project_scrum_lifecycle_transition"):
+        if "state" in values:
             if any(sprint.state != values["state"] for sprint in self):
                 raise ValidationError(_("Use the Sprint lifecycle actions to change state."))
         return super().write(values)
@@ -96,9 +98,24 @@ class ProjectSprint(models.Model):
                 }
             )
         if values:
-            self.env["project.sprint.scope.event"].sudo().with_context(
-                project_scrum_allow_event_create=True
-            ).create(values)
+            self.env["project.sprint.scope.event"].sudo().create(values)
+
+    def _set_lifecycle_state(self, state):
+        """Perform a validated action-only transition as the server superuser."""
+        return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write({"state": state})
+
+    def _activate(self):
+        self.committed_task_ids = [fields.Command.set(self.task_ids.ids)]
+        self._append_scope_events("committed", self.task_ids)
+        try:
+            self._set_lifecycle_state("active")
+            self.with_user(SUPERUSER_ID).flush_recordset(["state"])
+        except IntegrityError as error:
+            if error.diag.constraint_name == "project_sprint_active_project_team_unique":
+                raise ValidationError(
+                    _("Only one Sprint can be active for a project and Agile team.")
+                ) from error
+            raise
 
     def action_start(self):
         for sprint in self:
@@ -113,14 +130,13 @@ class ProjectSprint(models.Model):
                 ]
             ):
                 raise ValidationError(_("Only one Sprint can be active for a project and Agile team."))
-            sprint.committed_task_ids = [fields.Command.set(sprint.task_ids.ids)]
-            sprint._append_scope_events("committed", sprint.task_ids)
-            sprint.with_context(project_scrum_lifecycle_transition=True).write({"state": "active"})
+            with self.env.cr.savepoint():
+                sprint._activate()
         return True
 
     def action_close(self):
         for sprint in self:
             if sprint.state != "active":
                 raise ValidationError(_("Only an active Sprint can be closed."))
-            sprint.with_context(project_scrum_lifecycle_transition=True).write({"state": "closed"})
+            sprint._set_lifecycle_state("closed")
         return True

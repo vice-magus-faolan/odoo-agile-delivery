@@ -4,16 +4,18 @@ An Odoo 19-native suite that adds software-delivery semantics to Project and Kno
 
 ## Current scope
 
-The first milestone is `project_agile`:
+Delivered modules are:
 
-- opt-in Agile configuration per project;
-- configurable work-item types;
-- stable project-scoped task keys;
-- story points and acceptance criteria;
-- explicit backlog ordering;
-- model-level hierarchy validation using native `project.task.parent_id`.
+- `project_agile`: opt-in Agile configuration, configurable work-item types,
+  stable project-scoped task keys, story points, acceptance criteria, explicit
+  backlog ordering, and native hierarchy validation.
+- `project_scrum`: explicit Agile teams, draft/active/closed Sprint lifecycle,
+  team-scoped active-Sprint enforcement, native task-to-Sprint assignment,
+  immutable commitment snapshots, and append-only scope events.
 
-Scrum, analytics, Knowledge relationships, Git integration, advanced UI, and Jira migration follow only after the core domain is stable.
+Analytics, Knowledge relationships, Git integration, advanced UI, Jira migration,
+and full Sprint-close unfinished-work policy remain deferred until the core
+lifecycle contracts are stable.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 

@@ -1,0 +1,155 @@
+from odoo import Command
+from odoo.addons.mail.tests.common import mail_new_test_user
+from odoo.exceptions import AccessError, ValidationError
+from odoo.tests.common import TransactionCase
+
+
+class TestProjectScrumDomain(TransactionCase):
+    def setUp(self):
+        super().setUp()
+        self.project = self.env["project.project"].create(
+            {
+                "name": "Scrum Project",
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "SCRUM",
+                "agile_estimation_method": "fibonacci",
+            }
+        )
+        self.team = self.env["project.agile.team"].create(
+            {"name": "Delivery Team", "project_id": self.project.id}
+        )
+        self.task = self.env["project.task"].create(
+            {
+                "name": "Committed work",
+                "project_id": self.project.id,
+                "agile_story_points": 5,
+            }
+        )
+
+    def _create_sprint(self, name, team=None, task_ids=None):
+        return self.env["project.sprint"].create(
+            {
+                "name": name,
+                "project_id": self.project.id,
+                "team_id": (team or self.team).id,
+                "task_ids": task_ids or [],
+            }
+        )
+
+    def test_start_records_immutable_committed_scope(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+
+        sprint.action_start()
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(sprint.committed_task_ids, self.task)
+        events = self.env["project.sprint.scope.event"].search([("sprint_id", "=", sprint.id)])
+        self.assertEqual(events.mapped("event_type"), ["committed"])
+        self.assertEqual(events.task_id, self.task)
+        self.assertEqual(events.story_points, 5)
+
+    def test_only_one_team_sprint_can_be_active_per_project(self):
+        first = self._create_sprint("Sprint 1")
+        second = self._create_sprint("Sprint 2")
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Platform Team", "project_id": self.project.id}
+        )
+        parallel = self._create_sprint("Sprint 3", team=other_team)
+
+        first.action_start()
+        with self.assertRaises(ValidationError):
+            second.action_start()
+        parallel.action_start()
+
+        self.assertEqual((first.state, parallel.state), ("active", "active"))
+
+    def test_lifecycle_state_cannot_bypass_start_action(self):
+        sprint = self._create_sprint("Sprint 1")
+
+        with self.assertRaises(ValidationError):
+            sprint.write({"state": "active"})
+        with self.assertRaises(ValidationError):
+            self.env["project.sprint"].create(
+                {
+                    "name": "Bypassed Sprint",
+                    "project_id": self.project.id,
+                    "team_id": self.team.id,
+                    "state": "active",
+                }
+            )
+
+        self.assertEqual(sprint.state, "draft")
+
+
+    def test_active_sprint_records_post_start_adds_and_removals(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        added = self.env["project.task"].create({"name": "Added after start", "project_id": self.project.id, "agile_story_points": 3, "sprint_id": sprint.id})
+
+        added.write({"sprint_id": False})
+
+        events = self.env["project.sprint.scope.event"].search([("sprint_id", "=", sprint.id)], order="event_at, id")
+        self.assertEqual(events.mapped("event_type"), ["committed", "added", "removed"])
+        self.assertEqual(events.mapped("task_id"), self.task | added | added)
+        self.assertEqual(events.mapped("story_points"), [5, 3, 3])
+
+
+    def test_task_sprint_assignment_rejects_cross_project_assignment(self):
+        sprint = self._create_sprint("Sprint 1")
+        foreign_project = self.env["project.project"].create({"name": "Other Scrum Project", "privacy_visibility": "employees", "agile_enabled": True, "agile_key": "OTHER"})
+        foreign_task = self.env["project.task"].create({"name": "Foreign work", "project_id": foreign_project.id})
+
+        with self.assertRaises(ValidationError):
+            foreign_task.write({"sprint_id": sprint.id})
+
+        self.assertFalse(foreign_task.sprint_id)
+
+    def test_ordinary_project_task_keeps_native_behavior_without_a_sprint(self):
+        ordinary_project = self.env["project.project"].create({"name": "Ordinary", "privacy_visibility": "employees"})
+        task = self.env["project.task"].create({"name": "Ordinary task", "project_id": ordinary_project.id})
+
+        task.write({"name": "Renamed ordinary task"})
+
+        self.assertFalse(task.sprint_id)
+        self.assertEqual(task.name, "Renamed ordinary task")
+
+
+    def test_project_users_can_read_but_not_administer_scrum_records(self):
+        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+
+        self.team.with_user(user).read(["name"])
+        with self.assertRaises(AccessError):
+            self.env["project.agile.team"].with_user(user).create({"name": "Unauthorized", "project_id": self.project.id})
+        with self.assertRaises(AccessError):
+            self.env["project.sprint"].with_user(user).create({"name": "Unauthorized", "project_id": self.project.id, "team_id": self.team.id})
+
+    def test_scope_events_are_immutable_for_project_managers(self):
+        manager = mail_new_test_user(self.env, "Scrum manager", groups="project.group_project_manager")
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        event = sprint.scope_event_ids
+
+        with self.assertRaises(AccessError):
+            event.with_user(manager).write({"reason": "rewrite history"})
+        with self.assertRaises(AccessError):
+            event.with_user(manager).unlink()
+
+
+    def test_task_sprint_assignment_rejects_cross_company_assignment(self):
+        sprint = self._create_sprint("Sprint 1")
+        other_company = self.env["res.company"].create({"name": "Other company"})
+
+        with self.assertRaises(ValidationError):
+            self.task.write({"company_id": other_company.id, "sprint_id": sprint.id})
+
+        self.assertFalse(self.task.sprint_id)
+
+
+    def test_standard_scrum_views_and_actions_are_installed(self):
+        for xml_id in ("project_scrum.view_project_agile_team_form", "project_scrum.view_project_sprint_form", "project_scrum.view_task_form_scrum", "project_scrum.view_task_list_scrum", "project_scrum.view_task_search_scrum", "project_scrum.action_project_sprint", "project_scrum.action_project_agile_team"):
+            self.assertTrue(self.env.ref(xml_id))
+
+        action = self.env.ref("project_scrum.action_project_sprint")
+        self.assertEqual(action.res_model, "project.sprint")
+        self.assertIn("list", action.view_mode)

@@ -104,6 +104,10 @@ class ProjectSprint(models.Model):
         """Perform a validated action-only transition as the server superuser."""
         return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write({"state": state})
 
+    def _check_lifecycle_access(self):
+        """Authorize the RPC caller before any privileged lifecycle work."""
+        self.check_access("write")
+
     def _activate(self):
         self.committed_task_ids = [fields.Command.set(self.task_ids.ids)]
         self._append_scope_events("committed", self.task_ids)
@@ -118,6 +122,7 @@ class ProjectSprint(models.Model):
             raise
 
     def action_start(self):
+        self._check_lifecycle_access()
         for sprint in self:
             if sprint.state != "draft":
                 raise ValidationError(_("Only a draft Sprint can be started."))
@@ -135,6 +140,7 @@ class ProjectSprint(models.Model):
         return True
 
     def action_close(self):
+        self._check_lifecycle_access()
         for sprint in self:
             if sprint.state != "active":
                 raise ValidationError(_("Only an active Sprint can be closed."))

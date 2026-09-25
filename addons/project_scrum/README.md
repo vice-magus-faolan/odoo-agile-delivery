@@ -26,10 +26,10 @@ Git or Knowledge integration.
 
 `project.sprint.scope.event` is append-only for ordinary ORM users: its ACLs are
 read-only and the model rejects regular create/write/unlink calls. Sprint
-lifecycle code creates events through a narrowly scoped internal context while
-retaining the initiating actor in `actor_id`. Superuser use remains the explicit
-administrative recovery boundary: it can correct or remove facts when required,
-but that action is trusted administration rather than ordinary Scrum workflow.
+lifecycle code creates events as the superuser while retaining the initiating
+actor in `actor_id`. Superuser use remains the explicit administrative recovery
+boundary: it can correct or remove facts when required, but that action is
+trusted administration rather than ordinary Scrum workflow.
 
 ## Ordinary Odoo interface
 

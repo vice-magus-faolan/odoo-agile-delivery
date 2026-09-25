@@ -87,6 +87,28 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(sprint.state, "draft")
 
 
+    def test_project_user_cannot_start_sprint(self):
+        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        sprint = self._create_sprint("Sprint 1")
+
+        with self.assertRaises(AccessError):
+            sprint.with_user(user).action_start()
+
+        self.assertEqual(sprint.state, "draft")
+        self.assertFalse(sprint.committed_task_ids)
+        self.assertFalse(sprint.scope_event_ids)
+
+    def test_project_user_cannot_close_sprint(self):
+        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        sprint = self._create_sprint("Sprint 1")
+        sprint.action_start()
+
+        with self.assertRaises(AccessError):
+            sprint.with_user(user).action_close()
+
+        self.assertEqual(sprint.state, "active")
+
+
     def test_active_sprint_records_post_start_adds_and_removals(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()

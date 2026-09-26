@@ -138,6 +138,9 @@ class TestScrumAnalytics(TransactionCase):
         self.assertEqual(carried_report["velocity"], 0.0)
         self.assertEqual(carried_report["scope_change"]["final"], 0.0)
         self.assertEqual(target_report["scope_change"]["initial"], 2.0)
+        self.assertEqual(target_report["burndown"]["remaining"], 0.0)
+        self.assertEqual(target_report["scope_change"]["final"], 0.0)
+        self.assertEqual(target_report["timeline"][-1]["burndown_remaining"], 0.0)
         self.assertEqual(target_report["velocity"], 0.0)
         self.assertEqual(zero_point.agile_story_points, 0.0)
 
@@ -174,6 +177,51 @@ class TestScrumAnalytics(TransactionCase):
             [point["event_id"] for point in report["timeline"]],
             sorted(point["event_id"] for point in report["timeline"]),
         )
+
+    def test_report_query_count_is_bounded_for_large_event_history(self):
+        sprint = self._create_sprint()
+        sprint.action_start()
+        tasks = self.env["project.task"].create(
+            [
+                {
+                    "name": f"Historical work {index}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.item_type.id,
+                    "agile_story_points": 1,
+                }
+                for index in range(40)
+            ]
+        )
+        event_at = fields.Datetime.now()
+        events = []
+        for task in tasks:
+            events.extend(
+                [
+                    {
+                        "event_type": "committed",
+                        "story_points": 1,
+                        "sprint_id": sprint.id,
+                        "task_id": task.id,
+                        "actor_id": self.env.user.id,
+                        "event_at": event_at,
+                    },
+                    {
+                        "event_type": "completed",
+                        "story_points": 1,
+                        "sprint_id": sprint.id,
+                        "task_id": task.id,
+                        "actor_id": self.env.user.id,
+                        "event_at": event_at,
+                    },
+                ]
+            )
+        self.env["project.sprint.scope.event"].create(events)
+
+        # One event search plus its prefetch must not become N+1 replay queries.
+        with self.assertQueryCount(2):
+            report = self.env["project.scrum.analytics"].get_report(sprint.id)
+
+        self.assertEqual(report["burnup"], {"completed": 40.0, "total": 40.0})
 
     def test_service_enforces_project_company_and_model_access(self):
         user = mail_new_test_user(

@@ -65,6 +65,51 @@ class ProjectTask(models.Model):
                 task.sprint_id._append_scope_events("completed", task)
         return tasks
 
+    def _track_active_sprint_assignment_changes(self, original_sprints, original_story_points):
+        for task in self:
+            previous_sprint = original_sprints[task.id]
+            current_sprint = task.sprint_id
+            if previous_sprint == current_sprint:
+                continue
+            if previous_sprint.state == "active":
+                previous_sprint._append_scope_events(
+                    "removed", task, story_points_by_task=original_story_points
+                )
+            if current_sprint.state == "active":
+                current_sprint._append_scope_events("added", task)
+                if task.state == "1_done":
+                    current_sprint._append_scope_events("completed", task)
+
+    def _track_active_sprint_reestimates(self, original_sprints, original_story_points):
+        for task in self:
+            sprint = task.sprint_id
+            if (
+                original_sprints[task.id] == sprint
+                and sprint.state == "active"
+                and original_story_points[task.id] != task.agile_story_points
+            ):
+                sprint._append_scope_events(
+                    "reestimated",
+                    task,
+                    previous_story_points_by_task=original_story_points,
+                )
+
+    def _track_active_sprint_completion_edges(
+        self, original_sprints, original_done_states, track_sprint_assignment
+    ):
+        for task in self:
+            sprint = task.sprint_id
+            was_done = original_done_states[task.id]
+            is_done = task.state == "1_done"
+            moved_into_active_sprint = (
+                track_sprint_assignment
+                and original_sprints[task.id] != sprint
+                and sprint.state == "active"
+            )
+            if sprint.state != "active" or was_done == is_done or moved_into_active_sprint:
+                continue
+            sprint._append_scope_events("completed" if is_done else "reopened", task)
+
     def write(self, values):
         track_sprint_assignment = "sprint_id" in values
         track_story_points = "agile_story_points" in values
@@ -86,45 +131,13 @@ class ProjectTask(models.Model):
         original_done_states = {task.id: task.state == "1_done" for task in self} if track_completion else {}
         result = super().write(values)
         if track_sprint_assignment:
-            for task in self:
-                previous_sprint = original_sprints[task.id]
-                current_sprint = task.sprint_id
-                if previous_sprint == current_sprint:
-                    continue
-                if previous_sprint.state == "active":
-                    previous_sprint._append_scope_events(
-                        "removed", task, story_points_by_task=original_story_points
-                    )
-                if current_sprint.state == "active":
-                    current_sprint._append_scope_events("added", task)
-                    if task.state == "1_done":
-                        current_sprint._append_scope_events("completed", task)
+            self._track_active_sprint_assignment_changes(original_sprints, original_story_points)
         if track_story_points:
-            for task in self:
-                sprint = task.sprint_id
-                if (
-                    original_sprints[task.id] == sprint
-                    and sprint.state == "active"
-                    and original_story_points[task.id] != task.agile_story_points
-                ):
-                    sprint._append_scope_events(
-                        "reestimated",
-                        task,
-                        previous_story_points_by_task=original_story_points,
-                    )
+            self._track_active_sprint_reestimates(original_sprints, original_story_points)
         if track_completion:
-            for task in self:
-                sprint = task.sprint_id
-                was_done = original_done_states[task.id]
-                is_done = task.state == "1_done"
-                moved_into_active_sprint = (
-                    track_sprint_assignment
-                    and original_sprints[task.id] != sprint
-                    and sprint.state == "active"
-                )
-                if sprint.state != "active" or was_done == is_done or moved_into_active_sprint:
-                    continue
-                sprint._append_scope_events("completed" if is_done else "reopened", task)
+            self._track_active_sprint_completion_edges(
+                original_sprints, original_done_states, track_sprint_assignment
+            )
         return result
 
     def _write_sprint_close_assignment(self, target_sprint=False):

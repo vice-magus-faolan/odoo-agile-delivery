@@ -107,6 +107,9 @@ class ProjectSprint(models.Model):
     def _activate(self):
         self.committed_task_ids = [fields.Command.set(self.task_ids.ids)]
         self._append_scope_events("committed", self.task_ids)
+        self._append_scope_events(
+            "completed", self.task_ids.filtered(lambda task: task.state == "1_done")
+        )
         try:
             self._set_lifecycle_state("active")
             self.with_user(SUPERUSER_ID).flush_recordset(["state"])

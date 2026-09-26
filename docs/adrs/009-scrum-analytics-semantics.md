@@ -16,7 +16,9 @@ Sort events by `(event_at, id)` ascending. `event_at` is UTC and id breaks same-
 
 Per task, replay `(in_scope, done, points)`: `committed` and `added` set in-scope with event points; `removed` clears in-scope; `reestimated` changes points from `previous_story_points` to `story_points`; `completed` sets done; `reopened` clears done; `carried_to_backlog` and `carried_to_sprint` each clear in-scope without changing done. `closed_at`, recorded after carry-over facts in the close transaction, is the close boundary.
 
-A multi-field write orders source removal at the pre-write estimate, destination addition at the post-write estimate, in-place reestimate, then completion or reopening. Generated event ids preserve the order. A task created or assigned already in `1_done` emits `added` then `completed`.
+A multi-field write orders source removal at the pre-write estimate, destination addition at the post-write estimate, in-place reestimate, then completion or reopening. Generated event ids preserve the order.
+At Sprint start, a task assigned while draft and already in `1_done` emits `committed` then `completed`.
+A task created or assigned while active already in `1_done` emits `added` then `completed`.
 
 Zero or empty Float estimates are explicit zero-point work. Calculators sum stored Float values without intermediate rounding; presentation rounds once to two decimal places.
 

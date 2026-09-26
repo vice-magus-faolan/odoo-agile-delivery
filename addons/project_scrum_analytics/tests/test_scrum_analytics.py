@@ -63,6 +63,28 @@ class TestScrumAnalytics(TransactionCase):
         )
         self.assertEqual(report["velocity"], 0.0)
 
+    def test_done_task_at_sprint_start_is_completed_commitment(self):
+        self.task.write({"state": "1_done"})
+        sprint = self._create_sprint([Command.set(self.task.ids)])
+
+        sprint.action_start()
+        self.assertEqual(
+            sprint.scope_event_ids.sorted("id").mapped("event_type"),
+            ["committed", "completed"],
+        )
+        self.assertTrue(sprint.action_close())
+
+        report = self.env["project.scrum.analytics"].get_report(sprint.id)
+
+        self.assertEqual(report["sprint"]["state"], "closed")
+        self.assertEqual(report["velocity"], 5.0)
+        self.assertEqual(report["burndown"], {"remaining": 0.0})
+        self.assertEqual(report["burnup"], {"completed": 5.0, "total": 5.0})
+        self.assertEqual(
+            report["commitment_completion"],
+            {"commitment": 5.0, "completed": 5.0, "completion_ratio": 1.0},
+        )
+
     def test_report_replays_scope_completion_reopening_and_reestimation(self):
         sprint = self._create_sprint([Command.set(self.task.ids)])
         sprint.action_start()

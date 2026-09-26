@@ -23,7 +23,10 @@ signals because `1_canceled` is closed but not completed. The task write path
 captures pre-write state, so repeated writes are idempotent and bulk, UI, and
 RPC writes share the same evidence.
 
-Only transitions while the assigned Sprint is active append completion facts.
+At Sprint start, each `committed` event is followed by `completed` for every
+task already in native `1_done`, preserving completed work at the immutable
+commitment boundary. Other completion transitions append facts only while the
+assigned Sprint is active.
 After close, native task state may change but cannot mutate the closed ledger or
 historical numbers. Ordinary ORM users cannot create, change, or delete scope
 events. Superuser correction is the explicit administrative recovery boundary.
@@ -63,12 +66,7 @@ access, and correction rules.
 
 ## Resolved by ADR-009
 
-ADR-009 defines active-Sprint reestimation, task-born-complete, close-time, and correction semantics for trustworthy analytics.
-
-## Open Questions
-
-- How should estimation changes during an active Sprint be represented?
-- Which events become immutable at close versus visible as later corrections?
+ADR-009 defines active-Sprint reestimation, task-born-complete, start-boundary completion, close-time, and correction semantics for trustworthy analytics.
 
 ## Evidence
 

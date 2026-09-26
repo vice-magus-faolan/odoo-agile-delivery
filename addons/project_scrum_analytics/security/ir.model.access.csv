@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_project_scrum_analytics_report_user,project.scrum.analytics.report user,model_project_scrum_analytics_report,project.group_project_user,1,0,0,0
+access_project_scrum_analytics_report_manager,project.scrum.analytics.report manager,model_project_scrum_analytics_report,project.group_project_manager,1,0,0,0
+access_project_scrum_analytics_timeline_user,project.scrum.analytics.timeline user,model_project_scrum_analytics_timeline,project.group_project_user,1,0,0,0
+access_project_scrum_analytics_timeline_manager,project.scrum.analytics.timeline manager,model_project_scrum_analytics_timeline,project.group_project_manager,1,0,0,0

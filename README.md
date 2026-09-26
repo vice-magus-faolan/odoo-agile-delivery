@@ -11,11 +11,15 @@ Delivered modules are:
   backlog ordering, and native hierarchy validation.
 - `project_scrum`: explicit Agile teams, draft/active/closed Sprint lifecycle,
   team-scoped active-Sprint enforcement, native task-to-Sprint assignment,
-  immutable commitment snapshots, and append-only scope events.
+  immutable commitment snapshots, append-only scope events, and explicit
+  unfinished-work disposition to the Product Backlog or a compatible draft Sprint.
+- `project_scrum_analytics`: additive Sprint Velocity, Burndown, Burnup, Scope
+  Change, and Commitment vs Completion projections replayed from immutable
+  scope facts, with native list, pivot, graph, export, and authorized drill-down
+  reporting surfaces.
 
-Analytics, Knowledge relationships, Git integration, advanced UI, Jira migration,
-and full Sprint-close unfinished-work policy remain deferred until the core
-lifecycle contracts are stable.
+Knowledge relationships, Git integration, advanced UI, and Jira migration remain
+deferred; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
@@ -71,30 +75,26 @@ docs/research/   ecosystem and dependency research
 - Git connectors record facts; configurable automation decides workflow effects.
 
 
-## Milestone 2 verification boundary
+## Milestone 3 verification boundary
 
-`./scripts/verify` is the repository release-candidate gate for both `project_agile` and `project_scrum`. It fails fast on
-syntax, static-contract, Compose, or Odoo-test failures and exercises all three
-supported module lifecycles on a clean Odoo 19 database:
+`./scripts/verify` is the canonical release-candidate gate for
+`project_agile`, `project_scrum`, and `project_scrum_analytics`. It fails fast
+on syntax, static-contract, Compose, or Odoo-test failures and exercises all
+three supported lifecycles against disposable Odoo 19 databases:
 
-- clean install of `project_agile`;
-- install followed by `--update project_agile,project_scrum`;
-- install, ORM-driven module uninstall, then reinstall.
+- clean install of all three modules with their focused test tags;
+- install followed by `--update project_agile,project_scrum,project_scrum_analytics`;
+- install, dependency-safe ORM uninstall in reverse order, then reinstall with
+  focused tests.
 
-On the Odoo 19.0-20260908 run completed on 2026-09-24, the standalone runner
-completed two static contract tests. Each lifecycle logged 14 discovered project_agile
-tests and reported `0 failed, 0 errors of 12 tests`. Those are the two counts
-emitted by Odoo; this documentation deliberately does not collapse them into a
-single total.
+The check starts only the Compose `db` service and uses transient
+`docker compose run --rm` Odoo containers. It drops only the three named
+disposable databases (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`,
+and `odoo_agile_verify_reinstall`), never removes Compose volumes, and does not
+touch unrelated services or databases.
 
-The check only starts the Compose `db` service and uses transient `docker compose
-run --rm` Odoo containers. It drops only its three named disposable databases
-(`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
-`odoo_agile_verify_reinstall`), never force-drops a database, and does not remove
-Compose volumes or touch unrelated services or databases.
-
-`project_agile` depends only on the Odoo Community `project` module. Knowledge
-integration is deliberately not part of Milestone 1: Odoo Knowledge is an
-Enterprise module and belongs to a future optional `project_agile_knowledge`
-integration. The module contains no custom JavaScript or OWL assets; ordinary
-Odoo views are the supported interface for this milestone.
+`project_agile` depends only on the Odoo Community `project` module.
+`project_scrum` remains isolated from ordinary Project behavior, while
+`project_scrum_analytics` depends only on `project_scrum`. Reporting uses
+ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
+no custom JavaScript or OWL assets.

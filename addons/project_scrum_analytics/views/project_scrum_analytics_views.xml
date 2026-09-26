@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_scrum_analytics_report_list" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.report.list</field>
+        <field name="model">project.scrum.analytics.report</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="sprint_id"/>
+                <field name="project_id"/>
+                <field name="team_id"/>
+                <field name="state" widget="badge"/>
+                <field name="date_start" optional="hide"/>
+                <field name="date_end" optional="hide"/>
+                <field name="velocity"/>
+                <field name="burndown_remaining"/>
+                <field name="burnup_completed"/>
+                <field name="burnup_total"/>
+                <field name="scope_final"/>
+                <field name="commitment_completion_ratio"/>
+                <field name="precision" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_report_form" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.report.form</field>
+        <field name="model">project.scrum.analytics.report</field>
+        <field name="arch" type="xml">
+            <form string="Scrum Sprint Analytics" create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_open_sprint" string="Open Sprint" type="object" class="btn-secondary"/>
+                    <button name="action_open_timeline" string="Open Burndown &amp; Burnup Timeline" type="object" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,closed" readonly="1"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Sprint Scope">
+                            <field name="sprint_id"/>
+                            <field name="project_id"/>
+                            <field name="team_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="closed_at" invisible="state != 'closed'"/>
+                        </group>
+                        <group string="Semantics">
+                            <field name="points_unit"/>
+                            <field name="completion_ratio_unit"/>
+                            <field name="precision"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <group string="Velocity and Flow (Story Points)">
+                        <field name="velocity"/>
+                        <field name="burndown_remaining"/>
+                        <field name="burnup_completed"/>
+                        <field name="burnup_total"/>
+                    </group>
+                    <group string="Scope Change (Story Points)">
+                        <field name="scope_initial"/>
+                        <field name="scope_added"/>
+                        <field name="scope_removed"/>
+                        <field name="scope_final"/>
+                    </group>
+                    <group string="Commitment vs Completion">
+                        <field name="commitment_points"/>
+                        <field name="completed_commitment_points"/>
+                        <field name="commitment_completion_ratio"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_report_search" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.report.search</field>
+        <field name="model">project.scrum.analytics.report</field>
+        <field name="arch" type="xml">
+            <search string="Scrum Sprint Analytics">
+                <field name="sprint_id"/>
+                <field name="project_id"/>
+                <field name="team_id"/>
+                <filter string="Active Sprints" name="active" domain="[('state', '=', 'active')]"/>
+                <filter string="Closed Sprints" name="closed" domain="[('state', '=', 'closed')]"/>
+                <filter string="Trusted Closed Replay" name="trusted" domain="[('precision', '=', 'trusted')]"/>
+                <separator/>
+                <filter string="Project" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="Team" name="group_team" context="{'group_by': 'team_id'}"/>
+                <filter string="Sprint Status" name="group_state" context="{'group_by': 'state'}"/>
+                <filter string="Sprint End Date" name="group_end_date" context="{'group_by': 'date_end'}"/>
+                <filter string="Company" name="group_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_report_pivot" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.report.pivot</field>
+        <field name="model">project.scrum.analytics.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Scrum Sprint Analytics" disable_linking="1">
+                <field name="project_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="velocity" type="measure"/>
+                <field name="burndown_remaining" type="measure"/>
+                <field name="burnup_completed" type="measure"/>
+                <field name="burnup_total" type="measure"/>
+                <field name="scope_initial" type="measure"/>
+                <field name="scope_added" type="measure"/>
+                <field name="scope_removed" type="measure"/>
+                <field name="scope_final" type="measure"/>
+                <field name="commitment_points" type="measure"/>
+                <field name="completed_commitment_points" type="measure"/>
+                <field name="commitment_completion_ratio" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_report_graph" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.report.graph</field>
+        <field name="model">project.scrum.analytics.report</field>
+        <field name="arch" type="xml">
+            <graph string="Scrum Sprint Analytics" type="bar" disable_linking="1">
+                <field name="project_id"/>
+                <field name="velocity" type="measure"/>
+                <field name="burnup_completed" type="measure"/>
+                <field name="burndown_remaining" type="measure"/>
+                <field name="scope_final" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_timeline_list" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.timeline.list</field>
+        <field name="model">project.scrum.analytics.timeline</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" default_order="event_at,id">
+                <field name="sprint_id"/>
+                <field name="event_at"/>
+                <field name="task_id"/>
+                <field name="event_type"/>
+                <field name="burndown_remaining"/>
+                <field name="burnup_completed"/>
+                <field name="burnup_total"/>
+                <field name="state" optional="hide"/>
+                <field name="project_id" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_timeline_form" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.timeline.form</field>
+        <field name="model">project.scrum.analytics.timeline</field>
+        <field name="arch" type="xml">
+            <form string="Scrum Analytics Timeline Point" create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_open_task" string="Open Task" type="object" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Event">
+                            <field name="sprint_id"/>
+                            <field name="project_id"/>
+                            <field name="task_id"/>
+                            <field name="scope_event_id"/>
+                            <field name="event_type"/>
+                            <field name="event_at"/>
+                        </group>
+                        <group string="Replay After This Event (Story Points)">
+                            <field name="burndown_remaining"/>
+                            <field name="burnup_completed"/>
+                            <field name="burnup_total"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_timeline_search" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.timeline.search</field>
+        <field name="model">project.scrum.analytics.timeline</field>
+        <field name="arch" type="xml">
+            <search string="Scrum Burndown and Burnup Timeline">
+                <field name="sprint_id"/>
+                <field name="project_id"/>
+                <field name="task_id"/>
+                <field name="event_type"/>
+                <filter string="Active Sprints" name="active" domain="[('state', '=', 'active')]"/>
+                <filter string="Closed Sprints" name="closed" domain="[('state', '=', 'closed')]"/>
+                <separator/>
+                <filter string="Sprint" name="group_sprint" context="{'group_by': 'sprint_id'}"/>
+                <filter string="Project" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="Task" name="group_task" context="{'group_by': 'task_id'}"/>
+                <filter string="Event Day" name="group_event_at" context="{'group_by': 'event_at:day'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_timeline_pivot" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.timeline.pivot</field>
+        <field name="model">project.scrum.analytics.timeline</field>
+        <field name="arch" type="xml">
+            <pivot string="Scrum Burndown and Burnup Timeline" disable_linking="1">
+                <field name="event_at" interval="day" type="row"/>
+                <field name="sprint_id" type="col"/>
+                <field name="burndown_remaining" type="measure"/>
+                <field name="burnup_completed" type="measure"/>
+                <field name="burnup_total" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_scrum_analytics_timeline_graph" model="ir.ui.view">
+        <field name="name">project.scrum.analytics.timeline.graph</field>
+        <field name="model">project.scrum.analytics.timeline</field>
+        <field name="arch" type="xml">
+            <graph string="Scrum Burndown and Burnup Timeline" type="line" disable_linking="1">
+                <field name="event_at" interval="day"/>
+                <field name="burnup_completed" type="measure"/>
+                <field name="burndown_remaining" type="measure"/>
+                <field name="burnup_total" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_scrum_analytics_report" model="ir.actions.act_window">
+        <field name="name">Scrum Analytics</field>
+        <field name="res_model">project.scrum.analytics.report</field>
+        <field name="view_mode">list,pivot,graph,form</field>
+        <field name="view_id" ref="view_scrum_analytics_report_list"/>
+        <field name="search_view_id" ref="view_scrum_analytics_report_search"/>
+        <field name="domain">[('project_id.agile_enabled', '=', True)]</field>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No Agile Sprints match your access.</p>
+            <p>Analytics are derived from immutable Scrum scope events. Active values are live replay; closed values are frozen at the close timestamp.</p>
+        </field>
+    </record>
+
+    <record id="action_scrum_analytics_timeline" model="ir.actions.act_window">
+        <field name="name">Scrum Burndown &amp; Burnup Timeline</field>
+        <field name="res_model">project.scrum.analytics.timeline</field>
+        <field name="view_mode">list,pivot,graph,form</field>
+        <field name="view_id" ref="view_scrum_analytics_timeline_list"/>
+        <field name="search_view_id" ref="view_scrum_analytics_timeline_search"/>
+        <field name="domain">[('project_id.agile_enabled', '=', True)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No authorized Scrum timeline points match your filters.</p>
+            <p>Each point is calculated after its immutable event. Event timestamps are UTC; Odoo chart buckets render in your timezone.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_scrum_analytics" name="Scrum Analytics" parent="project.menu_project_management" action="action_scrum_analytics_report" groups="project.group_project_user" sequence="30"/>
+    <menuitem id="menu_scrum_analytics_timeline" name="Burndown &amp; Burnup Timeline" parent="menu_scrum_analytics" action="action_scrum_analytics_timeline" groups="project.group_project_user" sequence="10"/>
+</odoo>

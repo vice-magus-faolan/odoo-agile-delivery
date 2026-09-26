@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Milestone 3 calculation contract. The minimal history extension is implemented in `project_scrum`; report models and views remain deferred.
+Accepted — Milestone 3 calculation and additive native-reporting contract.
 
 ## Context
 
@@ -32,19 +32,44 @@ At bucket `t`, replay events at or before `t`.
 
 Completed → reopened → completed resolves to final done. Native `1_canceled` is neither completion nor removal and remains scope until an explicit remove or carry-over fact. Carry-over is unfinished at close and is not velocity; a target Sprint gets no commitment until its own start.
 
+### Native reporting projections
+
+`project_scrum_analytics` stores one read-only report projection per Scrum
+Sprint and one read-only timeline projection per immutable scope event. The
+projections only make the accepted replay available to Odoo list, pivot, graph,
+export, filter, and drill-down surfaces; they do not change native Project
+analytics or create records for non-Agile projects.
+
+Velocity, Burndown, Burnup, Scope Change, and Commitment vs Completion label
+story points explicitly. The completion ratio remains an explicit `fraction`,
+not a silently formatted percentage. Active Sprints are live replay; closed
+Sprints with `closed_at` are trusted frozen replay. Timeline timestamps remain
+UTC and chart date buckets render in the requesting user's timezone.
+
+Read access is the intersection of available-company access and the native
+Project access result. Stored report records are read-only for ordinary Project
+users and managers. Export, grouped results, direct ORM access, and drill-down
+actions apply the same project/company authorization; a browser-provided report,
+Sprint, timeline, or Task identifier is never authority.
+
 ### Freeze and correction
 
-Closed reports replay only facts at or before `closed_at`; later task state, estimate, project, or assignment edits cannot alter them. Ordinary users cannot create, edit, or delete scope events or write `closed_at`. Superuser administration is the explicit recovery boundary and may correct facts or close time. This is trusted recovery, not ordinary workflow.
+Closed reports replay only facts at or before `closed_at`; later task state, estimate, project, or assignment edits cannot alter them. Ordinary users cannot create, edit, or delete scope events or write `closed_at`. Superuser administration is the explicit recovery boundary and may correct facts or close time. A superuser write to Sprint `state` or `closed_at` synchronously rebuilds that Sprint's stored report and timeline from the corrected boundary. This is trusted recovery, not ordinary workflow.
 
 ## Consequences
 
-One replay path can support all five reports. Closed Sprints predating this extension lack reestimate or close-time facts and must not claim ADR-009 precision for those gaps.
+One replay path supports all five reports. Closed Sprints predating this extension lack reestimate or close-time facts and must not claim ADR-009 precision for those gaps.
 
 ## Alternatives
 
 - Current task state or `write_date`: rejected because later edits rewrite apparent history.
 - Aggregate-only snapshots: rejected because they cannot explain a value from task facts.
 - Cancellation as completion: rejected because ADR-003 distinguishes `1_canceled` from `1_done`.
+- Custom OWL charts: rejected because native list, pivot, graph, filters, export, and drill-down views satisfy the reporting contract without a frontend-specific authorization surface.
+
+## Open Questions
+
+None for the delivered Milestone 3 replay and projection contract.
 
 ## Evidence
 

@@ -25,7 +25,29 @@ Stored Float values are summed without intermediate rounding and are rounded
 once to two decimal places for presentation. Timeline entries retain event
 identifiers so same-timestamp ordering is auditable. Closed Sprints use
 `closed_at` as the replay boundary; later task, project, estimate, and
-assignment edits therefore cannot rewrite history.
+assignment edits therefore cannot rewrite history. Explicit superuser recovery
+writes to a Sprint's `state` or `closed_at` synchronously rebuild its stored
+report and timeline from that corrected boundary.
 
-The addon deliberately adds no menus, views, or JavaScript. Reporting UX is a
-separate additive concern that consumes this service boundary.
+## Native reporting UX
+
+The addon adds a `Project > Scrum Analytics` menu for Agile Sprints only. It
+uses standard Odoo list, form, pivot, graph, search, export, and drill-down
+surfaces; it contains no custom JavaScript or OWL.
+
+- The Sprint report has Velocity, Burndown, Burnup, Scope Change, and
+  Commitment vs Completion measures. Story-point labels and the `fraction`
+  completion-ratio unit are explicit.
+- The Burndown & Burnup Timeline contains one stored point after every immutable
+  scope event. Its timestamp is UTC; Odoo date-chart buckets render in the
+  requesting user's timezone.
+- Active Sprints are explicitly live replay. Closed Sprints with `closed_at`
+  are marked trusted and remain frozen at that boundary.
+- Report and timeline records are read-only projections. They inherit native
+  Project visibility, enforce available-company access for list/export/grouped
+  queries and direct ORM access, and authorize Sprint/Task drill-down actions
+  before returning record identifiers.
+
+Ordinary Project analytics are not overridden or replaced. No records are
+created for non-Agile projects because only valid Scrum Sprints produce these
+additive projections.

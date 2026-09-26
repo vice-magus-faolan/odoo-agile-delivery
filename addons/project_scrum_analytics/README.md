@@ -25,9 +25,10 @@ Stored Float values are summed without intermediate rounding and are rounded
 once to two decimal places for presentation. Timeline entries retain event
 identifiers so same-timestamp ordering is auditable. Closed Sprints use
 `closed_at` as the replay boundary; later task, project, estimate, and
-assignment edits therefore cannot rewrite history. Explicit superuser recovery
-writes to a Sprint's `state` or `closed_at` synchronously rebuild its stored
-report and timeline from that corrected boundary.
+assignment edits therefore cannot rewrite history. Superuser recovery may correct
+`closed_at`; it synchronously rebuilds the stored report and timeline from the
+corrected boundary, while lifecycle state remains action-only, including for
+superuser.
 
 ## Native reporting UX
 

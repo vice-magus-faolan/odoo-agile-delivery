@@ -56,7 +56,7 @@ Sprint, timeline, or Task identifier is never authority.
 
 ### Freeze and correction
 
-Closed reports replay only facts at or before `closed_at`; later task state, estimate, project, or assignment edits cannot alter them. Ordinary users cannot create, edit, or delete scope events or write `closed_at`. Superuser administration is the explicit recovery boundary and may correct facts or close time. A superuser write to Sprint `state` or `closed_at` synchronously rebuilds that Sprint's stored report and timeline from the corrected boundary. This is trusted recovery, not ordinary workflow.
+Closed reports replay only facts at or before `closed_at`; later task state, estimate, project, or assignment edits cannot alter them. Ordinary users cannot create, edit, or delete scope events or write `closed_at`. Superuser recovery may correct `closed_at` or immutable scope facts; a close-time correction synchronously rebuilds that Sprint's stored report and timeline from the corrected boundary; lifecycle state remains action-only, including for superuser. This is trusted recovery, not ordinary workflow.
 
 ## Consequences
 

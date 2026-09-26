@@ -260,9 +260,9 @@ class ProjectSprint(models.Model):
         return sprints
 
     def write(self, values):
-        """Rebuild projections after the explicit superuser recovery boundary."""
+        """Rebuild projections after a supported close-time recovery correction."""
         result = super().write(values)
-        if {"state", "closed_at"}.intersection(values):
+        if "closed_at" in values:
             self.env["project.scrum.analytics.report"].sudo()._sync_sprints(self)
         return result
 

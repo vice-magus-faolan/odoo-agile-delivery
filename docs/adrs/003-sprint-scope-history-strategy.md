@@ -29,7 +29,8 @@ commitment boundary. Other completion transitions append facts only while the
 assigned Sprint is active.
 After close, native task state may change but cannot mutate the closed ledger or
 historical numbers. Ordinary ORM users cannot create, change, or delete scope
-events. Superuser correction is the explicit administrative recovery boundary.
+events. Superuser recovery may correct `closed_at` or immutable scope facts, while
+lifecycle state remains action-only, including for superuser.
 
 ## Close transaction and carry-over
 
@@ -45,8 +46,9 @@ source remains active and the target remains a same-project/company/team Draft
 Sprint, checks caller Sprint and task write access before writes, moves all
 unfinished tasks, appends facts, then closes the source. Any validation, access,
 concurrency, or task-write failure rolls back the complete transaction. Closed
-Sprints reject normal Sprint/task assignment changes. Deliberate superuser writes
-remain the documented administrative recovery boundary.
+Sprints reject normal Sprint/task assignment changes. Superuser recovery may
+correct `closed_at` or immutable scope facts; lifecycle state remains action-only,
+including for superuser.
 
 ## Alternatives
 

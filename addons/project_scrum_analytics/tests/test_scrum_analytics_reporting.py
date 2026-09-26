@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from odoo import Command
 from odoo.addons.mail.tests.common import mail_new_test_user
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 
 
@@ -216,3 +216,17 @@ class TestScrumAnalyticsReporting(TransactionCase):
             ),
             0,
         )
+
+    def test_superuser_state_write_cannot_bypass_the_lifecycle(self):
+        sprint = self._create_sprint(task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        report = self.env["project.scrum.analytics.report"].search(
+            [("sprint_id", "=", sprint.id)]
+        )
+
+        with self.assertRaises(ValidationError):
+            sprint.sudo().write({"state": "closed"})
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(report.state, "active")
+        self.assertFalse(sprint.closed_at)

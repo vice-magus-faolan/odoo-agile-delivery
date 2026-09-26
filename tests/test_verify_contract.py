@@ -29,3 +29,17 @@ class TestVerifyContract(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "addons"
         self.assertFalse((root / "project_scrum" / "static").exists())
         self.assertFalse((root / "project_scrum_analytics" / "static").exists())
+
+    def test_recovery_documentation_matches_the_lifecycle_guard(self):
+        root = Path(__file__).resolve().parents[1]
+        readme = (root / "README.md").read_text()
+        analytics_readme = (
+            root / "addons" / "project_scrum_analytics" / "README.md"
+        ).read_text()
+        analytics_adr = (root / "docs" / "adrs" / "009-scrum-analytics-semantics.md").read_text()
+        scope_adr = (root / "docs" / "adrs" / "003-sprint-scope-history-strategy.md").read_text()
+
+        for document in (readme, analytics_readme, analytics_adr, scope_adr):
+            document = " ".join(document.split())
+            self.assertIn("Superuser recovery may correct `closed_at`", document)
+            self.assertIn("lifecycle state remains action-only", document)

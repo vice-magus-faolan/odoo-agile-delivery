@@ -97,4 +97,6 @@ touch unrelated services or databases.
 `project_scrum` remains isolated from ordinary Project behavior, while
 `project_scrum_analytics` depends only on `project_scrum`. Reporting uses
 ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
-no custom JavaScript or OWL assets.
+no custom JavaScript or OWL assets. Superuser recovery may correct `closed_at`;
+its report and timeline rebuild synchronously, while lifecycle state remains action-only,
+including for superuser.

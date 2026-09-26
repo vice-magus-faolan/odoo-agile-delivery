@@ -61,6 +61,10 @@ remain deferred until completed and reopened event semantics exist. The
 append-only record creates an audit surface and requires explicit retention,
 access, and correction rules.
 
+## Resolved by ADR-009
+
+ADR-009 defines active-Sprint reestimation, task-born-complete, close-time, and correction semantics for trustworthy analytics.
+
 ## Open Questions
 
 - How should estimation changes during an active Sprint be represented?

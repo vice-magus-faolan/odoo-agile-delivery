@@ -8,6 +8,7 @@ Implemented decisions:
 - [ADR-002 Configurable Item-Type Hierarchy](002-configurable-item-type-hierarchy.md)
 - [ADR-003 Sprint Scope History Strategy](003-sprint-scope-history-strategy.md)
 - [ADR-004 Agile Team / Multiple Active Sprint Model](004-agile-team-multiple-active-sprints.md)
+- [ADR-009 Trustworthy Scrum Analytics Semantics](009-scrum-analytics-semantics.md)
 
 Proposed, intentionally deferred decisions:
 - [ADR-005 Release / Version Model](005-release-version-model.md)

@@ -352,3 +352,82 @@ class TestProjectScrumDomain(TransactionCase):
 
         sprint.with_user(SUPERUSER_ID).write({"goal": "documented recovery"})
         self.assertEqual(sprint.goal, "documented recovery")
+
+
+    def test_active_sprint_records_reestimation_from_immutable_point_values(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        self.task.write({"agile_story_points": 8})
+
+        events = sprint.scope_event_ids
+        self.assertEqual(events.mapped("event_type"), ["committed", "reestimated"])
+        reestimated = events.filtered(lambda event: event.event_type == "reestimated")
+        self.assertEqual(reestimated.previous_story_points, 5)
+        self.assertEqual(reestimated.story_points, 8)
+
+    def test_active_sprint_remove_with_reestimate_keeps_prechange_scope_value(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        self.task.write({"sprint_id": False, "agile_story_points": 8})
+
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed", "removed"])
+        self.assertEqual(sprint.scope_event_ids.mapped("story_points"), [5, 5])
+
+    def test_adding_already_done_work_records_completion(self):
+        done_task = self.env["project.task"].create(
+            {
+                "name": "Completed before assignment",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
+                "agile_story_points": 3,
+                "state": "1_done",
+            }
+        )
+        sprint = self._create_sprint("Sprint 1")
+        sprint.action_start()
+
+        done_task.write({"sprint_id": sprint.id})
+
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added", "completed"])
+        self.assertEqual(sprint.scope_event_ids.mapped("story_points"), [3, 3])
+
+    def test_close_records_an_immutable_close_timestamp(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        self.task.write({"state": "1_done"})
+
+        sprint.action_close()
+
+        self.assertEqual(sprint.state, "closed")
+        self.assertTrue(sprint.closed_at)
+
+
+    def test_creating_done_work_in_an_active_sprint_records_completion(self):
+        sprint = self._create_sprint("Sprint 1")
+        sprint.action_start()
+
+        done_task = self.env["project.task"].create(
+            {
+                "name": "Born completed",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
+                "agile_story_points": 3,
+                "sprint_id": sprint.id,
+                "state": "1_done",
+            }
+        )
+
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added", "completed"])
+        self.assertEqual(sprint.scope_event_ids.task_id, done_task | done_task)
+
+
+    def test_only_superuser_can_correct_close_timestamp(self):
+        manager = mail_new_test_user(
+            self.env, "Sprint manager", groups="project.group_project_manager"
+        )
+        sprint = self._create_sprint("Sprint 1")
+
+        with self.assertRaises(ValidationError):
+            sprint.with_user(manager).write({"closed_at": fields.Datetime.now()})

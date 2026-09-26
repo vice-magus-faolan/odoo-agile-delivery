@@ -19,6 +19,7 @@ class ProjectSprint(models.Model):
     date_end = fields.Date()
     goal = fields.Text()
     state = fields.Selection([("draft", "Draft"), ("active", "Active"), ("closed", "Closed")], default="draft", required=True, copy=False, index=True)
+    closed_at = fields.Datetime(readonly=True, copy=False, index=True)
     task_ids = fields.One2many("project.task", "sprint_id", string="Tasks")
     committed_task_ids = fields.Many2many("project.task", "project_sprint_committed_task_rel", "sprint_id", "task_id", string="Committed Tasks", readonly=True, copy=False)
     scope_event_ids = fields.One2many("project.sprint.scope.event", "sprint_id", readonly=True)
@@ -30,6 +31,8 @@ class ProjectSprint(models.Model):
         return super().create(vals_list)
 
     def write(self, values):
+        if "closed_at" in values and not self.env.is_superuser():
+            raise ValidationError(_("Only superuser recovery can correct the close timestamp."))
         if "state" in values and any(sprint.state != values["state"] for sprint in self):
             raise ValidationError(_("Use the Sprint lifecycle actions to change state."))
         if any(sprint.state == "closed" for sprint in self) and values and not self.env.is_superuser():
@@ -55,14 +58,48 @@ class ProjectSprint(models.Model):
     def init(self):
         self.env.cr.execute("CREATE UNIQUE INDEX IF NOT EXISTS project_sprint_active_project_team_unique ON project_sprint (project_id, team_id) WHERE state = 'active'")
 
-    def _append_scope_events(self, event_type, tasks, reason=False, carryover_target_sprint=False):
+    def _append_scope_events(
+        self,
+        event_type,
+        tasks,
+        reason=False,
+        carryover_target_sprint=False,
+        story_points_by_task=None,
+        previous_story_points_by_task=None,
+    ):
         event_at = fields.Datetime.now()
-        values = [{"sprint_id": self.id, "task_id": task.id, "event_type": event_type, "story_points": task.agile_story_points, "actor_id": self.env.uid, "event_at": event_at, "reason": reason or False, "carryover_target_sprint_id": carryover_target_sprint.id if carryover_target_sprint else False} for task in tasks]
+        values = [
+            {
+                "sprint_id": self.id,
+                "task_id": task.id,
+                "event_type": event_type,
+                "story_points": (
+                    story_points_by_task.get(task.id, task.agile_story_points)
+                    if story_points_by_task
+                    else task.agile_story_points
+                ),
+                "previous_story_points": (
+                    previous_story_points_by_task.get(task.id, 0.0)
+                    if previous_story_points_by_task
+                    else 0.0
+                ),
+                "actor_id": self.env.uid,
+                "event_at": event_at,
+                "reason": reason or False,
+                "carryover_target_sprint_id": (
+                    carryover_target_sprint.id if carryover_target_sprint else False
+                ),
+            }
+            for task in tasks
+        ]
         if values:
             self.env["project.sprint.scope.event"].sudo().create(values)
 
     def _set_lifecycle_state(self, state):
-        return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write({"state": state})
+        values = {"state": state}
+        if state == "closed":
+            values["closed_at"] = fields.Datetime.now()
+        return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write(values)
 
     def _check_lifecycle_access(self):
         self.check_access("write")

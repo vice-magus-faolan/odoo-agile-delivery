@@ -61,12 +61,19 @@ class ProjectTask(models.Model):
         tasks = super().create(vals_list)
         for task in tasks.filtered(lambda record: record.sprint_id.state == "active"):
             task.sprint_id._append_scope_events("added", task)
+            if task.state == "1_done":
+                task.sprint_id._append_scope_events("completed", task)
         return tasks
 
     def write(self, values):
         track_sprint_assignment = "sprint_id" in values
+        track_story_points = "agile_story_points" in values
         track_completion = "state" in values
-        original_sprints = {task.id: task.sprint_id for task in self} if track_sprint_assignment else {}
+        track_scope_context = track_sprint_assignment or track_story_points
+        original_sprints = {task.id: task.sprint_id for task in self} if track_scope_context else {}
+        original_story_points = (
+            {task.id: task.agile_story_points for task in self} if track_scope_context else {}
+        )
         if track_sprint_assignment:
             requested_sprint = self.env["project.sprint"].browse(values["sprint_id"]).exists()
             if requested_sprint:
@@ -85,15 +92,37 @@ class ProjectTask(models.Model):
                 if previous_sprint == current_sprint:
                     continue
                 if previous_sprint.state == "active":
-                    previous_sprint._append_scope_events("removed", task)
+                    previous_sprint._append_scope_events(
+                        "removed", task, story_points_by_task=original_story_points
+                    )
                 if current_sprint.state == "active":
                     current_sprint._append_scope_events("added", task)
+                    if task.state == "1_done":
+                        current_sprint._append_scope_events("completed", task)
+        if track_story_points:
+            for task in self:
+                sprint = task.sprint_id
+                if (
+                    original_sprints[task.id] == sprint
+                    and sprint.state == "active"
+                    and original_story_points[task.id] != task.agile_story_points
+                ):
+                    sprint._append_scope_events(
+                        "reestimated",
+                        task,
+                        previous_story_points_by_task=original_story_points,
+                    )
         if track_completion:
             for task in self:
                 sprint = task.sprint_id
                 was_done = original_done_states[task.id]
                 is_done = task.state == "1_done"
-                if sprint.state != "active" or was_done == is_done:
+                moved_into_active_sprint = (
+                    track_sprint_assignment
+                    and original_sprints[task.id] != sprint
+                    and sprint.state == "active"
+                )
+                if sprint.state != "active" or was_done == is_done or moved_into_active_sprint:
                     continue
                 sprint._append_scope_events("completed" if is_done else "reopened", task)
         return result

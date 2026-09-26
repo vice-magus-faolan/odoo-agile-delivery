@@ -12,8 +12,25 @@ class ProjectSprintScopeEvent(models.Model):
 
     sprint_id = fields.Many2one("project.sprint", required=True, ondelete="restrict", index=True)
     task_id = fields.Many2one("project.task", required=True, ondelete="restrict", index=True)
-    event_type = fields.Selection([("committed", "Committed"), ("added", "Added"), ("removed", "Removed"), ("completed", "Completed"), ("reopened", "Reopened"), ("carried_to_backlog", "Carried to Product Backlog"), ("carried_to_sprint", "Carried to Draft Sprint")], required=True, index=True)
+    event_type = fields.Selection(
+        [
+            ("committed", "Committed"),
+            ("added", "Added"),
+            ("removed", "Removed"),
+            ("reestimated", "Reestimated"),
+            ("completed", "Completed"),
+            ("reopened", "Reopened"),
+            ("carried_to_backlog", "Carried to Product Backlog"),
+            ("carried_to_sprint", "Carried to Draft Sprint"),
+        ],
+        required=True,
+        index=True,
+    )
     story_points = fields.Float(required=True)
+    previous_story_points = fields.Float(
+        string="Previous Story Points",
+        help="The pre-change estimate for a reestimated scope event.",
+    )
     actor_id = fields.Many2one("res.users", required=True, readonly=True, ondelete="restrict")
     event_at = fields.Datetime(required=True, readonly=True, index=True)
     reason = fields.Text()

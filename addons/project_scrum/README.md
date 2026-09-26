@@ -52,9 +52,19 @@ Run the focused suite on a disposable database:
       --without-demo=True --test-enable --database odoo_agile_scrum_test \
       --init project_scrum --test-tags /project_scrum
 
-The repository `./scripts/verify` check remains the Milestone 1 regression gate.
+The repository `./scripts/verify` is the repository regression gate.
 Run the focused project_scrum command above for this module on a fresh disposable
 database.
 
 The implementation follows [ADR-003](../../docs/adrs/003-sprint-scope-history-strategy.md)
 and [ADR-004](../../docs/adrs/004-agile-team-multiple-active-sprints.md).
+
+## Closing unfinished work
+
+If unfinished tasks remain, **Close Sprint** opens a standard Odoo wizard. A
+manager must move them either to the unscheduled Product Backlog or to another
+Draft Sprint for the same Project, company, and Agile team. The source history
+records typed `carried_to_backlog` or `carried_to_sprint` facts; the latter links
+the draft target. A close is transactional, and closed Sprint assignments and
+ordinary lifecycle edits are frozen. Superuser writes are the explicit recovery
+boundary for exceptional administration.

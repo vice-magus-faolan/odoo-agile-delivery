@@ -28,14 +28,31 @@ After close, native task state may change but cannot mutate the closed ledger or
 historical numbers. Ordinary ORM users cannot create, change, or delete scope
 events. Superuser correction is the explicit administrative recovery boundary.
 
+## Close transaction and carry-over
+
+Closing is one database transaction. Completed tasks remain assigned to the closed
+Sprint. For unfinished tasks, a manager must explicitly choose Product Backlog
+(unscheduled) or a different compatible Draft Sprint. The source ledger appends
+`carried_to_backlog` or `carried_to_sprint`; the latter has a typed target-Sprint
+relation, so reports never infer carry-over from free text or an ordinary
+`removed` event. The target does not receive commitment facts until it starts.
+
+The close path locks involved Sprints and unfinished task rows, validates the
+source remains active and the target remains a same-project/company/team Draft
+Sprint, checks caller Sprint and task write access before writes, moves all
+unfinished tasks, appends facts, then closes the source. Any validation, access,
+concurrency, or task-write failure rolls back the complete transaction. Closed
+Sprints reject normal Sprint/task assignment changes. Deliberate superuser writes
+remain the documented administrative recovery boundary.
+
 ## Alternatives
 
 - Derive history from current task assignments: rejected because moved tasks
-  erase history.
+erase history.
 - Store periodic aggregate snapshots only: rejected because task-level audit and
-  correction semantics are lost.
+correction semantics are lost.
 - Reuse project milestones as Sprints: rejected because their lifecycle and
-  historical meaning differ.
+historical meaning differ.
 
 ## Consequences
 

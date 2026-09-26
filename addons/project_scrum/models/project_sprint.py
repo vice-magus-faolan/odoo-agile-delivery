@@ -5,7 +5,7 @@ from odoo.exceptions import ValidationError
 
 
 class ProjectSprint(models.Model):
-    """A team's time-boxed Sprint with an immutable original commitment."""
+    """A team time-box with an immutable original commitment."""
 
     _name = "project.sprint"
     _description = "Project Sprint"
@@ -18,23 +18,9 @@ class ProjectSprint(models.Model):
     date_start = fields.Date()
     date_end = fields.Date()
     goal = fields.Text()
-    state = fields.Selection(
-        [("draft", "Draft"), ("active", "Active"), ("closed", "Closed")],
-        default="draft",
-        required=True,
-        copy=False,
-        index=True,
-    )
+    state = fields.Selection([("draft", "Draft"), ("active", "Active"), ("closed", "Closed")], default="draft", required=True, copy=False, index=True)
     task_ids = fields.One2many("project.task", "sprint_id", string="Tasks")
-    committed_task_ids = fields.Many2many(
-        "project.task",
-        "project_sprint_committed_task_rel",
-        "sprint_id",
-        "task_id",
-        string="Committed Tasks",
-        readonly=True,
-        copy=False,
-    )
+    committed_task_ids = fields.Many2many("project.task", "project_sprint_committed_task_rel", "sprint_id", "task_id", string="Committed Tasks", readonly=True, copy=False)
     scope_event_ids = fields.One2many("project.sprint.scope.event", "sprint_id", readonly=True)
 
     @api.model_create_multi
@@ -44,9 +30,10 @@ class ProjectSprint(models.Model):
         return super().create(vals_list)
 
     def write(self, values):
-        if "state" in values:
-            if any(sprint.state != values["state"] for sprint in self):
-                raise ValidationError(_("Use the Sprint lifecycle actions to change state."))
+        if "state" in values and any(sprint.state != values["state"] for sprint in self):
+            raise ValidationError(_("Use the Sprint lifecycle actions to change state."))
+        if any(sprint.state == "closed" for sprint in self) and values and not self.env.is_superuser():
+            raise ValidationError(_("Closed Sprints are immutable. Superuser recovery is explicit administration."))
         return super().write(values)
 
     @api.constrains("project_id", "team_id", "date_start", "date_end")
@@ -62,50 +49,22 @@ class ProjectSprint(models.Model):
     @api.constrains("state", "project_id", "team_id")
     def _check_single_active_sprint(self):
         for sprint in self.filtered(lambda record: record.state == "active"):
-            duplicate = self.search_count(
-                [
-                    ("id", "!=", sprint.id),
-                    ("state", "=", "active"),
-                    ("project_id", "=", sprint.project_id.id),
-                    ("team_id", "=", sprint.team_id.id),
-                ]
-            )
-            if duplicate:
+            if self.search_count([("id", "!=", sprint.id), ("state", "=", "active"), ("project_id", "=", sprint.project_id.id), ("team_id", "=", sprint.team_id.id)]):
                 raise ValidationError(_("Only one Sprint can be active for a project and Agile team."))
 
     def init(self):
-        self.env.cr.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS project_sprint_active_project_team_unique
-            ON project_sprint (project_id, team_id)
-            WHERE state = 'active'
-            """
-        )
+        self.env.cr.execute("CREATE UNIQUE INDEX IF NOT EXISTS project_sprint_active_project_team_unique ON project_sprint (project_id, team_id) WHERE state = 'active'")
 
-    def _append_scope_events(self, event_type, tasks, reason=False):
-        values = []
+    def _append_scope_events(self, event_type, tasks, reason=False, carryover_target_sprint=False):
         event_at = fields.Datetime.now()
-        for task in tasks:
-            values.append(
-                {
-                    "sprint_id": self.id,
-                    "task_id": task.id,
-                    "event_type": event_type,
-                    "story_points": task.agile_story_points,
-                    "actor_id": self.env.uid,
-                    "event_at": event_at,
-                    "reason": reason or False,
-                }
-            )
+        values = [{"sprint_id": self.id, "task_id": task.id, "event_type": event_type, "story_points": task.agile_story_points, "actor_id": self.env.uid, "event_at": event_at, "reason": reason or False, "carryover_target_sprint_id": carryover_target_sprint.id if carryover_target_sprint else False} for task in tasks]
         if values:
             self.env["project.sprint.scope.event"].sudo().create(values)
 
     def _set_lifecycle_state(self, state):
-        """Perform a validated action-only transition as the server superuser."""
         return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write({"state": state})
 
     def _check_lifecycle_access(self):
-        """Authorize the RPC caller before any privileged lifecycle work."""
         self.check_access("write")
 
     def _activate(self):
@@ -116,9 +75,7 @@ class ProjectSprint(models.Model):
             self.with_user(SUPERUSER_ID).flush_recordset(["state"])
         except IntegrityError as error:
             if error.diag.constraint_name == "project_sprint_active_project_team_unique":
-                raise ValidationError(
-                    _("Only one Sprint can be active for a project and Agile team.")
-                ) from error
+                raise ValidationError(_("Only one Sprint can be active for a project and Agile team.")) from error
             raise
 
     def action_start(self):
@@ -127,22 +84,62 @@ class ProjectSprint(models.Model):
             if sprint.state != "draft":
                 raise ValidationError(_("Only a draft Sprint can be started."))
             sprint._check_sprint_consistency()
-            if self.search_count(
-                [
-                    ("state", "=", "active"),
-                    ("project_id", "=", sprint.project_id.id),
-                    ("team_id", "=", sprint.team_id.id),
-                ]
-            ):
+            if self.search_count([("state", "=", "active"), ("project_id", "=", sprint.project_id.id), ("team_id", "=", sprint.team_id.id)]):
                 raise ValidationError(_("Only one Sprint can be active for a project and Agile team."))
             with self.env.cr.savepoint():
                 sprint._activate()
         return True
 
-    def action_close(self):
+    def _lock_close_records(self, target_sprint=False):
+        sprints = self | target_sprint
+        self.env.cr.execute(
+            "SELECT id FROM project_sprint WHERE id IN %s ORDER BY id FOR UPDATE",
+            [tuple(sorted(sprints.ids))],
+        )
+        if len(self.env.cr.fetchall()) != len(sprints):
+            raise ValidationError(_("A selected Sprint no longer exists."))
+        sprints.invalidate_recordset(["state", "project_id", "company_id", "team_id"])
+
+    def _validate_close_target(self, disposition, target_sprint):
+        if disposition not in {"product_backlog", "draft_sprint"}:
+            raise ValidationError(_("Choose an unfinished-work disposition."))
+        if disposition == "product_backlog" and target_sprint:
+            raise ValidationError(_("Product Backlog disposition cannot select a target Sprint."))
+        if disposition != "draft_sprint":
+            return
+        if not target_sprint:
+            raise ValidationError(_("Select a draft Sprint for carry-over."))
+        target_sprint.check_access("read")
+        if target_sprint == self or target_sprint.state != "draft" or target_sprint.project_id != self.project_id or target_sprint.company_id != self.company_id or target_sprint.team_id != self.team_id:
+            raise ValidationError(_("Carry-over requires a different draft Sprint for the same project, company, and Agile team."))
+
+    def _move_unfinished_tasks(self, tasks, disposition, target_sprint=False):
+        tasks.check_access("write")
+        tasks._write_sprint_close_assignment(target_sprint)
+        event_type = "carried_to_sprint" if target_sprint else "carried_to_backlog"
+        self._append_scope_events(event_type, tasks, carryover_target_sprint=target_sprint)
+
+    def _close_with_disposition(self, disposition, target_sprint=False):
+        self.ensure_one()
         self._check_lifecycle_access()
-        for sprint in self:
-            if sprint.state != "active":
+        target_sprint = target_sprint.exists() if target_sprint else self.env["project.sprint"]
+        with self.env.cr.savepoint():
+            self._lock_close_records(target_sprint)
+            if self.state != "active":
                 raise ValidationError(_("Only an active Sprint can be closed."))
-            sprint._set_lifecycle_state("closed")
+            self._validate_close_target(disposition, target_sprint)
+            self.env.cr.execute("SELECT id FROM project_task WHERE sprint_id = %s AND state != %s FOR UPDATE", [self.id, "1_done"])
+            unfinished_tasks = self.env["project.task"].browse([row[0] for row in self.env.cr.fetchall()])
+            if unfinished_tasks:
+                self._move_unfinished_tasks(unfinished_tasks, disposition, target_sprint)
+            self._set_lifecycle_state("closed")
         return True
+
+    def action_close(self):
+        self.ensure_one()
+        self._check_lifecycle_access()
+        if self.state != "active":
+            raise ValidationError(_("Only an active Sprint can be closed."))
+        if not self.task_ids.filtered(lambda task: task.state != "1_done"):
+            return self._close_with_disposition("product_backlog")
+        return {"type": "ir.actions.act_window", "name": _("Close Sprint"), "res_model": "project.sprint.close.wizard", "view_mode": "form", "target": "new", "context": {"default_sprint_id": self.id}}

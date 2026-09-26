@@ -5,3 +5,4 @@ access_project_sprint_user,project.sprint user,model_project_sprint,project.grou
 access_project_sprint_manager,project.sprint manager,model_project_sprint,project.group_project_manager,1,1,1,1
 access_project_sprint_scope_event_user,project.sprint.scope.event user,model_project_sprint_scope_event,project.group_project_user,1,0,0,0
 access_project_sprint_scope_event_manager,project.sprint.scope.event manager,model_project_sprint_scope_event,project.group_project_manager,1,0,0,0
+access_project_sprint_close_wizard_manager,project.sprint.close.wizard manager,model_project_sprint_close_wizard,project.group_project_manager,1,1,1,1

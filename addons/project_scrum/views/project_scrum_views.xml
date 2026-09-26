@@ -88,6 +88,7 @@
                                     <field name="story_points"/>
                                     <field name="actor_id"/>
                                     <field name="reason" optional="hide"/>
+                                    <field name="carryover_target_sprint_id" optional="hide"/>
                                 </list>
                             </field>
                         </page>

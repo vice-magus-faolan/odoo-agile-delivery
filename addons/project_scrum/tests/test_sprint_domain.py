@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+from odoo import SUPERUSER_ID
 from odoo import Command, fields
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
@@ -163,11 +166,14 @@ class TestProjectScrumDomain(TransactionCase):
     def test_closed_sprint_freezes_completion_history(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
-        sprint.action_close()
-
         self.task.write({"state": "1_done"})
+        self.assertTrue(sprint.action_close())
 
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+        self.task.write({"state": "01_in_progress"})
+
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["committed", "completed"]
+        )
 
 
     def test_task_sprint_assignment_rejects_cross_project_assignment(self):
@@ -241,3 +247,104 @@ class TestProjectScrumDomain(TransactionCase):
         action = self.env.ref("project_scrum.action_project_sprint")
         self.assertEqual(action.res_model, "project.sprint")
         self.assertIn("list", action.view_mode)
+
+    def _close_with_wizard(self, sprint, disposition, target_sprint=False):
+        action = sprint.action_close()
+        self.assertEqual(action["res_model"], "project.sprint.close.wizard")
+        values = {"sprint_id": sprint.id, "unfinished_disposition": disposition}
+        if target_sprint:
+            values["target_sprint_id"] = target_sprint.id
+        return self.env["project.sprint.close.wizard"].create(values).action_confirm()
+
+    def test_close_with_backlog_disposition_records_distinct_fact(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        self.assertTrue(self._close_with_wizard(sprint, "product_backlog"))
+
+        self.assertEqual(sprint.state, "closed")
+        self.assertFalse(self.task.sprint_id)
+        self.assertEqual(sprint.committed_task_ids, self.task)
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["committed", "carried_to_backlog"]
+        )
+
+    def test_close_with_draft_target_records_linked_carry_over(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        target = self._create_sprint("Sprint 2")
+        sprint.action_start()
+
+        self.assertTrue(self._close_with_wizard(sprint, "draft_sprint", target))
+
+        carry_over = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "carried_to_sprint"
+        )
+        self.assertEqual(sprint.state, "closed")
+        self.assertEqual(self.task.sprint_id, target)
+        self.assertEqual(carry_over.task_id, self.task)
+        self.assertEqual(carry_over.carryover_target_sprint_id, target)
+        self.assertFalse(target.committed_task_ids)
+
+    def test_close_rejects_incompatible_targets_without_partial_changes(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Other Team", "project_id": self.project.id}
+        )
+        incompatible = self._create_sprint("Other team Sprint", team=other_team)
+        sprint.action_start()
+
+        with self.assertRaises(ValidationError):
+            self._close_with_wizard(sprint, "draft_sprint", incompatible)
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(self.task.sprint_id, sprint)
+        self.assertFalse(incompatible.task_ids)
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+
+    def test_close_rejects_self_and_active_targets(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Other Team", "project_id": self.project.id}
+        )
+        active_target = self._create_sprint("Active Sprint", team=other_team)
+        sprint.action_start()
+        active_target.action_start()
+
+        with self.assertRaises(ValidationError):
+            self._close_with_wizard(sprint, "draft_sprint", sprint)
+        with self.assertRaises(ValidationError):
+            self._close_with_wizard(sprint, "draft_sprint", active_target)
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(self.task.sprint_id, sprint)
+
+    def test_close_rolls_back_when_moving_unfinished_tasks_fails(self):
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+
+        with patch.object(
+            type(sprint), "_move_unfinished_tasks", side_effect=ValidationError("forced failure")
+        ):
+            with self.assertRaises(ValidationError):
+                self._close_with_wizard(sprint, "product_backlog")
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(self.task.sprint_id, sprint)
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+
+    def test_closed_sprint_blocks_normal_assignment_and_manager_mutation(self):
+        manager = mail_new_test_user(
+            self.env, "Sprint manager", groups="project.group_project_manager"
+        )
+        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        self.task.write({"state": "1_done"})
+        sprint.action_close()
+
+        with self.assertRaises(ValidationError):
+            self.task.with_user(manager).write({"sprint_id": False})
+        with self.assertRaises(ValidationError):
+            sprint.with_user(manager).write({"goal": "rewrite history"})
+
+        sprint.with_user(SUPERUSER_ID).write({"goal": "documented recovery"})
+        self.assertEqual(sprint.goal, "documented recovery")

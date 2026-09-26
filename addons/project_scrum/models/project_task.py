@@ -15,6 +15,8 @@ class ProjectTask(models.Model):
                 raise ValidationError(_("A task can only join a Sprint in its own project."))
             if task.company_id != sprint.company_id:
                 raise ValidationError(_("A task can only join a Sprint in its own company."))
+            if sprint.state == "closed" and not self.env.is_superuser():
+                raise ValidationError(_("Tasks cannot be assigned to a closed Sprint."))
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -27,6 +29,12 @@ class ProjectTask(models.Model):
         track_sprint_assignment = "sprint_id" in values
         track_completion = "state" in values
         original_sprints = {task.id: task.sprint_id for task in self} if track_sprint_assignment else {}
+        if track_sprint_assignment and not self.env.is_superuser():
+            requested_sprint = self.env["project.sprint"].browse(values["sprint_id"]).exists()
+            if requested_sprint and requested_sprint.state == "closed":
+                raise ValidationError(_("Tasks cannot be assigned to a closed Sprint."))
+            if any(sprint.state == "closed" and sprint != requested_sprint for sprint in original_sprints.values()):
+                raise ValidationError(_("Tasks cannot be removed from a closed Sprint."))
         original_done_states = {task.id: task.state == "1_done" for task in self} if track_completion else {}
         result = super().write(values)
         if track_sprint_assignment:
@@ -48,3 +56,9 @@ class ProjectTask(models.Model):
                     continue
                 sprint._append_scope_events("completed" if is_done else "reopened", task)
         return result
+
+    def _write_sprint_close_assignment(self, target_sprint=False):
+        """Move unfinished work without converting close into ordinary scope removal."""
+        return super(ProjectTask, self).write(
+            {"sprint_id": target_sprint.id if target_sprint else False}
+        )

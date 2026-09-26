@@ -10,6 +10,7 @@
         "security/ir.model.access.csv",
         "views/project_scrum_views.xml",
         "views/project_sprint_close_wizard_views.xml",
+        "views/project_sprint_task_assignment_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

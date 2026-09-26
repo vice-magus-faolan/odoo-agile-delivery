@@ -53,6 +53,8 @@
                 <header>
                     <button name="action_start" string="Start Sprint" type="object" class="btn-primary" invisible="state != &apos;draft&apos;" groups="project.group_project_manager"/>
                     <button name="action_close" string="Close Sprint" type="object" invisible="state != &apos;active&apos;" groups="project.group_project_manager"/>
+                    <button name="action_open_product_backlog" string="Product Backlog" type="object" groups="project.group_project_manager"/>
+                    <button name="action_open_sprint_backlog" string="Sprint Backlog" type="object" groups="project.group_project_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,closed" readonly="1"/>
                 </header>
                 <sheet>
@@ -152,6 +154,35 @@
                 <filter string="Sprint" name="group_by_sprint" context="{&quot;group_by&quot;: &quot;sprint_id&quot;}"/>
             </xpath>
         </field>
+    </record>
+
+    <record id="view_project_agile_item_type_form_scrum" model="ir.ui.view">
+        <field name="name">project.agile.item.type.form.scrum</field>
+        <field name="model">project.agile.item.type</field>
+        <field name="inherit_id" ref="project_agile.view_project_agile_item_type_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name=&apos;active&apos;]" position="after">
+                <field name="can_schedule_in_sprint"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_assign_tasks_to_sprint" model="ir.actions.server">
+        <field name="name">Assign to Sprint</field>
+        <field name="model_id" ref="project.model_project_task"/>
+        <field name="binding_model_id" ref="project.model_project_task"/>
+        <field name="binding_type">action</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_assign_to_sprint()</field>
+    </record>
+
+    <record id="action_remove_tasks_from_sprint" model="ir.actions.server">
+        <field name="name">Remove from Sprint</field>
+        <field name="model_id" ref="project.model_project_task"/>
+        <field name="binding_model_id" ref="project.model_project_task"/>
+        <field name="binding_type">action</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_remove_from_sprint()</field>
     </record>
 
     <record id="action_project_sprint" model="ir.actions.act_window">

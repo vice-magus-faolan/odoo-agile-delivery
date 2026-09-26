@@ -36,10 +36,7 @@ trusted administration rather than ordinary Scrum workflow.
 ## Ordinary Odoo interface
 
 The module provides standard list, form, and search views for Agile Teams and
-Sprints, lifecycle buttons on the Sprint form, a read-only scope-history page,
-and a Sprint field, filter, and grouping on native Project tasks. Project
-managers configure teams and manage Sprints; Project users can read Scrum
-records but cannot create, modify, or delete them. No OWL component is required.
+Sprints, lifecycle and scoped Product/Sprint Backlog actions on the Sprint form, a read-only scope-history page, and a Sprint field, filter, and grouping on native Project tasks. Product Backlog contains only unscheduled Sprint-eligible Agile tasks for the selected Sprint Project, ordered by `agile_backlog_sequence`. Manager-only multi-record **Assign to Sprint** and **Remove from Sprint** actions use a standard wizard and keep normal ORM validation and scope events in force. No OWL component is required.
 
 ## Verification
 

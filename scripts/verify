@@ -1,90 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
-
-# The Odoo container runs as a non-root user; a restrictive checkout umask can
-# otherwise make this bind-mounted, tracked configuration unreadable.
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"
-
 python3 -m compileall -q addons
 python3 -m unittest discover -s tests -p "test_*.py" -v
 docker compose config --quiet
-
-if [[ ! -f addons/project_agile/__manifest__.py ]]; then
-  printf "%s\n" "Bootstrap verification passed (project_agile not yet present)."
-  exit 0
-fi
-
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
-
-wait_for_database() {
-  for _ in $(seq 1 30); do
-    if docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 1
-  done
-  docker compose exec -T db pg_isready -U odoo -d postgres
-}
-
-reset_verification_database() {
-  # These are dedicated disposable verification databases. Do not force-drop:
-  # a connection conflict is a safe failure rather than collateral damage.
-  docker compose exec -T db dropdb -U odoo --if-exists "$1"
-}
-
-run_odoo() {
-  docker compose run --rm odoo \
-    odoo --config=/etc/odoo/odoo.conf \
-    --stop-after-init \
-    --without-demo=True \
-    --log-level test \
-    "$@"
-}
-
-uninstall_project_agile() {
-  printf "%s\n" \
-    "module = env[\"ir.module.module\"].search([(\"name\", \"=\", \"project_agile\")], limit=1)" \
-    "module.button_immediate_uninstall()" \
-    "env.cr.commit()" | \
-    docker compose run --rm -T odoo \
-      odoo shell --config=/etc/odoo/odoo.conf \
-      --database "$DATABASE_REINSTALL" \
-      --no-http
-}
-
+MODULES=project_agile,project_scrum
+TEST_TAGS=/project_agile,/project_scrum
+wait_for_database() { for _ in $(seq 1 30); do docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1 && return 0; sleep 1; done; docker compose exec -T db pg_isready -U odoo -d postgres; }
+reset_verification_database() { docker compose exec -T db dropdb -U odoo --if-exists "$1"; }
+run_odoo() { docker compose run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"; }
+uninstall_module() { printf "%s\n" "module = env[\"ir.module.module\"].search([(\"name\", \"=\", \"$1\")], limit=1)" "module.button_immediate_uninstall()" "env.cr.commit()" | docker compose run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_REINSTALL" --no-http; }
 docker compose up -d db
 wait_for_database
-
 reset_verification_database "$DATABASE_INSTALL"
-run_odoo \
-  --database "$DATABASE_INSTALL" \
-  --init project_agile \
-  --test-enable \
-  --test-tags /project_agile
-printf "%s\n" "Clean installation passed."
-
+run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+printf "%s\n" "Clean install passed for project_agile and project_scrum."
 reset_verification_database "$DATABASE_UPGRADE"
-run_odoo --database "$DATABASE_UPGRADE" --init project_agile
-run_odoo \
-  --database "$DATABASE_UPGRADE" \
-  --update project_agile \
-  --test-enable \
-  --test-tags /project_agile
-printf "%s\n" "Upgrade smoke test passed."
-
+run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
+run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+printf "%s\n" "Upgrade smoke test passed for project_agile and project_scrum."
 reset_verification_database "$DATABASE_REINSTALL"
-run_odoo --database "$DATABASE_REINSTALL" --init project_agile
-uninstall_project_agile
-run_odoo \
-  --database "$DATABASE_REINSTALL" \
-  --init project_agile \
-  --test-enable \
-  --test-tags /project_agile
-printf "%s\n" "Uninstall/reinstall smoke test passed."
-printf "%s\n" "Milestone 1 verification passed."
+run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_scrum
+uninstall_module project_agile
+run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+printf "%s\n" "Uninstall/reinstall smoke test passed for project_agile and project_scrum."
+printf "%s\n" "Milestone 2 verification passed."

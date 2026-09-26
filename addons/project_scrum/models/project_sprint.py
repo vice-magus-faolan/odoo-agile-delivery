@@ -135,6 +135,44 @@ class ProjectSprint(models.Model):
             self._set_lifecycle_state("closed")
         return True
 
+    def _task_backlog_action(self, name, domain):
+        self.ensure_one()
+        self.check_access("read")
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": "project.task",
+            "view_mode": "list,kanban,form",
+            "views": [
+                (self.env.ref("project_agile.view_task_list_agile_backlog").id, "list"),
+                (False, "kanban"),
+                (False, "form"),
+            ],
+            "search_view_id": self.env.ref("project_scrum.view_task_search_scrum").id,
+            "domain": domain,
+            "context": {"default_project_id": self.project_id.id},
+        }
+
+    def action_open_product_backlog(self):
+        self.ensure_one()
+        return self._task_backlog_action(
+            _("Product Backlog"),
+            [
+                ("project_id", "=", self.project_id.id),
+                ("agile_item_type_id.can_schedule_in_sprint", "=", True),
+                ("sprint_id", "=", False),
+                ("has_template_ancestor", "=", False),
+                ("has_project_template", "=", False),
+            ],
+        )
+
+    def action_open_sprint_backlog(self):
+        self.ensure_one()
+        return self._task_backlog_action(
+            _("Sprint Backlog"),
+            [("sprint_id", "=", self.id)],
+        )
+
     def action_close(self):
         self.ensure_one()
         self._check_lifecycle_access()

@@ -22,10 +22,14 @@ class TestProjectScrumDomain(TransactionCase):
         self.team = self.env["project.agile.team"].create(
             {"name": "Delivery Team", "project_id": self.project.id}
         )
+        self.sprint_item_type = self.env["project.agile.item.type"].create(
+            {"name": "Sprint Story", "code": "test_sprint_story", "can_schedule_in_sprint": True}
+        )
         self.task = self.env["project.task"].create(
             {
                 "name": "Committed work",
                 "project_id": self.project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
                 "agile_story_points": 5,
             }
         )

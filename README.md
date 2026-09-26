@@ -71,14 +71,14 @@ docs/research/   ecosystem and dependency research
 - Git connectors record facts; configurable automation decides workflow effects.
 
 
-## Milestone 1 verification boundary
+## Milestone 2 verification boundary
 
-`./scripts/verify` is the Milestone 1 release-candidate check. It fails fast on
+`./scripts/verify` is the repository release-candidate gate for both `project_agile` and `project_scrum`. It fails fast on
 syntax, static-contract, Compose, or Odoo-test failures and exercises all three
 supported module lifecycles on a clean Odoo 19 database:
 
 - clean install of `project_agile`;
-- install followed by `--update project_agile`;
+- install followed by `--update project_agile,project_scrum`;
 - install, ORM-driven module uninstall, then reinstall.
 
 On the Odoo 19.0-20260908 run completed on 2026-09-24, the standalone runner

@@ -16,7 +16,7 @@ Git or Knowledge integration.
   pair, while distinct teams can run active Sprints for the same Project.
 - Native `project.task` receives an optional `sprint_id`. Assignment is checked
   at the ORM layer so task, Sprint, Project, and company cannot cross boundaries.
-  Ordinary non-Agile tasks remain unscheduled and otherwise behave normally.
+  Sprint assignment also requires a configured Sprint-eligible item type; typeless Agile tasks remain unscheduled. Ordinary non-Agile tasks remain unscheduled and otherwise behave normally.
 - Starting a Sprint stores its committed task relation and appends one immutable
   `committed` scope event per task. Adding or removing a task while the Sprint is
   active appends `added` or `removed` events with observed story points, actor,

@@ -14,7 +14,7 @@ class ProjectTask(models.Model):
         for task in self:
             if not task.project_id.agile_enabled:
                 raise ValidationError(_("Only Agile tasks can be assigned to a Sprint."))
-            if task.agile_item_type_id and not task.agile_item_type_id.can_schedule_in_sprint:
+            if not task.agile_item_type_id or not task.agile_item_type_id.can_schedule_in_sprint:
                 raise ValidationError(_("Only Sprint-eligible Agile tasks can be assigned to a Sprint."))
             if task.project_id != sprint.project_id:
                 raise ValidationError(_("A task can only join a Sprint in its own project."))
@@ -22,8 +22,7 @@ class ProjectTask(models.Model):
                 raise ValidationError(_("A task can only join a Sprint in its own company."))
 
     def _single_agile_project_for_sprint_action(self):
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
         projects = self.mapped("project_id")
         if len(projects) != 1 or not projects.agile_enabled:
             raise ValidationError(_("Select tasks from one Agile project."))

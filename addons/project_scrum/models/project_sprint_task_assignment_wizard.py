@@ -32,8 +32,7 @@ class ProjectSprintTaskAssignmentWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
         tasks = self.task_ids.exists()
-        tasks.check_access_rights("write")
-        tasks.check_access_rule("write")
+        tasks.check_access("write")
         if self.operation == "assign":
             tasks._validate_sprint_assignment(self.sprint_id)
             if tasks.filtered("sprint_id"):

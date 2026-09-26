@@ -119,7 +119,7 @@ class TestProjectScrumDomain(TransactionCase):
     def test_active_sprint_records_post_start_adds_and_removals(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
-        added = self.env["project.task"].create({"name": "Added after start", "project_id": self.project.id, "agile_story_points": 3, "sprint_id": sprint.id})
+        added = self.env["project.task"].create({"name": "Added after start", "project_id": self.project.id, "agile_item_type_id": self.sprint_item_type.id, "agile_story_points": 3, "sprint_id": sprint.id})
 
         added.write({"sprint_id": False})
 
@@ -146,7 +146,7 @@ class TestProjectScrumDomain(TransactionCase):
 
     def test_active_sprint_records_bulk_native_done_edges(self):
         second_task = self.env["project.task"].create(
-            {"name": "Second work item", "project_id": self.project.id, "agile_story_points": 3}
+            {"name": "Second work item", "project_id": self.project.id, "agile_item_type_id": self.sprint_item_type.id, "agile_story_points": 3}
         )
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set((self.task | second_task).ids)])
         sprint.action_start()

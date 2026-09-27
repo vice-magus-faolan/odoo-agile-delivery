@@ -66,6 +66,20 @@ class TestOcaDocumentPageContract(unittest.TestCase):
         self.assertIn('-d "$DATABASE_INSTALL"', self.verify)
         self.assertIn('-d "$DATABASE_REINSTALL"', self.verify)
 
+    def test_lifecycle_documentation_uses_the_verifier_module_set(self):
+        module_assignment = next(
+            line for line in self.verify.splitlines() if line.startswith("MODULES=")
+        )
+        expected_uninstall_order = ", ".join(
+            f"`{line.removeprefix('uninstall_module ')}`"
+            for line in self.verify.splitlines()
+            if line.startswith("uninstall_module ")
+        )
+
+        self.assertIn(f"`{module_assignment}`", self.fixture)
+        self.assertIn(f"`{module_assignment}`", self.plan)
+        self.assertIn(expected_uninstall_order, self.fixture)
+
     def test_community_gate_remains_community_only(self):
         community_verify = (self.root / "scripts" / "verify").read_text()
         self.assertIn(

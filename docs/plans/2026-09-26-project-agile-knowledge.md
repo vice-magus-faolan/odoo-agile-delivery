@@ -27,7 +27,7 @@ Run the following before any new OCA-document implementation and retain its outp
 ./scripts/verify
 ```
 
-The first command proves clean install, targeted upgrade, and dependency-safe uninstall/reinstall of `document_knowledge`, `document_page`, and `document_page_project`, then executes a runtime contract probe. The second preserves the existing Community boundary. Neither command supplies credentials or alters a production service.
+The first command proves clean install, targeted upgrade, and dependency-safe uninstall/reinstall of its exact seven-module verifier set, `MODULES=document_knowledge,document_page,document_page_project,project_agile,project_scrum,project_agile_document_page,project_scrum_document_page`: the three selected OCA modules, existing Community `project_agile` and `project_scrum`, and optional bridges `project_agile_document_page` and `project_scrum_document_page`. It then executes a runtime contract probe. The second preserves the existing Community boundary. Neither command supplies credentials or alters a production service.
 
 ## Exact selected behavior
 

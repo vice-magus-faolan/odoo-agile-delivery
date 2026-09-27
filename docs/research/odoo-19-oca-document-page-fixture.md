@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-This is the reproducible, disposable Odoo 19 Community fixture for the Milestone 4 OCA Document Page contract. It is source and runtime evidence for the three selected OCA modules; it is not a production deployment, a vendor copy, an Enterprise Knowledge fixture, or proof that Enterprise Knowledge is API-compatible with OCA Document Page.
+This is the reproducible, disposable Odoo 19 Community fixture for the Milestone 4 OCA Document Page contract. It is source and runtime evidence for the three selected OCA modules, the two existing Community modules, and the two local optional bridges exercised by its verifier; it is not a production deployment, a vendor copy, an Enterprise Knowledge fixture, or proof that Enterprise Knowledge is API-compatible with OCA Document Page.
 
 Run it from the repository root:
 
@@ -61,13 +61,13 @@ Both `document.page` and `document.page.history` have a global multi-company rul
 
 ## Lifecycle commands and expected evidence
 
-`./scripts/verify-oca-document-page` performs, in order:
+`./scripts/verify-oca-document-page` performs, in order. Its authoritative verifier module declaration is `MODULES=document_knowledge,document_page,document_page_project,project_agile,project_scrum,project_agile_document_page,project_scrum_document_page`: the first three are the selected OCA modules, `project_agile` and `project_scrum` are the existing Community modules, and the final two are the optional local bridges.
 
 1. Compose syntax validation and pinned-image build.
-2. Clean `--init document_knowledge,document_page,document_page_project` with the selected OCA module test tags.
+2. Clean `--init` of that exact seven-module set with its matching test tags.
 3. Runtime probe of models, fields, XML IDs, ACL rows, global rules, hierarchy, history, template handling, archive, delete, and Project page linkage.
-4. Fresh install followed by targeted `--update document_knowledge,document_page,document_page_project` with tests.
-5. Fresh install, dependency-safe ORM uninstall in reverse order (`document_page_project`, `document_page`, `document_knowledge`), then reinstall with tests.
+4. Fresh install followed by targeted `--update` of that exact seven-module set with tests.
+5. Fresh install, dependency-safe ORM uninstall in reverse order (`project_scrum_document_page`, `project_agile_document_page`, `project_scrum`, `project_agile`, `document_page_project`, `document_page`, `document_knowledge`), then reinstall of the exact seven-module set with tests.
 
 The verified output must contain all three lifecycle success lines and `OCA_DOCUMENT_PAGE_RUNTIME_CONTRACT=`. A failure is a fixture failure, not an invitation to guess an OCA API.
 

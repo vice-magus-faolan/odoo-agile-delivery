@@ -12,30 +12,41 @@ class ProjectProject(models.Model):
         ondelete="set null",
     )
 
+    def _check_agile_documentation_project_access(self, operation):
+        self.ensure_one()
+        self.check_access(operation)
+
+    def _check_agile_documentation_page_read_access(self, page):
+        page.check_access("read")
+
+    def _validate_agile_documentation_root(self, error_class=ValidationError):
+        self.ensure_one()
+        page = self.agile_documentation_page_id
+        if not page:
+            return
+        self._check_agile_documentation_page_read_access(page)
+        if not self.agile_enabled:
+            raise error_class(_("Only Agile projects can have a documentation root."))
+        if page.type != "content" or not page.active:
+            raise error_class(_("The Agile documentation root must be an active content page."))
+        if page.project_id != self:
+            raise error_class(_("The documentation root must belong to this project."))
+        if page.company_id and page.company_id != self.company_id:
+            raise error_class(_("The documentation root must belong to the project company."))
+
     @api.constrains("agile_enabled", "agile_documentation_page_id", "company_id")
     def _check_agile_documentation_root(self):
         for project in self:
-            page = project.agile_documentation_page_id
-            if not page:
-                continue
-            if not project.agile_enabled:
-                raise ValidationError(_("Only Agile projects can have a documentation root."))
-            page.check_access("read")
-            if page.type != "content" or not page.active:
-                raise ValidationError(_("The Agile documentation root must be an active content page."))
-            if page.project_id != project:
-                raise ValidationError(_("The documentation root must belong to this project."))
-            if page.company_id and page.company_id != project.company_id:
-                raise ValidationError(_("The documentation root must belong to the project company."))
+            project._validate_agile_documentation_root()
 
     def _check_agile_documentation_write_access(self):
-        self.ensure_one()
-        self.check_access("write")
+        self._check_agile_documentation_project_access("write")
         if not self.agile_enabled:
             raise UserError(_("Enable Agile before managing a documentation root."))
 
     def _documentation_page_action(self, page):
-        page.check_access("read")
+        self._check_agile_documentation_project_access("read")
+        self._check_agile_documentation_page_read_access(page)
         if not page.active:
             raise UserError(_("The Agile documentation root is archived."))
         return {
@@ -68,6 +79,7 @@ class ProjectProject(models.Model):
         page = self.agile_documentation_page_id
         if not page:
             raise UserError(_("Set an Agile documentation root before opening it."))
+        self._validate_agile_documentation_root(UserError)
         return self._documentation_page_action(page)
 
     def action_clear_agile_documentation_root(self):

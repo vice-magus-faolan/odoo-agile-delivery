@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_agile_document_page" model="ir.ui.view">
+        <field name="name">project.project.form.agile.document.page</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_open_agile_documentation_root" type="object" class="oe_stat_button" icon="fa-book" invisible="not agile_enabled or not agile_documentation_page_id">
+                    <span class="o_stat_text">Documentation</span>
+                </button>
+            </div>
+            <xpath expr="//page[@name='settings']/group/group[@name='extra_settings']" position="inside">
+                <group string="Agile Documentation" invisible="not agile_enabled">
+                    <field name="agile_documentation_page_id" domain="[('type', '=', 'content'), ('project_id', '=', id), ('active', '=', True)]"/>
+                    <button name="action_create_agile_documentation_root" type="object" string="Create Documentation Root" invisible="agile_documentation_page_id"/>
+                    <button name="action_clear_agile_documentation_root" type="object" string="Clear Documentation Root" invisible="not agile_documentation_page_id" confirm="Clearing the documentation root does not delete or reparent the page."/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

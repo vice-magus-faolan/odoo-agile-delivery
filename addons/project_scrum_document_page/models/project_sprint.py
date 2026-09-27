@@ -18,6 +18,11 @@ class ProjectSprint(models.Model):
         if self.state == "closed":
             raise UserError(_("Closed Sprints cannot change their retrospective link."))
 
+    def write(self, values):
+        if "retrospective_page_id" in values and any(sprint.state == "closed" for sprint in self):
+            raise UserError(_("Closed Sprints cannot change their retrospective link."))
+        return super().write(values)
+
     def _validate_retrospective_page(self, error_class=ValidationError):
         self.ensure_one()
         page = self.retrospective_page_id

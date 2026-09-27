@@ -59,6 +59,15 @@ class TestProjectSprintDocumentPage(TransactionCase):
             self.sprint.action_clear_retrospective_page()
         self.assertEqual(self.sprint.action_open_retrospective_page()["res_id"], self.sprint.retrospective_page_id.id)
 
+    def test_closed_sprint_rejects_orm_retrospective_link_mutation(self):
+        self.sprint.action_create_retrospective_page()
+        page = self.sprint.retrospective_page_id
+        self.sprint.action_start()
+        self.sprint.action_close()
+        with self.assertRaises(UserError):
+            self.sprint.write({"retrospective_page_id": False})
+        self.assertEqual(self.sprint.retrospective_page_id, page)
+
     def test_non_editor_manager_cannot_create_a_retrospective(self):
         manager = mail_new_test_user(self.env, "Retrospective manager", groups="project.group_project_manager,document_knowledge.group_document_user")
         with self.assertRaises(AccessError):

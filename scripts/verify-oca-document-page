@@ -8,8 +8,8 @@ COMPOSE=(docker compose -p odoo_agile_oca_document_page -f compose.oca-document-
 DATABASE_INSTALL=odoo_agile_oca_document_page_install
 DATABASE_UPGRADE=odoo_agile_oca_document_page_upgrade
 DATABASE_REINSTALL=odoo_agile_oca_document_page_reinstall
-MODULES=document_knowledge,document_page,document_page_project,project_agile,project_agile_document_page
-TEST_TAGS=/document_knowledge,/document_page,/document_page_project,/project_agile,/project_agile_document_page
+MODULES=document_knowledge,document_page,document_page_project,project_agile,project_scrum,project_agile_document_page,project_scrum_document_page
+TEST_TAGS=/document_knowledge,/document_page,/document_page_project,/project_agile,/project_scrum,/project_agile_document_page,/project_scrum_document_page
 ADDONS_PATH=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons,/opt/oca-knowledge
 
 chmod a+r "$ROOT/config/odoo.conf"
@@ -75,7 +75,9 @@ printf '%s\n' "OCA upgrade smoke test passed for $MODULES."
 
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_scrum_document_page
 uninstall_module project_agile_document_page
+uninstall_module project_scrum
 uninstall_module project_agile
 uninstall_module document_page_project
 uninstall_module document_page

@@ -1,4 +1,4 @@
-"""Static guard for the Knowledge bridge's fail-closed planning boundary."""
+"""Static guard for the OCA Document Page Milestone 4 contract."""
 
 import ast
 from pathlib import Path
@@ -6,7 +6,7 @@ import unittest
 
 
 class TestKnowledgeBridgeContract(unittest.TestCase):
-    """Ensure Community evidence is not misrepresented as Enterprise API proof."""
+    """Keep Community modules independent while pinning the OCA backend contract."""
 
     def setUp(self):
         self.root = Path(__file__).resolve().parents[1]
@@ -14,26 +14,32 @@ class TestKnowledgeBridgeContract(unittest.TestCase):
         self.plan = (
             self.root / "docs" / "plans" / "2026-09-26-project-agile-knowledge.md"
         ).read_text()
+        self.fixture = (
+            self.root / "docs" / "research" / "odoo-19-oca-document-page-fixture.md"
+        ).read_text()
 
-    def test_adr_requires_a_lawful_exact_version_fixture(self):
-        self.assertIn("Blocked — architecture contract accepted", self.adr)
-        self.assertIn("## `needs_input`", self.adr)
-        self.assertIn("lawfully licensed Odoo 19 Enterprise", self.adr)
-        self.assertIn("docs/research/odoo-19-knowledge-fixture.md", self.adr)
-        self.assertIn("No bridge code, manifest dependency, XML data", self.adr)
+    def test_adr_selects_oca_document_page_and_defers_enterprise(self):
+        self.assertIn("Accepted — supersedes", self.adr)
+        self.assertIn("OCA Document Page", self.adr)
+        self.assertIn("e4a12c0c99866a5850840941d6f7ae3b3b27280d", self.adr)
+        self.assertIn("deferred alternative backend", self.adr)
+        self.assertIn("not API-compatible", self.adr)
+        self.assertNotIn("## `needs_input`", self.adr)
 
-    def test_contract_keeps_core_modules_knowledge_free(self):
+    def test_contract_keeps_community_modules_document_free(self):
+        document_modules = {"document_knowledge", "document_page", "document_page_project"}
         for module in ("project_agile", "project_scrum", "project_scrum_analytics"):
             manifest_path = self.root / "addons" / module / "__manifest__.py"
             manifest = ast.literal_eval(manifest_path.read_text())
-            self.assertNotIn("knowledge", manifest["depends"])
+            self.assertFalse(document_modules.intersection(manifest["depends"]))
 
-        self.assertIn("`project_agile` remains independent of Knowledge and Scrum.", self.adr)
-        self.assertIn("`project_scrum_knowledge` bridge", self.adr)
+        self.assertIn("`project_agile`, `project_scrum`, and `project_scrum_analytics`", self.adr)
+        self.assertIn("remain Community-only", self.adr)
 
-    def test_plan_separates_community_regression_from_enterprise_proof(self):
-        self.assertIn("Community image is a regression boundary only", self.plan)
-        self.assertIn("TDD implementation slices after the gate passes", self.plan)
+    def test_plan_requires_the_separate_pinned_fixture_and_pr_gate(self):
+        self.assertIn("`./scripts/verify-oca-document-page`", self.plan)
         self.assertIn("`./scripts/verify`", self.plan)
-        self.assertIn("Install, upgrade, uninstall/reinstall, and Community regression", self.plan)
-        self.assertIn("no assets directory and no OWL component", self.plan)
+        self.assertIn("OCA PR #641", self.plan)
+        self.assertIn("open and unmerged", self.plan)
+        self.assertIn("not vendored, copied, or used as a production dependency", self.plan)
+        self.assertIn("AGPL-3", self.fixture)

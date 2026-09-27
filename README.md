@@ -100,3 +100,23 @@ ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
 no custom JavaScript or OWL assets. Superuser recovery may correct `closed_at`;
 its report and timeline rebuild synchronously, while lifecycle state remains action-only,
 including for superuser.
+
+## Milestone 4 OCA Document Page fixture
+
+Milestone 4's Community documentation backend is OCA Document Page at the
+immutable OCA `knowledge` 19.0 commit recorded in
+[`docs/research/odoo-19-oca-document-page-fixture.md`](docs/research/odoo-19-oca-document-page-fixture.md).
+The selected `document_knowledge`, `document_page`, and
+`document_page_project` modules are AGPL-3 and are deliberately not dependencies
+of the existing Community modules.
+
+Run the bounded, disposable OCA fixture separately:
+
+```bash
+./scripts/verify-oca-document-page
+```
+
+It pins Odoo/PostgreSQL image digests and the OCA source commit, exposes no host
+port, and uses no persistent Docker volume. `./scripts/verify` remains the
+canonical Community regression gate. Enterprise Knowledge is only a deferred
+alternative backend; it is not API-compatible with OCA Document Page.

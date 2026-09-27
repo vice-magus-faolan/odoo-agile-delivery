@@ -1,86 +1,70 @@
-# ADR-006: Knowledge Relationship Model
+# ADR-006: OCA Document Page Relationship Model
 
 ## Status
 
-Blocked — architecture contract accepted; implementation is not authorized until the exact licensed Odoo 19 Knowledge fixture gate below passes.
+Accepted — supersedes the blocked Enterprise Knowledge fixture direction. Milestone 4 uses OCA Document Page on the pinned OCA 19.0 source described below. Odoo Enterprise Knowledge remains a deferred alternative backend; it is not API-compatible with OCA Document Page and must not be treated as interchangeable.
 
 ## Context
 
-The product needs architecture documents, ADRs, runbooks, retrospectives, Definition of Done, and release notes without recreating a wiki. Project, task, and Sprint need navigable links to the relevant Knowledge articles.
+The Community `odoo:19.0` environment has no `knowledge` addon. The prior ADR correctly refused to guess proprietary Enterprise APIs. Jimmy authorized a Community/OCA rescope instead of a proprietary fixture.
 
-The repository's current verification environment is Community `odoo:19.0`. Its configured add-on paths are `/usr/lib/python3/dist-packages/odoo/addons` and `/mnt/extra-addons`; neither contains `knowledge`. The lane contains no licensed Odoo 19 Enterprise Knowledge source, image, or disposable verification fixture. Odoo's 19.0 user documentation establishes the intended product behavior—articles have parent/child structure, inherit parent access rights, support templates, and may be archived or moved to trash—but it does not establish supported developer model, field, action, ACL, or unlink APIs.[1]
+OCA `knowledge` 19.0 commit `e4a12c0c99866a5850840941d6f7ae3b3b27280d` contains the merged, installable AGPL-3 modules:
+
+- `document_knowledge` `19.0.1.0.1` (`base`);
+- `document_page` `19.0.1.0.2` (`mail`, `document_knowledge`, `html_editor`);
+- `document_page_project` `19.0.1.0.0` (`project`, `document_page`).
+
+The exact fixture, source inspection, licensing posture, runtime probes, and lifecycle commands are recorded in [the OCA Document Page fixture record](../research/odoo-19-oca-document-page-fixture.md).
 
 ## Decision
 
-Knowledge remains the authoritative article store, editor, hierarchy, lifecycle, permission system, and navigation. The Agile integration may store only relationships and expose ordinary Odoo form/list actions; it must not introduce article body/content fields, an editor, a wiki hierarchy, custom JavaScript, or an OCA document dependency.
+Use the three pinned OCA modules as Milestone 4's documentation backend. OCA remains authoritative for page content, rich-text editing, history, category hierarchy, templates, page access groups, company rule, archive state, deletion behavior, and the existing Project-to-page relationship.
 
-This ADR fixes the target relationship and lifecycle contract, but deliberately does not guess `knowledge` model names, fields, XML IDs, methods, record rules, or create contexts. A later implementation may begin only after the fixture gate records those exact Odoo 19 Enterprise APIs and executable evidence.
+This repository must not copy, vendor, fork, or reimplement those modules. It must not build a parallel editor, wiki, page-body store, revision log, hierarchy, generic Project connector, or task connector on this milestone-contract card.
 
-### Add-on boundary
+### Boundary and ownership
 
-- `project_agile` remains independent of Knowledge and Scrum.
-- `project_agile_knowledge` is optional and may depend on `project_agile` and the exact licensed `knowledge` module only. It owns Project and Task relationships plus their ordinary views/actions.
-- Sprint support belongs in a narrow optional `project_scrum_knowledge` bridge, depending on `project_scrum` and `project_agile_knowledge`. Installing Scrum never becomes a prerequisite for ordinary Project/Task Knowledge links.
-- No Release relation is implemented. ADR-005 still has no accepted runtime release/version model; a Release Notes template may be offered, but no relation is authorized.
+- `project_agile`, `project_scrum`, and `project_scrum_analytics` remain Community-only and remain free of `document_*` dependencies.
+- `document_page_project` is the selected, existing OCA Project relationship. It owns `document.page.project_id`, `project.project.document_page_ids`, and its standard Project Wiki action.
+- A later task-specific integration is a separate decision and implementation card. It must use a merged, authoritative OCA 19.0 contract or an approved narrow upstream-compatible extension; it must not copy the open PR's code.
+- Sprint or Release relations remain deferred. No Scrum bridge, Release model, or release-notes relationship is authorized here.
 
-### Cardinality and ownership
+### Security, company, archive, and deletion contract
 
-- A Project has zero or one Knowledge root article; a root article may be the root of zero or one Project. The Project owns only the relationship, never the article.
-- A Task has zero or more related articles; an article may relate to zero or more Tasks. This association neither reparents nor otherwise changes article hierarchy.
-- A Sprint has zero or one retrospective article; a retrospective article may relate to zero or one Sprint. This is implemented only by the optional Scrum bridge.
-- Knowledge remains the sole owner of every article's content, hierarchy, sharing, archive, trash, restoration, and permanent deletion behavior. Relation writes must never change those article properties.
+The selected modules provide a global company record rule for `document.page` and `document.page.history`: a page is visible only when `company_id` is false or in the caller's allowed `company_ids`. The fixture records the editor/manager ACLs and must be rerun before any new privileged operation is designed.
 
-### Access, company, archive, and deletion contract
+Future integrations must execute as the caller and preserve native record rules. They must not use `sudo()` to decide access, expose inaccessible page metadata, forge a caller-selected company, or create permissive page ACLs/rules.
 
-- The integration creates no broad Knowledge ACL, record rule, or decision-making `sudo()` path. It relies on the exact native Knowledge authorization path established by the fixture.
-- A caller must have the normal Odoo access required to modify the Agile record and native read access to every linked article before a relation is created or changed. Candidate search, smart-button counts, names, and action domains execute as the caller, not a privileged proxy.
-- A caller who cannot currently read a formerly linked article must receive neither its title, identifier, count contribution, nor an open action. Access denial and absence must be indistinguishable to that caller.
-- Cross-company links are rejected unless the approved fixture proves that the exact Knowledge article is explicitly shareable across those companies and the caller passes its native record rules in both company contexts. A missing or company-neutral field is not permission to invent a company rule or bypass access controls.
-- Archiving or trashing an article never archives or deletes the Project, Task, or Sprint and never auto-unlinks it. It becomes unavailable through normal actions until restored and readable again.
-- The integration never overrides Knowledge deletion. When Knowledge permanently removes an article, the relation follows the exact supported relational cleanup semantics recorded in the fixture; it must not leave a dangling identifier, prevent native deletion, or fabricate a tombstone. Tests must prove the selected behavior for Project, Task, and Sprint relations.
+`document.page.active` is the selected archive state. Its `unlink()` is native OCA behavior: it removes the page and attached menu, while `document.page.history.page_id` uses cascade deletion. The selected Project relationship is a direct `Many2one`/`One2many`, not a fabricated ownership or tombstone layer. A later relation must prove its cleanup behavior against this exact fixture.
 
-### Templates and automation
+### Templates and hierarchy
 
-- Template source is module-owned only after the fixture identifies Knowledge's supported template API and data model. No XML or Python may seed speculative `knowledge.article` records.
-- If supported, template records use stable namespaced XML IDs, `noupdate="1"`, translation files for localizable text, and an upgrade policy that never overwrites a user-customized template. Existing customer-created templates are never adopted, renamed, or deleted.
-- Project roots, Task articles, Sprint retrospectives, and any template-derived articles are created or linked only through an explicit user action after native access checks. There is no automatic root creation on Project create, no automatic article on Task create/state change, no automatic retrospective on Sprint lifecycle, and no hidden reparenting.
-- Allowed automation is limited to explicit, reversible relation changes: create/link, open, and unlink/clear. Each action affects only the selected relationship and is undoable by clearing that relationship; article content and lifecycle remain native Knowledge operations.
+Pages and categories are `document.page` records. A page's `parent_id` accepts category pages, and the native constraint rejects recursive categories. Category `template` is the supported OCA template mechanism used by the parent onchange for a new page; content versions are native `document.page.history` records. Later work may expose this native mechanism only after applying its normal access and upgrade semantics. It must not seed speculative proprietary `knowledge.article` records.
 
-## Verification gate
+### OCA AGPL consequence
 
-Before implementation, add an immutable fixture record at `docs/research/odoo-19-knowledge-fixture.md` and attach or cite the licensed environment evidence. It must state:
+The selected modules declare `AGPL-3`. This task records and verifies a disposable local fixture only; it neither publishes nor deploys an OCA-based service. Before any network-accessible production use, maintainers must perform a license and distribution review appropriate to the actual combined deployment and provide corresponding-source handling where applicable. This is a release gate, not a reason to obscure or relabel the dependency.
 
-1. Odoo edition, exact 19.0 build/image digest or permitted source revision, and how the license authorizes local inspection and test use;
-2. the add-on path containing `knowledge`, module manifest dependency name, article model, field names/types for title/body/parent/archive/template, relation-table constraints, and applicable action/XML IDs;
-3. native create/read/write/unlink API contracts, default values, parent/child behavior, archive/trash/permanent-delete behavior, and upgrade behavior;
-4. Knowledge groups, ACLs, record rules, company semantics, and direct evidence for a user losing article access after linking;
-5. commands for a disposable clean install, upgrade, uninstall/reinstall, and ordinary Community regression run.
+## PR #641 gate
 
-No bridge code, manifest dependency, XML data, migration, or relationship UI is allowed until that record is complete and its commands pass.
+At execution on 2026-09-27, OCA PR #641 (`[19.0][MIG] document_page_project_task`) is open, unmerged, and has head `b790965e66a008da4421a8763c489037bbb8a43a`. It is not a production dependency and is not copied or vendored here.
 
-## `needs_input`
-
-Blocking operator input is required: provide a lawfully licensed Odoo 19 Enterprise Knowledge source or disposable test environment accessible to this lane, with an immutable version identifier and a non-secret command or documented procedure for a clean install, upgrade, and uninstall/reinstall run. The current Community image and public user documentation are insufficient to infer private model/action APIs. Do not provide credentials in this repository or Kanban comments.
-
-## Alternatives
-
-- Build a custom wiki: rejected because it duplicates Knowledge.
-- Store article content on Project, Task, or Sprint fields: rejected because article lifecycle, navigation, and reuse are lost.
-- Make Knowledge a hard dependency of `project_agile`: rejected because Agile core must remain independently installable.
-- Silently substitute OCA `document_page` or another document add-on: rejected because that changes the product and verification contract.
-- Guess Enterprise internals from another Odoo version or community examples: rejected because it is upgrade- and security-unsafe.
+A later task connector may evaluate that head only in disposable resources. It may depend on it only after OCA merges it into authoritative `19.0`, the merged branch is reacquired at a new immutable commit, the fixture is rerun, and the task's exact APIs/security/lifecycle contract is recorded. If it remains unmerged, the connector remains blocked rather than silently substituting PR code.
 
 ## Consequences
 
-Milestone 4 implementation is deliberately paused rather than substituted with a mock or a parallel wiki. Community verification remains meaningful only for regressions: `project_agile`, `project_scrum`, and `project_scrum_analytics` must continue to install and operate without Knowledge. Enterprise fixture verification is separately required for every Knowledge bridge change.
+`./scripts/verify` remains the canonical Community regression gate. The bounded OCA lifecycle is intentionally separate at `./scripts/verify-oca-document-page`; it uses no host port, no persistent volume, a project-scoped Compose name, a pinned Odoo image digest, and a pinned public source commit. It is required evidence for future OCA-document work but does not activate a runtime dependency in shipped Community modules.
+
+## Alternatives
+
+- Keep Enterprise Knowledge as the active Milestone 4 target: rejected because no licensed Enterprise fixture is available and its APIs must not be guessed.
+- Build a custom wiki or document store: rejected because it duplicates OCA Document Page.
+- Treat Enterprise Knowledge and OCA Document Page as compatible backends: rejected; their APIs and behavior have not been established as compatible.
+- Copy PR #641 or make it a hidden dependency: rejected because it is open and unmerged.
 
 ## Evidence
 
+- [OCA Document Page fixture record](../research/odoo-19-oca-document-page-fixture.md)
 - [Mission brief: Knowledge is first-class](../mission-brief.md#rule-8--knowledge-is-first-class)
-- [Mission brief: intended Knowledge relationships](../mission-brief.md#knowledge-relationships)
-- [ADR-005: Release / Version Model](005-release-version-model.md)
-- [Odoo 19 Knowledge user documentation][1]
-
-## Sources
-
-[1] https://www.odoo.com/documentation/19.0/applications/productivity/knowledge.html
+- [Mission brief: preferred contribution over duplication](../mission-brief.md#rule-12--prefer-contribution-over-duplication)
+- [OCA knowledge 19.0 tree at the selected commit](https://github.com/OCA/knowledge/tree/e4a12c0c99866a5850840941d6f7ae3b3b27280d)

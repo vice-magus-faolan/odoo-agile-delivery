@@ -1,119 +1,80 @@
-# Milestone 4: Odoo 19 Knowledge bridge plan
+# Milestone 4: OCA Document Page integration plan
 
-Date: 2026-09-26
-Status: blocked pending the licensed Odoo 19 Enterprise Knowledge fixture defined in [ADR-006](../adrs/006-knowledge-relationship-model.md).
+Date: 2026-09-27
+Status: contract established; no Agile, Task, Scrum, or UI bridge is implemented by this milestone-contract card.
 
 ## Outcome and boundaries
 
-Deliver optional, ordinary-Odoo-view relationships to native Knowledge without making `knowledge` a dependency of `project_agile`, changing ordinary Project behavior, adding custom JavaScript/OWL, adding an OCA document dependency, or storing article content outside Knowledge.
+Milestone 4 uses OCA Document Page, not Enterprise Knowledge, as the Community documentation backend. The authoritative source is OCA `knowledge` branch `19.0` at immutable commit `e4a12c0c99866a5850840941d6f7ae3b3b27280d`. Its selected AGPL-3 modules are `document_knowledge` `19.0.1.0.1`, `document_page` `19.0.1.0.2`, and `document_page_project` `19.0.1.0.0`.
 
-The current Community image is a regression boundary only. `compose.yaml` uses `odoo:19.0`; configured paths `/usr/lib/python3/dist-packages/odoo/addons` and `/mnt/extra-addons` contain no `knowledge` addon. It cannot establish Enterprise API or security behavior.
+Enterprise Knowledge is a deferred alternative backend, not API-compatible with OCA Document Page. Do not reuse this plan's OCA model, field, action, ACL, record-rule, hierarchy, history, editor, or template facts to implement Enterprise Knowledge. Do not introduce a custom wiki, editor, page content store, revision model, generic Project connector, Task connector, Scrum connector, or OWL UI.
 
-## Fixture gate — do this before writing bridge code
+The current Community modules continue to be verified solely by `./scripts/verify`. The OCA fixture is an explicit separate surface: `./scripts/verify-oca-document-page`.
 
-1. Operator supplies a lawfully licensed Odoo 19 Enterprise fixture and an immutable image digest or permitted source revision. Keep credentials and license artifacts outside this repository.
-2. Add `docs/research/odoo-19-knowledge-fixture.md` with: edition, immutable identifier, add-on path, manifest dependency, article model, title/body/parent/archive/template fields, create/write/unlink APIs, action/XML IDs, groups/ACLs/record rules, company behavior, archive/trash/permanent-delete behavior, and commands run.
-3. Add `compose.knowledge-ee.yaml` only after the fixture is available. It must mount this repository's `addons/` read-only where practical, bind no public port, and use a disposable project-scoped database/volume namespace.
-4. Run these current Community-boundary checks before and after every Enterprise bridge change:
+## Established fixture contract
 
-   ```bash
-   docker compose config --quiet
-   docker compose run --rm --no-deps --user root --entrypoint python3 odoo -c 'from pathlib import Path; paths=(Path("/usr/lib/python3/dist-packages/odoo/addons"), Path("/mnt/extra-addons")); print([(str(path), path.is_dir(), (path / "knowledge").is_dir()) for path in paths])'
-   ./scripts/verify
-   ```
+The no-secret fixture is documented in [the OCA Document Page fixture record](../research/odoo-19-oca-document-page-fixture.md) and uses:
 
-5. Do not infer a missing field or model. If the fixture cannot supply an exact supported API, retain the `needs_input` block in ADR-006 and stop.
+- `odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`;
+- `postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`;
+- a Docker build that fetches exactly the OCA commit and asserts the resolved `HEAD`;
+- an isolated Compose project, no published port, a PostgreSQL `tmpfs`, and only the three fixture-named disposable databases.
 
-## TDD implementation slices after the gate passes
-
-### 1. Capture the exact contract (RED)
-
-Add `tests/test_knowledge_fixture_contract.py` as a static guard that reads `docs/research/odoo-19-knowledge-fixture.md`. It must reject an incomplete fixture record and require the immutable Enterprise identifier, exact model/field/action names, documented ACL/record-rule results, company result, and all four lifecycle commands.
-
-Add an Odoo `TransactionCase` in `addons/project_agile_knowledge/tests/test_knowledge_relations.py` using the verified exact APIs. Start with failing examples for:
-
-- creating and clearing one Project root article;
-- rejecting a root article already assigned to another Project;
-- linking multiple Task articles and the same article to multiple Tasks;
-- a non-admin caller attempting to link a non-readable article;
-- a user who loses article access after a link exists;
-- a cross-company attempt;
-- archived, trashed, restored, and permanently removed article behavior.
-
-Run the targeted test tag in the Enterprise fixture; preserve the initial RED output in the fixture record or task handoff.
-
-### 2. Project/Task bridge (GREEN)
-
-Create `addons/project_agile_knowledge/` with only the verified dependencies `project_agile` and `knowledge`. Implement models in:
-
-- `addons/project_agile_knowledge/models/project_project.py`
-- `addons/project_agile_knowledge/models/project_task.py`
-- `addons/project_agile_knowledge/models/knowledge_access.py`
-
-Implement the ADR-006 contract with fixture-confirmed field/model names only:
-
-- Project root is optional one-to-one and is a relationship, never article ownership.
-- Task articles are optional many-to-many and do not alter Knowledge parenting.
-- Relation writes and open actions run as the caller; no broad `sudo()` or new permissive Knowledge ACL/rule.
-- Cross-company behavior follows the recorded native Knowledge contract; otherwise reject it.
-- Archive/trash preserve the relation but do not reveal inaccessible data. Permanent deletion follows the observed supported cleanup semantics with no dangling IDs.
-
-Keep functions small: separate access resolution, cross-company compatibility, relation validation, and action construction. Update `addons/project_agile_knowledge/models/__init__.py` and `addons/project_agile_knowledge/__init__.py`.
-
-Add native form/list/search views in `addons/project_agile_knowledge/views/` and stable XML IDs. Use only normal fields, buttons, and `ir.actions.act_window`; no assets directory and no OWL component. The UI must not render an inaccessible article's title, identifier, count, or open link.
-
-Re-run the relation tests GREEN, then add multi-record writes and a realistic non-admin Project user case.
-
-### 3. Explicit templates and user-driven automation
-
-Only after fixture verification identifies a supported Knowledge template API, add source/data files under `addons/project_agile_knowledge/data/`:
-
-- `knowledge_template_data.xml` for module-owned templates with stable XML IDs and `noupdate="1"`;
-- `i18n/project_agile_knowledge.pot` and translations for localizable headings.
-
-Use the exact documented template mechanism—not speculative `knowledge.article` XML records. Ship only ADR, Sprint Retrospective, Runbook, and Release Notes blueprints. Do not create a Project root or any article during record create/write, Sprint lifecycle, installation, or upgrade.
-
-Add explicit user actions for create-from-template, link, open, and unlink/clear. Each must be reversible by clearing the relation and must leave article content, hierarchy, sharing, archive, and deletion under native Knowledge control.
-
-Add tests for idempotent install/upgrade, no overwrite of a customized template, localization loading, and no adoption/deletion of customer-created templates.
-
-### 4. Narrow Scrum bridge
-
-Create `addons/project_scrum_knowledge/` only after the Project/Task bridge passes. Its exact dependencies are `project_scrum` and `project_agile_knowledge`; `project_scrum` itself remains Knowledge-free.
-
-Implement `project.sprint` optional one-to-one retrospective relation in:
-
-- `addons/project_scrum_knowledge/models/project_sprint.py`
-- `addons/project_scrum_knowledge/tests/test_sprint_knowledge_relations.py`
-- `addons/project_scrum_knowledge/views/project_sprint_views.xml`
-
-Test that non-Scrum Agile users need not install this bridge, that a retrospective cannot cross project/company boundaries, that native article access applies after rights are revoked, and that closed-Sprint immutability is not weakened. The relation may be linked/cleared only through the explicit contract; it must not create a retrospective automatically when a Sprint is started or closed.
-
-Do not add a Release field or model. The Release Notes blueprint remains unbound until ADR-005 has an accepted runtime release/version decision.
-
-### 5. Install, upgrade, uninstall/reinstall, and Community regression
-
-Extend `scripts/verify` only if its current Community-only module list must remain separate. Do not make Community verification attempt to install the Enterprise-only bridge.
-
-In the licensed fixture, provide a separate checked-in, no-secret command path that executes all of the following against disposable project-scoped resources:
+Run the following before any new OCA-document implementation and retain its output with that implementation's handoff:
 
 ```bash
-# Names and image/source reference are supplied by docs/research/odoo-19-knowledge-fixture.md.
-docker compose -p odoo_agile_knowledge_ee -f compose.knowledge-ee.yaml up -d db
-docker compose -p odoo_agile_knowledge_ee -f compose.knowledge-ee.yaml run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --database odoo_agile_knowledge_install --init project_agile_knowledge,project_scrum_knowledge --test-enable
-docker compose -p odoo_agile_knowledge_ee -f compose.knowledge-ee.yaml run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --database odoo_agile_knowledge_upgrade --init project_agile_knowledge,project_scrum_knowledge
-docker compose -p odoo_agile_knowledge_ee -f compose.knowledge-ee.yaml run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --database odoo_agile_knowledge_upgrade --update project_agile_knowledge,project_scrum_knowledge --test-enable
-docker compose -p odoo_agile_knowledge_ee -f compose.knowledge-ee.yaml run --rm odoo odoo shell --config=/etc/odoo/odoo.conf --database odoo_agile_knowledge_reinstall --no-http
+./scripts/verify-oca-document-page
 ./scripts/verify
 ```
 
-The final shell command must be replaced with the exact fixture-verified uninstall/reinstall procedure before it is accepted; no database or volume deletion command belongs in this plan without an explicit disposable-resource guard.
+The first command proves clean install, targeted upgrade, and dependency-safe uninstall/reinstall of `document_knowledge`, `document_page`, and `document_page_project`, then executes a runtime contract probe. The second preserves the existing Community boundary. Neither command supplies credentials or alters a production service.
 
-## Completion evidence for implementation
+## Exact selected behavior
 
-An implementation handoff must distinguish:
+The source and runtime probe establish the current OCA contract:
 
-- verified Enterprise behavior: exact fixture identifier, models/fields/actions, test command results, ACL/record-rule and lifecycle cases;
-- Community regression coverage: `./scripts/verify` result and confirmation that core modules still have no `knowledge` dependency;
-- unverified assumptions: none are acceptable for model, field, ACL, archive, unlink, or action APIs;
-- residual operator input: only an unavailable/revoked licensed fixture or a new Odoo 19 Enterprise build requiring the fixture gate to be rerun.
+- `document.page` owns title (`name`), `content`, `active`, `parent_id`/`child_ids`, category `template`, `history_head`/`history_ids`, `company_id`, and `project_id` through `document_page_project`.
+- `document.page.history` stores version content and cascades on page deletion. The page's computed/inverse content path creates history records.
+- Only category pages are valid `parent_id` targets; native validation rejects recursive categories.
+- `active` is the archive flag. Native unlink removes the page and menu; do not override it or add a tombstone.
+- Access uses `document_knowledge.group_document_user`, `document_page.group_document_editor`, and `document_page.group_document_manager` plus a global multi-company rule for pages and history.
+- `document_page_project` already provides the Project Wiki relation and `document_page_project.action_document_page_projects`. Do not duplicate it.
+- The supported template mechanism is the category `template` field applied by the native page-parent onchange; it is not a reason to create speculative proprietary records.
+
+## Later work sequence
+
+### 1. Reconfirm the evidence before each dependent card
+
+Recheck the OCA 19.0 branch ref, source commit, image digests, and PR #641 status. Run both verifier commands. If a source or digest changes, record a new immutable fixture result rather than updating a mutable tag in place.
+
+### 2. Decide a narrow Task relationship only after its upstream gate
+
+OCA PR #641, `[19.0][MIG] document_page_project_task`, was rechecked on 2026-09-27 as open and unmerged at `b790965e66a008da4421a8763c489037bbb8a43a`. That head can be evaluated only in a disposable fixture. It is not vendored, copied, or used as a production dependency.
+
+A task-connector card may proceed only when one of these is true:
+
+1. OCA has merged the capability into authoritative `19.0`, the resulting commit is pinned, and this fixture is rerun against it; or
+2. an approved upstream-compatible extension is separately designed, reviewed, and verified without copying the PR.
+
+Until then, the connector stays blocked. Do not repurpose `document_page_project` as an implicit Task API.
+
+### 3. Preserve native security and lifecycle behavior
+
+A future integration must use caller-visible recordsets and native ACL/rule enforcement. It must reject caller-forged company context and cannot use decision-making `sudo()`. It must not reveal a page title, identifier, count, or open action when the native page is inaccessible.
+
+Any new relation must define its own cleanup behavior and prove it for archive, delete, reinstall, and multi-company cases. It cannot alter page content, hierarchy, template, page history, editor groups, or native Project Wiki behavior.
+
+### 4. Treat AGPL as a delivery gate
+
+Before public or production deployment, explicitly review the AGPL-3 obligations for the actual combined deployment, including corresponding-source availability where applicable. This is intentionally deferred from the disposable fixture; no deployment is authorized by this plan.
+
+## Acceptance evidence for later implementation
+
+A dependent implementation handoff must include:
+
+- the exact OCA commit and Odoo/PostgreSQL image digests it used;
+- successful clean-install, upgrade, uninstall/reinstall, runtime-probe, and Community verifier output;
+- the exact model/field/action/ACL/rule behavior used, with no Enterprise compatibility claim;
+- non-admin and multi-company negative tests for every new public relation or action;
+- explicit archive/delete/recovery behavior and residual AGPL release gate;
+- the PR #641 merge-gate outcome if the work concerns Task pages.

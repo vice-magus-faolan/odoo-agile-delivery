@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$ROOT"
+
+COMPOSE=(docker compose -p odoo_agile_oca_document_page -f compose.oca-document-page.yaml)
+DATABASE_INSTALL=odoo_agile_oca_document_page_install
+DATABASE_UPGRADE=odoo_agile_oca_document_page_upgrade
+DATABASE_REINSTALL=odoo_agile_oca_document_page_reinstall
+MODULES=document_knowledge,document_page,document_page_project
+TEST_TAGS=/document_knowledge,/document_page,/document_page_project
+ADDONS_PATH=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons,/opt/oca-knowledge
+
+chmod a+r "$ROOT/config/odoo.conf"
+chmod -R a+rX "$ROOT/addons"
+python3 -m compileall -q addons scripts
+"${COMPOSE[@]}" config --quiet
+"${COMPOSE[@]}" build odoo
+"${COMPOSE[@]}" up -d db
+
+wait_for_database() {
+    for _ in $(seq 1 30); do
+        "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres
+}
+
+reset_verification_database() {
+    "${COMPOSE[@]}" exec -T db dropdb -U odoo --if-exists "$1"
+}
+
+run_odoo() {
+    "${COMPOSE[@]}" run --rm --no-deps odoo odoo \
+        --config=/etc/odoo/odoo.conf \
+        --addons-path="$ADDONS_PATH" \
+        --stop-after-init \
+        --without-demo=True \
+        --log-level=test \
+        "$@"
+}
+
+uninstall_module() {
+    printf '%s\n' \
+        "module = env['ir.module.module'].search([('name', '=', '$1')], limit=1)" \
+        "module.button_immediate_uninstall()" \
+        "env.cr.commit()" \
+        | "${COMPOSE[@]}" run --rm --no-deps -T odoo odoo shell \
+            --config=/etc/odoo/odoo.conf \
+            --addons-path="$ADDONS_PATH" \
+            -d "$DATABASE_REINSTALL" \
+            --no-http
+}
+
+run_runtime_probe() {
+    python3 -c 'from pathlib import Path; print(Path("scripts/oca_document_page_probe.py").read_text())' \
+        | "${COMPOSE[@]}" run --rm --no-deps -T odoo odoo shell \
+            --config=/etc/odoo/odoo.conf \
+            --addons-path="$ADDONS_PATH" \
+            -d "$DATABASE_INSTALL" \
+            --no-http
+}
+
+wait_for_database
+reset_verification_database "$DATABASE_INSTALL"
+run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+run_runtime_probe
+printf '%s\n' "OCA clean install and runtime contract passed for $MODULES."
+
+reset_verification_database "$DATABASE_UPGRADE"
+run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
+run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+printf '%s\n' "OCA upgrade smoke test passed for $MODULES."
+
+reset_verification_database "$DATABASE_REINSTALL"
+run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module document_page_project
+uninstall_module document_page
+uninstall_module document_knowledge
+run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+printf '%s\n' "OCA uninstall/reinstall smoke test passed for $MODULES."

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_agile_planning" model="ir.ui.view">
+        <field name="name">project.project.form.agile.planning</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="agile_enabled" invisible="1"/>
+                <button name="action_open_agile_planning" type="object" class="oe_stat_button"
+                    icon="fa-list-alt" groups="project.group_project_user"
+                    invisible="not agile_enabled or not active or is_template">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Sprint Planning</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

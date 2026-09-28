@@ -1,35 +1,45 @@
 # Agile Planning UI
 
-`project_agile_ui` is the optional Milestone 5 Odoo 19 frontend boundary for
-the Agile Sprint planning workspace. It depends only on `project_scrum`, so
-`project_agile` and `project_scrum` remain independently usable without it.
+`project_agile_ui` is an optional Odoo 19 Sprint Planning workspace. It depends
+only on `project_scrum`; ordinary Project, `project_agile`, and `project_scrum`
+remain usable when this addon is absent.
 
-## Current skeleton
+## Read-only planning board
 
-This milestone installs an empty Python addon plus an Odoo-native Hoot fixture
-in `web.assets_unit_tests`. It intentionally has no models, controllers,
-security records, views, menus, client actions, backend asset, data loading, or
-business-rule implementation. It does not change ordinary Project views or
-Kanban.
+An active Agile project's stat button opens an additive client action. It shows
+only the current caller's visible draft/active Sprints and a bounded page of the
+same project's eligible unscheduled Product Backlog work. The board renders:
 
-The accepted contract is [ADR-010](../../docs/adrs/010-advanced-agile-ui-contract.md).
-A later read-only board will use a scoped server snapshot and an additive client
-action; it will not use a generic browser ORM interface or a global Project
-Kanban override.
+- Sprint team, lifecycle state, goal, authoritative current points, and
+  committed points derived from immutable `committed` scope events.
+- Stable Agile key, item type, story points, and available parent context for
+  each Product Backlog item.
+- Native Sprint and Task form navigation, plus project-scoped standard Sprints
+  and Product Backlog list fallbacks.
 
-## Capability boundary
+The snapshot service accepts only a project ID and a validated typed backlog
+cursor. It always uses the caller's ORM access rules and available companies;
+it does not use `sudo()`, generic client-selected model methods, arbitrary
+fields, or client-provided totals. Each response contains at most 20 Sprints
+and 50 Product Backlog items. Data is read-only: no drag/drop, assignment,
+reordering, or Sprint lifecycle controls are included.
 
-- No drag/drop, assignment, backlog reordering, Sprint lifecycle mutation, or
-  any other write behavior.
-- No Git indicators or Git integration.
-- No Task-document controls and no dependency on unmerged
-  `document_page_project_task` work.
-- No duplicated task, Sprint, scope-history, company, or access-control rules.
+## User-facing recovery and accessibility
+
+The workspace has labelled Sprints and Product Backlog regions, normal buttons
+and links for keyboard navigation, a polite status region, `aria-busy` loading
+state, distinct empty messages, stale-data labelling after failed refreshes,
+and a single-column mobile layout. The standard Odoo list/form actions remain
+the recovery path for every essential read journey.
 
 ## Verification
 
-The repository `./scripts/verify` clean-installs, upgrades, and reinstalls the
-addon with the existing Community modules against disposable databases. The
-frontend fixture is declared in Odoo 19's native `web.assets_unit_tests` bundle;
-run it through Odoo's standard frontend test runner when validating browser
-asset discovery. Do not add a separate npm/Jest/QUnit harness.
+The module's Python tests cover current-user scope, no access, current-company
+isolation, inactive work, multiple active teams, authoritative totals, bounded
+cursor pagination, and project-scoped navigation. Frontend tests use Odoo 19's
+native Hoot bundle declared in `web.assets_unit_tests`; no separate npm, Jest,
+or QUnit runner is introduced. `./scripts/verify` clean-installs, upgrades, and
+uninstalls/reinstalls the optional addon alongside the existing Community
+modules.
+
+The accepted boundary is [ADR-010](../../docs/adrs/010-advanced-agile-ui-contract.md).

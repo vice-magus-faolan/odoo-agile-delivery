@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="project_agile_ui.AgilePlanningBoard">
+        <main class="o_agile_planning_board" t-att-aria-busy="state.loading ? 'true' : 'false'">
+            <header class="o_agile_planning_board__header">
+                <div>
+                    <h1>Sprint Planning</h1>
+                    <p t-if="state.project" t-esc="state.project.name"/>
+                </div>
+                <div class="o_agile_planning_board__fallbacks">
+                    <button type="button" class="btn btn-secondary o_agile_planning_board__open-sprints"
+                        t-on-click="openSprintsFallback">
+                        Open Sprints list
+                    </button>
+                    <button type="button" class="btn btn-secondary o_agile_planning_board__open-backlog"
+                        t-on-click="openBacklogFallback">
+                        Open Product Backlog list
+                    </button>
+                </div>
+            </header>
+
+            <p class="visually-hidden" role="status" aria-live="polite" t-esc="state.status"/>
+            <p t-if="state.stale" class="alert alert-warning" role="status">
+                Showing stale data. Refresh to confirm current Sprint Planning information.
+            </p>
+            <section t-if="state.error" class="alert alert-danger" role="alert">
+                <p t-esc="state.error"/>
+                <button type="button" class="btn btn-secondary" t-on-click="retry">Retry</button>
+            </section>
+            <section t-if="state.loading and !state.project" class="o_agile_planning_board__skeleton" aria-hidden="true">
+                <div/><div/><div/>
+            </section>
+
+            <div t-if="state.project" class="o_agile_planning_board__regions">
+                <section class="o_agile_planning_board__region" aria-labelledby="agile-planning-sprints">
+                    <h2 id="agile-planning-sprints">Sprints</h2>
+                    <p t-if="!state.sprints.length">No visible draft or active Sprints.</p>
+                    <div t-foreach="state.sprints" t-as="sprint" t-key="sprint.id" class="card o_agile_planning_board__sprint">
+                        <div class="card-body">
+                            <button type="button" class="btn btn-link p-0" t-on-click="() => this.openSprint(sprint)">
+                                <strong t-esc="sprint.name"/>
+                            </button>
+                            <p><span t-esc="sprint.team"/> · <span t-esc="sprint.state"/></p>
+                            <p t-if="sprint.goal"><span t-esc="sprint.goal"/></p>
+                            <p>
+                                Current: <span t-esc="sprint.current_points"/> points ·
+                                Committed: <span t-esc="sprint.committed_points"/> points
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="o_agile_planning_board__region" aria-labelledby="agile-planning-backlog">
+                    <h2 id="agile-planning-backlog">Product Backlog</h2>
+                    <p t-if="!state.backlog.items.length">No visible unscheduled Product Backlog items.</p>
+                    <ol t-if="state.backlog.items.length" class="list-group list-group-numbered">
+                        <li t-foreach="state.backlog.items" t-as="task" t-key="task.id" class="list-group-item">
+                            <button type="button" class="btn btn-link p-0" t-on-click="() => this.openTask(task)">
+                                <span t-esc="task.agile_key"/> · <span t-esc="task.name"/>
+                            </button>
+                            <span class="o_agile_planning_board__metadata">
+                                <span t-esc="task.item_type"/> · <span t-esc="task.story_points"/> points
+                                <t t-if="task.parent"> · Parent: <span t-esc="task.parent"/></t>
+                            </span>
+                        </li>
+                    </ol>
+                    <button t-if="state.backlog.next_cursor" type="button" class="btn btn-secondary"
+                        t-on-click="loadMore" t-att-disabled="state.loading">
+                        Load more backlog items
+                    </button>
+                </section>
+            </div>
+        </main>
+    </t>
+</templates>

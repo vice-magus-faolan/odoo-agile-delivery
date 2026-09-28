@@ -1,0 +1,51 @@
+.o_agile_planning_board {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.o_agile_planning_board__header,
+.o_agile_planning_board__fallbacks,
+.o_agile_planning_board__regions {
+    display: flex;
+    gap: 1rem;
+}
+
+.o_agile_planning_board__header {
+    align-items: start;
+    justify-content: space-between;
+}
+
+.o_agile_planning_board__fallbacks {
+    flex-wrap: wrap;
+}
+
+.o_agile_planning_board__regions {
+    align-items: start;
+}
+
+.o_agile_planning_board__region {
+    display: grid;
+    flex: 1 1 0;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.o_agile_planning_board__metadata {
+    display: block;
+    color: var(--body-color, #495057);
+    font-size: 0.875rem;
+}
+
+.o_agile_planning_board__skeleton div {
+    background: var(--gray-200, #e9ecef);
+    height: 5rem;
+    margin-bottom: 0.75rem;
+}
+
+@media (max-width: 767px) {
+    .o_agile_planning_board__header,
+    .o_agile_planning_board__regions {
+        flex-direction: column;
+    }
+}

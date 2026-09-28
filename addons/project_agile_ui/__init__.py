@@ -1,1 +1,3 @@
-"""Optional frontend shell for the Agile planning workspace."""
+"""Read-only, optional frontend for the Agile planning workspace."""
+
+from . import models

@@ -10,8 +10,8 @@ docker compose config --quiet
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
-MODULES=project_agile,project_scrum,project_scrum_analytics
-TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics
+MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui
+TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui
 wait_for_database() { for _ in $(seq 1 30); do docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1 && return 0; sleep 1; done; docker compose exec -T db pg_isready -U odoo -d postgres; }
 reset_verification_database() { docker compose exec -T db dropdb -U odoo --if-exists "$1"; }
 run_odoo() { docker compose run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"; }
@@ -27,9 +27,10 @@ run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_agile_ui
 uninstall_module project_scrum_analytics
 uninstall_module project_scrum
 uninstall_module project_agile
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
-printf "%s\n" "Milestone 3 verification passed."
+printf "%s\n" "Milestone 5 skeleton verification passed."

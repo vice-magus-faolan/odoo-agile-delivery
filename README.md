@@ -18,8 +18,12 @@ Delivered modules are:
   scope facts, with native list, pivot, graph, export, and authorized drill-down
   reporting surfaces.
 
-Knowledge relationships, Git integration, advanced UI, and Jira migration remain
-deferred; ordinary Project behavior is unchanged.
+Delivered optional Milestone 4 modules are `project_agile_document_page` and
+`project_scrum_document_page`; they use the separately verified OCA Document Page
+fixture and do not become dependencies of the Community core. Milestone 5 currently
+delivers only the optional `project_agile_ui` contract and native frontend test
+fixture, not a usable planning board. Git integration, a functional advanced planning
+board, and Jira migration remain deferred; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
@@ -75,15 +79,16 @@ docs/research/   ecosystem and dependency research
 - Git connectors record facts; configurable automation decides workflow effects.
 
 
-## Milestone 3 verification boundary
+## Milestone 5 skeleton verification boundary
 
 `./scripts/verify` is the canonical release-candidate gate for
-`project_agile`, `project_scrum`, and `project_scrum_analytics`. It fails fast
-on syntax, static-contract, Compose, or Odoo-test failures and exercises all
-three supported lifecycles against disposable Odoo 19 databases:
+`project_agile`, `project_scrum`, `project_scrum_analytics`, and the optional
+`project_agile_ui` skeleton. It fails fast on syntax, static-contract, Compose,
+or Odoo-test failures and exercises all three supported lifecycles against
+disposable Odoo 19 databases:
 
-- clean install of all three modules with their focused test tags;
-- install followed by `--update project_agile,project_scrum,project_scrum_analytics`;
+- clean install of all four modules with their focused test tags;
+- install followed by `--update project_agile,project_scrum,project_scrum_analytics,project_agile_ui`;
 - install, dependency-safe ORM uninstall in reverse order, then reinstall with
   focused tests.
 
@@ -95,7 +100,11 @@ touch unrelated services or databases.
 
 `project_agile` depends only on the Odoo Community `project` module.
 `project_scrum` remains isolated from ordinary Project behavior, while
-`project_scrum_analytics` depends only on `project_scrum`. Reporting uses
+`project_scrum_analytics` depends only on `project_scrum`. The optional
+`project_agile_ui` depends only on `project_scrum` and currently contributes only
+the Odoo-native `web.assets_unit_tests` Hoot discovery fixture; it has no board,
+models, actions, Git indicators, Task-document controls, or backend authority.
+Reporting uses
 ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
 no custom JavaScript or OWL assets. Superuser recovery may correct `closed_at`;
 its report and timeline rebuild synchronously, while lifecycle state remains action-only,

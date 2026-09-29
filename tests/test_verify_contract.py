@@ -23,8 +23,20 @@ class TestVerifyContract(unittest.TestCase):
         self.assertIn("uninstall_module project_scrum", verify_script)
         self.assertIn("uninstall_module project_agile", verify_script)
         self.assertNotIn("dropdb -U odoo --if-exists --force", verify_script)
-        self.assertIn("Milestone 5 skeleton verification boundary", readme)
+        self.assertIn("Milestone 5 planning-board verification boundary", readme)
         self.assertNotIn("Milestone 3 verification boundary", readme)
+        self.assertIn("Milestone 5 planning-board verification passed.", verify_script)
+
+    def test_planning_concurrency_harness_is_task_scoped_and_bounded(self):
+        root = Path(__file__).resolve().parents[1]
+        harness = (root / "scripts" / "test_planning_concurrency.py").read_text()
+        worker = (root / "scripts" / "planning_concurrency_worker.py").read_text()
+
+        self.assertIn("odoo_agile_planning_concurrency_t_b1f7013f", harness)
+        self.assertIn("lock_timeout", worker)
+        self.assertIn("statement_timeout", worker)
+        self.assertIn("assign", harness)
+        self.assertIn("reorder", harness)
 
     def test_server_modules_remain_free_of_custom_javascript_assets(self):
         root = Path(__file__).resolve().parents[1] / "addons"

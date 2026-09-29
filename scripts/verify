@@ -33,4 +33,4 @@ uninstall_module project_scrum
 uninstall_module project_agile
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
-printf "%s\n" "Milestone 5 skeleton verification passed."
+printf "%s\n" "Milestone 5 planning-board verification passed."

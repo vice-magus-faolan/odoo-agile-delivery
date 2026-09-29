@@ -113,7 +113,7 @@ export class AgilePlanningBoard extends Component {
                 {
                     before_task_id: options.beforeTask?.id || false,
                     expected_versions: versions,
-                    sprint_id: options.sprint?.id || false,
+                    sprint_id: operation === "assign" ? options.sprint?.id || false : false,
                 }
             );
             this.applySnapshot(snapshot);

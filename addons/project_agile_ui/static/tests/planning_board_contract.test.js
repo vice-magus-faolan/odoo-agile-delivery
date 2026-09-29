@@ -240,7 +240,7 @@ test("project_agile_ui refreshes after a rejected pointer mutation and reports r
         ],
         ["project.project", "get_agile_planning_snapshot", [42, false]],
     ]);
-    expect(".alert-danger").toHaveText(
+    expect(".alert-danger p").toHaveText(
         "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
     );
 });

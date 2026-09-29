@@ -20,10 +20,12 @@ Delivered modules are:
 
 Delivered optional Milestone 4 modules are `project_agile_document_page` and
 `project_scrum_document_page`; they use the separately verified OCA Document Page
-fixture and do not become dependencies of the Community core. Milestone 5 currently
-delivers only the optional `project_agile_ui` contract and native frontend test
-fixture, not a usable planning board. Git integration, a functional advanced planning
-board, and Jira migration remain deferred; ordinary Project behavior is unchanged.
+fixture and do not become dependencies of the Community core. Milestone 5 additionally
+delivers the optional `project_agile_ui` planning board: a bounded Odoo client action
+with current-user, server-authoritative draft-Sprint assignment, Product Backlog return,
+and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
+ordinary Odoo views and keyboard-accessible actions remain available. Git integration
+and Jira migration remain deferred; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
@@ -79,11 +81,11 @@ docs/research/   ecosystem and dependency research
 - Git connectors record facts; configurable automation decides workflow effects.
 
 
-## Milestone 5 skeleton verification boundary
+## Milestone 5 planning-board verification boundary
 
 `./scripts/verify` is the canonical release-candidate gate for
 `project_agile`, `project_scrum`, `project_scrum_analytics`, and the optional
-`project_agile_ui` skeleton. It fails fast on syntax, static-contract, Compose,
+`project_agile_ui` planning board. It fails fast on syntax, static-contract, Compose,
 or Odoo-test failures and exercises all three supported lifecycles against
 disposable Odoo 19 databases:
 
@@ -98,12 +100,21 @@ disposable databases (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`,
 and `odoo_agile_verify_reinstall`), never removes Compose volumes, and does not
 touch unrelated services or databases.
 
+Run `./scripts/test_planning_concurrency.py` for the separate real-connection
+regression. It creates, tests, and removes only the task-named
+`odoo_agile_planning_concurrency_t_b1f7013f` database. Two independent Odoo
+shell processes race assign/return and backlog-reorder intents with lock,
+statement, and wall-clock timeouts; the harness requires one serialized success
+and one actionable stale rejection per race, then checks complete contiguous
+backlog order and the absence of partial Sprint/history state.
+
 `project_agile` depends only on the Odoo Community `project` module.
 `project_scrum` remains isolated from ordinary Project behavior, while
 `project_scrum_analytics` depends only on `project_scrum`. The optional
-`project_agile_ui` depends only on `project_scrum` and currently contributes only
-the Odoo-native `web.assets_unit_tests` Hoot discovery fixture; it has no board,
-models, actions, Git indicators, Task-document controls, or backend authority.
+`project_agile_ui` depends only on `project_scrum` and contributes an optional
+Odoo-native planning board plus its `web.assets_unit_tests` Hoot coverage. Its
+current-user server boundary preserves Scrum assignment, return-history, ordering,
+and lifecycle rules; it adds no Git indicators or Task-document controls.
 Reporting uses
 ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
 no custom JavaScript or OWL assets. Superuser recovery may correct `closed_at`;

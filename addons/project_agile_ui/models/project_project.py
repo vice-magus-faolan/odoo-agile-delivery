@@ -1,5 +1,7 @@
 """Current-user snapshot and navigation boundaries for Agile planning."""
 
+from psycopg2.errors import SerializationFailure
+
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
@@ -259,13 +261,16 @@ class ProjectProject(models.Model):
             raise ValidationError(self.env._("Choose a valid Sprint Planning operation."))
         tasks = self._get_agile_planning_change_tasks(project, task_ids)
         expected_versions = self._parse_agile_planning_versions(expected_versions)
-        with self.env.cr.savepoint():
-            if operation == "assign":
-                self._apply_agile_planning_assignment(project, tasks, sprint_id, expected_versions)
-            elif operation == "return":
-                self._apply_agile_planning_return(project, tasks, expected_versions)
-            else:
-                self._apply_agile_planning_reorder(project, tasks, before_task_id, expected_versions)
+        try:
+            with self.env.cr.savepoint():
+                if operation == "assign":
+                    self._apply_agile_planning_assignment(project, tasks, sprint_id, expected_versions)
+                elif operation == "return":
+                    self._apply_agile_planning_return(project, tasks, expected_versions)
+                else:
+                    self._apply_agile_planning_reorder(project, tasks, before_task_id, expected_versions)
+        except SerializationFailure as error:
+            raise ValidationError(self.env._("Sprint Planning changed. Refresh and retry your action.")) from error
         return self.get_agile_planning_snapshot(project.id)
 
     @api.model
@@ -324,8 +329,7 @@ class ProjectProject(models.Model):
         if not sprint:
             raise AccessError(self.env._("The target Sprint is unavailable."))
         sprint.check_access("read")
-        self._lock_agile_planning_records("project_sprint", sprint.ids)
-        self._lock_agile_planning_records("project_task", tasks.ids)
+        self._lock_agile_planning_sprints_then_tasks(sprint.ids, tasks.ids)
         sprint.invalidate_recordset(["state", "project_id", "company_id", "team_id", "write_date"])
         tasks.invalidate_recordset(["sprint_id", "project_id", "company_id", "agile_item_type_id", "write_date"])
         self._check_agile_planning_versions(tasks, expected_versions)
@@ -336,13 +340,29 @@ class ProjectProject(models.Model):
         tasks.assign_product_backlog_to_sprint(sprint, draft_only=True)
 
     @api.model
+    def _lock_agile_planning_sprints_then_tasks(self, sprint_ids, task_ids):
+        """Lock every planning mutation in the same Sprint-before-task order.
+
+        Assignment already knows its target Sprint. Return first reads the current
+        source Sprints, then verifies that relation again after obtaining the task
+        locks. A changed source relation is a stale intent, never a reason to lock
+        another Sprint after a task lock.
+        """
+        self._lock_agile_planning_records("project_sprint", sprint_ids)
+        self._lock_agile_planning_records("project_task", task_ids)
+
+    @api.model
     def _apply_agile_planning_return(self, project, tasks, expected_versions):
-        self._lock_agile_planning_records("project_task", tasks.ids)
+        candidate_sprint_ids = tasks.mapped("sprint_id").ids
+        if not candidate_sprint_ids:
+            raise ValidationError(self.env._("Only this project's Sprint Backlog items can be returned."))
+        self._lock_agile_planning_sprints_then_tasks(candidate_sprint_ids, tasks.ids)
         tasks.invalidate_recordset(["sprint_id", "project_id", "company_id", "write_date"])
         sprints = tasks.mapped("sprint_id")
-        if not sprints or any(sprint.project_id != project or sprint.company_id != project.company_id for sprint in sprints):
+        if set(sprints.ids) != set(candidate_sprint_ids):
+            raise ValidationError(self.env._("Sprint Planning changed. Refresh and retry your action."))
+        if any(sprint.project_id != project or sprint.company_id != project.company_id for sprint in sprints):
             raise ValidationError(self.env._("Only this project's Sprint Backlog items can be returned."))
-        self._lock_agile_planning_records("project_sprint", sprints.ids)
         sprints.invalidate_recordset(["state", "project_id", "company_id", "write_date"])
         self._check_agile_planning_versions(tasks, expected_versions)
         self._check_agile_planning_versions(sprints, expected_versions)

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Milestone 6 contract and skeleton; provider ingress and processing remain deferred to follow-on cards.
+Accepted — provider-neutral contract and signed GitHub ingress; asynchronous processing remains deferred to follow-on cards.
 
 ## Context
 
@@ -18,7 +18,7 @@ The provider-neutral records are repository, authenticated delivery ledger, bran
 
 Task association accepts explicit immutable `agile_key` references only. The grammar is an uppercase project key followed by a positive decimal number: `ENG-142`. It may occur as a standalone token, `[ENG-142]`, `ENG-142: subject`, or inside a branch token such as `feature/ENG-142-short-description`; boundary matching must reject partial keys. A future parser preserves all explicit keys, resolves them only within the repository's configured project, and records an immutable association. It must not use mutable task names or database IDs. Explicit references outrank any future heuristic; this milestone defines no heuristic.
 
-A future provider adapter owns a narrow, authenticated ingress route. It validates provider identity, active repository, content type, bounded raw body, exact-body signature, event type, and delivery ID; it then writes one ledger row and returns promptly. It does not normalize facts, associate tasks, post chatter, call a provider, or mutate workflow state in the request transaction. Payload storage is digest-only by default; any redacted bounded excerpt, retention deadline, retries, attempt count, next retry, sanitized error summary, and expiring processing lease are ledger fields. Secrets are system-administrator-only and never belong in read APIs, exports, chatter, errors, reprs, or logs.
+The separate GitHub adapter owns a narrow, authenticated ingress route. It validates provider identity, active repository, content type, bounded raw body, exact-body signature, event type, and delivery ID; it then writes one ledger row and returns promptly. It does not normalize facts, associate tasks, post chatter, call a provider, or mutate workflow state in the request transaction. Payload storage is digest-only by default; any redacted bounded excerpt, retention deadline, retries, attempt count, next retry, sanitized error summary, and expiring processing lease are ledger fields. Secrets are system-administrator-only and never belong in read APIs, exports, chatter, errors, reprs, or logs.
 
 The later processor is an Odoo 19 `ir.cron` scheduled action, not a request-thread action and not a `queue_job` runtime. It must claim a bounded eligible batch using a database-backed lease with a random token and expiry; concurrent workers may claim neither a live lease nor the same delivery. Each delivery transition is idempotent and records attempts, next retry, sanitized error, and lease release in the same bounded transaction. The cron reports bounded progress using `_commit_progress`, leaves unfinished work for another scheduled run, and treats expired leases as recoverable retries. Failures must remain operator-visible and must never produce a task-stage change. A future implementation must isolate the narrow lock/claim SQL, parameterize it through Odoo's `SQL` wrapper, and test concurrent claim, expiry recovery, retry exhaustion, and rollback.
 
@@ -32,7 +32,7 @@ Reject OCA `queue_job` as a required or production runtime dependency for Milest
 
 ## Consequences
 
-The skeleton supplies no controller, provider adapter, webhook registration, payload parser, queue enqueue, fact synchronization, scheduled-action data, or task workflow mutation. Later cards must add signed GitHub fixture ingress first, then the native scheduled batch processor, normalization and read-only visibility, and only then consider policy automation. Every schema/security change must run clean install, update, and dependency-safe uninstall/reinstall through `./scripts/verify`.
+The core skeleton plus its separate GitHub adapter supply no queue enqueue, fact synchronization, scheduled-action data, or task workflow mutation. Later cards must add the native scheduled batch processor, normalization, and read-only visibility before considering policy automation. Every schema/security change must run clean install, update, and dependency-safe uninstall/reinstall through `./scripts/verify`.
 
 ## Sources
 

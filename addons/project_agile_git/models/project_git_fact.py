@@ -33,7 +33,6 @@ class ProjectGitRepository(models.Model):
     webhook_secret = fields.Char(
         copy=False,
         groups="base.group_system",
-        password=True,
         help="Ingress-only secret. It is never exposed to ordinary project users.",
     )
     webhook_secret_fingerprint = fields.Char(readonly=True, copy=False)

@@ -161,8 +161,8 @@ alternative backend; it is not API-compatible with OCA Document Page.
 ## Milestone 6 Git facts and visibility boundary
 
 `project_agile_git` is a small, LGPL-3, Odoo-compatible private-suite module. It
-depends only on `project_agile`; it does not adopt a provider adapter, expose a
-webhook route, or depend on OCA `queue_job`. It defines repository-scoped,
+depends only on `project_agile`; it keeps its provider-neutral boundary; the separately installable GitHub adapter exposes
+a bounded signed webhook route, while the core has no queue runtime dependency. It defines repository-scoped,
 multi-company Git fact and durable-delivery records so future provider adapters can
 persist authenticated deliveries before separate processing. Explicit immutable Agile
 keys are the only task-association input. Git facts are visibility, not workflow

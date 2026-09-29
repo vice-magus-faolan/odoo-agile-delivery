@@ -327,7 +327,7 @@ class ProjectGitDelivery(models.Model):
         if state not in {"open", "closed", "merged", "draft"}:
             raise GitHubPayloadError("The GitHub pull request state is unsupported.")
         updated_at = _utc_datetime(pull_request.get("updated_at"))
-        pull = self._upsert_pull_request(
+        self._upsert_pull_request(
             {
                 "provider_request_id": provider_request_id,
                 "number": number,
@@ -345,9 +345,9 @@ class ProjectGitDelivery(models.Model):
         self._upsert_branch("refs/heads/" + target_branch, target_branch, False, updated_at)
         self._associate_source_keys(
             "pull_request",
-            pull.provider_request_id,
+            provider_request_id,
             {
-                "title": pull.title or "",
+                "title": _text(pull_request.get("title")),
                 "body": _optional_text(pull_request.get("body")) or "",
                 "head_ref": source_branch,
             },
@@ -361,7 +361,7 @@ class ProjectGitDelivery(models.Model):
             raise GitHubPayloadError("The GitHub check run is malformed.")
         provider_check_id = _identifier(check_run.get("id"))
         updated_at = _utc_datetime(check_run.get("updated_at"))
-        check = self._upsert_check(
+        self._upsert_check(
             {
                 "provider_check_id": provider_check_id,
                 "name": _text(check_run.get("name")),
@@ -377,9 +377,9 @@ class ProjectGitDelivery(models.Model):
             raise GitHubPayloadError("The GitHub check output is malformed.")
         self._associate_source_keys(
             "check",
-            check.provider_check_id,
+            provider_check_id,
             {
-                "name": check.name,
+                "name": _text(check_run.get("name")),
                 "output_title": _optional_text(output.get("title")) or "",
             },
         )

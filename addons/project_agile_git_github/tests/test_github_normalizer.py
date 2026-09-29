@@ -76,21 +76,41 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             ],
         }
 
-    def _check_run(self, name, output):
-        """Return a complete GitHub check-run payload with caller-controlled key sources."""
+    def _check_run(self, name, output, provider_check_id=3001, updated_at="2026-01-02T03:04:05Z"):
+        """Return a complete GitHub check-run payload with caller-controlled ordering and keys."""
 
         return {
             "repository": {"id": 2001},
             "check_run": {
-                "id": 3001,
+                "id": provider_check_id,
                 "name": name,
                 "status": "completed",
                 "conclusion": "success",
                 "head_sha": "k" * 40,
-                "html_url": "https://example.invalid/check/3001",
-                "completed_at": "2026-01-02T03:04:05Z",
-                "updated_at": "2026-01-02T03:04:05Z",
+                "html_url": "https://example.invalid/check/" + str(provider_check_id),
+                "completed_at": updated_at,
+                "updated_at": updated_at,
                 "output": output,
+            },
+        }
+
+    def _pull_request(self, title, updated_at):
+        """Return a complete pull-request payload with caller-controlled title ordering."""
+
+        return {
+            "repository": {"id": 2001},
+            "number": 4,
+            "pull_request": {
+                "id": 404,
+                "title": title,
+                "body": "",
+                "state": "open",
+                "merged": False,
+                "head": {"ref": "feature/no-key", "sha": "p" * 40},
+                "base": {"ref": "main"},
+                "html_url": "https://example.invalid/pr/4",
+                "updated_at": updated_at,
+                "merged_at": None,
             },
         }
 
@@ -240,6 +260,110 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(delivery.state, "processed")
         self.assertEqual((check.name, check.state, check.ordering_state), ("CI for NRM-1", "success", "known"))
         self.assertEqual((association.agile_key, audit.outcome, audit.reason), ("NRM-1", "associated", "exact_key"))
+
+    def test_stale_and_ambiguous_pull_request_deliveries_keep_own_key_provenance(self):
+        newer = self._delivery(
+            "pull_request", self._pull_request("NRM-1 current", "2026-01-03T03:04:05Z"), "pr-newer"
+        )
+        stale = self._delivery(
+            "pull_request", self._pull_request("NRM-2 stale", "2026-01-01T03:04:05Z"), "pr-stale"
+        )
+        ambiguous = self._delivery(
+            "pull_request", self._pull_request("NRM-2 equal", "2026-01-03T03:04:05Z"), "pr-ambiguous"
+        )
+
+        self._process(newer)
+        self._process(stale)
+        self._process(ambiguous)
+
+        pull = self.env["project.git.pull.request"].search(
+            [("repository_id", "=", self.repository.id), ("provider_request_id", "=", "404")]
+        )
+        association = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.second_task.id),
+                ("source_type", "=", "pull_request"),
+                ("source_provider_id", "=", "404"),
+            ]
+        )
+        delivery_audits = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "in", [stale.id, ambiguous.id]),
+                ("source_type", "=", "pull_request"),
+                ("source_provider_id", "=", "404"),
+                ("source_field", "=", "title"),
+                ("agile_key", "=", self.second_task.agile_key),
+            ]
+        )
+        leaked_audits = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "in", [stale.id, ambiguous.id]),
+                ("source_type", "=", "pull_request"),
+                ("source_provider_id", "=", "404"),
+                ("source_field", "=", "title"),
+                ("agile_key", "=", self.first_task.agile_key),
+            ]
+        )
+        self.assertEqual((pull.title, pull.ordering_state), ("NRM-1 current", "ambiguous"))
+        self.assertEqual(association.agile_key, self.second_task.agile_key)
+        self.assertEqual(len(delivery_audits), 2)
+        self.assertFalse(leaked_audits)
+
+    def test_stale_and_ambiguous_check_deliveries_keep_own_key_provenance(self):
+        newer = self._delivery(
+            "check_run",
+            self._check_run("NRM-1 current", {}, 3002, "2026-01-03T03:04:05Z"),
+            "check-newer",
+        )
+        stale = self._delivery(
+            "check_run",
+            self._check_run("NRM-2 stale", {}, 3002, "2026-01-01T03:04:05Z"),
+            "check-stale",
+        )
+        ambiguous = self._delivery(
+            "check_run",
+            self._check_run("NRM-2 equal", {}, 3002, "2026-01-03T03:04:05Z"),
+            "check-ambiguous",
+        )
+
+        self._process(newer)
+        self._process(stale)
+        self._process(ambiguous)
+
+        check = self.env["project.git.check"].search(
+            [("repository_id", "=", self.repository.id), ("provider_check_id", "=", "3002")]
+        )
+        association = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.second_task.id),
+                ("source_type", "=", "check"),
+                ("source_provider_id", "=", "3002"),
+            ]
+        )
+        delivery_audits = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "in", [stale.id, ambiguous.id]),
+                ("source_type", "=", "check"),
+                ("source_provider_id", "=", "3002"),
+                ("source_field", "=", "name"),
+                ("agile_key", "=", self.second_task.agile_key),
+            ]
+        )
+        leaked_audits = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "in", [stale.id, ambiguous.id]),
+                ("source_type", "=", "check"),
+                ("source_provider_id", "=", "3002"),
+                ("source_field", "=", "name"),
+                ("agile_key", "=", self.first_task.agile_key),
+            ]
+        )
+        self.assertEqual((check.name, check.ordering_state), ("NRM-1 current", "ambiguous"))
+        self.assertEqual(association.agile_key, self.second_task.agile_key)
+        self.assertEqual(len(delivery_audits), 2)
+        self.assertFalse(leaked_audits)
 
     def test_out_of_order_push_does_not_regress_a_newer_branch_head(self):
         newer = self._delivery(

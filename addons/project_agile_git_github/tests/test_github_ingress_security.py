@@ -25,7 +25,7 @@ class TestGitHubIngressSecurity(TransactionCase):
                 "name": "security",
                 "provider": "github",
                 "provider_repository_id": "9001",
-                "canonical_url": "https://example.invalid/acme/security",
+                "canonical_url": "https://github.com/acme/security",
                 "project_id": self.project.id,
                 "webhook_secret": "fixture-secret",
             }

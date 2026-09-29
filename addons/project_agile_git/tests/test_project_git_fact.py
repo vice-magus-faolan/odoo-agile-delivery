@@ -25,7 +25,7 @@ class TestProjectGitFact(TransactionCase):
                 "name": "delivery",
                 "provider": "github",
                 "provider_repository_id": "42",
-                "canonical_url": "https://example.invalid/acme/delivery",
+                "canonical_url": "https://github.com/acme/delivery",
                 "project_id": self.project.id,
             }
         )
@@ -41,7 +41,7 @@ class TestProjectGitFact(TransactionCase):
                     "name": "ordinary",
                     "provider": "github",
                     "provider_repository_id": "43",
-                    "canonical_url": "https://example.invalid/acme/ordinary",
+                    "canonical_url": "https://github.com/acme/ordinary",
                     "project_id": ordinary_project.id,
                 }
             )

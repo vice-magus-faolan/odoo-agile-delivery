@@ -1,16 +1,16 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_project_git_repository_user,project.git.repository user,model_project_git_repository,project.group_project_user,1,0,0,0
 access_project_git_repository_manager,project.git.repository manager,model_project_git_repository,project.group_project_manager,1,1,1,1
-access_project_git_delivery_user,project.git.delivery user,model_project_git_delivery,project.group_project_user,1,0,0,0
+access_project_git_delivery_user,project.git.delivery user,model_project_git_delivery,project.group_project_user,0,0,0,0
 access_project_git_delivery_manager,project.git.delivery manager,model_project_git_delivery,project.group_project_manager,1,0,0,0
 access_project_git_branch_user,project.git.branch user,model_project_git_branch,project.group_project_user,1,0,0,0
-access_project_git_branch_manager,project.git.branch manager,model_project_git_branch,project.group_project_manager,1,1,1,1
+access_project_git_branch_manager,project.git.branch manager,model_project_git_branch,project.group_project_manager,1,0,0,0
 access_project_git_commit_user,project.git.commit user,model_project_git_commit,project.group_project_user,1,0,0,0
-access_project_git_commit_manager,project.git.commit manager,model_project_git_commit,project.group_project_manager,1,1,1,1
+access_project_git_commit_manager,project.git.commit manager,model_project_git_commit,project.group_project_manager,1,0,0,0
 access_project_git_pull_request_user,project.git.pull.request user,model_project_git_pull_request,project.group_project_user,1,0,0,0
-access_project_git_pull_request_manager,project.git.pull.request manager,model_project_git_pull_request,project.group_project_manager,1,1,1,1
+access_project_git_pull_request_manager,project.git.pull.request manager,model_project_git_pull_request,project.group_project_manager,1,0,0,0
 access_project_git_check_user,project.git.check user,model_project_git_check,project.group_project_user,1,0,0,0
-access_project_git_check_manager,project.git.check manager,model_project_git_check,project.group_project_manager,1,1,1,1
+access_project_git_check_manager,project.git.check manager,model_project_git_check,project.group_project_manager,1,0,0,0
 access_project_git_task_association_user,project.git.task.association user,model_project_git_task_association,project.group_project_user,1,0,0,0
-access_project_git_task_association_manager,project.git.task.association manager,model_project_git_task_association,project.group_project_manager,1,1,1,1
+access_project_git_task_association_manager,project.git.task.association manager,model_project_git_task_association,project.group_project_manager,1,0,0,0
 access_project_git_association_audit_manager,project.git.association.audit manager,model_project_git_association_audit,project.group_project_manager,1,0,0,0

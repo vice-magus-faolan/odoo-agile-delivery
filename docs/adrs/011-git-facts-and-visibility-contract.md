@@ -28,6 +28,8 @@ Task association accepts only explicit immutable keys matching `ENG-142`-style u
 
 Facts and audit records remain repository, project, and company scoped through ORM validation, ACLs, multi-company rules, and Project visibility. Reprocess is a Project Manager-only server-side action for a terminal GitHub delivery; it requeues the existing ledger row, and fact/association uniqueness makes replay idempotent.
 
+Read-only Project, Task, repository, and fact views use standard Odoo actions. Project and Task counters are current-user grouped reads; Task fact actions re-resolve immutable association facts under the current caller's ACLs and record rules. The canonical repository URL is HTTPS and restricted to the public provider host (`github.com`, `gitlab.com`, or `bitbucket.org`); GitHub fact links are derived under that configured repository URL, never copied from a provider payload. Connector facts remain observations, not evidence that an Odoo task is complete.
+
 ## Queue Job Decision
 
 Reject OCA `queue_job` as a required or production runtime dependency for Milestone 6. Its 19.0 manifest is mature and LGPL-3 but has a jobrunner model not accepted as the portable Odoo.sh target. A separately approved self-hosted adapter may be evaluated later; it cannot alter the core schema, native processing contract, or canonical verifier.

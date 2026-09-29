@@ -9,6 +9,7 @@
     "data": [
         "security/ir.model.access.csv",
         "security/project_agile_git_security.xml",
+        "views/project_git_fact_views.xml",
     ],
     "installable": True,
     "application": False,

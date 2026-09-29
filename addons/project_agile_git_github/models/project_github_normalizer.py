@@ -4,6 +4,7 @@ import json
 import re
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 from psycopg2 import IntegrityError
 from psycopg2.errors import SerializationFailure
@@ -89,6 +90,20 @@ def _github_state(status, conclusion):
         "skipped": "neutral",
         "neutral": "neutral",
     }.get(conclusion, "unknown")
+
+
+def _github_fact_url(repository, path, identifier, preserve_slashes=False):
+    """Derive an external GitHub fact URL from validated repository configuration only."""
+
+    try:
+        repository._validated_canonical_url()
+    except ValidationError as error:
+        raise GitHubPayloadError("The GitHub repository URL is invalid.") from error
+    safe = "/" if preserve_slashes else ""
+    return (
+        repository.canonical_url.rstrip("/")
+        + "/" + path + "/" + quote(identifier, safe=safe)
+    )
 
 
 class ProjectGitDelivery(models.Model):
@@ -336,7 +351,7 @@ class ProjectGitDelivery(models.Model):
                 "source_branch": source_branch,
                 "target_branch": target_branch,
                 "head_sha": head_sha,
-                "url": _optional_text(pull_request.get("html_url")),
+                "url": _github_fact_url(self.repository_id, "pull", number),
                 "merged_at": _utc_datetime(pull_request.get("merged_at")),
                 "updated_at": updated_at,
             }
@@ -367,7 +382,7 @@ class ProjectGitDelivery(models.Model):
                 "name": _text(check_run.get("name")),
                 "state": _github_state(check_run.get("status"), check_run.get("conclusion")),
                 "head_sha": _optional_text(check_run.get("head_sha"), 128),
-                "url": _optional_text(check_run.get("html_url")),
+                "url": _github_fact_url(self.repository_id, "runs", provider_check_id),
                 "completed_at": _utc_datetime(check_run.get("completed_at")),
                 "updated_at": updated_at,
             }
@@ -401,6 +416,7 @@ class ProjectGitDelivery(models.Model):
             "source_updated_at": source_updated_at,
             "last_seen_at": fields.Datetime.now(),
             "provenance_delivery_id": self.id,
+            "url": _github_fact_url(self.repository_id, "tree", name, preserve_slashes=True),
             "ordering_state": "known" if source_updated_at else "ambiguous",
         }
         if not branch:
@@ -420,7 +436,7 @@ class ProjectGitDelivery(models.Model):
         values = {
             "message_excerpt": _text(commit_data.get("message"))[:255],
             "authored_at": _utc_datetime(commit_data.get("timestamp")),
-            "url": _optional_text(commit_data.get("url")),
+            "url": _github_fact_url(self.repository_id, "commit", sha),
             "last_seen_at": fields.Datetime.now(),
             "provenance_delivery_id": self.id,
         }

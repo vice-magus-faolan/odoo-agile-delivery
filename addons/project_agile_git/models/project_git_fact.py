@@ -1,7 +1,9 @@
 """Provider-neutral Git facts; provider ingress and workflow policy stay separate."""
 
+from urllib.parse import urlsplit
+
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 
 _PROVIDER_SELECTION = [
@@ -9,6 +11,66 @@ _PROVIDER_SELECTION = [
     ("gitlab", "GitLab"),
     ("bitbucket", "Bitbucket"),
 ]
+
+_PROVIDER_HOSTS = {
+    "github": "github.com",
+    "gitlab": "gitlab.com",
+    "bitbucket": "bitbucket.org",
+}
+
+
+def _parse_https_url(value, label):
+    """Return a canonical public HTTPS URL or reject ambiguous navigation targets."""
+
+    if not isinstance(value, str):
+        raise ValidationError(_("The %(label)s must be an HTTPS URL.", label=label))
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError as error:
+        raise ValidationError(_("The %(label)s must be an HTTPS URL.", label=label)) from error
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or port is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValidationError(_("The %(label)s must be an HTTPS URL.", label=label))
+    return parsed
+
+
+def _validate_repository_url(provider, canonical_url):
+    """Validate the provider-owned canonical repository URL used for all fact links."""
+
+    parsed = _parse_https_url(canonical_url, "canonical repository URL")
+    expected_host = _PROVIDER_HOSTS.get(provider)
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if (
+        not expected_host
+        or parsed.hostname.lower() != expected_host
+        or len(path_parts) < 2
+    ):
+        raise ValidationError(
+            _("The canonical repository URL must use the supported host for its provider.")
+        )
+    return parsed
+
+
+def _validate_fact_url(repository, value):
+    """Require fact links to stay under the configured repository's validated URL."""
+
+    if not value:
+        return
+    canonical = _validate_repository_url(repository.provider, repository.canonical_url)
+    parsed = _parse_https_url(value, "fact URL")
+    root_path = canonical.path.rstrip("/")
+    if parsed.hostname.lower() != canonical.hostname.lower() or not (
+        parsed.path == root_path or parsed.path.startswith(root_path + "/")
+    ):
+        raise ValidationError(_("The fact URL must stay within its configured repository."))
 
 
 class ProjectGitRepository(models.Model):
@@ -30,6 +92,21 @@ class ProjectGitRepository(models.Model):
         related="project_id.company_id", store=True, readonly=True, index=True
     )
     active = fields.Boolean(default=True)
+    git_delivery_ids = fields.One2many("project.git.delivery", "repository_id", readonly=True)
+    git_branch_ids = fields.One2many("project.git.branch", "repository_id", readonly=True)
+    git_commit_ids = fields.One2many("project.git.commit", "repository_id", readonly=True)
+    git_pull_request_ids = fields.One2many(
+        "project.git.pull.request", "repository_id", readonly=True
+    )
+    git_check_ids = fields.One2many("project.git.check", "repository_id", readonly=True)
+    git_delivery_count = fields.Integer(
+        compute="_compute_git_fact_counts",
+        groups="project.group_project_manager",
+    )
+    git_branch_count = fields.Integer(compute="_compute_git_fact_counts")
+    git_commit_count = fields.Integer(compute="_compute_git_fact_counts")
+    git_pull_request_count = fields.Integer(compute="_compute_git_fact_counts")
+    git_check_count = fields.Integer(compute="_compute_git_fact_counts")
     webhook_secret = fields.Char(
         copy=False,
         groups="base.group_system",
@@ -46,6 +123,71 @@ class ProjectGitRepository(models.Model):
         "UNIQUE(provider, provider_repository_id)",
         "A provider repository can be configured only once.",
     )
+
+    @api.depends(
+        "git_delivery_ids",
+        "git_branch_ids",
+        "git_commit_ids",
+        "git_pull_request_ids",
+        "git_check_ids",
+    )
+    def _compute_git_fact_counts(self):
+        """Compute visible fact counts in one grouped query per fact type."""
+
+        count_specs = (
+            ("git_delivery_count", "project.git.delivery"),
+            ("git_branch_count", "project.git.branch"),
+            ("git_commit_count", "project.git.commit"),
+            ("git_pull_request_count", "project.git.pull.request"),
+            ("git_check_count", "project.git.check"),
+        )
+        for repository in self:
+            for field_name, _model_name in count_specs:
+                repository[field_name] = 0
+        for field_name, model_name in count_specs:
+            rows = self.env[model_name]._read_group(
+                [("repository_id", "in", self.ids)], ["repository_id"], ["__count"]
+            )
+            for repository, count in rows:
+                repository[field_name] = count
+
+    @api.constrains("provider", "canonical_url")
+    def _check_canonical_url(self):
+        for repository in self:
+            repository._validated_canonical_url()
+
+    def _validated_canonical_url(self):
+        """Return this repository's safe public URL for a provider adapter's fact links."""
+
+        self.ensure_one()
+        return _validate_repository_url(self.provider, self.canonical_url)
+
+    def _action_open_git_records(self, action_xml_id):
+        """Return a standard fact action limited to this readable repository."""
+
+        self.ensure_one()
+        self.check_access("read")
+        action = self.env["ir.actions.actions"]._for_xml_id(action_xml_id)
+        action["domain"] = [("repository_id", "=", self.id)]
+        action["context"] = {"default_repository_id": self.id}
+        return action
+
+    def action_open_git_deliveries(self):
+        if not self.env.user.has_group("project.group_project_manager"):
+            raise AccessError(_("Only Project Managers can inspect Git deliveries."))
+        return self._action_open_git_records("project_agile_git.action_project_git_delivery")
+
+    def action_open_git_branches(self):
+        return self._action_open_git_records("project_agile_git.action_project_git_branch")
+
+    def action_open_git_commits(self):
+        return self._action_open_git_records("project_agile_git.action_project_git_commit")
+
+    def action_open_git_pull_requests(self):
+        return self._action_open_git_records("project_agile_git.action_project_git_pull_request")
+
+    def action_open_git_checks(self):
+        return self._action_open_git_records("project_agile_git.action_project_git_check")
 
     @api.constrains("project_id")
     def _check_agile_project(self):
@@ -136,6 +278,11 @@ class ProjectGitBranch(models.Model):
         "A provider branch observation can be recorded only once per repository.",
     )
 
+    @api.constrains("repository_id", "url")
+    def _check_external_url(self):
+        for branch in self:
+            _validate_fact_url(branch.repository_id, branch.url)
+
 
 class ProjectGitCommit(models.Model):
     """An immutable commit identity with a bounded display excerpt."""
@@ -161,6 +308,11 @@ class ProjectGitCommit(models.Model):
     _commit_unique = models.Constraint(
         "UNIQUE(repository_id, sha)", "A commit can be recorded only once per repository."
     )
+
+    @api.constrains("repository_id", "url")
+    def _check_external_url(self):
+        for commit in self:
+            _validate_fact_url(commit.repository_id, commit.url)
 
 
 class ProjectGitPullRequest(models.Model):
@@ -201,6 +353,11 @@ class ProjectGitPullRequest(models.Model):
         "UNIQUE(repository_id, provider_request_id)",
         "A pull request can be recorded only once per repository.",
     )
+
+    @api.constrains("repository_id", "url")
+    def _check_external_url(self):
+        for pull_request in self:
+            _validate_fact_url(pull_request.repository_id, pull_request.url)
 
 
 class ProjectGitCheck(models.Model):
@@ -248,6 +405,11 @@ class ProjectGitCheck(models.Model):
         "UNIQUE(repository_id, provider_check_id)",
         "A check can be recorded only once per repository.",
     )
+
+    @api.constrains("repository_id", "url")
+    def _check_external_url(self):
+        for check in self:
+            _validate_fact_url(check.repository_id, check.url)
 
 
 class ProjectGitAssociationAudit(models.Model):

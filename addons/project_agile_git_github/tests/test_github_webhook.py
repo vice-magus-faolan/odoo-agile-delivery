@@ -32,7 +32,7 @@ class TestGitHubWebhook(HttpCase):
                 "name": "ingress",
                 "provider": "github",
                 "provider_repository_id": "4242",
-                "canonical_url": "https://example.invalid/acme/ingress",
+                "canonical_url": "https://github.com/acme/ingress",
                 "project_id": self.project.id,
                 "webhook_secret": self.secret,
             }
@@ -155,7 +155,7 @@ class TestGitHubWebhook(HttpCase):
                 "name": "other-ingress",
                 "provider": "github",
                 "provider_repository_id": "4243",
-                "canonical_url": "https://example.invalid/other/ingress",
+                "canonical_url": "https://github.com/other/ingress",
                 "project_id": other_project.id,
                 "webhook_secret": "other-company-secret",
             }

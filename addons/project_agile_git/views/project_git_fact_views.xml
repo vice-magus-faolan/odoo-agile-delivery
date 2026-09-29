@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_project_git_repository" model="ir.actions.act_window">
+        <field name="name">Git Repositories</field>
+        <field name="res_model">project.git.repository</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_project_git_delivery" model="ir.actions.act_window">
+        <field name="name">Git Deliveries</field>
+        <field name="res_model">project.git.delivery</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_project_git_branch" model="ir.actions.act_window">
+        <field name="name">Git Branches</field>
+        <field name="res_model">project.git.branch</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_project_git_commit" model="ir.actions.act_window">
+        <field name="name">Git Commits</field>
+        <field name="res_model">project.git.commit</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_project_git_pull_request" model="ir.actions.act_window">
+        <field name="name">Git Pull Requests</field>
+        <field name="res_model">project.git.pull.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_project_git_check" model="ir.actions.act_window">
+        <field name="name">Git Checks</field>
+        <field name="res_model">project.git.check</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_project_git_repository_list" model="ir.ui.view">
+        <field name="name">project.git.repository.list</field>
+        <field name="model">project.git.repository</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="provider"/>
+                <field name="project_id"/>
+                <field name="canonical_url" widget="url"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_repository_search" model="ir.ui.view">
+        <field name="name">project.git.repository.search</field>
+        <field name="model">project.git.repository</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="provider"/>
+                <field name="project_id"/>
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Provider" name="group_by_provider" context="{'group_by': 'provider'}"/>
+                <filter string="Project" name="group_by_project" context="{'group_by': 'project_id'}"/>
+            </search>
+        </field>
+    </record>
+    <record id="view_project_git_repository_form" model="ir.ui.view">
+        <field name="name">project.git.repository.form</field>
+        <field name="model">project.git.repository</field>
+        <field name="arch" type="xml">
+            <form string="Git Repository">
+                <header>
+                    <field name="active" widget="boolean_button" options="{'terminology': 'archive'}"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_git_deliveries" type="object" class="oe_stat_button" icon="fa-inbox" groups="project.group_project_manager">
+                            <field name="git_delivery_count" widget="statinfo" string="Deliveries"/>
+                        </button>
+                        <button name="action_open_git_branches" type="object" class="oe_stat_button" icon="fa-code-fork">
+                            <field name="git_branch_count" widget="statinfo" string="Branches"/>
+                        </button>
+                        <button name="action_open_git_commits" type="object" class="oe_stat_button" icon="fa-code">
+                            <field name="git_commit_count" widget="statinfo" string="Commits"/>
+                        </button>
+                        <button name="action_open_git_pull_requests" type="object" class="oe_stat_button" icon="fa-code-review">
+                            <field name="git_pull_request_count" widget="statinfo" string="Pull Requests"/>
+                        </button>
+                        <button name="action_open_git_checks" type="object" class="oe_stat_button" icon="fa-check">
+                            <field name="git_check_count" widget="statinfo" string="Checks"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="provider"/>
+                            <field name="provider_repository_id"/>
+                            <field name="project_id"/>
+                            <field name="company_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="canonical_url" widget="url"/>
+                            <field name="retention_policy"/>
+                            <field name="webhook_secret_fingerprint" readonly="1"/>
+                            <field name="webhook_secret" password="True" groups="base.group_system"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">Git facts are provider observations, not evidence that an Odoo task is complete.</p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_project_git_delivery_list" model="ir.ui.view">
+        <field name="name">project.git.delivery.list</field>
+        <field name="model">project.git.delivery</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="repository_id"/>
+                <field name="provider_delivery_id"/>
+                <field name="event_type"/>
+                <field name="state"/>
+                <field name="attempt_count"/>
+                <field name="next_retry_at"/>
+                <field name="received_at"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_delivery_form" model="ir.ui.view">
+        <field name="name">project.git.delivery.form</field>
+        <field name="model">project.git.delivery</field>
+        <field name="arch" type="xml">
+            <form string="Git Delivery" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="repository_id"/>
+                            <field name="provider"/>
+                            <field name="provider_delivery_id"/>
+                            <field name="event_type"/>
+                            <field name="state"/>
+                            <field name="attempt_count"/>
+                        </group>
+                        <group>
+                            <field name="payload_sha256"/>
+                            <field name="payload_size"/>
+                            <field name="retained_until"/>
+                            <field name="received_at"/>
+                            <field name="processed_at"/>
+                            <field name="next_retry_at"/>
+                            <field name="last_error_at"/>
+                            <field name="error_summary"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_project_git_branch_list" model="ir.ui.view">
+        <field name="name">project.git.branch.list</field>
+        <field name="model">project.git.branch</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="name"/>
+                <field name="repository_id"/>
+                <field name="head_sha"/>
+                <field name="ordering_state"/>
+                <field name="source_updated_at"/>
+                <field name="url" widget="url"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_branch_form" model="ir.ui.view">
+        <field name="name">project.git.branch.form</field>
+        <field name="model">project.git.branch</field>
+        <field name="arch" type="xml">
+            <form string="Git Branch" create="0" edit="0" delete="0"><sheet><group>
+                <field name="repository_id"/><field name="name"/><field name="provider_branch_id"/>
+                <field name="head_sha"/><field name="url" widget="url"/><field name="ordering_state"/>
+                <field name="source_updated_at"/><field name="last_seen_at"/>
+            </group></sheet></form>
+        </field>
+    </record>
+
+    <record id="view_project_git_commit_list" model="ir.ui.view">
+        <field name="name">project.git.commit.list</field>
+        <field name="model">project.git.commit</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="sha"/><field name="message_excerpt"/><field name="repository_id"/>
+                <field name="authored_at"/><field name="url" widget="url"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_commit_form" model="ir.ui.view">
+        <field name="name">project.git.commit.form</field>
+        <field name="model">project.git.commit</field>
+        <field name="arch" type="xml">
+            <form string="Git Commit" create="0" edit="0" delete="0"><sheet><group>
+                <field name="repository_id"/><field name="sha"/><field name="message_excerpt"/>
+                <field name="authored_at"/><field name="url" widget="url"/><field name="last_seen_at"/>
+            </group></sheet></form>
+        </field>
+    </record>
+
+    <record id="view_project_git_pull_request_list" model="ir.ui.view">
+        <field name="name">project.git.pull.request.list</field>
+        <field name="model">project.git.pull.request</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="number"/><field name="title"/><field name="state"/><field name="repository_id"/>
+                <field name="source_branch"/><field name="target_branch"/><field name="updated_at"/><field name="url" widget="url"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_pull_request_form" model="ir.ui.view">
+        <field name="name">project.git.pull.request.form</field>
+        <field name="model">project.git.pull.request</field>
+        <field name="arch" type="xml">
+            <form string="Git Pull Request" create="0" edit="0" delete="0"><sheet><group>
+                <field name="repository_id"/><field name="provider_request_id"/><field name="number"/>
+                <field name="title"/><field name="state"/><field name="source_branch"/><field name="target_branch"/>
+                <field name="head_sha"/><field name="url" widget="url"/><field name="merged_at"/>
+                <field name="updated_at"/><field name="ordering_state"/><field name="last_seen_at"/>
+            </group></sheet></form>
+        </field>
+    </record>
+
+    <record id="view_project_git_check_list" model="ir.ui.view">
+        <field name="name">project.git.check.list</field>
+        <field name="model">project.git.check</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="name"/><field name="state"/><field name="repository_id"/><field name="head_sha"/>
+                <field name="completed_at"/><field name="ordering_state"/><field name="url" widget="url"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_project_git_check_form" model="ir.ui.view">
+        <field name="name">project.git.check.form</field>
+        <field name="model">project.git.check</field>
+        <field name="arch" type="xml">
+            <form string="Git Check" create="0" edit="0" delete="0"><sheet><group>
+                <field name="repository_id"/><field name="provider_check_id"/><field name="name"/>
+                <field name="state"/><field name="head_sha"/><field name="url" widget="url"/>
+                <field name="completed_at"/><field name="updated_at"/><field name="ordering_state"/><field name="last_seen_at"/>
+            </group></sheet></form>
+        </field>
+    </record>
+
+    <record id="view_project_form_git_facts" model="ir.ui.view">
+        <field name="name">project.project.form.git.facts</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="agile_enabled" invisible="1"/>
+                <button name="action_open_git_repositories" type="object" class="oe_stat_button" icon="fa-code-fork" invisible="not agile_enabled">
+                    <field name="git_repository_count" widget="statinfo" string="Repositories"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_task_form_git_facts" model="ir.ui.view">
+        <field name="name">project.task.form.git.facts</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="agile_project_enabled" invisible="1"/>
+                <button name="action_open_git_branches" type="object" class="oe_stat_button" icon="fa-code-fork" invisible="not agile_project_enabled">
+                    <field name="git_branch_count" widget="statinfo" string="Branches"/>
+                </button>
+                <button name="action_open_git_commits" type="object" class="oe_stat_button" icon="fa-code" invisible="not agile_project_enabled">
+                    <field name="git_commit_count" widget="statinfo" string="Commits"/>
+                </button>
+                <button name="action_open_git_pull_requests" type="object" class="oe_stat_button" icon="fa-code-review" invisible="not agile_project_enabled">
+                    <field name="git_pull_request_count" widget="statinfo" string="Pull Requests"/>
+                </button>
+                <button name="action_open_git_checks" type="object" class="oe_stat_button" icon="fa-check" invisible="not agile_project_enabled">
+                    <field name="git_check_count" widget="statinfo" string="Checks"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <menuitem id="menu_project_git_repository" name="Git Repositories" parent="project.menu_project_management" action="action_project_git_repository" sequence="25"/>
+</odoo>

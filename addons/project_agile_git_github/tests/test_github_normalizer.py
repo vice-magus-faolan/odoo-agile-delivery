@@ -33,7 +33,7 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 "name": "normalizer",
                 "provider": "github",
                 "provider_repository_id": "2001",
-                "canonical_url": "https://example.invalid/acme/normalizer",
+                "canonical_url": "https://github.com/acme/normalizer",
                 "project_id": self.project.id,
                 "webhook_secret": "fixture-secret",
                 "retention_policy": "redacted_excerpt",
@@ -136,7 +136,7 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                     "name": "concurrent-" + unique_key.lower(),
                     "provider": "github",
                     "provider_repository_id": "concurrent-" + unique_key,
-                    "canonical_url": "https://example.invalid/acme/concurrent-" + unique_key.lower(),
+                    "canonical_url": "https://github.com/acme/concurrent-" + unique_key.lower(),
                     "project_id": project.id,
                     "webhook_secret": "fixture-secret",
                     "retention_policy": "redacted_excerpt",
@@ -194,6 +194,11 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(branch.provider_branch_id, "refs/heads/feature/NRM-1-delivery")
         self.assertEqual(branch.head_sha, "a" * 40)
         self.assertEqual(commit.sha, "a" * 40)
+        self.assertEqual(
+            branch.url,
+            "https://github.com/acme/normalizer/tree/feature/NRM-1-delivery",
+        )
+        self.assertEqual(commit.url, "https://github.com/acme/normalizer/commit/" + "a" * 40)
         self.assertEqual(association.agile_key, self.first_task.agile_key)
         self.assertEqual(self.first_task.read(["stage_id", "message_partner_ids"])[0], before)
 

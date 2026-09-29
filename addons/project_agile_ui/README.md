@@ -24,7 +24,10 @@ fields, or client-provided totals. The initial-page budget is one authorized
 project lookup, bounded Sprint/task/backlog reads, and grouped point totals;
 each response contains at most 20 Sprints, 100 rendered assigned items across
 those Sprints, and 50 Product Backlog items. Incremental backlog requests use
-the server-returned cursor only.
+the server-returned cursor only. Cursors include a server-maintained backlog
+revision; a planning mutation invalidates older cursors and the client reloads page
+one instead of concatenating an incoherent page. Optimistic versions are namespaced
+separately for Tasks and Sprints, so equal numeric IDs cannot overwrite one another.
 
 The board sends assignment, return, and reorder intents only to the current-user
 `apply_agile_planning_change` boundary. The server resolves records, access,
@@ -33,6 +36,9 @@ behavior, versions, and deterministic locked ordering. Pointer drag/drop is a
 convenience layer over those intents: it never carries authority or totals.
 Buttons for assignment, return, and moving backlog items remain available for
 keyboard and non-pointer operation, as do standard Odoo list/form fallbacks.
+Mutation payloads are capped at 20 tasks. Reorder locks only the moved row and
+its immediate ordering neighbors, writes only the moved row, and uses a neighboring
+integer slot when existing records share a sequence value.
 Rejected or stale changes reload the snapshot and display recovery guidance.
 An incremental load failure retains its cursor so Retry requests the same page
 rather than silently replacing the already-rendered backlog with page one.

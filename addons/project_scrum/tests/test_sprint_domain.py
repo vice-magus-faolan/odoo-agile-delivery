@@ -431,3 +431,54 @@ class TestProjectScrumDomain(TransactionCase):
 
         with self.assertRaises(ValidationError):
             sprint.with_user(manager).write({"closed_at": fields.Datetime.now()})
+
+    def test_scrum_records_follow_project_company_and_follower_visibility(self):
+        """Direct Scrum searches must not bypass the owning project's access boundary."""
+        other_company = self.env["res.company"].create({"name": "Scrum Security Company"})
+        private_project = self.env["project.project"].create(
+            {
+                "name": "Private Scrum Security Project",
+                "privacy_visibility": "invited_users",
+                "company_id": other_company.id,
+                "agile_enabled": True,
+                "agile_key": "PRIVATESEC",
+            }
+        )
+        private_team = self.env["project.agile.team"].create(
+            {"name": "Private Scrum Security Team", "project_id": private_project.id}
+        )
+        private_task = self.env["project.task"].create(
+            {
+                "name": "Private Scrum Security Task",
+                "project_id": private_project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
+            }
+        )
+        private_sprint = self.env["project.sprint"].create(
+            {
+                "name": "Private Scrum Security Sprint",
+                "project_id": private_project.id,
+                "team_id": private_team.id,
+                "task_ids": [Command.set(private_task.ids)],
+            }
+        )
+        private_sprint.action_start()
+        private_event = private_sprint.scope_event_ids
+        company_a_manager = mail_new_test_user(
+            self.env, "Cross-company Scrum manager", groups="project.group_project_manager"
+        )
+        company_a_manager.company_ids = [Command.set(self.env.company.ids)]
+        private_company_user = mail_new_test_user(
+            self.env, "Unfollowed Scrum user", groups="project.group_project_user"
+        )
+        private_company_user.write({"company_id": other_company.id, "company_ids": [Command.set(other_company.ids)]})
+
+        for model, record in (
+            ("project.agile.team", private_team),
+            ("project.sprint", private_sprint),
+            ("project.sprint.scope.event", private_event),
+        ):
+            self.assertFalse(self.env[model].with_user(company_a_manager).search([("id", "=", record.id)]))
+            self.assertFalse(self.env[model].with_user(private_company_user).search([("id", "=", record.id)]))
+        with self.assertRaises(AccessError):
+            private_sprint.with_user(company_a_manager).write({"goal": "cross-company write"})

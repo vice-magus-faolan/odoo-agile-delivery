@@ -167,7 +167,7 @@ test("project_agile_ui routes pointer assignment and reorder through versioned s
             [42, "assign", [11]],
             {
                 before_task_id: false,
-                expected_versions: { 7: "7:draft", 11: "11:backlog" },
+                expected_versions: { sprints: { 7: "7:draft" }, tasks: { 11: "11:backlog" } },
                 sprint_id: 7,
             },
         ],
@@ -177,7 +177,7 @@ test("project_agile_ui routes pointer assignment and reorder through versioned s
             [42, "reorder", [11]],
             {
                 before_task_id: false,
-                expected_versions: { 11: "11:backlog" },
+                expected_versions: { sprints: {}, tasks: { 11: "11:backlog" } },
                 sprint_id: false,
             },
         ],
@@ -204,7 +204,7 @@ test("project_agile_ui routes a pointer return through the versioned server inte
             [42, "return", [11]],
             {
                 before_task_id: false,
-                expected_versions: { 7: "7:active", 11: "11:backlog" },
+                expected_versions: { sprints: { 7: "7:active" }, tasks: { 11: "11:backlog" } },
                 sprint_id: false,
             },
         ],
@@ -234,7 +234,7 @@ test("project_agile_ui refreshes after a rejected pointer mutation and reports r
             [42, "assign", [11]],
             {
                 before_task_id: false,
-                expected_versions: { 7: "7:draft", 11: "11:backlog" },
+                expected_versions: { sprints: { 7: "7:draft" }, tasks: { 11: "11:backlog" } },
                 sprint_id: 7,
             },
         ],
@@ -334,7 +334,7 @@ test("project_agile_ui distinguishes unauthorized and retryable loading failures
 });
 
 test("project_agile_ui retries a failed backlog page with its original cursor", async () => {
-    const cursor = { id: 11, sequence: 10 };
+    const cursor = { id: 11, revision: 0, sequence: 10 };
     const calls = [];
     let pageRequests = 0;
     const component = await setupPlanningBoard({
@@ -356,6 +356,33 @@ test("project_agile_ui retries a failed backlog page with its original cursor", 
     await component.retry();
 
     expect(calls.at(-1)).toEqual(["project.project", "get_agile_planning_snapshot", [42, cursor]]);
+});
+
+test("project_agile_ui reloads a stale incremental cursor before merging rows", async () => {
+    const cursor = { id: 11, revision: 0, sequence: 10 };
+    const calls = [];
+    let requestCount = 0;
+    const component = await setupPlanningBoard({
+        call: async (...args) => {
+            calls.push(args);
+            requestCount += 1;
+            if (requestCount === 2) {
+                const error = new Error("stale cursor");
+                error.data = { name: "odoo.exceptions.ValidationError" };
+                throw error;
+            }
+            return snapshot;
+        },
+    });
+
+    await component.load(cursor);
+
+    expect(calls).toEqual([
+        ["project.project", "get_agile_planning_snapshot", [42, false]],
+        ["project.project", "get_agile_planning_snapshot", [42, cursor]],
+        ["project.project", "get_agile_planning_snapshot", [42, false]],
+    ]);
+    expect(component.state.backlog.items).toEqual(snapshot.backlog.items);
 });
 
 test("project_agile_ui does not submit no-op keyboard reorders at backlog edges", async () => {

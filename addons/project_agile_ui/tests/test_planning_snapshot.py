@@ -151,6 +151,26 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         with self.assertRaises(ValidationError):
             self._snapshot({"id": True, "sequence": 10})
 
+    def test_snapshot_rejects_a_cursor_after_a_planning_reorder(self):
+        for index in range(51):
+            self._create_task(f"Cursor backlog item {index}", agile_backlog_sequence=(index + 2) * 10)
+        first_page = self._snapshot()
+        moved = first_page["backlog"]["items"][0]
+
+        self.env["project.project"].apply_agile_planning_change(
+            self.project.id,
+            "reorder",
+            [moved["id"]],
+            before_task_id=False,
+            expected_versions={
+                "tasks": {str(moved["id"]): moved["version"]},
+                "sprints": {},
+            },
+        )
+
+        with self.assertRaises(ValidationError):
+            self._snapshot(first_page["backlog"]["next_cursor"])
+
     @warmup
     def test_snapshot_keeps_the_documented_query_and_payload_budget(self):
         """Bound representative reads so larger boards cannot become card-by-card queries."""

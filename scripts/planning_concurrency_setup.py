@@ -63,8 +63,8 @@ scenario = {
     "sprint_id": sprint.id,
     "conflict_task_id": conflict_task.id,
     "assign_return_versions": {
-        str(conflict_task.id): planning._agile_planning_record_version(conflict_task),
-        str(sprint.id): planning._agile_planning_record_version(sprint),
+        "tasks": {str(conflict_task.id): planning._agile_planning_record_version(conflict_task)},
+        "sprints": {str(sprint.id): planning._agile_planning_record_version(sprint)},
     },
     "reorder_task_ids": reorder_tasks.ids,
     "reorder_versions": {

@@ -36,8 +36,11 @@ operations = {
         {
             "before_task_id": reorder_first,
             "expected_versions": {
-                str(reorder_third): scenario["reorder_versions"][str(reorder_third)],
-                str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                "tasks": {
+                    str(reorder_third): scenario["reorder_versions"][str(reorder_third)],
+                    str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                },
+                "sprints": {},
             },
         },
     ),
@@ -47,8 +50,11 @@ operations = {
         {
             "before_task_id": reorder_first,
             "expected_versions": {
-                str(reorder_second): scenario["reorder_versions"][str(reorder_second)],
-                str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                "tasks": {
+                    str(reorder_second): scenario["reorder_versions"][str(reorder_second)],
+                    str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                },
+                "sprints": {},
             },
         },
     ),

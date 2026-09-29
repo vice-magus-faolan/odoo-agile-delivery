@@ -100,7 +100,12 @@ export class AgilePlanningBoard extends Component {
             if (requestSequence !== this.requestSequence) {
                 return false;
             }
-            this.state.failure = planningLoadFailure(error);
+            const failure = planningLoadFailure(error);
+            if (cursor && failure === "permanent") {
+                this.state.retryCursor = false;
+                return this.load();
+            }
+            this.state.failure = failure;
             this.state.error = planningLoadErrorMessage(this.state.failure);
             this.state.retryCursor = cursor;
             this.state.stale = Boolean(this.state.project);
@@ -133,12 +138,12 @@ export class AgilePlanningBoard extends Component {
         this.state.mutating = true;
         this.state.error = false;
         this.state.status = _t("Updating Sprint Planning");
-        const versions = { [task.id]: task.version };
+        const versions = { sprints: {}, tasks: { [task.id]: task.version } };
         if (options.sprint) {
-            versions[options.sprint.id] = options.sprint.version;
+            versions.sprints[options.sprint.id] = options.sprint.version;
         }
         if (options.beforeTask) {
-            versions[options.beforeTask.id] = options.beforeTask.version;
+            versions.tasks[options.beforeTask.id] = options.beforeTask.version;
         }
         try {
             const snapshot = await this.orm.call(

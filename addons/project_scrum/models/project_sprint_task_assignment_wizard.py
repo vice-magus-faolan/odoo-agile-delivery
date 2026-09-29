@@ -34,12 +34,7 @@ class ProjectSprintTaskAssignmentWizard(models.TransientModel):
         tasks = self.task_ids.exists()
         tasks.check_access("write")
         if self.operation == "assign":
-            tasks._validate_sprint_assignment(self.sprint_id)
-            if tasks.filtered("sprint_id"):
-                raise ValidationError(_("Assign to Sprint only accepts unscheduled Product Backlog tasks."))
-            tasks.write({"sprint_id": self.sprint_id.id})
+            tasks.assign_product_backlog_to_sprint(self.sprint_id)
         else:
-            if tasks.filtered(lambda task: not task.sprint_id):
-                raise ValidationError(_("Remove from Sprint only accepts assigned Sprint Backlog tasks."))
-            tasks.write({"sprint_id": False})
+            tasks.return_sprint_tasks_to_product_backlog()
         return {"type": "ir.actions.act_window_close"}

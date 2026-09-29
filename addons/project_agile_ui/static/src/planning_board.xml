@@ -46,6 +46,15 @@
                                 Current: <span t-esc="sprint.current_points"/> points ·
                                 Committed: <span t-esc="sprint.committed_points"/> points
                             </p>
+                            <ul t-if="sprint.items.length" class="list-group list-group-flush">
+                                <li t-foreach="sprint.items" t-as="task" t-key="task.id" class="list-group-item">
+                                    <span t-esc="task.agile_key"/> · <span t-esc="task.name"/>
+                                    <button type="button" class="btn btn-link" t-att-disabled="state.mutating"
+                                        t-on-click="() => this.returnTask(task, sprint)">
+                                        Return to Product Backlog
+                                    </button>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </section>
@@ -62,6 +71,21 @@
                                 <span t-esc="task.item_type"/> · <span t-esc="task.story_points"/> points
                                 <t t-if="task.parent"> · Parent: <span t-esc="task.parent"/></t>
                             </span>
+                            <div class="o_agile_planning_board__task-actions">
+                                <label>
+                                    Draft Sprint
+                                    <select t-on-change="(event) => this.assignmentTarget(task, event)" t-att-disabled="state.mutating">
+                                        <option value="">Choose a draft Sprint</option>
+                                        <option t-foreach="state.sprints.filter((sprint) => sprint.state === 'draft')" t-as="sprint" t-key="sprint.id" t-att-value="sprint.id" t-esc="sprint.name"/>
+                                    </select>
+                                </label>
+                                <button type="button" class="btn btn-secondary" t-att-disabled="state.mutating"
+                                    t-on-click="() => this.assignTask(task)">Assign to Sprint</button>
+                                <button type="button" class="btn btn-link" t-att-disabled="state.mutating"
+                                    t-on-click="() => this.moveTask(task, 'up')">Move earlier</button>
+                                <button type="button" class="btn btn-link" t-att-disabled="state.mutating"
+                                    t-on-click="() => this.moveTask(task, 'down')">Move later</button>
+                            </div>
                         </li>
                     </ol>
                     <button t-if="state.backlog.next_cursor" type="button" class="btn btn-secondary"

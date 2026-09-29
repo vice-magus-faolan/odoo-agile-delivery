@@ -24,6 +24,8 @@ const snapshot = {
             team: "Delivery Team",
             state: "active",
             goal: "Ship the planning board",
+            items: [],
+            version: "7:active",
             current_points: 8,
             committed_points: 5,
         },
@@ -37,6 +39,7 @@ const snapshot = {
                 name: "Read-only planning workspace",
                 parent: "Planning Epic",
                 story_points: 3,
+                version: "11:backlog",
             },
         ],
         next_cursor: false,
@@ -63,7 +66,7 @@ test("project_agile_ui registers and renders a read-only planning workspace", as
     expect(".list-group-item").toHaveText(
         "PLAN-11 · Read-only planning workspace\nStory · 3 points · Parent: Planning Epic"
     );
-    expect(".o_agile_planning_board button").toHaveCount(4);
+    expect(".o_agile_planning_board button").toHaveCount(7);
 });
 
 test("project_agile_ui delegates navigation and standard fallbacks without writes", async () => {

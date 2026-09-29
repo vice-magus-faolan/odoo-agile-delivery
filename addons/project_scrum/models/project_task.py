@@ -28,6 +28,27 @@ class ProjectTask(models.Model):
             raise ValidationError(_("Select tasks from one Agile project."))
         return projects
 
+    def assign_product_backlog_to_sprint(self, sprint, *, draft_only=False):
+        """Assign unscheduled eligible work through the shared Scrum boundary."""
+        self.check_access("write")
+        sprint = sprint.exists()
+        if len(sprint) != 1:
+            raise ValidationError(_("Select one available Sprint."))
+        sprint.check_access("read")
+        if draft_only and sprint.state != "draft":
+            raise ValidationError(_("Interactive planning can assign work only to a draft Sprint."))
+        self._validate_sprint_assignment(sprint)
+        if self.filtered("sprint_id"):
+            raise ValidationError(_("Assign to Sprint only accepts unscheduled Product Backlog tasks."))
+        return self.write({"sprint_id": sprint.id})
+
+    def return_sprint_tasks_to_product_backlog(self):
+        """Return assigned work through the normal task write and scope-event path."""
+        self.check_access("write")
+        if self.filtered(lambda task: not task.sprint_id):
+            raise ValidationError(_("Remove from Sprint only accepts assigned Sprint Backlog tasks."))
+        return self.write({"sprint_id": False})
+
     def action_open_sprint_assignment_wizard(self, operation):
         if operation not in {"assign", "remove"}:
             raise ValidationError(_("Choose a valid Sprint backlog operation."))

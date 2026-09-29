@@ -17,6 +17,8 @@ function emptyState() {
         sprints: [],
         stale: false,
         status: _t("Loading Sprint Planning"),
+        assignmentTargets: {},
+        mutating: false,
     };
 }
 
@@ -57,14 +59,7 @@ export class AgilePlanningBoard extends Component {
             if (requestSequence !== this.requestSequence) {
                 return;
             }
-            this.state.project = snapshot.project;
-            this.state.sprints = snapshot.sprints;
-            this.state.backlog = cursor
-                ? {
-                      items: [...this.state.backlog.items, ...snapshot.backlog.items],
-                      next_cursor: snapshot.backlog.next_cursor,
-                  }
-                : snapshot.backlog;
+            this.applySnapshot(snapshot, cursor);
             this.state.stale = false;
             this.state.status = _t("Sprint Planning loaded");
         } catch {
@@ -81,6 +76,83 @@ export class AgilePlanningBoard extends Component {
                 this.state.loading = false;
             }
         }
+    }
+
+    applySnapshot(snapshot, cursor = false) {
+        this.state.project = snapshot.project;
+        this.state.sprints = snapshot.sprints;
+        this.state.backlog = cursor
+            ? {
+                  items: [...this.state.backlog.items, ...snapshot.backlog.items],
+                  next_cursor: snapshot.backlog.next_cursor,
+              }
+            : snapshot.backlog;
+    }
+
+    async changePlanning(task, operation, options = {}) {
+        if (this.state.mutating) {
+            return;
+        }
+        this.state.mutating = true;
+        this.state.error = false;
+        this.state.status = _t("Updating Sprint Planning");
+        const versions = { [task.id]: task.version };
+        if (options.sprint) {
+            versions[options.sprint.id] = options.sprint.version;
+        }
+        if (options.beforeTask) {
+            versions[options.beforeTask.id] = options.beforeTask.version;
+        }
+        try {
+            const snapshot = await this.orm.call(
+                "project.project",
+                "apply_agile_planning_change",
+                [this.projectId, operation, [task.id]],
+                {
+                    before_task_id: options.beforeTask?.id || false,
+                    expected_versions: versions,
+                    sprint_id: options.sprint?.id || false,
+                }
+            );
+            this.applySnapshot(snapshot);
+            this.state.stale = false;
+            this.state.status = _t("Sprint Planning updated");
+        } catch {
+            await this.load();
+            this.state.error = _t("Planning change was rejected. The board was refreshed; retry from current data or use the standard views.");
+            this.state.status = this.state.error;
+        } finally {
+            this.state.mutating = false;
+        }
+    }
+
+    assignmentTarget(task, event) {
+        this.state.assignmentTargets[task.id] = Number(event.target.value) || false;
+    }
+
+    assignTask(task) {
+        const sprint = this.state.sprints.find(
+            (candidate) => candidate.id === this.state.assignmentTargets[task.id] && candidate.state === "draft"
+        );
+        if (!sprint) {
+            this.state.error = _t("Choose an available draft Sprint before assigning this item.");
+            return;
+        }
+        return this.changePlanning(task, "assign", { sprint });
+    }
+
+    returnTask(task, sprint) {
+        return this.changePlanning(task, "return", { sprint });
+    }
+
+    moveTask(task, direction) {
+        const tasks = this.state.backlog.items;
+        const index = tasks.findIndex((candidate) => candidate.id === task.id);
+        const beforeTask = direction === "up" ? tasks[index - 1] : tasks[index + 2];
+        if (index < 0 || (direction === "up" && !beforeTask)) {
+            return;
+        }
+        return this.changePlanning(task, "reorder", { beforeTask });
     }
 
     retry() {

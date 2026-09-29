@@ -46,7 +46,7 @@ export class AgilePlanningBoard extends Component {
             this.state.loading = false;
             this.state.error = _t("Sprint Planning needs an available Agile project.");
             this.state.status = this.state.error;
-            return;
+            return false;
         }
         const requestSequence = ++this.requestSequence;
         this.state.loading = true;
@@ -59,20 +59,22 @@ export class AgilePlanningBoard extends Component {
                 [this.projectId, cursor]
             );
             if (requestSequence !== this.requestSequence) {
-                return;
+                return false;
             }
             this.applySnapshot(snapshot, cursor);
             this.state.stale = false;
             this.state.status = _t("Sprint Planning loaded");
+            return true;
         } catch {
             if (requestSequence !== this.requestSequence) {
-                return;
+                return false;
             }
             this.state.error = _t("Sprint Planning could not be loaded. Try again or use the standard views.");
             this.state.stale = Boolean(this.state.project);
             this.state.status = this.state.stale
                 ? _t("Showing stale Sprint Planning data")
                 : this.state.error;
+            return false;
         } finally {
             if (requestSequence === this.requestSequence) {
                 this.state.loading = false;
@@ -120,10 +122,14 @@ export class AgilePlanningBoard extends Component {
             this.state.stale = false;
             this.state.status = _t("Sprint Planning updated");
         } catch {
-            await this.load();
-            this.state.error = _t(
-                "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
-            );
+            const refreshed = await this.load();
+            this.state.error = refreshed
+                ? _t(
+                      "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
+                  )
+                : _t(
+                      "Planning change was rejected. Current board data may be stale; retry or use the standard views."
+                  );
             this.state.status = this.state.error;
         } finally {
             this.state.mutating = false;

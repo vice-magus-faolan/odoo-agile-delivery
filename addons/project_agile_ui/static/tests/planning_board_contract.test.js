@@ -245,6 +245,37 @@ test("project_agile_ui refreshes after a rejected pointer mutation and reports r
     );
 });
 
+test("project_agile_ui labels retained data stale when rejected mutation reconciliation fails", async () => {
+    let snapshotRequests = 0;
+    const component = await setupPlanningBoard({
+        call: async (model, method) => {
+            if (model !== "project.project") {
+                return {};
+            }
+            if (method === "apply_agile_planning_change") {
+                throw new Error("stale snapshot");
+            }
+            snapshotRequests += 1;
+            if (snapshotRequests === 1) {
+                return draftSnapshot;
+            }
+            throw new Error("network unavailable");
+        },
+    });
+
+    await component.dropOnSprint(draftSnapshot.sprints[0], dragEvent(11));
+    await animationFrame();
+
+    expect(".alert-warning").toHaveCount(1);
+    expect(".alert-danger p").toHaveText(
+        "Planning change was rejected. Current board data may be stale; retry or use the standard views."
+    );
+    expect("p.visually-hidden[role='status']").toHaveText(
+        "Planning change was rejected. Current board data may be stale; retry or use the standard views."
+    );
+    expect(".o_agile_planning_board__sprint").toHaveCount(1);
+});
+
 test("project_agile_ui retains labelled stale content after a loading error", async () => {
     let requestCount = 0;
     const component = await setupPlanningBoard({

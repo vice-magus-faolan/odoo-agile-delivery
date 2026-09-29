@@ -9,6 +9,7 @@ Implemented decisions:
 - [ADR-003 Sprint Scope History Strategy](003-sprint-scope-history-strategy.md)
 - [ADR-004 Agile Team / Multiple Active Sprint Model](004-agile-team-multiple-active-sprints.md)
 - [ADR-009 Trustworthy Scrum Analytics Semantics](009-scrum-analytics-semantics.md)
+- [ADR-011 Git Facts and Visibility Contract](011-git-facts-and-visibility-contract.md)
 
 Proposed, intentionally deferred decisions:
 - [ADR-005 Release / Version Model](005-release-version-model.md)

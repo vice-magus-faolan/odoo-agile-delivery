@@ -7,8 +7,8 @@ DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
-MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui
-TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui
+MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git
+TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git
 
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"
@@ -66,6 +66,7 @@ run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_agile_git
 uninstall_module project_agile_ui
 uninstall_module project_scrum_analytics
 uninstall_module project_scrum
@@ -73,3 +74,4 @@ uninstall_module project_agile
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
 printf "%s\n" "Milestone 5 planning-board verification passed."
+printf "%s\n" "Milestone 6 Git facts contract verification passed."

@@ -17,6 +17,8 @@ Delivered modules are:
   Change, and Commitment vs Completion projections replayed from immutable
   scope facts, with native list, pivot, graph, export, and authorized drill-down
   reporting surfaces.
+- `project_agile_git`: provider-neutral repository, delivery-ledger, branch,
+  commit, pull-request, check, and immutable Agile-key association foundations.
 
 Delivered optional Milestone 4 modules are `project_agile_document_page` and
 `project_scrum_document_page`; they use the separately verified OCA Document Page
@@ -25,7 +27,9 @@ delivers the optional `project_agile_ui` planning board: a bounded Odoo client a
 with current-user, server-authoritative draft-Sprint assignment, Product Backlog return,
 and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
 ordinary Odoo views and keyboard-accessible actions remain available. Git integration
-and Jira migration remain deferred; ordinary Project behavior is unchanged.
+now has its Milestone 6 facts-and-visibility contract and skeleton. Provider ingress,
+fact normalization, and workflow automation remain deferred; Jira migration remains
+deferred; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
@@ -147,3 +151,22 @@ It pins Odoo/PostgreSQL image digests and the OCA source commit, exposes no host
 port, and uses no persistent Docker volume. `./scripts/verify` remains the
 canonical Community regression gate. Enterprise Knowledge is only a deferred
 alternative backend; it is not API-compatible with OCA Document Page.
+
+
+## Milestone 6 Git facts and visibility boundary
+
+`project_agile_git` is a small, LGPL-3, Odoo-compatible private-suite module. It
+depends only on `project_agile`; it does not adopt a provider adapter, expose a
+webhook route, or depend on OCA `queue_job`. It defines repository-scoped,
+multi-company Git fact and durable-delivery records so future provider adapters can
+persist authenticated deliveries before separate processing. Explicit immutable Agile
+keys are the only task-association input. Git facts are visibility, not workflow
+automation: a pull-request merge or successful check cannot change a task stage.
+
+The canonical `./scripts/verify` gate includes clean install, targeted upgrade, and
+dependency-safe uninstall/reinstall of `project_agile_git`. The later processor must
+use Odoo 19's supported `ir.cron` scheduler in bounded, idempotent batches: each batch
+claims durable deliveries with an expiring lease, records retries and sanitized failure
+state, reports progress, and returns. This keeps the base module portable to Odoo.sh and
+self-hosted deployments without accepting a queue runner, webhook registration, or
+production runtime dependency in Milestone 6.

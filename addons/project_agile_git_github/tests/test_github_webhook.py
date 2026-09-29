@@ -3,6 +3,9 @@
 import hashlib
 import hmac
 import json
+import threading
+
+import requests
 
 from odoo.tests import HttpCase, tagged
 
@@ -81,6 +84,52 @@ class TestGitHubWebhook(HttpCase):
         self.assertEqual((response.status_code, replay.status_code), (202, 202))
         self.assertEqual(self._delivery_count(), 1)
 
+    def test_concurrent_replay_creates_one_delivery(self):
+        """Exercise duplicate-key recovery through concurrent signed HTTP requests."""
+
+        start_requests = threading.Barrier(2)
+        statuses = []
+        failures = []
+        raw_body = json.dumps(self._payload(), separators=(",", ":")).encode()
+        request_url = self.base_url() + self.route
+        request_headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Event": "push",
+            "X-GitHub-Delivery": "delivery-concurrent",
+            "X-Hub-Signature-256": "sha256="
+            + hmac.new(self.secret.encode(), raw_body, hashlib.sha256).hexdigest(),
+        }
+
+        def post_delivery(test_cookies):
+            try:
+                start_requests.wait(timeout=5)
+                statuses.append(
+                    requests.post(
+                        request_url,
+                        data=raw_body,
+                        headers=request_headers,
+                        cookies=test_cookies,
+                        timeout=10,
+                    ).status_code
+                )
+            except BaseException as error:  # pragma: no cover - asserted below
+                failures.append(error)
+
+        with self.allow_requests():
+            test_cookies = self.opener.cookies.get_dict()
+            first_thread = threading.Thread(target=post_delivery, args=(test_cookies,))
+            replay_thread = threading.Thread(target=post_delivery, args=(test_cookies,))
+            first_thread.start()
+            replay_thread.start()
+            first_thread.join(10)
+            replay_thread.join(10)
+
+        self.assertFalse(first_thread.is_alive())
+        self.assertFalse(replay_thread.is_alive())
+        self.assertFalse(failures, failures)
+        self.assertEqual(statuses, [202, 202])
+        self.assertEqual(self._delivery_count(), 1)
+
     def test_invalid_unknown_and_inactive_repositories_are_rejected(self):
         invalid = self._post(self._payload(), secret="wrong-secret")
         unknown = self._post(self._payload("9999"), delivery_id="delivery-unknown")
@@ -146,6 +195,22 @@ class TestGitHubWebhook(HttpCase):
         )
 
         self.assertEqual((malformed.status_code, unsupported.status_code, oversized.status_code), (400, 415, 413))
+        self.assertEqual(self._delivery_count(), 0)
+
+    def test_missing_signature_is_rejected_without_creating_a_delivery(self):
+        raw_body = json.dumps(self._payload(), separators=(",", ":")).encode()
+
+        response = self.url_open(
+            self.route,
+            data=raw_body,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "push",
+                "X-GitHub-Delivery": "delivery-missing-signature",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(self._delivery_count(), 0)
 
     def test_redacted_excerpt_never_retains_credential_shaped_payload_values(self):

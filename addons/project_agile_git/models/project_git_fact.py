@@ -1,6 +1,6 @@
 """Provider-neutral Git facts; provider ingress and workflow policy stay separate."""
 
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
@@ -42,6 +42,16 @@ def _parse_https_url(value, label):
     return parsed
 
 
+def _has_unsafe_url_path_component(path):
+    """Return whether a URL path contains a literal or encoded traversal component."""
+
+    for component in path.split("/"):
+        decoded = unquote(component)
+        if decoded in {".", ".."} or "/" in decoded or "\\" in decoded:
+            return True
+    return False
+
+
 def _validate_repository_url(provider, canonical_url):
     """Validate the provider-owned canonical repository URL used for all fact links."""
 
@@ -52,6 +62,7 @@ def _validate_repository_url(provider, canonical_url):
         not expected_host
         or parsed.hostname.lower() != expected_host
         or len(path_parts) < 2
+        or _has_unsafe_url_path_component(parsed.path)
     ):
         raise ValidationError(
             _("The canonical repository URL must use the supported host for its provider.")
@@ -69,7 +80,7 @@ def _validate_fact_url(repository, value):
     root_path = canonical.path.rstrip("/")
     if parsed.hostname.lower() != canonical.hostname.lower() or not (
         parsed.path == root_path or parsed.path.startswith(root_path + "/")
-    ):
+    ) or _has_unsafe_url_path_component(parsed.path):
         raise ValidationError(_("The fact URL must stay within its configured repository."))
 
 

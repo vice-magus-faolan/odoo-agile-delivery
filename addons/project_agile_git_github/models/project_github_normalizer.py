@@ -4,7 +4,7 @@ import json
 import re
 import secrets
 from datetime import datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from psycopg2 import IntegrityError
 from psycopg2.errors import SerializationFailure
@@ -90,6 +90,17 @@ def _github_state(status, conclusion):
         "skipped": "neutral",
         "neutral": "neutral",
     }.get(conclusion, "unknown")
+
+
+def _github_branch_name(value):
+    """Return a URL-safe GitHub branch name or reject traversal aliases."""
+
+    name = _text(value)
+    for component in name.split("/"):
+        decoded = unquote(component)
+        if decoded in {".", ".."} or "/" in decoded or "\\" in decoded:
+            raise GitHubPayloadError("The GitHub branch ref is unsafe.")
+    return name
 
 
 def _github_fact_url(repository, path, identifier, preserve_slashes=False):
@@ -304,7 +315,7 @@ class ProjectGitDelivery(models.Model):
         ref = _text(payload.get("ref"))
         if not ref.startswith("refs/heads/") or len(ref) == len("refs/heads/"):
             raise GitHubPayloadError("The GitHub push ref is not a branch ref.")
-        branch_name = ref.removeprefix("refs/heads/")
+        branch_name = _github_branch_name(ref.removeprefix("refs/heads/"))
         head_sha = _text(payload.get("after"), 128)
         head_commit = payload.get("head_commit", {})
         if not isinstance(head_commit, dict):
@@ -335,8 +346,8 @@ class ProjectGitDelivery(models.Model):
         base = pull_request.get("base")
         if not isinstance(head, dict) or not isinstance(base, dict):
             raise GitHubPayloadError("The GitHub pull request branches are malformed.")
-        source_branch = _text(head.get("ref"))
-        target_branch = _text(base.get("ref"))
+        source_branch = _github_branch_name(head.get("ref"))
+        target_branch = _github_branch_name(base.get("ref"))
         head_sha = _text(head.get("sha"), 128)
         state = "merged" if pull_request.get("merged") else _text(pull_request.get("state"), 32)
         if state not in {"open", "closed", "merged", "draft"}:

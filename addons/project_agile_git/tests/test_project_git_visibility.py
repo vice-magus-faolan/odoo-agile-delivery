@@ -102,6 +102,60 @@ class TestProjectGitVisibility(TransactionCase):
             action = getattr(self.task, action_name)()
             self.assertEqual(self.env[model_name].search(action["domain"]), expected)
 
+    def test_task_fact_action_excludes_crossed_repository_provider_pairs(self):
+        """A task action must select its exact associations, not a Cartesian product."""
+
+        paired_repository = self.env["project.git.repository"].create(
+            {
+                "name": "paired visibility",
+                "provider": "github",
+                "provider_repository_id": "visibility-2",
+                "canonical_url": "https://github.com/acme/paired-visibility",
+                "project_id": self.project.id,
+            }
+        )
+        paired_branch = self.env["project.git.branch"].create(
+            {
+                "repository_id": paired_repository.id,
+                "provider_branch_id": "refs/heads/key-B",
+                "name": "key-B",
+                "url": "https://github.com/acme/paired-visibility/tree/key-B",
+            }
+        )
+        other_task = self.env["project.task"].create(
+            {"name": "Other task", "project_id": self.project.id}
+        )
+        crossed_branch = self.env["project.git.branch"].create(
+            {
+                "repository_id": self.repository.id,
+                "provider_branch_id": paired_branch.provider_branch_id,
+                "name": "crossed",
+                "url": "https://github.com/acme/visibility/tree/crossed",
+            }
+        )
+        self.env["project.git.task.association"].create(
+            {
+                "repository_id": paired_repository.id,
+                "task_id": self.task.id,
+                "source_type": "branch",
+                "source_provider_id": paired_branch.provider_branch_id,
+            }
+        )
+        self.env["project.git.task.association"].create(
+            {
+                "repository_id": self.repository.id,
+                "task_id": other_task.id,
+                "source_type": "branch",
+                "source_provider_id": crossed_branch.provider_branch_id,
+            }
+        )
+
+        action = self.task.action_open_git_branches()
+        branches = self.env["project.git.branch"].search(action["domain"])
+
+        self.assertEqual(branches, self.branch | paired_branch)
+        self.assertNotIn(crossed_branch, branches)
+
     def test_external_urls_must_stay_under_the_validated_repository(self):
         with self.assertRaises(ValidationError):
             self.env["project.git.repository"].create(
@@ -115,6 +169,20 @@ class TestProjectGitVisibility(TransactionCase):
             )
         with self.assertRaises(ValidationError):
             self.branch.write({"url": "https://github.com/other/repository/tree/VIS-1"})
+
+    def test_external_url_validation_rejects_repository_path_traversal(self):
+        """Canonical repositories must not accept dot-segment escape paths."""
+
+        with self.assertRaises(ValidationError):
+            self.env["project.git.repository"].create(
+                {
+                    "name": "traversal repository",
+                    "provider": "github",
+                    "provider_repository_id": "traversal-1",
+                    "canonical_url": "https://github.com/acme/visibility/../other",
+                    "project_id": self.project.id,
+                }
+            )
 
     def test_ordinary_user_cannot_count_or_select_private_or_other_company_facts(self):
         reader = mail_new_test_user(

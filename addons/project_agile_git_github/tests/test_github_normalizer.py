@@ -435,6 +435,19 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual((second_audit.outcome, second_audit.reason), ("associated", "exact_key"))
         self.assertFalse(leaked_second_audit)
 
+    def test_push_ref_path_traversal_dead_letters_without_branch_creation(self):
+        """A signed ref must not escape the configured repository URL path."""
+
+        payload = self._push("t" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key)
+        payload["ref"] = "refs/heads/../../other-owner/other-repository"
+        delivery = self._delivery("push", payload, "traversal-ref")
+
+        self._process(delivery)
+
+        self.assertEqual(delivery.state, "failed")
+        self.assertIn("branch ref", delivery.error_summary)
+        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
+
     def test_out_of_order_push_does_not_regress_a_newer_branch_head(self):
         newer = self._delivery(
             "push", self._push("c" * 40, "2026-01-03T03:04:05Z", "NRM-1 newest"), "newer"

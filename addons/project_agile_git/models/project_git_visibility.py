@@ -100,11 +100,23 @@ class ProjectTask(models.Model):
             [("task_id", "=", self.id), ("source_type", "=", source_type)],
             ["repository_id", "source_provider_id"],
         )
+        association_pairs = sorted(
+            {
+                (association.repository_id.id, association.source_provider_id)
+                for association in associations
+            }
+        )
+        domain = ["|"] * (len(association_pairs) - 1)
+        for repository_id, source_provider_id in association_pairs:
+            domain.extend(
+                [
+                    "&",
+                    ("repository_id", "=", repository_id),
+                    (provider_field, "=", source_provider_id),
+                ]
+            )
         action = self.env["ir.actions.actions"]._for_xml_id(action_xml_id)
-        action["domain"] = [
-            ("repository_id", "in", associations.repository_id.ids),
-            (provider_field, "in", associations.mapped("source_provider_id")),
-        ]
+        action["domain"] = domain or [("id", "=", False)]
         return action
 
     def action_open_git_branches(self):

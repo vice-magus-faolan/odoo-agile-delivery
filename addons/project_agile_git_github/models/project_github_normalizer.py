@@ -6,6 +6,7 @@ import secrets
 from datetime import datetime, timezone
 
 from psycopg2 import IntegrityError
+from psycopg2.errors import SerializationFailure
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
@@ -103,37 +104,41 @@ class ProjectGitDelivery(models.Model):
             ["provider", "state", "next_retry_at", "lease_expires_at", "received_at"]
         )
         lease_token = secrets.token_urlsafe(24)
-        self.env.cr.execute(
-            SQL(
-                """
-                WITH candidate AS (
-                    SELECT id
-                      FROM project_git_delivery
-                     WHERE provider = 'github'
-                       AND (
-                            (state IN ('queued', 'retryable')
-                             AND (next_retry_at IS NULL OR next_retry_at <= NOW()))
-                            OR (state = 'processing' AND lease_expires_at <= NOW())
-                       )
-                     ORDER BY received_at, id
-                     LIMIT 1
-                     FOR UPDATE SKIP LOCKED
+        try:
+            with self.env.cr.savepoint():
+                self.env.cr.execute(
+                    SQL(
+                        """
+                        WITH candidate AS (
+                            SELECT id
+                              FROM project_git_delivery
+                             WHERE provider = 'github'
+                               AND (
+                                    (state IN ('queued', 'retryable')
+                                     AND (next_retry_at IS NULL OR next_retry_at <= NOW()))
+                                    OR (state = 'processing' AND lease_expires_at <= NOW())
+                               )
+                             ORDER BY received_at, id
+                             LIMIT 1
+                             FOR UPDATE SKIP LOCKED
+                        )
+                        UPDATE project_git_delivery AS delivery
+                           SET state = 'processing',
+                               lease_token = %s,
+                               lease_expires_at = NOW() + (%s * INTERVAL '1 second'),
+                               attempt_count = delivery.attempt_count + 1,
+                               next_retry_at = NULL
+                          FROM candidate
+                         WHERE delivery.id = candidate.id
+                        RETURNING delivery.id
+                        """,
+                        lease_token,
+                        LEASE_SECONDS,
+                    )
                 )
-                UPDATE project_git_delivery AS delivery
-                   SET state = 'processing',
-                       lease_token = %s,
-                       lease_expires_at = NOW() + (%s * INTERVAL '1 second'),
-                       attempt_count = delivery.attempt_count + 1,
-                       next_retry_at = NULL
-                  FROM candidate
-                 WHERE delivery.id = candidate.id
-                RETURNING delivery.id
-                """,
-                lease_token,
-                LEASE_SECONDS,
-            )
-        )
-        row = self.env.cr.fetchone()
+                row = self.env.cr.fetchone()
+        except SerializationFailure:
+            return self.browse()
         if not row:
             return self.browse()
         delivery = self.sudo().browse(row[0])
@@ -235,10 +240,10 @@ class ProjectGitDelivery(models.Model):
 
         if not self.env.user.has_group("project.group_project_manager"):
             raise AccessError(_("Only Project Managers can reprocess GitHub deliveries."))
-        self.check_access_rule("read")
+        self.check_access("read")
         for delivery in self:
-            if delivery.provider != "github" or delivery.state not in {"failed", "discarded", "retryable"}:
-                raise ValidationError(_("Only failed GitHub deliveries can be reprocessed."))
+            if delivery.provider != "github" or delivery.state not in {"failed", "discarded"}:
+                raise ValidationError(_("Only terminal GitHub deliveries can be reprocessed."))
         self.sudo().write(
             {
                 "state": "queued",
@@ -511,7 +516,12 @@ class ProjectGitDelivery(models.Model):
     def _associate_agile_key(self, source_type, source_provider_id, source_field, agile_key):
         """Resolve a key only inside the repository project and record the outcome."""
 
-        task_model = self.env["project.task"].sudo().with_company(self.repository_id.company_id)
+        task_model = (
+            self.env["project.task"]
+            .sudo()
+            .with_company(self.repository_id.company_id)
+            .with_context(active_test=False)
+        )
         project_tasks = task_model.search(
             [("project_id", "=", self.repository_id.project_id.id), ("agile_key", "=", agile_key)]
         )

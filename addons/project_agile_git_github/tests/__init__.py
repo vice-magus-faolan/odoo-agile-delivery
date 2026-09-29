@@ -1,3 +1,4 @@
 from . import test_github_ingress_security
 from . import test_github_normalizer
+from . import test_github_retention
 from . import test_github_webhook

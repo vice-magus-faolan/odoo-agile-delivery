@@ -270,6 +270,8 @@ class ProjectGitDelivery(models.Model):
         for delivery in self:
             if delivery.provider != "github" or delivery.state not in {"failed", "discarded"}:
                 raise ValidationError(_("Only terminal GitHub deliveries can be reprocessed."))
+            if not delivery.sudo().retained_payload:
+                raise ValidationError(_("This GitHub delivery has no retained payload to reprocess."))
         self.sudo().write(
             {
                 "state": "queued",

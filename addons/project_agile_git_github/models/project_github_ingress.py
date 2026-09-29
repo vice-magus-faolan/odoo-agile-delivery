@@ -79,12 +79,12 @@ class ProjectGitRepository(models.Model):
 
     @api.model
     def _redacted_github_payload_excerpt(self, payload):
-        """Serialize one bounded redacted payload excerpt without preserving raw bytes."""
+        """Return one valid bounded redacted payload, or no payload when it cannot fit safely."""
 
         excerpt = json.dumps(
             _redact_payload_value(payload), ensure_ascii=True, separators=(",", ":")
         )
-        return excerpt[:MAX_RETAINED_PAYLOAD_CHARS]
+        return excerpt if len(excerpt) <= MAX_RETAINED_PAYLOAD_CHARS else False
 
 
 class ProjectGitDelivery(models.Model):
@@ -101,27 +101,32 @@ class ProjectGitDelivery(models.Model):
         payload_sha256,
         payload_size,
         retained_payload=None,
+        retention_error=None,
     ):
         """Persist one authenticated delivery without normalizing or mutating workflow state.
 
         Elevation is deliberately after the controller's HMAC check. It only lets
         the server create its protected ledger record; it is never used to grant
-        an HTTP caller access or decide whether that caller is authorized.
+        an HTTP caller access or decide whether that caller is authorized. A
+        valid but non-retainable excerpt is terminal so the worker cannot retry
+        indefinitely after privacy-safe truncation rejected its raw payload.
         """
 
         values = {
             "repository_id": repository_id,
             "provider_delivery_id": provider_delivery_id,
-            "state": "queued",
+            "state": "failed" if retention_error else "queued",
             "event_type": event_type,
             "payload_sha256": payload_sha256,
             "payload_size": payload_size,
             "retained_payload": retained_payload,
             "retained_until": (
                 fields.Datetime.add(fields.Datetime.now(), days=RETAINED_PAYLOAD_DAYS)
-                if retained_payload is not None
+                if retained_payload
                 else False
             ),
+            "error_summary": retention_error,
+            "last_error_at": fields.Datetime.now() if retention_error else False,
         }
         try:
             with self.env.cr.savepoint():

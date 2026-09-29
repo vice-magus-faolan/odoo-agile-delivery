@@ -10,5 +10,14 @@
             <field name="interval_type">minutes</field>
             <field name="active">True</field>
         </record>
+        <record id="ir_cron_project_github_delivery_retention" model="ir.cron">
+            <field name="name">Purge Expired Agile GitHub Payload Excerpts</field>
+            <field name="model_id" ref="project_agile_git.model_project_git_delivery"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_purge_expired_github_payloads()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
     </data>
 </odoo>

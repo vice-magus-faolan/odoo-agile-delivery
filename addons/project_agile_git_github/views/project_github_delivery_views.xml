@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_git_delivery_form_github_retention" model="ir.ui.view">
+        <field name="name">project.git.delivery.form.github.retention</field>
+        <field name="model">project.git.delivery</field>
+        <field name="inherit_id" ref="project_agile_git.view_project_git_delivery_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet" position="before">
+                <header>
+                    <button name="action_reprocess_github_delivery" type="object" string="Reprocess"
+                        class="btn-primary" invisible="state not in ['failed', 'discarded']"
+                        groups="project.group_project_manager"/>
+                </header>
+            </xpath>
+            <xpath expr="//field[@name='retained_until']" position="after">
+                <field name="retained_payload_purged_at"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

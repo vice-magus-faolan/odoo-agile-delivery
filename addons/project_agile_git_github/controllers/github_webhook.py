@@ -14,6 +14,7 @@ MAX_BODY_BYTES = 256 * 1024
 MAX_DELIVERY_ID_LENGTH = 128
 MAX_EVENT_TYPE_LENGTH = 100
 _SIGNATURE_PATTERN = re.compile(r"sha256=[0-9a-f]{64}")
+_RETENTION_LIMIT_ERROR = "The signed payload exceeds the safe retained excerpt limit."
 
 
 def _response(status):
@@ -101,8 +102,11 @@ class GitHubWebhookController(http.Controller):
             return _response(401)
 
         retained_payload = None
+        retention_error = None
         if ingress["retention_policy"] == "redacted_excerpt":
             retained_payload = repository_model._redacted_github_payload_excerpt(payload)
+            if not retained_payload:
+                retention_error = _RETENTION_LIMIT_ERROR
         request.env["project.git.delivery"]._record_authenticated_github_delivery(
             repository_id=ingress["id"],
             provider_delivery_id=provider_delivery_id,
@@ -110,5 +114,6 @@ class GitHubWebhookController(http.Controller):
             payload_sha256=hashlib.sha256(raw_body).hexdigest(),
             payload_size=len(raw_body),
             retained_payload=retained_payload,
+            retention_error=retention_error,
         )
         return _response(202)

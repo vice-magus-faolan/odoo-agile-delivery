@@ -95,10 +95,17 @@ disposable Odoo 19 databases:
   focused tests.
 
 The check starts only the Compose `db` service and uses transient
-`docker compose run --rm` Odoo containers. It drops only the three named
-disposable databases (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`,
-and `odoo_agile_verify_reinstall`), never removes Compose volumes, and does not
-touch unrelated services or databases.
+`docker compose run --rm` Odoo containers from a committed test-only verification image
+(`Dockerfile.verify` plus `compose.verify.yaml`). That image adds a pinned
+Google Chrome package and the pinned `websocket-client` package so the native Odoo HttpCase runs the
+`project_agile_ui` Hoot suite; it does not alter the normal development image or
+module dependencies. The Docker build context excludes `.env` and Git metadata.
+
+Before each lifecycle, the verifier touches only its three declared disposable databases
+(`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
+`odoo_agile_verify_reinstall`), terminates their resident sessions, and refuses
+any other database name. It never removes Compose volumes or touches unrelated
+services or databases.
 
 Run `./scripts/test_planning_concurrency.py` for the separate real-connection
 regression. It creates, tests, and removes only the task-named

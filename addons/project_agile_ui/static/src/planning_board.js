@@ -123,12 +123,20 @@ export class AgilePlanningBoard extends Component {
     applySnapshot(snapshot, cursor = false) {
         this.state.project = snapshot.project;
         this.state.sprints = snapshot.sprints;
-        this.state.backlog = cursor
-            ? {
-                  items: [...this.state.backlog.items, ...snapshot.backlog.items],
-                  next_cursor: snapshot.backlog.next_cursor,
-              }
-            : snapshot.backlog;
+        if (!cursor) {
+            this.state.backlog = snapshot.backlog;
+            return;
+        }
+        const backlogItems = new Map(
+            this.state.backlog.items.map((item) => [item.id, item])
+        );
+        for (const item of snapshot.backlog.items) {
+            backlogItems.set(item.id, item);
+        }
+        this.state.backlog = {
+            items: [...backlogItems.values()],
+            next_cursor: snapshot.backlog.next_cursor,
+        };
     }
 
     async changePlanning(task, operation, options = {}) {

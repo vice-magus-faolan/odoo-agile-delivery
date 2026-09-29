@@ -1,0 +1,6 @@
+services:
+  odoo:
+    build:
+      context: .
+      dockerfile: Dockerfile.verify
+    image: odoo-agile-delivery-verify:local

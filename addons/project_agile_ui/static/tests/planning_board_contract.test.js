@@ -356,6 +356,7 @@ test("project_agile_ui retries a failed backlog page with its original cursor", 
     await component.retry();
 
     expect(calls.at(-1)).toEqual(["project.project", "get_agile_planning_snapshot", [42, cursor]]);
+    expect(component.state.backlog.items).toEqual(snapshot.backlog.items);
 });
 
 test("project_agile_ui reloads a stale incremental cursor before merging rows", async () => {

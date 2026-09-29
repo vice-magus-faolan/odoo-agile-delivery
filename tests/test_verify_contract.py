@@ -23,7 +23,28 @@ class TestVerifyContract(unittest.TestCase):
         self.assertIn("uninstall_module project_scrum", verify_script)
         self.assertIn("uninstall_module project_agile", verify_script)
         self.assertNotIn("dropdb -U odoo --if-exists --force", verify_script)
+        self.assertIn("VERIFICATION_DATABASES", verify_script)
+        self.assertIn("pg_terminate_backend", verify_script)
+        self.assertIn("compose.verify.yaml", verify_script)
+        self.assertIn(
+            "FROM odoo:19.0",
+            (root / "Dockerfile.verify").read_text(),
+        )
+        self.assertIn(
+            "websocket-client==1.8.0",
+            (root / "Dockerfile.verify").read_text(),
+        )
+        self.assertIn(
+            "google-chrome-stable_154.0.8037.57-1_amd64.deb",
+            (root / "Dockerfile.verify").read_text(),
+        )
+        self.assertIn(
+            "66c0645f6a19871bab2844b8537c11a0db2e7d3bea8ef85a1c7cb52a54e65a3e",
+            (root / "Dockerfile.verify").read_text(),
+        )
         self.assertIn("Milestone 5 planning-board verification boundary", readme)
+        self.assertIn("test-only verification image", readme)
+        self.assertIn("only its three declared disposable databases", readme)
         self.assertNotIn("Milestone 3 verification boundary", readme)
         self.assertIn("Milestone 5 planning-board verification passed.", verify_script)
 

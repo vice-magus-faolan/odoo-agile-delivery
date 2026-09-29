@@ -1,0 +1,16 @@
+FROM odoo:19.0
+
+USER root
+
+ARG GOOGLE_CHROME_DEB_SHA256=66c0645f6a19871bab2844b8537c11a0db2e7d3bea8ef85a1c7cb52a54e65a3e
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates wget \
+    && wget --output-document=/tmp/google-chrome-stable.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_154.0.8037.57-1_amd64.deb \
+    && echo "$GOOGLE_CHROME_DEB_SHA256  /tmp/google-chrome-stable.deb" | sha256sum --check --status \
+    && apt-get install --no-install-recommends -y /tmp/google-chrome-stable.deb \
+    && truncate --size 0 /tmp/google-chrome-stable.deb \
+    && python3 -m pip install --no-cache-dir --break-system-packages websocket-client==1.8.0 \
+    && apt-get clean
+
+USER odoo

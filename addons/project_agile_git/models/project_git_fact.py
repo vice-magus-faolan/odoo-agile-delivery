@@ -280,3 +280,6 @@ class ProjectGitTaskAssociation(models.Model):
         if immutable_fields.intersection(values):
             raise ValidationError(_("An Agile key association is immutable."))
         return super().write(values)
+
+    def unlink(self):
+        raise ValidationError(_("An Agile key association is immutable."))

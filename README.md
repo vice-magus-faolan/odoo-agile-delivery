@@ -98,6 +98,10 @@ disposable Odoo 19 databases:
 - install, dependency-safe ORM uninstall in reverse order, then reinstall with
   focused tests.
 
+The verifier defaults to a deterministic, worktree-local Compose namespace
+(`odoo-agile-verify-<worktree>`), avoiding the normal development namespace and
+removing only that disposable namespace and its volumes on exit. An explicitly
+provided `COMPOSE_PROJECT_NAME` is respected and never cleaned automatically.
 The check starts only the Compose `db` service and uses transient
 `docker compose run --rm` Odoo containers from a committed test-only verification image
 (`Dockerfile.verify` plus `compose.verify.yaml`). That image adds a pinned
@@ -108,8 +112,9 @@ module dependencies. The Docker build context excludes `.env` and Git metadata.
 Before each lifecycle, the verifier touches only its three declared disposable databases
 (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
 `odoo_agile_verify_reinstall`), terminates their resident sessions, and refuses
-any other database name. It never removes Compose volumes or touches unrelated
-services or databases.
+any other database name. Default cleanup removes only its worktree-local disposable
+namespace; it never touches unrelated services, databases, volumes, or an explicitly
+selected Compose project.
 
 Run `./scripts/test_planning_concurrency.py` for the separate real-connection
 regression. It creates, tests, and removes only the task-named

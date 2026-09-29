@@ -2,6 +2,14 @@
 set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
+WORKTREE_NAMESPACE=$(printf '%s' "$(basename "$ROOT")" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-')
+DEFAULT_COMPOSE_PROJECT_NAME="odoo-agile-verify-${WORKTREE_NAMESPACE%-}"
+COMPOSE_PROJECT_NAME_WAS_SET=false
+if [[ -v COMPOSE_PROJECT_NAME ]]; then
+    COMPOSE_PROJECT_NAME_WAS_SET=true
+fi
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$DEFAULT_COMPOSE_PROJECT_NAME}"
+export COMPOSE_PROJECT_NAME
 COMPOSE=(docker compose -f compose.yaml -f compose.verify.yaml)
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
@@ -9,6 +17,16 @@ DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
 MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git
 TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git
+
+cleanup_verification_resources() {
+    if [[ $COMPOSE_PROJECT_NAME_WAS_SET == false ]]; then
+        "${COMPOSE[@]}" down --volumes --remove-orphans
+    else
+        printf "Preserving explicitly selected Compose project: %s\\n" "$COMPOSE_PROJECT_NAME" >&2
+    fi
+}
+
+trap cleanup_verification_resources EXIT
 
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"

@@ -73,3 +73,5 @@ class TestProjectGitFact(TransactionCase):
         self.assertEqual(association.agile_key, self.task.agile_key)
         with self.assertRaises(ValidationError):
             association.write({"source_provider_id": "100"})
+        with self.assertRaises(ValidationError):
+            association.unlink()

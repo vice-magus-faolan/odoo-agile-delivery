@@ -1,6 +1,6 @@
 {
     "name": "Agile Planning UI",
-    "summary": "Optional Odoo frontend for the read-only Agile planning workspace",
+    "summary": "Optional Odoo frontend for authoritative Agile planning",
     "version": "19.0.1.0.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",

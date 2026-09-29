@@ -7,6 +7,7 @@ import { standardActionServiceProps } from "@web/webclient/actions/action_servic
 import { Component, onWillStart, onWillUnmount, useState } from "@odoo/owl";
 
 export const PLANNING_ACTION_TAG = "project_agile_ui.planning";
+const DRAG_DATA_TYPE = "text/plain";
 
 function emptyState() {
     return {
@@ -19,6 +20,7 @@ function emptyState() {
         status: _t("Loading Sprint Planning"),
         assignmentTargets: {},
         mutating: false,
+        draggedTaskId: false,
     };
 }
 
@@ -119,7 +121,9 @@ export class AgilePlanningBoard extends Component {
             this.state.status = _t("Sprint Planning updated");
         } catch {
             await this.load();
-            this.state.error = _t("Planning change was rejected. The board was refreshed; retry from current data or use the standard views.");
+            this.state.error = _t(
+                "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
+            );
             this.state.status = this.state.error;
         } finally {
             this.state.mutating = false;
@@ -153,6 +157,86 @@ export class AgilePlanningBoard extends Component {
             return;
         }
         return this.changePlanning(task, "reorder", { beforeTask });
+    }
+
+    prepareDrag(task) {
+        if (!this.state.mutating) {
+            this.state.draggedTaskId = task.id;
+        }
+    }
+
+    startDrag(task, event) {
+        this.prepareDrag(task);
+        if (this.state.mutating || !event.dataTransfer) {
+            return;
+        }
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData(DRAG_DATA_TYPE, String(task.id));
+    }
+
+    endDrag() {
+        this.state.draggedTaskId = false;
+    }
+
+    allowPlanningDrop(event) {
+        if (this.state.mutating) {
+            return;
+        }
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "move";
+        }
+    }
+
+    draggedPlanningTask(event) {
+        const transferredTaskId = event.dataTransfer?.getData(DRAG_DATA_TYPE);
+        const taskId = Number(transferredTaskId || this.state.draggedTaskId);
+        if (!Number.isInteger(taskId) || taskId <= 0) {
+            return false;
+        }
+        const backlogTask = this.state.backlog.items.find((task) => task.id === taskId);
+        if (backlogTask) {
+            return { task: backlogTask, sprint: false };
+        }
+        for (const sprint of this.state.sprints) {
+            const sprintTask = sprint.items.find((task) => task.id === taskId);
+            if (sprintTask) {
+                return { task: sprintTask, sprint };
+            }
+        }
+        return false;
+    }
+
+    dropOnSprint(sprint, event) {
+        event.preventDefault();
+        if (this.state.mutating || sprint.state !== "draft") {
+            this.endDrag();
+            return;
+        }
+        const dragged = this.draggedPlanningTask(event);
+        this.endDrag();
+        if (!dragged || dragged.sprint) {
+            return;
+        }
+        return this.changePlanning(dragged.task, "assign", { sprint });
+    }
+
+    dropOnBacklog(beforeTask, event) {
+        event.preventDefault();
+        event.stopPropagation?.();
+        if (this.state.mutating) {
+            this.endDrag();
+            return;
+        }
+        const dragged = this.draggedPlanningTask(event);
+        this.endDrag();
+        if (!dragged || dragged.task.id === beforeTask?.id) {
+            return;
+        }
+        if (dragged.sprint) {
+            return this.changePlanning(dragged.task, "return", { sprint: dragged.sprint });
+        }
+        return this.changePlanning(dragged.task, "reorder", { beforeTask });
     }
 
     retry() {

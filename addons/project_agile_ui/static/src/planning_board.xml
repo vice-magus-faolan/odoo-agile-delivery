@@ -35,7 +35,9 @@
                 <section class="o_agile_planning_board__region" aria-labelledby="agile-planning-sprints">
                     <h2 id="agile-planning-sprints">Sprints</h2>
                     <p t-if="!state.sprints.length">No visible draft or active Sprints.</p>
-                    <div t-foreach="state.sprints" t-as="sprint" t-key="sprint.id" class="card o_agile_planning_board__sprint">
+                    <div t-foreach="state.sprints" t-as="sprint" t-key="sprint.id" class="card o_agile_planning_board__sprint"
+                        t-att-class="sprint.state === 'draft' ? 'o_agile_planning_board__draft-sprint-dropzone' : ''"
+                        t-on-dragover="allowPlanningDrop" t-on-drop="(event) => this.dropOnSprint(sprint, event)">
                         <div class="card-body">
                             <button type="button" class="btn btn-link p-0" t-on-click="() => this.openSprint(sprint)">
                                 <strong t-esc="sprint.name"/>
@@ -47,7 +49,9 @@
                                 Committed: <span t-esc="sprint.committed_points"/> points
                             </p>
                             <ul t-if="sprint.items.length" class="list-group list-group-flush">
-                                <li t-foreach="sprint.items" t-as="task" t-key="task.id" class="list-group-item">
+                                <li t-foreach="sprint.items" t-as="task" t-key="task.id" class="list-group-item o_agile_planning_board__sprint-task"
+                                    draggable="true" t-on-pointerdown="() => this.prepareDrag(task)"
+                                    t-on-dragstart="(event) => this.startDrag(task, event)" t-on-dragend="endDrag">
                                     <span t-esc="task.agile_key"/> · <span t-esc="task.name"/>
                                     <button type="button" class="btn btn-link" t-att-disabled="state.mutating"
                                         t-on-click="() => this.returnTask(task, sprint)">
@@ -59,11 +63,17 @@
                     </div>
                 </section>
 
-                <section class="o_agile_planning_board__region" aria-labelledby="agile-planning-backlog">
+                <section class="o_agile_planning_board__region o_agile_planning_board__backlog-dropzone"
+                    aria-labelledby="agile-planning-backlog" t-on-dragover="allowPlanningDrop"
+                    t-on-drop="(event) => this.dropOnBacklog(false, event)">
                     <h2 id="agile-planning-backlog">Product Backlog</h2>
                     <p t-if="!state.backlog.items.length">No visible unscheduled Product Backlog items.</p>
                     <ol t-if="state.backlog.items.length" class="list-group list-group-numbered">
-                        <li t-foreach="state.backlog.items" t-as="task" t-key="task.id" class="list-group-item">
+                        <li t-foreach="state.backlog.items" t-as="task" t-key="task.id"
+                            class="list-group-item o_agile_planning_board__backlog-task" draggable="true"
+                            t-on-pointerdown="() => this.prepareDrag(task)"
+                            t-on-dragstart="(event) => this.startDrag(task, event)" t-on-dragend="endDrag"
+                            t-on-dragover="allowPlanningDrop" t-on-drop="(event) => this.dropOnBacklog(task, event)">
                             <button type="button" class="btn btn-link p-0" t-on-click="() => this.openTask(task)">
                                 <span t-esc="task.agile_key"/> · <span t-esc="task.name"/>
                             </button>

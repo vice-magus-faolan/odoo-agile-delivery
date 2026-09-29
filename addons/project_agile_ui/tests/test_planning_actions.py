@@ -66,10 +66,18 @@ class TestProjectAgilePlanningActions(TransactionCase):
             expected_versions=versions or {},
         )
 
+    @staticmethod
+    def _backlog_item(snapshot, task):
+        return next(item for item in snapshot["backlog"]["items"] if item["id"] == task.id)
+
+    @staticmethod
+    def _sprint_item(snapshot, sprint):
+        return next(item for item in snapshot["sprints"] if item["id"] == sprint.id)
+
     def test_assigns_current_backlog_items_to_a_compatible_draft_sprint(self):
         snapshot = self._snapshot()
-        task = next(item for item in snapshot["backlog"]["items"] if item["id"] == self.first_task.id)
-        sprint = next(item for item in snapshot["sprints"] if item["id"] == self.sprint.id)
+        task = self._backlog_item(snapshot, self.first_task)
+        sprint = self._sprint_item(snapshot, self.sprint)
 
         updated = self._change(
             "assign",
@@ -79,15 +87,33 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
 
         self.assertEqual(self.first_task.sprint_id, self.sprint)
-        sprint_data = next(item for item in updated["sprints"] if item["id"] == self.sprint.id)
+        sprint_data = self._sprint_item(updated, self.sprint)
         self.assertEqual([item["id"] for item in sprint_data["items"]], [self.first_task.id])
         self.assertNotIn(self.first_task.id, [item["id"] for item in updated["backlog"]["items"]])
+
+    def test_assigns_multiple_current_backlog_items_atomically(self):
+        snapshot = self._snapshot()
+        versions = {
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
+            self.second_task.id: self._backlog_item(snapshot, self.second_task)["version"],
+            self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
+        }
+
+        self._change(
+            "assign",
+            [self.first_task.id, self.second_task.id],
+            sprint_id=self.sprint.id,
+            versions=versions,
+        )
+
+        self.assertEqual(self.first_task.sprint_id, self.sprint)
+        self.assertEqual(self.second_task.sprint_id, self.sprint)
 
     def test_rejects_active_sprint_assignment_without_partial_write(self):
         self.sprint.action_start()
         snapshot = self._snapshot()
-        task = next(item for item in snapshot["backlog"]["items"] if item["id"] == self.first_task.id)
-        sprint = next(item for item in snapshot["sprints"] if item["id"] == self.sprint.id)
+        task = self._backlog_item(snapshot, self.first_task)
+        sprint = self._sprint_item(snapshot, self.sprint)
 
         with self.assertRaises(ValidationError):
             self._change(
@@ -100,10 +126,40 @@ class TestProjectAgilePlanningActions(TransactionCase):
         self.assertFalse(self.first_task.sprint_id)
         self.assertFalse(self.sprint.scope_event_ids)
 
+    def test_rejects_multi_assignment_with_an_ineligible_item_without_partial_write(self):
+        ineligible_type = self.env["project.agile.item.type"].create(
+            {"name": "Interactive Chore", "code": "interactive_chore", "can_schedule_in_sprint": False}
+        )
+        ineligible_task = self.env["project.task"].create(
+            {
+                "name": "Ineligible Product Backlog item",
+                "project_id": self.project.id,
+                "agile_item_type_id": ineligible_type.id,
+            }
+        )
+        snapshot = self._snapshot()
+        versions = {
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
+            ineligible_task.id: self.env["project.project"]._agile_planning_record_version(ineligible_task),
+            self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
+        }
+
+        with self.assertRaises(ValidationError):
+            self._change(
+                "assign",
+                [self.first_task.id, ineligible_task.id],
+                sprint_id=self.sprint.id,
+                versions=versions,
+            )
+
+        self.assertFalse(self.first_task.sprint_id)
+        self.assertFalse(ineligible_task.sprint_id)
+        self.assertFalse(self.sprint.scope_event_ids)
+
     def test_rejects_stale_assignment_without_partial_write(self):
         snapshot = self._snapshot()
-        task = next(item for item in snapshot["backlog"]["items"] if item["id"] == self.first_task.id)
-        sprint = next(item for item in snapshot["sprints"] if item["id"] == self.sprint.id)
+        task = self._backlog_item(snapshot, self.first_task)
+        sprint = self._sprint_item(snapshot, self.sprint)
         self.first_task.write({"name": "Changed after snapshot"})
 
         with self.assertRaises(ValidationError):
@@ -116,10 +172,24 @@ class TestProjectAgilePlanningActions(TransactionCase):
 
         self.assertFalse(self.first_task.sprint_id)
 
+    def test_rejects_duplicate_assignment_retry_without_partial_state(self):
+        snapshot = self._snapshot()
+        versions = {
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
+            self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
+        }
+        self._change("assign", [self.first_task.id], sprint_id=self.sprint.id, versions=versions)
+
+        with self.assertRaises(ValidationError):
+            self._change("assign", [self.first_task.id], sprint_id=self.sprint.id, versions=versions)
+
+        self.assertEqual(self.first_task.sprint_id, self.sprint)
+        self.assertFalse(self.sprint.scope_event_ids)
+
     def test_reorders_the_current_backlog_under_server_preconditions(self):
         snapshot = self._snapshot()
-        first = next(item for item in snapshot["backlog"]["items"] if item["id"] == self.first_task.id)
-        second = next(item for item in snapshot["backlog"]["items"] if item["id"] == self.second_task.id)
+        first = self._backlog_item(snapshot, self.first_task)
+        second = self._backlog_item(snapshot, self.second_task)
 
         updated = self._change(
             "reorder",
@@ -133,6 +203,153 @@ class TestProjectAgilePlanningActions(TransactionCase):
             [self.second_task.id, self.first_task.id],
         )
         self.assertLess(self.second_task.agile_backlog_sequence, self.first_task.agile_backlog_sequence)
+
+    def test_rejects_a_stale_reorder_without_changing_the_current_order(self):
+        snapshot = self._snapshot()
+        first = self._backlog_item(snapshot, self.first_task)
+        second = self._backlog_item(snapshot, self.second_task)
+        self.first_task.write({"agile_backlog_sequence": 30})
+        original_sequences = {
+            self.first_task.id: self.first_task.agile_backlog_sequence,
+            self.second_task.id: self.second_task.agile_backlog_sequence,
+        }
+
+        with self.assertRaises(ValidationError):
+            self._change(
+                "reorder",
+                [self.second_task.id],
+                before_task_id=self.first_task.id,
+                versions={self.second_task.id: second["version"], self.first_task.id: first["version"]},
+            )
+
+        self.assertEqual(self.first_task.agile_backlog_sequence, original_sequences[self.first_task.id])
+        self.assertEqual(self.second_task.agile_backlog_sequence, original_sequences[self.second_task.id])
+
+    def test_active_sprint_return_appends_scope_history_through_the_shared_task_path(self):
+        self.first_task.assign_product_backlog_to_sprint(self.sprint)
+        self.sprint.action_start()
+        snapshot = self._snapshot()
+        task = next(
+            item
+            for item in self._sprint_item(snapshot, self.sprint)["items"]
+            if item["id"] == self.first_task.id
+        )
+        sprint = self._sprint_item(snapshot, self.sprint)
+        events_before = len(self.sprint.scope_event_ids)
+
+        self._change(
+            "return",
+            [self.first_task.id],
+            versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+        )
+
+        self.assertFalse(self.first_task.sprint_id)
+        self.assertEqual(len(self.sprint.scope_event_ids), events_before + 1)
+        self.assertEqual(self.sprint.scope_event_ids[-1].event_type, "removed")
+
+    def test_rejects_return_from_a_closed_sprint_without_erasing_history(self):
+        self.first_task.assign_product_backlog_to_sprint(self.sprint)
+        self.sprint._set_lifecycle_state("closed")
+        task_version = self.env["project.project"]._agile_planning_record_version(self.first_task)
+        sprint_version = self.env["project.project"]._agile_planning_record_version(self.sprint)
+
+        with self.assertRaises(ValidationError):
+            self._change(
+                "return",
+                [self.first_task.id],
+                versions={self.first_task.id: task_version, self.sprint.id: sprint_version},
+            )
+
+        self.assertEqual(self.first_task.sprint_id, self.sprint)
+        self.assertFalse(self.sprint.scope_event_ids)
+
+    def test_rejects_an_accessible_sprint_from_another_project_before_assignment(self):
+        other_project = self.env["project.project"].create(
+            {
+                "name": "Other Planning Project",
+                "privacy_visibility": "employees",
+                "company_id": self.env.company.id,
+                "agile_enabled": True,
+                "agile_key": "OTHER",
+            }
+        )
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Other Planning Team", "project_id": other_project.id}
+        )
+        other_sprint = self.env["project.sprint"].create(
+            {"name": "Other Sprint", "project_id": other_project.id, "team_id": other_team.id}
+        )
+        snapshot = self._snapshot()
+
+        with self.assertRaises(AccessError):
+            self._change(
+                "assign",
+                [self.first_task.id],
+                sprint_id=other_sprint.id,
+                versions={self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"]},
+            )
+
+        self.assertFalse(self.first_task.sprint_id)
+
+    def test_non_manager_with_enabled_multi_company_access_uses_current_company_scope(self):
+        other_company = self.env["res.company"].create({"name": "Planning Secondary Company"})
+        planner = mail_new_test_user(self.env, "Multi-company project user", groups="project.group_project_user")
+        planner.company_ids = [(6, 0, (self.env.company | other_company).ids)]
+        planner_env = self.env["project.project"].with_user(planner).with_context(
+            allowed_company_ids=(self.env.company | other_company).ids
+        )
+        snapshot = planner_env.get_agile_planning_snapshot(self.project.id)
+        task = self._backlog_item(snapshot, self.first_task)
+        sprint = self._sprint_item(snapshot, self.sprint)
+
+        updated = planner_env.apply_agile_planning_change(
+            self.project.id,
+            "assign",
+            [self.first_task.id],
+            sprint_id=self.sprint.id,
+            expected_versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+        )
+
+        self.assertNotIn(self.first_task.id, [item["id"] for item in updated["backlog"]["items"]])
+        self.assertEqual(self.first_task.sprint_id, self.sprint)
+
+    def test_rejects_an_inaccessible_project_before_disclosing_or_mutating_tasks(self):
+        private_project = self.env["project.project"].create(
+            {
+                "name": "Private Planning Project",
+                "privacy_visibility": "followers",
+                "company_id": self.env.company.id,
+                "agile_enabled": True,
+                "agile_key": "PRIVATE",
+            }
+        )
+        private_team = self.env["project.agile.team"].create(
+            {"name": "Private Planning Team", "project_id": private_project.id}
+        )
+        private_sprint = self.env["project.sprint"].create(
+            {"name": "Private Sprint", "project_id": private_project.id, "team_id": private_team.id}
+        )
+        private_task = self.env["project.task"].create(
+            {
+                "name": "Private backlog item",
+                "project_id": private_project.id,
+                "agile_item_type_id": self.eligible_type.id,
+            }
+        )
+        outsider = mail_new_test_user(
+            self.env, "Planning unauthorized outsider", groups="project.group_project_user"
+        )
+
+        with self.assertRaises(AccessError):
+            self.env["project.project"].with_user(outsider).apply_agile_planning_change(
+                private_project.id,
+                "assign",
+                [private_task.id],
+                sprint_id=private_sprint.id,
+                expected_versions={},
+            )
+
+        self.assertFalse(private_task.sprint_id)
 
     def test_rejects_unreadable_selected_tasks_before_any_mutation(self):
         other_company = self.env["res.company"].create({"name": "Unrelated Planning Company"})

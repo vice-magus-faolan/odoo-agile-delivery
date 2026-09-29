@@ -303,10 +303,10 @@ class ProjectGitDelivery(models.Model):
         for commit_data in commits:
             if not isinstance(commit_data, dict):
                 raise GitHubPayloadError("The GitHub push contains a malformed commit.")
-            commit = self._upsert_commit(commit_data)
-            self._associate_source_keys(
-                "commit", commit.sha, {"message": commit.message_excerpt or ""}
-            )
+            commit_sha = _text(commit_data.get("id"), 128)
+            commit_message = _text(commit_data.get("message"))
+            self._upsert_commit(commit_data)
+            self._associate_source_keys("commit", commit_sha, {"message": commit_message})
 
     def _normalize_github_pull_request(self, payload):
         """Normalize GitHub pull-request lifecycle observations and referenced branches."""

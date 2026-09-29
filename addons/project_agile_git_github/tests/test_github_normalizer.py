@@ -365,6 +365,71 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(len(delivery_audits), 2)
         self.assertFalse(leaked_audits)
 
+    def test_same_sha_push_deliveries_keep_own_commit_key_provenance(self):
+        sha = "r" * 40
+        first = self._delivery(
+            "push", self._push(sha, "2026-01-02T03:04:05Z", "NRM-1 first"), "commit-first"
+        )
+        second = self._delivery(
+            "push", self._push(sha, "2026-01-03T03:04:05Z", "NRM-2 second"), "commit-second"
+        )
+
+        self._process(first)
+        self._process(second)
+
+        commit = self.env["project.git.commit"].search(
+            [("repository_id", "=", self.repository.id), ("sha", "=", sha)]
+        )
+        first_association = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.first_task.id),
+                ("source_type", "=", "commit"),
+                ("source_provider_id", "=", sha),
+            ]
+        )
+        second_association = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.second_task.id),
+                ("source_type", "=", "commit"),
+                ("source_provider_id", "=", sha),
+            ]
+        )
+        first_audit = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "=", first.id),
+                ("source_type", "=", "commit"),
+                ("source_provider_id", "=", sha),
+                ("source_field", "=", "message"),
+                ("agile_key", "=", self.first_task.agile_key),
+            ]
+        )
+        second_audit = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "=", second.id),
+                ("source_type", "=", "commit"),
+                ("source_provider_id", "=", sha),
+                ("source_field", "=", "message"),
+                ("agile_key", "=", self.second_task.agile_key),
+            ]
+        )
+        leaked_second_audit = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "=", second.id),
+                ("source_type", "=", "commit"),
+                ("source_provider_id", "=", sha),
+                ("source_field", "=", "message"),
+                ("agile_key", "=", self.first_task.agile_key),
+            ]
+        )
+        self.assertEqual(commit.message_excerpt, "NRM-1 first")
+        self.assertEqual(first_association.agile_key, self.first_task.agile_key)
+        self.assertEqual(second_association.agile_key, self.second_task.agile_key)
+        self.assertEqual((first_audit.outcome, first_audit.reason), ("associated", "exact_key"))
+        self.assertEqual((second_audit.outcome, second_audit.reason), ("associated", "exact_key"))
+        self.assertFalse(leaked_second_audit)
+
     def test_out_of_order_push_does_not_regress_a_newer_branch_head(self):
         newer = self._delivery(
             "push", self._push("c" * 40, "2026-01-03T03:04:05Z", "NRM-1 newest"), "newer"

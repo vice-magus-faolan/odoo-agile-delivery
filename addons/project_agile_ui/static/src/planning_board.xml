@@ -23,9 +23,9 @@
             <p t-if="state.stale" class="alert alert-warning" role="status">
                 Showing stale data. Refresh to confirm current Sprint Planning information.
             </p>
-            <section t-if="state.error" class="alert alert-danger" role="alert">
+            <section t-if="state.error" class="alert alert-danger" role="alert" t-att-data-planning-state="state.failure || 'retryable'">
                 <p t-esc="state.error"/>
-                <button type="button" class="btn btn-secondary" t-on-click="retry">Retry</button>
+                <button t-if="state.failure !== 'permanent' and state.failure !== 'unauthorized'" type="button" class="btn btn-secondary" t-on-click="retry">Retry</button>
             </section>
             <section t-if="state.loading and !state.project" class="o_agile_planning_board__skeleton" aria-hidden="true">
                 <div/><div/><div/>

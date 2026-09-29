@@ -3,7 +3,7 @@
 from odoo import Command
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tests.common import TransactionCase
+from odoo.tests.common import TransactionCase, warmup
 
 
 class TestProjectAgilePlanningSnapshot(TransactionCase):
@@ -150,6 +150,25 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.assertFalse(second_page["backlog"]["next_cursor"])
         with self.assertRaises(ValidationError):
             self._snapshot({"id": True, "sequence": 10})
+
+    @warmup
+    def test_snapshot_keeps_the_documented_query_and_payload_budget(self):
+        """Bound representative reads so larger boards cannot become card-by-card queries."""
+        for index in range(3):
+            sprint = self._create_sprint(f"Budget Sprint {index}")
+            self._create_task(f"Sprint budget item {index}", sprint_id=sprint.id)
+        for index in range(50):
+            self._create_task(f"Backlog budget item {index}")
+
+        query_count = self.cr.sql_log_count
+        snapshot = self._snapshot()
+        query_count = self.cr.sql_log_count - query_count
+
+        self.assertLessEqual(query_count, 10)
+        self.assertEqual(len(snapshot["sprints"]), 3)
+        self.assertEqual(sum(len(sprint["items"]) for sprint in snapshot["sprints"]), 3)
+        self.assertEqual(len(snapshot["backlog"]["items"]), 50)
+        self.assertTrue(snapshot["backlog"]["next_cursor"])
 
     def test_planning_action_is_project_scoped_and_read_only(self):
         action = self.project.action_open_agile_planning()

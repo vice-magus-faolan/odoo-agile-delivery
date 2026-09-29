@@ -316,3 +316,59 @@ test("project_agile_ui renders separate empty Sprint and Product Backlog recover
         "Product Backlog\n\nNo visible unscheduled Product Backlog items."
     );
 });
+
+test("project_agile_ui distinguishes unauthorized and retryable loading failures", async () => {
+    await setupPlanningBoard({
+        call: async () => {
+            const error = new Error("forbidden");
+            error.data = { name: "odoo.exceptions.AccessError" };
+            throw error;
+        },
+    });
+
+    expect(".alert-danger").toHaveAttribute("data-planning-state", "unauthorized");
+    expect(".alert-danger p").toHaveText(
+        "Sprint Planning is unavailable for this project. Use an authorized project action or standard views."
+    );
+    expect(".alert-danger button").toHaveCount(0);
+});
+
+test("project_agile_ui retries a failed backlog page with its original cursor", async () => {
+    const cursor = { id: 11, sequence: 10 };
+    const calls = [];
+    let pageRequests = 0;
+    const component = await setupPlanningBoard({
+        call: async (...args) => {
+            calls.push(args);
+            if (args[1] !== "get_agile_planning_snapshot") {
+                return snapshot;
+            }
+            pageRequests += 1;
+            if (pageRequests === 2) {
+                throw new Error("network unavailable");
+            }
+            return snapshot;
+        },
+    });
+
+    await component.load(cursor);
+    expect(component.state.retryCursor).toEqual(cursor);
+    await component.retry();
+
+    expect(calls.at(-1)).toEqual(["project.project", "get_agile_planning_snapshot", [42, cursor]]);
+});
+
+test("project_agile_ui does not submit no-op keyboard reorders at backlog edges", async () => {
+    const calls = [];
+    const component = await setupPlanningBoard({
+        call: async (...args) => {
+            calls.push(args);
+            return snapshot;
+        },
+    });
+
+    await component.moveTask(snapshot.backlog.items[0], "up");
+    await component.moveTask(snapshot.backlog.items[0], "down");
+
+    expect(calls).toEqual([["project.project", "get_agile_planning_snapshot", [42, false]]]);
+});

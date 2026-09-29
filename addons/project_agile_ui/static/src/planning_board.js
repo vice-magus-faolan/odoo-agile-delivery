@@ -9,12 +9,40 @@ import { Component, onWillStart, onWillUnmount, useState } from "@odoo/owl";
 export const PLANNING_ACTION_TAG = "project_agile_ui.planning";
 const DRAG_DATA_TYPE = "text/plain";
 
+function planningLoadFailure(error) {
+    const errorName =
+        typeof error?.data?.name === "string"
+            ? error.data.name
+            : typeof error?.name === "string"
+              ? error.name
+              : "";
+    if (errorName.endsWith("AccessError")) {
+        return "unauthorized";
+    }
+    if (errorName.endsWith("ValidationError")) {
+        return "permanent";
+    }
+    return "retryable";
+}
+
+function planningLoadErrorMessage(failure) {
+    if (failure === "unauthorized") {
+        return _t("Sprint Planning is unavailable for this project. Use an authorized project action or standard views.");
+    }
+    if (failure === "permanent") {
+        return _t("Sprint Planning cannot be opened for this project. Use the standard views.");
+    }
+    return _t("Sprint Planning could not be loaded. Try again or use the standard views.");
+}
+
 function emptyState() {
     return {
         backlog: { items: [], next_cursor: false },
         error: false,
+        failure: false,
         loading: true,
         project: false,
+        retryCursor: false,
         sprints: [],
         stale: false,
         status: _t("Loading Sprint Planning"),
@@ -45,12 +73,14 @@ export class AgilePlanningBoard extends Component {
         if (!Number.isInteger(this.projectId) || this.projectId <= 0) {
             this.state.loading = false;
             this.state.error = _t("Sprint Planning needs an available Agile project.");
+            this.state.failure = "permanent";
             this.state.status = this.state.error;
             return false;
         }
         const requestSequence = ++this.requestSequence;
         this.state.loading = true;
         this.state.error = false;
+        this.state.failure = false;
         this.state.status = _t("Loading Sprint Planning");
         try {
             const snapshot = await this.orm.call(
@@ -62,14 +92,17 @@ export class AgilePlanningBoard extends Component {
                 return false;
             }
             this.applySnapshot(snapshot, cursor);
+            this.state.retryCursor = false;
             this.state.stale = false;
             this.state.status = _t("Sprint Planning loaded");
             return true;
-        } catch {
+        } catch (error) {
             if (requestSequence !== this.requestSequence) {
                 return false;
             }
-            this.state.error = _t("Sprint Planning could not be loaded. Try again or use the standard views.");
+            this.state.failure = planningLoadFailure(error);
+            this.state.error = planningLoadErrorMessage(this.state.failure);
+            this.state.retryCursor = cursor;
             this.state.stale = Boolean(this.state.project);
             this.state.status = this.state.stale
                 ? _t("Showing stale Sprint Planning data")
@@ -123,13 +156,16 @@ export class AgilePlanningBoard extends Component {
             this.state.status = _t("Sprint Planning updated");
         } catch {
             const refreshed = await this.load();
-            this.state.error = refreshed
-                ? _t(
-                      "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
-                  )
-                : _t(
-                      "Planning change was rejected. Current board data may be stale; retry or use the standard views."
-                  );
+            if (refreshed) {
+                this.state.failure = "rejected";
+                this.state.error = _t(
+                    "Planning change was rejected. The board was refreshed; retry from current data or use the standard views."
+                );
+            } else {
+                this.state.error = _t(
+                    "Planning change was rejected. Current board data may be stale; retry or use the standard views."
+                );
+            }
             this.state.status = this.state.error;
         } finally {
             this.state.mutating = false;
@@ -158,10 +194,15 @@ export class AgilePlanningBoard extends Component {
     moveTask(task, direction) {
         const tasks = this.state.backlog.items;
         const index = tasks.findIndex((candidate) => candidate.id === task.id);
-        const beforeTask = direction === "up" ? tasks[index - 1] : tasks[index + 2];
-        if (index < 0 || (direction === "up" && !beforeTask)) {
+        if (
+            index < 0 ||
+            !["up", "down"].includes(direction) ||
+            (direction === "up" && index === 0) ||
+            (direction === "down" && index === tasks.length - 1)
+        ) {
             return;
         }
+        const beforeTask = direction === "up" ? tasks[index - 1] : tasks[index + 2];
         return this.changePlanning(task, "reorder", { beforeTask });
     }
 
@@ -246,7 +287,7 @@ export class AgilePlanningBoard extends Component {
     }
 
     retry() {
-        return this.load();
+        return this.load(this.state.retryCursor);
     }
 
     loadMore() {

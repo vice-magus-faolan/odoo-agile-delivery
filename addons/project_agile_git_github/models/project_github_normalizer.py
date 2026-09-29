@@ -291,13 +291,13 @@ class ProjectGitDelivery(models.Model):
             raise GitHubPayloadError("The GitHub push ref is not a branch ref.")
         branch_name = ref.removeprefix("refs/heads/")
         head_sha = _text(payload.get("after"), 128)
-        head_commit = payload.get("head_commit") or {}
+        head_commit = payload.get("head_commit", {})
         if not isinstance(head_commit, dict):
             raise GitHubPayloadError("The GitHub push head commit is malformed.")
         source_updated_at = _utc_datetime(head_commit.get("timestamp"))
         branch = self._upsert_branch(ref, branch_name, head_sha, source_updated_at)
         self._associate_source_keys("branch", branch.provider_branch_id, {"ref": branch_name})
-        commits = payload.get("commits") or []
+        commits = payload.get("commits", [])
         if not isinstance(commits, list) or len(commits) > 100:
             raise GitHubPayloadError("The GitHub push commits collection is malformed or oversized.")
         for commit_data in commits:
@@ -372,7 +372,7 @@ class ProjectGitDelivery(models.Model):
                 "updated_at": updated_at,
             }
         )
-        output = check_run.get("output") or {}
+        output = check_run.get("output", {})
         if not isinstance(output, dict):
             raise GitHubPayloadError("The GitHub check output is malformed.")
         self._associate_source_keys(

@@ -76,6 +76,24 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             ],
         }
 
+    def _check_run(self, name, output):
+        """Return a complete GitHub check-run payload with caller-controlled key sources."""
+
+        return {
+            "repository": {"id": 2001},
+            "check_run": {
+                "id": 3001,
+                "name": name,
+                "status": "completed",
+                "conclusion": "success",
+                "head_sha": "k" * 40,
+                "html_url": "https://example.invalid/check/3001",
+                "completed_at": "2026-01-02T03:04:05Z",
+                "updated_at": "2026-01-02T03:04:05Z",
+                "output": output,
+            },
+        }
+
     def _create_committed_delivery(self):
         """Create one queued delivery visible to independent normalizer transactions."""
 
@@ -191,6 +209,37 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         )
         self.assertEqual(set(associations.mapped("agile_key")), {"NRM-1", "NRM-2"})
         self.assertEqual((audits.outcome, audits.reason), ("unassociated", "unknown_key"))
+
+    def test_check_run_creates_fact_and_exact_key_association(self):
+        delivery = self._delivery(
+            "check_run", self._check_run("CI for NRM-1", {"title": "Build passed"}), "check-run"
+        )
+
+        self._process(delivery)
+
+        check = self.env["project.git.check"].search(
+            [("repository_id", "=", self.repository.id), ("provider_check_id", "=", "3001")]
+        )
+        association = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.first_task.id),
+                ("source_type", "=", "check"),
+                ("source_provider_id", "=", "3001"),
+            ]
+        )
+        audit = self.env["project.git.association.audit"].search(
+            [
+                ("delivery_id", "=", delivery.id),
+                ("source_type", "=", "check"),
+                ("source_provider_id", "=", "3001"),
+                ("source_field", "=", "name"),
+                ("agile_key", "=", self.first_task.agile_key),
+            ]
+        )
+        self.assertEqual(delivery.state, "processed")
+        self.assertEqual((check.name, check.state, check.ordering_state), ("CI for NRM-1", "success", "known"))
+        self.assertEqual((association.agile_key, audit.outcome, audit.reason), ("NRM-1", "associated", "exact_key"))
 
     def test_out_of_order_push_does_not_regress_a_newer_branch_head(self):
         newer = self._delivery(
@@ -315,6 +364,35 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(delivery.state, "failed")
         self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
         self.assertTrue(delivery.error_summary)
+
+    def test_falsy_malformed_push_commits_dead_letters_without_fact_writes(self):
+        payload = self._push("l" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key)
+        payload["commits"] = ""
+        delivery = self._delivery("push", payload, "malformed-commits")
+
+        self._process(delivery)
+
+        self.assertEqual(delivery.state, "failed")
+        self.assertIn("commits collection", delivery.error_summary)
+        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(self.env["project.git.commit"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(
+            self.env["project.git.task.association"].search([("repository_id", "=", self.repository.id)])
+        )
+
+    def test_falsy_malformed_check_output_dead_letters_without_fact_writes(self):
+        delivery = self._delivery(
+            "check_run", self._check_run(self.first_task.agile_key, []), "malformed-check-output"
+        )
+
+        self._process(delivery)
+
+        self.assertEqual(delivery.state, "failed")
+        self.assertIn("check output", delivery.error_summary)
+        self.assertFalse(self.env["project.git.check"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(
+            self.env["project.git.task.association"].search([("repository_id", "=", self.repository.id)])
+        )
 
     def test_mismatched_payload_repository_is_rejected_without_fact_writes(self):
         payload = self._push("e" * 40, "2026-01-03T03:04:05Z", "NRM-1 forged")

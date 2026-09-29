@@ -70,9 +70,9 @@ class TestProjectAgileGitContract(unittest.TestCase):
     def test_security_keeps_facts_within_project_visibility_and_company_scope(self):
         security = (self.module_root / "security" / "project_agile_git_security.xml").read_text()
 
-        self.assertEqual(security.count("multi-company"), 7)
-        self.assertEqual(security.count("Project visibility"), 7)
-        self.assertEqual(security.count("Project manager"), 7)
+        self.assertEqual(security.count("multi-company"), 8)
+        self.assertEqual(security.count("Project visibility"), 8)
+        self.assertEqual(security.count("Project manager"), 8)
         self.assertIn("project_id.message_partner_ids", security)
         self.assertIn("repository_id.project_id.message_partner_ids", security)
 

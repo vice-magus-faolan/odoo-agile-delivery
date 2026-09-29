@@ -112,6 +112,7 @@ class ProjectGitDelivery(models.Model):
         values = {
             "repository_id": repository_id,
             "provider_delivery_id": provider_delivery_id,
+            "state": "queued",
             "event_type": event_type,
             "payload_sha256": payload_sha256,
             "payload_size": payload_size,

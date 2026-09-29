@@ -117,12 +117,23 @@ class ProjectGitBranch(models.Model):
         "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
     )
     company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    provider_branch_id = fields.Char(readonly=True, copy=False, index=True)
     name = fields.Char(required=True, index=True)
     head_sha = fields.Char(index=True)
     url = fields.Char()
+    source_updated_at = fields.Datetime(readonly=True, index=True)
+    last_seen_at = fields.Datetime(readonly=True, index=True)
+    provenance_delivery_id = fields.Many2one(
+        "project.git.delivery", readonly=True, ondelete="restrict", index=True
+    )
+    ordering_state = fields.Selection(
+        [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
+        required=True, default="ambiguous", readonly=True, index=True,
+    )
 
     _branch_unique = models.Constraint(
-        "UNIQUE(repository_id, name)", "A branch can be recorded only once per repository."
+        "UNIQUE(repository_id, provider_branch_id)",
+        "A provider branch observation can be recorded only once per repository.",
     )
 
 
@@ -142,6 +153,10 @@ class ProjectGitCommit(models.Model):
     message_excerpt = fields.Char(copy=False)
     authored_at = fields.Datetime(index=True)
     url = fields.Char()
+    last_seen_at = fields.Datetime(readonly=True, index=True)
+    provenance_delivery_id = fields.Many2one(
+        "project.git.delivery", readonly=True, ondelete="restrict", index=True
+    )
 
     _commit_unique = models.Constraint(
         "UNIQUE(repository_id, sha)", "A commit can be recorded only once per repository."
@@ -173,6 +188,14 @@ class ProjectGitPullRequest(models.Model):
     url = fields.Char()
     merged_at = fields.Datetime(index=True)
     updated_at = fields.Datetime(index=True)
+    last_seen_at = fields.Datetime(readonly=True, index=True)
+    provenance_delivery_id = fields.Many2one(
+        "project.git.delivery", readonly=True, ondelete="restrict", index=True
+    )
+    ordering_state = fields.Selection(
+        [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
+        required=True, default="ambiguous", readonly=True, index=True,
+    )
 
     _pull_request_unique = models.Constraint(
         "UNIQUE(repository_id, provider_request_id)",
@@ -211,11 +234,75 @@ class ProjectGitCheck(models.Model):
     head_sha = fields.Char(index=True)
     url = fields.Char()
     completed_at = fields.Datetime(index=True)
+    updated_at = fields.Datetime(index=True)
+    last_seen_at = fields.Datetime(readonly=True, index=True)
+    provenance_delivery_id = fields.Many2one(
+        "project.git.delivery", readonly=True, ondelete="restrict", index=True
+    )
+    ordering_state = fields.Selection(
+        [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
+        required=True, default="ambiguous", readonly=True, index=True,
+    )
 
     _check_unique = models.Constraint(
         "UNIQUE(repository_id, provider_check_id)",
         "A check can be recorded only once per repository.",
     )
+
+
+class ProjectGitAssociationAudit(models.Model):
+    """An immutable audit fact for an explicit Agile-key association decision."""
+
+    _name = "project.git.association.audit"
+    _description = "Git Task Association Audit"
+    _check_company_auto = True
+    _order = "observed_at desc, id desc"
+
+    repository_id = fields.Many2one(
+        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+    )
+    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    delivery_id = fields.Many2one(
+        "project.git.delivery", required=True, ondelete="restrict", index=True, check_company=True
+    )
+    task_id = fields.Many2one("project.task", readonly=True, ondelete="restrict", check_company=True)
+    source_type = fields.Selection(
+        [("branch", "Branch"), ("commit", "Commit"), ("pull_request", "Pull Request"), ("check", "Check")],
+        required=True, readonly=True, copy=False,
+    )
+    source_provider_id = fields.Char(required=True, readonly=True, copy=False, index=True)
+    source_field = fields.Char(required=True, readonly=True, copy=False)
+    agile_key = fields.Char(required=True, readonly=True, copy=False, index=True)
+    outcome = fields.Selection(
+        [
+            ("associated", "Associated"),
+            ("already_associated", "Already Associated"),
+            ("unassociated", "Unassociated"),
+            ("rejected", "Rejected"),
+        ],
+        required=True, readonly=True, copy=False, index=True,
+    )
+    reason = fields.Selection(
+        [
+            ("exact_key", "Exact Key"), ("duplicate", "Duplicate"),
+            ("unknown_key", "Unknown Key"), ("wrong_project", "Wrong Project"),
+            ("cross_company", "Cross Company"), ("archived_task", "Archived Task"),
+            ("invalid_key", "Invalid Key"), ("too_many_keys", "Too Many Keys"),
+        ],
+        required=True, readonly=True, copy=False, index=True,
+    )
+    observed_at = fields.Datetime(default=fields.Datetime.now, required=True, readonly=True, index=True)
+
+    _audit_unique = models.Constraint(
+        "UNIQUE(delivery_id, source_type, source_provider_id, source_field, agile_key)",
+        "This Git association decision is already recorded for the delivery.",
+    )
+
+    def write(self, values):
+        raise ValidationError(_("Git association audit facts are immutable."))
+
+    def unlink(self):
+        raise ValidationError(_("Git association audit facts are immutable."))
 
 
 class ProjectGitTaskAssociation(models.Model):

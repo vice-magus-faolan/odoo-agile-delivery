@@ -2,42 +2,43 @@
 
 ## Status
 
-Accepted — provider-neutral contract and signed GitHub ingress; asynchronous processing remains deferred to follow-on cards.
+Accepted — provider-neutral contract, signed GitHub ingress, and portable asynchronous normalization.
 
 ## Context
 
-The suite needs repository, branch, commit, pull-request, and check visibility without turning provider payloads into workflow policy. OCA Project 19.0 at `4bc441b839819603b06c9064db8f7a7fa97fdfb3` has no `project_git`, `project_github`, or `project_gitlab` addon. PR #1792 remains an open draft for 17.0 at `769d464e1fc1aff006e21f1668d47e4f13840138`; its provider/generic split is useful evidence, but its mutable task-name and database-id matching and direct task tags do not meet this suite's immutable Agile-key contract.
+The suite needs repository, branch/ref, commit, pull-request, and check visibility without turning provider payloads into workflow policy. OCA Project 19.0 at `4bc441b839819603b06c9064db8f7a7fa97fdfb3` has no `project_git`, `project_github`, or `project_gitlab` addon. OCA Project PR #1792 remains an open 17.0 draft; its provider/generic split is useful evidence, but mutable task-name/database-id matching is not acceptable here.
 
-Odoo 19 at `c2957158eb2f7a341a874c3c58884c8a162ef59a` supplies normal `http.Controller`/`route` extension points and a supported `ir.cron` scheduler. Its scheduler isolates a cron execution transaction, uses bounded progress through `_commit_progress`, handles partial completion and failure rescheduling, and coordinates ready jobs with `FOR NO KEY UPDATE SKIP LOCKED`. This is the portable native execution boundary for the likely Odoo.sh target and other deployments.
+Odoo 19 at `c2957158eb2f7a341a874c3c58884c8a162ef59a` supplies the supported `ir.cron` scheduler and `SQL` wrapper. Its scheduled work is a portable Odoo.sh-compatible runtime boundary; it must not be replaced by request-thread processing or a mandatory external runner.
 
 ## Decision
 
-Create `project_agile_git`, an LGPL-3 Odoo-compatible private-suite module, not an OCA addon. It depends only on `project_agile`; `project_agile`, `project_scrum`, analytics, document-page bridges, and `project_agile_ui` remain independently installable. The upstream contribution path is a design/19.0 contribution proposal rather than a fork or forward-port of PR #1792.
+`project_agile_git` remains an LGPL-3 Odoo-compatible private-suite module depending only on `project_agile`; core Agile, Scrum, analytics, document bridges, and planning UI remain independently installable. `project_agile_git_github` is the optional GitHub adapter.
 
-The provider-neutral records are repository, authenticated delivery ledger, branch, commit, pull request, check, and task association. A repository is one provider identity mapped to one Agile project and company. Provider IDs are strings and facts are keyed by repository plus immutable provider identifiers. Delivery idempotency is a database constraint on `(repository_id, provider_delivery_id)`; every later processor must be idempotent against that ledger.
+A repository is one globally unique provider repository identity mapped to one Agile project and company. Durable delivery identity is `(repository_id, provider_delivery_id)`. Repository IDs, pull-request IDs, check-run IDs, commit SHAs, source timestamps, last-seen timestamps, and delivery provenance are persisted. GitHub push payloads do not expose an immutable branch object ID: the source ref is recorded as an explicit provider ref observation, and a rename is never guessed to be the same branch.
 
-Task association accepts explicit immutable `agile_key` references only. The grammar is an uppercase project key followed by a positive decimal number: `ENG-142`. It may occur as a standalone token, `[ENG-142]`, `ENG-142: subject`, or inside a branch token such as `feature/ENG-142-short-description`; boundary matching must reject partial keys. A future parser preserves all explicit keys, resolves them only within the repository's configured project, and records an immutable association. It must not use mutable task names or database IDs. Explicit references outrank any future heuristic; this milestone defines no heuristic.
+The GitHub webhook validates an exact raw-body HMAC before making one ledger write and returning. Receipt is persistence-only: it enqueues the ledger state but does not normalize facts, associate tasks, mutate workflow, call GitHub, or decide caller authority. Duplicate reception remains one row by database constraint.
 
-The separate GitHub adapter owns a narrow, authenticated ingress route. It validates provider identity, active repository, content type, bounded raw body, exact-body signature, event type, and delivery ID; it then writes one ledger row and returns promptly. It does not normalize facts, associate tasks, post chatter, call a provider, or mutate workflow state in the request transaction. Payload storage is digest-only by default; any redacted bounded excerpt, retention deadline, retries, attempt count, next retry, sanitized error summary, and expiring processing lease are ledger fields. Secrets are system-administrator-only and never belong in read APIs, exports, chatter, errors, reprs, or logs.
+The native scheduled processor claims at most 20 eligible GitHub deliveries with parameterized `SQL`, `FOR UPDATE SKIP LOCKED`, a random five-minute lease token, and an expiring processing lease. Each delivery settles in a savepoint: facts and the processed state commit together, while malformed payloads roll back facts and dead-letter the ledger row. Transient failures retry with bounded exponential backoff and become failed after five attempts. Expired leases are eligible again. `ir.cron._commit_progress` commits one settled item at a time and leaves remaining work for a later run.
 
-The later processor is an Odoo 19 `ir.cron` scheduled action, not a request-thread action and not a `queue_job` runtime. It must claim a bounded eligible batch using a database-backed lease with a random token and expiry; concurrent workers may claim neither a live lease nor the same delivery. Each delivery transition is idempotent and records attempts, next retry, sanitized error, and lease release in the same bounded transaction. The cron reports bounded progress using `_commit_progress`, leaves unfinished work for another scheduled run, and treats expired leases as recoverable retries. Failures must remain operator-visible and must never produce a task-stage change. A future implementation must isolate the narrow lock/claim SQL, parameterize it through Odoo's `SQL` wrapper, and test concurrent claim, expiry recovery, retry exhaustion, and rollback.
+The supported GitHub subset is `push`, `pull_request`, and `check_run`. Newer source timestamps replace current branch/PR/check values; older observations do not regress them, and absent/equal-conflicting timestamps are marked ambiguous rather than guessed. Unsupported delivery types are terminally `discarded` with a diagnostic.
 
-Facts are project- and company-scoped. ACLs plus global multi-company rules and existing Project visibility govern reads. All relationship checks run server-side; caller context, delivery payload project fields, and active company are never authority.
+Default payload retention is digest-only. Such a delivery is deliberately non-normalizable and terminally visible; a repository must select `redacted_excerpt` before receipt to retain the bounded credential-scrubbed data needed for the supported parser. Raw payloads and webhook secrets are never exposed through ordinary reads, logs, errors, exports, or chatter.
 
-Fact ingestion and workflow automation policy are separate. `PR merged`, branch creation, or a successful check have no intrinsic task-stage meaning. A later, project-scoped opt-in automation addon requires independent approval, dry-run/audit behavior, and idempotent rule execution.
+Task association accepts only explicit immutable keys matching `ENG-142`-style uppercase project keys with a positive decimal suffix. Bounded sources are push branch refs and commit messages; pull-request title, body, and head ref; and check-run name/output title. Exact project-local task key matches create immutable association facts. Unknown, wrong-project, archived, invalid, duplicate, or excessive references create immutable audit decisions and never cause task, Sprint, follower, message, or stage writes. No task names, database IDs, payload project/company fields, context, or heuristic match is authority.
+
+Facts and audit records remain repository, project, and company scoped through ORM validation, ACLs, multi-company rules, and Project visibility. Reprocess is a Project Manager-only server-side action for a terminal GitHub delivery; it requeues the existing ledger row, and fact/association uniqueness makes replay idempotent.
 
 ## Queue Job Decision
 
-Reject OCA `queue_job` as a required or production runtime dependency for Milestone 6. Its 19.0 `queue_job` manifest at `bc1d8854d0bf5cd35c33e00c2f5af0cec05c09f2` is LGPL-3, Mature, and depends on `mail`, `base_sparse_field`, and `web`, but its regular jobrunner is not accepted as the Odoo.sh production execution model. The current Alpha/non-installable Odoo 19 cron-runner alternative is also not an acceptable dependency. A separately approved, self-hosted-only `queue_job` adapter may be evaluated later; it cannot alter the base addon, the portable processor contract, or the canonical verifier.
+Reject OCA `queue_job` as a required or production runtime dependency for Milestone 6. Its 19.0 manifest is mature and LGPL-3 but has a jobrunner model not accepted as the portable Odoo.sh target. A separately approved self-hosted adapter may be evaluated later; it cannot alter the core schema, native processing contract, or canonical verifier.
 
 ## Consequences
 
-The core skeleton plus its separate GitHub adapter supply no queue enqueue, fact synchronization, scheduled-action data, or task workflow mutation. Later cards must add the native scheduled batch processor, normalization, and read-only visibility before considering policy automation. Every schema/security change must run clean install, update, and dependency-safe uninstall/reinstall through `./scripts/verify`.
+Connector facts are observations, not evidence that an Odoo task is complete. No workflow automation, configurable task policy, provider polling, or outbound provider operation exists in this milestone. Every schema/security/cron change requires clean install, update, and dependency-safe uninstall/reinstall verification.
 
 ## Sources
 
 - OCA Project 19.0 tree: https://github.com/OCA/project/tree/19.0
 - OCA Project PR #1792: https://api.github.com/repos/OCA/project/pulls/1792
-- OCA Queue `queue_job` manifest (rejected base-runtime candidate): https://raw.githubusercontent.com/OCA/queue/bc1d8854d0bf5cd35c33e00c2f5af0cec05c09f2/queue_job/__manifest__.py
-- Odoo 19 HTTP source: https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/http.py
-- Odoo 19 scheduled-action source: https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/addons/base/models/ir_cron.py
+- Odoo 19 scheduled actions: https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/addons/base/models/ir_cron.py
+- Odoo 19 SQL wrapper: https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/tools/sql.py

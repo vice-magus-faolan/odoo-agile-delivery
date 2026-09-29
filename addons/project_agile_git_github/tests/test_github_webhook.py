@@ -73,7 +73,7 @@ class TestGitHubWebhook(HttpCase):
         delivery = self.env["project.git.delivery"].search(
             [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-valid")]
         )
-        self.assertEqual((delivery.state, delivery.attempt_count), ("received", 0))
+        self.assertEqual((delivery.state, delivery.attempt_count), ("queued", 0))
         self.assertEqual(delivery.payload_sha256, hashlib.sha256(b'{"repository":{"id":"4242"}}').hexdigest())
         self.assertEqual(task.read(["stage_id", "message_partner_ids"])[0], before)
 

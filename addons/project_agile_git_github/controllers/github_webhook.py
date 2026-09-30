@@ -13,6 +13,7 @@ from werkzeug.wrappers import Response
 MAX_BODY_BYTES = 256 * 1024
 MAX_DELIVERY_ID_LENGTH = 128
 MAX_EVENT_TYPE_LENGTH = 100
+MAX_JSON_NESTING = 100
 _SIGNATURE_PATTERN = re.compile(r"sha256=[0-9a-f]{64}")
 _RETENTION_LIMIT_ERROR = "The signed payload exceeds the safe retained excerpt limit."
 
@@ -30,6 +31,32 @@ def _bounded_header(headers, name, maximum_length):
     if not value or len(value) > maximum_length or not value.isprintable():
         return None
     return value
+
+
+def _json_nesting_within_limit(raw_body):
+    """Reject excessively nested JSON before the standard decoder consumes it."""
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for byte in raw_body:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif byte == 92:
+                escaped = True
+            elif byte == ord('"'):
+                in_string = False
+            continue
+        if byte == ord('"'):
+            in_string = True
+        elif byte in (ord("["), ord("{")):
+            depth += 1
+            if depth > MAX_JSON_NESTING:
+                return False
+        elif byte in (ord("]"), ord("}")):
+            depth -= 1
+    return True
 
 
 def _github_repository_id(payload):
@@ -83,9 +110,11 @@ class GitHubWebhookController(http.Controller):
         ):
             return _response(400)
 
+        if not _json_nesting_within_limit(raw_body):
+            return _response(400)
         try:
             payload = json.loads(raw_body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError):
             return _response(400)
         repository_id = _github_repository_id(payload)
         if not repository_id:
@@ -107,7 +136,9 @@ class GitHubWebhookController(http.Controller):
             retained_payload = repository_model._redacted_github_payload_excerpt(payload)
             if not retained_payload:
                 retention_error = _RETENTION_LIMIT_ERROR
-        request.env["project.git.delivery"]._record_authenticated_github_delivery(
+        _delivery, _created, exact_replay = request.env[
+            "project.git.delivery"
+        ]._record_authenticated_github_delivery(
             repository_id=ingress["id"],
             provider_delivery_id=provider_delivery_id,
             event_type=event_type,
@@ -115,5 +146,6 @@ class GitHubWebhookController(http.Controller):
             payload_size=len(raw_body),
             retained_payload=retained_payload,
             retention_error=retention_error,
+            return_replay_status=True,
         )
-        return _response(202)
+        return _response(202 if exact_replay else 409)

@@ -84,6 +84,65 @@ class TestGitHubWebhook(HttpCase):
         self.assertEqual((response.status_code, replay.status_code), (202, 202))
         self.assertEqual(self._delivery_count(), 1)
 
+    def test_mismatched_replay_is_rejected_and_recorded_without_a_second_delivery(self):
+        first = self._post(self._payload(), delivery_id="delivery-mismatched-replay")
+        replay = self._post(
+            self._payload(extra="different authenticated payload"),
+            delivery_id="delivery-mismatched-replay",
+        )
+
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(replay.status_code, 409)
+        self.assertEqual(self._delivery_count(), 1)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-mismatched-replay"),
+            ]
+        )
+        self.assertEqual(delivery.replay_mismatch_count, 1)
+        self.assertTrue(delivery.last_replay_mismatch_at)
+
+    def test_event_mismatched_replay_is_rejected_without_a_second_delivery(self):
+        first = self._post(self._payload(), delivery_id="delivery-event-mismatch")
+        replay = self._post(
+            self._payload(),
+            delivery_id="delivery-event-mismatch",
+            **{"X-GitHub-Event": "pull_request"},
+        )
+
+        self.assertEqual((first.status_code, replay.status_code), (202, 409))
+        self.assertEqual(self._delivery_count(), 1)
+        delivery = self.env["project.git.delivery"].search(
+            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-event-mismatch")]
+        )
+        self.assertEqual(delivery.replay_mismatch_count, 1)
+
+    def test_deeply_nested_and_large_number_json_are_rejected_without_a_delivery(self):
+        deeply_nested = b"[" * 2000 + b"]" * 2000
+        large_number = b'{"repository":{"id":' + b"9" * 5000 + b"}}"
+        responses = []
+        for body, delivery_id in (
+            (deeply_nested, "delivery-deep-json"),
+            (large_number, "delivery-large-number"),
+        ):
+            signature = "sha256=" + hmac.new(self.secret.encode(), body, hashlib.sha256).hexdigest()
+            responses.append(
+                self.url_open(
+                    self.route,
+                    data=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-GitHub-Event": "push",
+                        "X-GitHub-Delivery": delivery_id,
+                        "X-Hub-Signature-256": signature,
+                    },
+                )
+            )
+
+        self.assertEqual([response.status_code for response in responses], [400, 400])
+        self.assertEqual(self._delivery_count(), 0)
+
     def test_concurrent_replay_creates_one_delivery(self):
         """Exercise duplicate-key recovery through concurrent signed HTTP requests."""
 
@@ -227,3 +286,38 @@ class TestGitHubWebhook(HttpCase):
         self.assertIn("[redacted]", delivery.retained_payload)
         self.assertNotIn("must-not-be-retained", delivery.retained_payload)
         self.assertTrue(delivery.retained_until)
+
+    def test_redacted_excerpt_scrubs_credential_shaped_scalar_text(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        credential = "TOPSECRET123"
+
+        response = self._post(
+            self._payload(message="Authorization: " + "Bearer " + credential),
+            delivery_id="delivery-scalar-secret",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-scalar-secret"),
+            ]
+        )
+        self.assertNotIn(credential, delivery.retained_payload)
+        self.assertIn("[redacted]", delivery.retained_payload)
+
+    def test_redacted_excerpt_scrubs_github_fine_grained_token_text(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        credential = "github_pat_" + "A" * 24
+
+        response = self._post(
+            self._payload(message="rotated provider credential " + credential),
+            delivery_id="delivery-github-pat",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-github-pat")]
+        )
+        self.assertNotIn(credential, delivery.retained_payload)
+        self.assertIn("[redacted]", delivery.retained_payload)

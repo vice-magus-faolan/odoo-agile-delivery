@@ -21,7 +21,7 @@ MAX_RETRY_SECONDS = 3600
 MAX_SOURCE_TEXT = 4096
 MAX_KEYS_PER_SOURCE = 20
 AGILE_KEY_PATTERN = re.compile(
-    r"(?<![A-Z0-9])(?P<key>[A-Z][A-Z0-9]{1,9}-[1-9][0-9]*)(?![A-Z0-9])"
+    r"(?<![A-Za-z0-9_\u0080-\U0010FFFF])(?P<key>[A-Z][A-Z0-9]{1,9}-[1-9][0-9]*)(?![A-Za-z0-9_\u0080-\U0010FFFF])"
 )
 KEY_LIKE_PATTERN = re.compile(r"[A-Z][A-Z0-9]{0,32}-[0-9]+")
 
@@ -555,10 +555,9 @@ class ProjectGitDelivery(models.Model):
             [("project_id", "=", self.repository_id.project_id.id), ("agile_key", "=", agile_key)]
         )
         if len(project_tasks) != 1:
-            global_tasks = task_model.search([("agile_key", "=", agile_key)])
-            reason = "unknown_key" if not global_tasks else "wrong_project"
-            outcome = "unassociated" if not global_tasks else "rejected"
-            self._record_association_audit(source_type, source_provider_id, source_field, agile_key, outcome, reason)
+            self._record_association_audit(
+                source_type, source_provider_id, source_field, agile_key, "unassociated", "unknown_key"
+            )
             return
         task = project_tasks
         if task.company_id != self.repository_id.company_id:

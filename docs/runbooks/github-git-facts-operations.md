@@ -33,8 +33,8 @@ Do not remove the repository to stop delivery.
 ## Diagnose delivery and retry
 
 Project Managers open the repository's Deliveries action and diagnose using the
-repository, provider delivery ID, state, attempt count, payload SHA-256, timestamps,
-and bounded error summary. The redacted excerpt and webhook secret are restricted
+repository, provider delivery ID, state, attempt count, payload SHA-256, replay mismatch
+count/timestamp, and bounded error summary. The redacted excerpt and webhook secret are restricted
 to System Administrators and must not be copied to chatter, exports, tickets, or
 user-facing errors.
 
@@ -49,8 +49,10 @@ not reprocessable.
 
 ## Retention and cleanup
 
-For `redacted_excerpt`, the adapter stores a bounded, credential-scrubbed JSON
-excerpt for 30 days. Oversized excerpts are never sliced into invalid JSON: the
+For `redacted_excerpt`, the adapter stores a bounded JSON excerpt for 30 days. It
+removes sensitive-key values and recognized credential-shaped scalar text; this is defense in depth,
+not authorization to retain arbitrary secrets, so unmatched formats remain a residual risk. Oversized
+excerpts are never sliced into invalid JSON: the
 signed delivery remains terminal with its digest, size, and bounded diagnostic,
 but no raw or partial payload is retained. The daily cleanup cron purges only an
 expired excerpt from `processed` or `discarded` GitHub deliveries. It preserves the

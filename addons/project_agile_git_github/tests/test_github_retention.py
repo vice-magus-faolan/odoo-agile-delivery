@@ -1,6 +1,7 @@
 """Retention cleanup coverage for bounded GitHub delivery evidence."""
 
 from datetime import timedelta
+from unittest.mock import patch
 
 from odoo import fields
 from odoo.exceptions import ValidationError
@@ -69,6 +70,19 @@ class TestGitHubDeliveryRetention(TransactionCase):
         self.assertTrue(future.retained_payload)
         self.assertFalse(queued.retained_payload_purged_at)
         self.assertFalse(failed.retained_payload_purged_at)
+
+    def test_cleanup_rechecks_state_before_purging_a_stale_candidate(self):
+        now = fields.Datetime.now()
+        delivery = self._delivery("raced", "processed", now - timedelta(days=1))
+        delivery.state = "queued"
+        model = self.env["project.git.delivery"]
+
+        with patch.object(type(model), "search", return_value=delivery):
+            purged = model._purge_expired_github_payloads(now)
+
+        self.assertEqual(purged, 0)
+        self.assertTrue(delivery.retained_payload)
+        self.assertFalse(delivery.retained_payload_purged_at)
 
     def test_oversized_redacted_excerpt_is_terminal_and_cannot_be_reprocessed(self):
         excerpt = self.repository._redacted_github_payload_excerpt(

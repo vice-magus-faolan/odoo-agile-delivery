@@ -251,6 +251,8 @@ class ProjectGitDelivery(models.Model):
     last_error_at = fields.Datetime(readonly=True, copy=False, index=True)
     received_at = fields.Datetime(default=fields.Datetime.now, required=True, readonly=True, index=True)
     processed_at = fields.Datetime(readonly=True, copy=False, index=True)
+    replay_mismatch_count = fields.Integer(default=0, readonly=True, copy=False)
+    last_replay_mismatch_at = fields.Datetime(readonly=True, copy=False, index=True)
 
     _delivery_unique = models.Constraint(
         "UNIQUE(repository_id, provider_delivery_id)",

@@ -1,6 +1,7 @@
 """Bounded, auditable retention cleanup for authenticated GitHub deliveries."""
 
 from odoo import api, fields, models
+from odoo.tools import SQL
 
 
 RETENTION_CLEANUP_BATCH_SIZE = 100
@@ -28,7 +29,7 @@ class ProjectGitDelivery(models.Model):
 
     @api.model
     def _purge_expired_github_payloads(self, now=None):
-        """Purge one bounded batch atomically, preserving every delivery and fact record."""
+        """Purge a bounded batch with a state recheck at the write boundary."""
 
         now = now or fields.Datetime.now()
         deliveries = self.sudo().search(
@@ -36,18 +37,32 @@ class ProjectGitDelivery(models.Model):
             order="retained_until, id",
             limit=RETENTION_CLEANUP_BATCH_SIZE,
         )
+        purged = 0
         for delivery in deliveries:
-            cleanup_delivery = delivery.sudo()
-            if delivery.company_id:
-                cleanup_delivery = cleanup_delivery.with_company(delivery.company_id)
-            cleanup_delivery.write(
-                {
-                    "retained_payload": False,
-                    "retained_until": False,
-                    "retained_payload_purged_at": now,
-                }
+            self.env.cr.execute(
+                SQL(
+                    """
+                    UPDATE project_git_delivery
+                       SET retained_payload = NULL,
+                           retained_until = NULL,
+                           retained_payload_purged_at = %s
+                     WHERE id = %s
+                       AND provider = 'github'
+                       AND state IN ('processed', 'discarded')
+                       AND retained_payload IS NOT NULL
+                       AND retained_until <= %s
+                    """,
+                    now,
+                    delivery.id,
+                    now,
+                )
             )
-        return len(deliveries)
+            if self.env.cr.rowcount:
+                delivery.invalidate_recordset(
+                    ["retained_payload", "retained_until", "retained_payload_purged_at"]
+                )
+                purged += 1
+        return purged
 
     @api.model
     def _cron_purge_expired_github_payloads(self):

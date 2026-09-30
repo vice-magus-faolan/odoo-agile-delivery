@@ -518,7 +518,7 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual((audit.outcome, audit.reason), ("rejected", "archived_task"))
         self.assertFalse(audit.task_id)
 
-    def test_cross_company_wrong_project_key_is_rejected_without_association(self):
+    def test_cross_company_key_is_indistinguishable_from_an_unknown_key(self):
         other_company = self.env["res.company"].create({"name": "Other normalizer company"})
         other_project = self.env["project.project"].with_company(other_company).create(
             {
@@ -550,8 +550,38 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 ("source_type", "=", "commit"),
             ]
         )
-        self.assertEqual((audit.outcome, audit.reason), ("rejected", "wrong_project"))
+        self.assertEqual((audit.outcome, audit.reason), ("unassociated", "unknown_key"))
         self.assertFalse(audit.task_id)
+
+    def test_embedded_or_unicode_agile_key_text_does_not_create_commit_associations(self):
+        message = " ".join(
+            (
+                "prefixnrmxNRM-1ysuffix",
+                "éNRM-1",
+                "_NRM-1",
+                "NRM-1suffix",
+                "NRM-1_",
+                "NRM-1\u0301",
+                "\u200eNRM-1",
+            )
+        )
+        delivery = self._delivery(
+            "push",
+            self._push("u" * 40, "2026-01-03T03:04:05Z", message),
+            "embedded-key",
+        )
+
+        self._process(delivery)
+
+        self.assertFalse(
+            self.env["project.git.task.association"].search(
+                [
+                    ("repository_id", "=", self.repository.id),
+                    ("source_type", "=", "commit"),
+                    ("source_provider_id", "=", "u" * 40),
+                ]
+            )
+        )
 
     def test_malformed_payload_rolls_back_partial_facts_and_dead_letters_delivery(self):
         delivery = self._delivery(

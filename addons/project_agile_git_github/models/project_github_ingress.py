@@ -1,10 +1,14 @@
 """Internal GitHub ingress persistence helpers for the provider-neutral ledger."""
 
+import hashlib
+import hmac
 import json
+import re
 
 from psycopg2 import IntegrityError
 
 from odoo import api, fields, models
+from odoo.tools import SQL
 
 
 MAX_RETAINED_PAYLOAD_CHARS = 4096
@@ -12,6 +16,28 @@ MAX_RETAINED_COLLECTION_ITEMS = 100
 MAX_RETAINED_NESTING = 20
 RETAINED_PAYLOAD_DAYS = 30
 _SENSITIVE_KEY_PARTS = ("authorization", "password", "secret", "signature", "token")
+MAX_REPLAY_MISMATCH_COUNT = 100
+_SCALAR_REDACTION_PATTERNS = (
+    (
+        re.compile(r"(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+"),
+        r"\1[redacted]",
+    ),
+    (
+        re.compile(r"(?i)\b(api[_ -]?key|token|secret|password)\s*([:=])\s*[^\s,;]+"),
+        r"\1\2[redacted]",
+    ),
+    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "[redacted]"),
+    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "[redacted]"),
+    (re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b"), "[redacted]"),
+)
+
+
+def _redact_scalar_text(value):
+    """Redact recognized credentials embedded in otherwise allowed scalar text."""
+
+    for pattern, replacement in _SCALAR_REDACTION_PATTERNS:
+        value = pattern.sub(replacement, value)
+    return value
 
 
 def _redact_payload_value(value, depth=0):
@@ -39,7 +65,7 @@ def _redact_payload_value(value, depth=0):
         if len(value) > MAX_RETAINED_COLLECTION_ITEMS:
             redacted.append("[truncated]")
         return redacted
-    return value
+    return _redact_scalar_text(value) if isinstance(value, str) else value
 
 
 class ProjectGitRepository(models.Model):
@@ -102,6 +128,7 @@ class ProjectGitDelivery(models.Model):
         payload_size,
         retained_payload=None,
         retention_error=None,
+        return_replay_status=False,
     ):
         """Persist one authenticated delivery without normalizing or mutating workflow state.
 
@@ -111,6 +138,11 @@ class ProjectGitDelivery(models.Model):
         valid but non-retainable excerpt is terminal so the worker cannot retry
         indefinitely after privacy-safe truncation rejected its raw payload.
         """
+
+        def result(delivery, created, exact_replay):
+            if return_replay_status:
+                return delivery, created, exact_replay
+            return delivery, created
 
         values = {
             "repository_id": repository_id,
@@ -130,7 +162,7 @@ class ProjectGitDelivery(models.Model):
         }
         try:
             with self.env.cr.savepoint():
-                return self.sudo().create(values), True
+                return result(self.sudo().create(values), True, True)
         except IntegrityError as error:
             if error.diag.constraint_name != "project_git_delivery_delivery_unique":
                 raise
@@ -141,4 +173,27 @@ class ProjectGitDelivery(models.Model):
                 ],
                 limit=1,
             )
-            return delivery, False
+            if not delivery:
+                raise
+            exact_replay = (
+                delivery.event_type == event_type
+                and delivery.payload_size == payload_size
+                and hmac.compare_digest(delivery.payload_sha256, payload_sha256)
+            )
+            if not exact_replay:
+                self.env.cr.execute(
+                    SQL(
+                        """
+                        UPDATE project_git_delivery
+                           SET replay_mismatch_count = LEAST(replay_mismatch_count + 1, %s),
+                               last_replay_mismatch_at = NOW()
+                         WHERE id = %s
+                        """,
+                        MAX_REPLAY_MISMATCH_COUNT,
+                        delivery.id,
+                    )
+                )
+                delivery.invalidate_recordset(
+                    ["replay_mismatch_count", "last_replay_mismatch_at"]
+                )
+            return result(delivery, False, exact_replay)

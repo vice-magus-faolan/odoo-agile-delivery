@@ -142,6 +142,28 @@ priority ordering or first-match winner.
 
 ## Ownership, approval, activation, and shutdown
 
+### Approved rules-phase authority amendment (September 30, 2026)
+
+Jimmy approved the bounded revoke-only Task observer on t_0ef017bf after exact
+933ac40 review demonstrated inverse stage removal/restoration and mutable custom
+Task-rule denial/restoration could retain an old epoch. The root remains inert;
+the rules phase may now inherit Task only to observe authorized native operations,
+not initiate policy Task writes, evaluate policies, schedule work or add the later
+Task concurrency field. The [bounded authority profile](../git-policy-authority-profiles.md)
+records exact native XML identities, normalized fingerprints, groups/permissions,
+registry field dependencies and fixed hook coverage. Native Odoo remains the
+permission evaluator. The sole custom extension is bounded literal boolean
+domains over direct stored Task name/active with =, !=, in, not in. Unknown,
+changed or unclassified profiles fail closed at approval/current validation.
+Owner, approver and executor all require concrete native Task read/write access.
+Successful native input edits/create/delete conservatively revoke affected
+old/new/descendant Project epochs; both stage-relation directions and inverse
+membership edits are observed. Restoration never clears a tombstone; a fresh
+successor approval/cutoff is required. Denied/rolled-back operations commit no
+partial revocation. Private control locks are deterministic; apply/fence races
+remain the later phase's independent-connection verification obligation. No
+trusted-write/context bypass or live/publication effect is approved.
+
 A new explicit `group_git_policy_manager` capability implies Project Manager but
 has no installation-time members. The rule owner must be an active internal user
 with that capability and current project/repository/company read/write authority.

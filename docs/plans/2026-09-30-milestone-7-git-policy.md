@@ -124,7 +124,12 @@ manifest data, security CSV/XML, and ordinary configuration views.
 2. GREEN: implement the exact finite ADR-012 schema, typed bounds and company checks;
    derive company/project from readable repository rather than trusting payload.
 3. Run the focused imported tests via the disposable canonical fixture. Commit
-   after both positive and negative tests pass. No evaluator or Task override.
+   after both positive and negative tests pass. No evaluator or policy Task writes.
+   Jimmy's September 30 amendment on t_0ef017bf permits only bounded revoke-only
+   Task hooks; no early concurrency field. Observe both Project.type_ids and
+   Stage.project_ids, prove literal name/active denial/restoration, pin native
+   profiles/dependencies, and fail closed on unsupported custom authority inputs.
+   See [bounded authority support](../git-policy-authority-profiles.md).
 
 ### Task 6: Separate author and approver (2–5 minutes per action)
 

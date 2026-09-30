@@ -7,6 +7,14 @@ from odoo.tools import SQL
 from .policy_authority import STAGE_SETTINGS, lock_records
 
 
+def _policy_ready(env):
+    """Internal install/uninstall schema check, never a caller context bypass."""
+    if "project.git.policy.activation" not in env.registry:
+        return False
+    env.cr.execute(SQL("SELECT to_regclass('project_git_policy_activation')"))
+    return bool(env.cr.fetchone()[0])
+
+
 def _revoke(env, domain, reason):
     """Fixed internal revoke boundary, never grants permission or returns hidden IDs.
 
@@ -14,10 +22,7 @@ def _revoke(env, domain, reason):
     and uninstall the policy table may not yet exist; this is a schema check, not
     a caller-controlled bypass. Direct DB administration remains the trust root.
     """
-    if "project.git.policy.activation" not in env.registry:
-        return
-    env.cr.execute(SQL("SELECT to_regclass('project_git_policy_activation')"))
-    if env.cr.fetchone()[0]:
+    if _policy_ready(env):
         env["project.git.policy.activation"]._revoke_matching(domain, reason)
 
 
@@ -60,6 +65,38 @@ class ProjectTaskType(models.Model):
         return super().unlink()
 
 
+class ProjectTaskStagePersonal(models.Model):
+    """Native table alias can change Task assignees without Task.write."""
+
+    _inherit = "project.task.stage.personal"
+
+    def _git_policy_project_ids(self):
+        return self.sudo().task_id.project_id.ids
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        _revoke(self.env, [("project_id", "in", records._git_policy_project_ids())], "authority_changed")
+        return records
+
+    def write(self, values):
+        self.check_access("write")
+        relevant = {"task_id", "user_id"}.intersection(values)
+        before = self._git_policy_project_ids() if relevant else []
+        result = super().write(values)
+        if relevant:
+            projects = sorted(set(before) | set(self._git_policy_project_ids()))
+            _revoke(self.env, [("project_id", "in", projects)], "authority_changed")
+        return result
+
+    def unlink(self):
+        self.check_access("unlink")
+        projects = self._git_policy_project_ids()
+        result = super().unlink()
+        _revoke(self.env, [("project_id", "in", projects)], "authority_changed")
+        return result
+
+
 class MailFollowers(models.Model):
     _inherit = "mail.followers"
 
@@ -99,7 +136,7 @@ class ResUsers(models.Model):
 
     def write(self, values):
         result = super().write(values)
-        if {"active", "group_ids", "company_ids", "company_id", "share", "role"}.intersection(values):
+        if {"active", "group_ids", "all_group_ids", "company_ids", "company_id", "share", "role", "partner_id"}.intersection(values):
             _revoke(self.env, ["|", "|", ("owner_id", "in", self.ids),
                                ("approver_id", "in", self.ids), ("execution_user_id", "in", self.ids)], "identity_changed")
         return result
@@ -108,10 +145,86 @@ class ResUsers(models.Model):
 class ResGroups(models.Model):
     _inherit = "res.groups"
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        _revoke(self.env, [], "security_changed")
+        return records
+
     def write(self, values):
         result = super().write(values)
         if {"implied_ids", "user_ids", "all_user_ids"}.intersection(values):
             _revoke(self.env, [], "security_changed")
+        return result
+
+    def unlink(self):
+        result = super().unlink()
+        _revoke(self.env, [], "security_changed")
+        return result
+
+
+class ResCompany(models.Model):
+    _inherit = "res.company"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        _revoke(self.env, [], "identity_changed")
+        return records
+
+    def write(self, values):
+        result = super().write(values)
+        if {"user_ids", "active"}.intersection(values):
+            # M2M inverse edits do not necessarily invoke res.users.write.
+            _revoke(self.env, [], "identity_changed")
+        return result
+
+
+class ResPartner(models.Model):
+    _inherit = "res.partner"
+
+    def write(self, values):
+        result = super().write(values)
+        if "company_id" in values:
+            # Project.company_id depends on partner_id.company_id. Conservatively
+            # cover computed propagation without pretending it invokes Project.write.
+            _revoke(self.env, [], "authority_changed")
+        return result
+
+    def unlink(self):
+        result = super().unlink()
+        _revoke(self.env, [], "authority_changed")
+        return result
+
+
+class AccountAnalyticAccount(models.Model):
+    _inherit = "account.analytic.account"
+
+    def write(self, values):
+        result = super().write(values)
+        if "company_id" in values:
+            # The other native computed Project company dependency is analytic.
+            _revoke(self.env, [], "authority_changed")
+        return result
+
+    def unlink(self):
+        result = super().unlink()
+        _revoke(self.env, [], "authority_changed")
+        return result
+
+
+class IrModelData(models.Model):
+    _inherit = "ir.model.data"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        _revoke(self.env, [], "security_changed")
+        return records
+
+    def write(self, values):
+        result = super().write(values)
+        _revoke(self.env, [], "security_changed")
         return result
 
     def unlink(self):

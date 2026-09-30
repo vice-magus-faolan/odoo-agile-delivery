@@ -21,10 +21,23 @@ class TestGitAutomationContract(unittest.TestCase):
                 continue
             self.assertNotIn("project_agile_git_automation", ast.literal_eval(path.read_text())["depends"])
 
-    def test_no_evaluator_task_override_or_scheduler(self):
+    def test_no_evaluator_policy_task_write_or_scheduler(self):
         sources = list((self.addon / "models").glob("*.py"))
         combined = "\n".join(path.read_text() for path in sources)
-        self.assertNotIn('_inherit = "project.task"', combined)
+        # Jimmy's approved R2 amendment permits exactly this revoke-only observer,
+        # not a policy Task effect, configurable dispatch, or concurrency field.
+        hook = self.addon / "models" / "project_task.py"
+        self.assertEqual([p.name for p in sources if '_inherit = "project.task"' in p.read_text()], [hook.name])
+        tree = ast.parse(hook.read_text())
+        cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
+        self.assertEqual({n.name for n in cls.body if isinstance(n, ast.FunctionDef)},
+                         {"create", "write", "unlink", "_git_policy_affected_projects", "_git_policy_lock_scopes", "_git_policy_requested_scopes"})
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"create", "write", "unlink"}:
+                self.assertIsInstance(node.func.value, ast.Call)
+                self.assertEqual(node.func.value.func.id, "super")
+        self.assertNotIn("fields.", hook.read_text())
+        self.assertIn("_revoke(", hook.read_text())
         self.assertNotIn('write({"stage_id"', combined)
         self.assertNotIn("_cron", combined)
         self.assertFalse((self.addon / "controllers").exists())

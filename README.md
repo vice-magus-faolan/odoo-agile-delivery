@@ -208,8 +208,13 @@ scope, security, stage settings and follower removal invalidate approval;
 restoration never resurrects a used epoch. See the
 [configuration guide](docs/git-policy-configuration.md).
 
+The [bounded authority profile](docs/git-policy-authority-profiles.md) implements
+Jimmy's approved revoke-only Task observer and explicit native-profile allowlist.
+Only literal direct Task name/active custom access rules are supported initially;
+unknown authority dependencies refuse activation. Both stage-relation directions,
+native authority-input edits and inverse membership changes require fresh approval.
 The bounded synthetic audit fixture remains distinct from authenticated
-observations and consumed effects. There is no evaluator, cron, Task override or
+observations and consumed effects. There is no evaluator, cron or policy-initiated
 Task mutation in this slice. No operational automation or production policy is
 activated by this delivery. Live activation requires separate operator approval
 and exact-SHA authorization/recovery evidence.

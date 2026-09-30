@@ -7,6 +7,7 @@ from .policy_authority import (
     check_identity, check_task_authority, clean_context, exact_name, lock_records, reject_keys,
     require_capability, stage_fingerprint,
 )
+from .policy_authority_profile import check_supported_profile
 
 
 SELECTORS = {
@@ -150,6 +151,9 @@ class ProjectGitPolicyRevision(models.Model):
         self._check_selectors()
         check_identity(self.owner_id, self.repository_id, manager=True)
         check_identity(self.env.user, self.repository_id, manager=True)
+        check_supported_profile(self.repository_id, self.owner_id | self.env.user | self.execution_user_id)
+        check_task_authority(self.owner_id, self.repository_id)
+        check_task_authority(self.env.user, self.repository_id)
         check_task_authority(self.execution_user_id, self.repository_id)
 
     def action_activate(self, acknowledge_native_side_effects=False):

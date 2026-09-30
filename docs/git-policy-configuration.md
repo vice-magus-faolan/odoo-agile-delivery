@@ -14,6 +14,16 @@ Create a successor draft to edit approved selectors. Editing/creating a draft or
 
 ## Security and implementation
 
+The [approved bounded authority profile](git-policy-authority-profiles.md) pins
+native XML identities, normalized domain fingerprints, groups, permissions and
+mutable dependencies. Only literal direct stored Task name/active custom rules
+are initially supported; unknown Project/repository/stage/identity or other Task
+profiles fail closed at activation/current validation. Native Odoo remains the
+access evaluator. The rules phase now has a revoke-only Task observer, not a Task
+effect or concurrency-field implementation. Successful authority-input edits,
+create/delete and old/new/descendant scope changes invalidate approvals before
+restoration can reuse them. Both stage relation directions are observed.
+
 Global company rules plus fresh native Project subqueries protect search/count/read surfaces. Never cache visible record IDs inside an ir.rule expression: the cached domain can retain stale access. Public controls require caller capability and current record access before narrow server-derived writes. Company context is validated; defaults and arbitrary expressions/actions/model names/methods/fields do not grant authority. Execution identity is persisted in the approved revision, never provider/context-selected. Activation checks every current concrete Project Task under that execution identity; future apply must repeat actual-record access checks under locks.
 
 Private helpers fence Project, repository, rule and approval rows and invalidate caches. Public activation/disable controls recheck authority after locking. Approval validity is rechecked against current identities, scope, mode, epochs, stages and Task permissions. Native Project/Task unfollow and follower reassignment revoke through an authorized revoke-only follower hook; restoring access before the next validation cannot resurrect an epoch. Revocation is transaction-local and durable only when the owning transaction commits. Direct database administration remains the trust root. Future workers must implement ADR-012 lock order, provenance, bounded evaluation, retries and actual Task checks; this slice does not authorize live apply.

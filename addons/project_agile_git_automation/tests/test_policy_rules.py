@@ -47,7 +47,7 @@ class TestGitPolicyRules(TransactionCase):
         return self._approve(self.revision)
 
     def _approve(self, revision):
-        result = revision.with_user(self.approver).action_activate(acknowledge_native_side_effects=True)
+        result = revision.with_user(self.approver).with_context(allowed_company_ids=revision.company_id.ids).action_activate(acknowledge_native_side_effects=True)
         return self.env["project.git.policy.activation"].browse(result["activation_id"])
 
     def _new_revision(self, revision=None):
@@ -60,6 +60,95 @@ class TestGitPolicyRules(TransactionCase):
         self.assertTrue(activation.revocation_ids)
         self.assertFalse(self.rule.activation_id)
 
+    def test_inverse_project_stage_removal_restore_is_terminal(self):
+        for stage in (self.stages[0], self.stages[2]):
+            with self.subTest(stage=stage.name), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                activation = self._activate()
+                self.project.with_user(self.author).write({"type_ids": [Command.unlink(stage.id)]})
+                self.assertNotIn(self.project, stage.project_ids)
+                self.project.with_user(self.author).write({"type_ids": [Command.link(stage.id)]})
+                self.assertTrue(activation.revocation_ids)
+                self.assertFalse(self.rule.activation_id)
+                self.assertFalse(activation._validate_current_authority())
+                raise _RollbackSubcase()
+
+    def test_new_project_shared_stage_relation_revokes_existing_epoch(self):
+        activation = self._activate()
+        project = self.env["project.project"].with_user(self.author).create({
+            "name": "New shared-stage Project", "company_id": self.env.company.id,
+            "type_ids": [Command.link(self.stages[2].id)],
+        })
+        self.assertIn(project, self.stages[2].project_ids)
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        project.write({"type_ids": [Command.clear()]})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_native_personal_stage_alias_assignment_mutations_revoke(self):
+        # Native personal stages share project_task_user_rel with Task.user_ids;
+        # mutations do not necessarily enter Task.write(user_ids=...).
+        personal = self.env["project.task.stage.personal"].with_user(self.executor).create({
+            "task_id": self.task.id, "user_id": self.executor.id,
+        })
+        self.task.invalidate_recordset(["user_ids"])
+        self.assertIn(self.executor, self.task.user_ids)
+        activation = self._activate()
+        personal.unlink()
+        self.task.invalidate_recordset(["user_ids"])
+        self.assertNotIn(self.executor, self.task.user_ids)
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        personal = personal.create({"task_id": self.task.id, "user_id": self.executor.id})
+        self.assertFalse(activation._validate_current_authority())
+        activation = self._approve(self._new_revision())
+        self.task.with_user(self.author).write({"personal_stage_type_ids": [Command.clear()]})
+        self.assertTrue(activation.revocation_ids)
+        # Clearing stages preserves the native assignee row when stage_id is NULL.
+        personal.exists().unlink()
+        other = self.env["project.task"].with_user(self.author).create({
+            "name": "Native alias reassignment", "project_id": self.project.id,
+        })
+        successor = self._new_revision()
+        activation = self._approve(successor)
+        personal = personal.create({"task_id": self.task.id, "user_id": self.executor.id})
+        self.assertTrue(activation.revocation_ids)
+        activation = self._approve(self._new_revision(successor))
+        with self.assertRaises(AccessError):
+            personal.with_user(self.author).write({"task_id": other.id})
+        self.assertFalse(activation.revocation_ids)
+        with self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+            personal.write({"task_id": other.id})
+            self.assertTrue(activation.revocation_ids)
+            raise _RollbackSubcase()
+        self.assertFalse(activation.revocation_ids)
+        personal.write({"task_id": other.id})
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+
+    def test_supported_name_denial_restore_is_terminal_without_validation(self):
+        self.env["ir.rule"].create({
+            "name": "Literal Task authority", "model_id": self.env["ir.model"]._get("project.task").id,
+            "domain_force": "[('name', '!=', 'Excluded')]",
+        })
+        activation = self._activate()
+        self.task.with_user(self.author).with_context(git_policy_skip_revocation=True).write({"name": "Excluded"})
+        with self.assertRaises(AccessError):
+            self.task.with_user(self.executor).check_access("write")
+        with self.assertRaises(AccessError):
+            self.task.with_user(self.executor).check_access("read")
+        self.task.write({"name": "Policy target"})
+        self.task.with_user(self.executor).check_access("write")
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.assertFalse(activation._validate_current_authority())
+        with self.assertRaises(ValidationError):
+            self._approve(self.revision)
+        successor = self._new_revision()
+        fresh = self._approve(successor)
+        self.assertNotEqual(activation, fresh)
+        self.assertGreaterEqual(fresh.activated_at, activation.activated_at)
+        self.assertTrue(fresh._validate_current_authority())
+
     def test_disabled_dry_run_defaults_and_no_members_seeded(self):
         self.assertFalse(self.project.git_policy_enabled)
         self.assertEqual(self.project.git_policy_mode, "dry_run")
@@ -68,6 +157,361 @@ class TestGitPolicyRules(TransactionCase):
         self.assertEqual(self.revision.trigger, "merged_pull_request")
         self.assertEqual(self.revision.effect, "task_stage_transition")
         self.assertFalse(self.env["ir.cron"].search([("model_id.model", "like", "project.git.policy.%")]))
+
+    def test_all_native_stage_relation_directions_and_commands_are_terminal(self):
+        for inverse in (False, True):
+            for stage in (self.stages[0], self.stages[2]):
+                for kind in (Command.UNLINK, Command.CLEAR, Command.SET):
+                    with self.subTest(inverse=inverse, stage=stage.name, kind=kind), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                        activation = self._activate()
+                        record, field = (self.project, "type_ids") if inverse else (stage, "project_ids")
+                        removed_id = stage.id if inverse else self.project.id
+                        command = {
+                            Command.UNLINK: Command.unlink(removed_id),
+                            Command.CLEAR: Command.clear(),
+                            Command.SET: Command.set([i for i in record[field].ids if i != removed_id]),
+                        }[kind]
+                        record.with_user(self.author).write({field: [command]})
+                        self.assertNotIn(self.project, stage.project_ids)
+                        self.assertTrue(activation.revocation_ids)
+                        self.assertFalse(self.rule.activation_id)
+                        record.with_user(self.author).write({field: [Command.link(removed_id)]})
+                        self.assertFalse(activation._validate_current_authority())
+                        raise _RollbackSubcase()
+
+    def test_native_rejects_time_expression_without_partial_revocation(self):
+        activation = self._activate()
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self.env["ir.rule"].create({
+                "name": "Unsupported time expression", "model_id": self.env["ir.model"]._get("project.task").id,
+                "domain_force": "[('name', '!=', time.strftime('%Y'))]",
+            })
+        self.assertFalse(activation.revocation_ids)
+        self.assertEqual(self.rule.activation_id, activation)
+
+    def test_supported_active_denial_restore_is_terminal(self):
+        self.env["ir.rule"].create({
+            "name": "Literal active Task authority", "model_id": self.env["ir.model"]._get("project.task").id,
+            "domain_force": "[('active', '=', True)]",
+        })
+        activation = self._activate()
+        self.task.with_user(self.author).write({"active": False})
+        with self.assertRaises(AccessError):
+            self.task.with_user(self.executor).check_access("write")
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.task.write({"active": True})
+        self.task.with_user(self.executor).check_access("write")
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_supported_literal_boolean_combinations_leave_odoo_as_evaluator(self):
+        for domain in (
+            "[('name', '=', 'Policy target'), ('active', '!=', False)]",
+            "['&', ('name', 'in', ['Policy target', 'Other']), ('name', 'not in', ['Excluded'])]",
+            "['|', ('active', '=', True), '!', ('name', '=', 'Excluded')]",
+        ):
+            with self.subTest(domain=domain), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                self.env["ir.rule"].create({
+                    "name": "Supported literal combinations", "model_id": self.env["ir.model"]._get("project.task").id,
+                    "domain_force": domain,
+                })
+                activation = self._activate()
+                self.assertTrue(activation._validate_current_authority())
+                self.assertEqual(self.task.stage_id, self.stages[0])
+                raise _RollbackSubcase()
+
+    def test_unsupported_custom_authority_inputs_refuse_activation(self):
+        for domain in (
+            "[('stage_id', '!=', False)]", "[('display_name', '!=', 'Excluded')]",
+            "[('project_id.name', '!=', 'Excluded')]", "[('name', 'like', 'Policy')]",
+            "[('name', '!=', user.name)]",
+            "[(1, '=', 1)]",
+        ):
+            with self.subTest(domain=domain), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                self.env["ir.rule"].create({
+                    "name": "Unsupported Task profile", "model_id": self.env["ir.model"]._get("project.task").id,
+                    "domain_force": domain,
+                })
+                self.project.with_user(self.author).action_enable_git_policy()
+                with self.assertRaisesRegex(AccessError, "unsupported"):
+                    self._approve(self.revision)
+                self.assertFalse(self.revision.approved_at)
+                self.assertFalse(self.rule.activation_id)
+                raise _RollbackSubcase()
+
+    def test_unsupported_custom_project_repository_stage_identity_rules(self):
+        for model in ("project.project", "project.git.repository", "project.task.type", "res.users"):
+            with self.subTest(model=model), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                self.env["ir.rule"].create({
+                    "name": "Unsupported other-model profile", "model_id": self.env["ir.model"]._get(model).id,
+                    "domain_force": "[(1, '=', 1)]",
+                })
+                self.project.with_user(self.author).action_enable_git_policy()
+                with self.assertRaisesRegex(AccessError, "unsupported"):
+                    self._approve(self.revision)
+                raise _RollbackSubcase()
+
+    def test_native_rule_drift_and_restoration_need_fresh_supported_approval(self):
+        native = self.env.ref("project.task_comp_rule")
+        old_domain = native.domain_force
+        activation = self._activate()
+        native.write({"domain_force": "[('company_id', 'in', company_ids)]"})
+        self.assertTrue(activation.revocation_ids)
+        successor = self._new_revision()
+        with self.assertRaisesRegex(AccessError, "unsupported"):
+            self._approve(successor)
+        native.write({"domain_force": old_domain})
+        self.assertFalse(activation._validate_current_authority())
+        fresh = self._approve(successor)
+        self.assertTrue(fresh._validate_current_authority())
+
+    def test_native_profile_missing_inactive_group_and_permission_drift_rejected(self):
+        native = self.env.ref("project.task_comp_rule")
+        for values in ({"active": False}, {"perm_write": False}, {"groups": [Command.link(self.env.ref("base.group_user").id)]}):
+            with self.subTest(values=values), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                native.write(values)
+                self.project.with_user(self.author).action_enable_git_policy()
+                with self.assertRaisesRegex(AccessError, "unsupported"):
+                    self._approve(self.revision)
+                raise _RollbackSubcase()
+
+    def test_literal_field_metadata_drift_fails_closed(self):
+        for name in ("name", "active"):
+            with self.subTest(field=name), patch.object(self.env["project.task"]._fields[name], "company_dependent", True):
+                self.project.with_user(self.author).action_enable_git_policy()
+                with self.assertRaisesRegex(AccessError, "unsupported"):
+                    self._approve(self.revision)
+
+    def test_literal_classifier_rejects_malformed_and_excessive_rule_data(self):
+        from ..models.policy_authority_profile import _check_literal_domain
+
+        for source in (
+            "[]", "{}", "['|', ('active', '=', True)]", "[('name', '=', 3)]",
+            "[('active', '=', 1)]", "[('name', 'in', 'Policy target')]",
+            "[('name', 'in', [])]", "[('active', 'in', [True, 'False'])]",
+            "[('name', '=', user.name)]", "[('name', '=', str(1))]",
+            "[('name', '!=', time.strftime('%Y'))]",
+            repr([('active', '=', True)] * 65), " " * 8193,
+        ):
+            with self.subTest(source=source[:80]), self.assertRaises(AccessError):
+                _check_literal_domain(source)
+
+    def test_task_create_unlink_and_bulk_edits_revoke_without_policy_business_writes(self):
+        activation = self._activate()
+        tasks = self.env["project.task"].with_user(self.author).create([
+            {"name": "Created A", "project_id": self.project.id},
+            {"name": "Created B", "project_id": self.project.id},
+        ])
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        successor = self._new_revision()
+        activation = self._approve(successor)
+        tasks.write({"name": "Bulk normal edit"})
+        self.assertTrue(activation.revocation_ids)
+        successor = self._new_revision(successor)
+        activation = self._approve(successor)
+        tasks.unlink()
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.assertEqual(self.task.stage_id, self.stages[0])
+
+    def test_denied_and_rolled_back_task_mutations_have_no_partial_revocation(self):
+        outsider = mail_new_test_user(self.env, "policy_no_task_access", groups="base.group_user")
+        activation = self._activate()
+        with self.assertRaises(AccessError):
+            self.task.with_user(outsider).write({"name": "Denied"})
+        with self.assertRaises(AccessError):
+            self.task.with_user(outsider).unlink()
+        with self.assertRaises(AccessError), self.env.cr.savepoint():
+            self.env["project.task"].with_user(outsider).create({"name": "Denied create", "project_id": self.project.id})
+        with self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+            self.task.with_user(self.author).write({"name": "Rolled back"})
+            self.assertTrue(activation.revocation_ids)
+            raise _RollbackSubcase()
+        self.assertEqual(self.task.name, "Policy target")
+        self.assertFalse(activation.revocation_ids)
+        self.assertEqual(self.rule.activation_id, activation)
+        self.assertTrue(activation._validate_current_authority())
+
+    def _second_scope(self, company=None):
+        company = company or self.env.company
+        project = self.env["project.project"].create({
+            "name": "Second policy scope", "company_id": company.id,
+            "agile_enabled": True, "agile_key": "SEC", "privacy_visibility": "employees",
+        })
+        repository = self.env["project.git.repository"].create({
+            "name": "Second", "provider": "github", "provider_repository_id": "second",
+            "canonical_url": "https://github.com/synthetic/second", "project_id": project.id,
+        })
+        stages = self.env["project.task.type"].create([
+            {"name": name, "project_ids": [Command.link(project.id)]} for name in ("Source", "Target")
+        ])
+        task = self.env["project.task"].create({"name": "Second task", "project_id": project.id, "stage_id": stages[0].id})
+        scoped_env = self.env(user=self.author.id, context={"allowed_company_ids": company.ids})
+        rule = scoped_env["project.git.policy.rule"].create({"name": "Second scope rule", "repository_id": repository.id})
+        revision = scoped_env["project.git.policy.revision"].create({
+            **self.revision_values, "rule_id": rule.id,
+            "allowed_source_stage_ids": [Command.set(stages[0].ids)], "target_stage_id": stages[1].id,
+        })
+        project.with_env(scoped_env).action_enable_git_policy()
+        return project, task, rule, revision
+
+    def test_bulk_mixed_project_edits_and_scope_move_revoke_old_and_new(self):
+        project, task, rule, revision = self._second_scope()
+        movable = self.env["project.task"].create({"name": "Native unkeyed Task", "project_id": False})
+        movable.write({"project_id": self.project.id})
+        self.assertFalse(movable.agile_key)
+        first, second = self._activate(), self._approve(revision)
+        (self.task | task).with_user(self.author).write({"name": "Normal mixed-scope edit"})
+        self.assertTrue(first.revocation_ids)
+        self.assertTrue(second.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.assertFalse(rule.activation_id)
+        first = self._approve(self._new_revision())
+        second = self._approve(self._new_revision(revision))
+        with self.assertRaises(ValidationError):
+            self.task.with_user(self.author).write({"project_id": project.id})
+        self.assertFalse(first.revocation_ids)
+        self.assertFalse(second.revocation_ids)
+        movable.with_user(self.author).with_context(git_policy_skip_revocation=True).write({"project_id": project.id})
+        self.assertTrue(first.revocation_ids)
+        self.assertTrue(second.revocation_ids)
+        self.assertFalse(rule.activation_id)
+        movable.write({"project_id": self.project.id})
+        self.assertFalse(first._validate_current_authority())
+        self.assertFalse(second._validate_current_authority())
+
+    def test_parent_scope_propagation_revokes_descendant_project(self):
+        project, task, rule, revision = self._second_scope()
+        parent = self.env["project.task"].create({"name": "Native parent", "project_id": False})
+        parent.write({"project_id": self.project.id})
+        child = self.env["project.task"].create({"name": "Child", "parent_id": parent.id})
+        first, second = self._activate(), self._approve(revision)
+        parent.with_user(self.author).write({"project_id": project.id})
+        self.assertEqual(child.project_id, project)
+        self.assertTrue(first.revocation_ids)
+        self.assertTrue(second.revocation_ids)
+
+    def test_cross_company_denial_is_atomic_and_multi_company_edit_is_terminal(self):
+        company = self.env["res.company"].create({"name": "Second Task company"})
+        for user in (self.author, self.approver, self.executor):
+            user.company_ids = [Command.link(company.id)]
+        project, task, rule, revision = self._second_scope(company)
+        first, second = self._activate(), self._approve(revision)
+        with self.assertRaises(AccessError):
+            task.with_user(self.author).with_context(allowed_company_ids=self.env.company.ids).write({"name": "Hidden company"})
+        self.assertFalse(first.revocation_ids)
+        self.assertFalse(second.revocation_ids)
+        (self.task | task).with_user(self.author).with_context(allowed_company_ids=(self.env.company | company).ids).write({"active": False})
+        self.assertTrue(first.revocation_ids)
+        self.assertTrue(second.revocation_ids)
+
+    def test_native_task_assignment_and_scope_input_restore_revoke_without_validator(self):
+        for values, restore in (
+            ({"user_ids": [Command.link(self.executor.id)]}, {"user_ids": [Command.clear()]}),
+            ({"display_in_project": False}, {"display_in_project": True}),
+        ):
+            with self.subTest(values=values), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                activation = self._activate()
+                self.task.with_user(self.author).write(values)
+                self.assertTrue(activation.revocation_ids)
+                self.task.with_user(self.author).write(restore)
+                self.assertFalse(activation._validate_current_authority())
+                raise _RollbackSubcase()
+
+    def test_indirect_native_project_company_input_changes_revoke(self):
+        partner = self.env["res.partner"].create({"name": "Synthetic company source", "company_id": self.env.company.id})
+        self.project.partner_id = partner
+        activation = self._activate()
+        partner.write({"company_id": False})
+        self.assertTrue(activation.revocation_ids)
+        partner.write({"company_id": self.env.company.id})
+        self.assertFalse(activation._validate_current_authority())
+        plan = self.env["account.analytic.plan"].create({"name": "Synthetic policy plan"})
+        account = self.env["account.analytic.account"].create({"name": "Synthetic account", "plan_id": plan.id, "company_id": self.env.company.id})
+        self.project.account_id = account
+        activation = self._approve(self._new_revision())
+        account.write({"company_id": False})
+        self.assertTrue(activation.revocation_ids)
+        account.write({"company_id": self.env.company.id})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_xml_identity_drift_revokes_and_current_support_is_rechecked(self):
+        data = self.env["ir.model.data"].search([("module", "=", "project"), ("name", "=", "task_comp_rule")])
+        activation = self._activate()
+        data.write({"name": "temporarily_removed_task_comp_rule"})
+        self.assertTrue(activation.revocation_ids)
+        successor = self._new_revision()
+        with self.assertRaisesRegex(AccessError, "unsupported"):
+            self._approve(successor)
+        data.write({"name": "task_comp_rule"})
+        self.assertFalse(activation._validate_current_authority())
+        self.assertTrue(self._approve(successor)._validate_current_authority())
+
+    def test_inverse_company_membership_edit_and_restore_are_terminal(self):
+        other = self.env["res.company"].create({"name": "Native inverse company scope"})
+        self.executor.company_ids = [Command.link(other.id)]
+        self.executor.company_id = other
+        activation = self._activate()
+        self.env.company.write({"user_ids": [Command.unlink(self.executor.id)]})
+        self.assertNotIn(self.env.company, self.executor.company_ids)
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.env.company.write({"user_ids": [Command.link(self.executor.id)]})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_inverse_group_and_new_implied_group_edits_revoke(self):
+        activation = self._activate()
+        self.env["res.groups"].create({"name": "New authority input", "implied_ids": [Command.link(self.env.ref("base.group_user").id)],
+                                       "user_ids": [Command.link(self.executor.id)]})
+        self.assertTrue(activation.revocation_ids)
+        activation = self._approve(self._new_revision())
+        group = self.env.ref("project.group_project_user")
+        group.write({"user_ids": [Command.unlink(self.executor.id)]})
+        self.assertTrue(activation.revocation_ids)
+        group.write({"user_ids": [Command.link(self.executor.id)]})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_actor_partner_reassignment_restore_cannot_reuse_epoch(self):
+        original = self.executor.partner_id
+        partner = self.env["res.partner"].create({"name": "New native identity partner"})
+        activation = self._activate()
+        self.executor.write({"partner_id": partner.id})
+        self.assertTrue(activation.revocation_ids)
+        self.executor.write({"partner_id": original.id})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_company_archival_restore_revokes_and_refuses_new_approval(self):
+        company = self.env["res.company"].create({"name": "Archived policy company"})
+        for user in (self.author, self.approver, self.executor):
+            user.company_ids = [Command.link(company.id)]
+        project, task, rule, revision = self._second_scope(company)
+        activation = self._approve(revision)
+        company.write({"active": False})
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(rule.activation_id)
+        with self.assertRaises(AccessError):
+            self._approve(revision)
+        company.write({"active": True})
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_shared_stage_inverse_edit_revokes_other_project_epoch(self):
+        project, task, rule, revision = self._second_scope()
+        stage = self.stages[2]
+        project.with_user(self.author).write({"type_ids": [Command.link(stage.id)]})
+        activation = self._activate()
+        project.with_user(self.author).write({"type_ids": [Command.unlink(stage.id)]})
+        project.with_user(self.author).write({"type_ids": [Command.link(stage.id)]})
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(self.rule.activation_id)
+        self.assertFalse(activation._validate_current_authority())
+
+    def test_current_profile_field_drift_revokes_before_restoration(self):
+        activation = self._activate()
+        with patch.object(self.env["project.task"]._fields["name"], "company_dependent", True):
+            self.assertFalse(activation._validate_current_authority())
+        self.assertTrue(activation.revocation_ids)
+        self.assertFalse(activation._validate_current_authority())
 
     def test_company_scope_and_serial_revision_are_server_derived(self):
         self.assertEqual(self.rule.owner_id, self.author)
@@ -315,7 +759,7 @@ class TestGitPolicyRules(TransactionCase):
         activation = self._activate()
         self.env["ir.rule"].create({
             "name": "Authority changed", "model_id": self.env["ir.model"]._get("project.task").id,
-            "domain_force": "[(1, '=', 1)]",
+            "domain_force": "[('active', 'in', [True, False])]",
         })
         self._assert_revoked(activation)
         revised = self._new_revision()

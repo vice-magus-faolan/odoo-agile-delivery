@@ -12,7 +12,9 @@ Policy Manager capability member. Selectors permit only merged PR, exact branch,
 1–20 eligible source stages, one eligible target stage and 0–20 named checks.
 Activation validates an explicit active internal non-superuser execution user
 with actual concrete Task write authority and required company membership.
-There is no evaluator, scheduler, Task override or Task mutation in this slice.
+There is no evaluator, scheduler or policy-initiated Task mutation in this slice.
+Jimmy's approved remediation adds a bounded revoke-only native Task observer;
+it preserves normal create/write/unlink behavior and adds no concurrency field.
 Live apply remains separately operator-gated.
 
 Read the [configuration and recovery guide](../../docs/git-policy-configuration.md)
@@ -21,6 +23,11 @@ emergency disable and native side effects. Scope/security/stage/identity changes
 and Project or Task unfollow invalidate existing approval, including when access
 is restored before validation. Native/custom Project visibility is checked live
 on read/search/count/group/export surfaces, not cached as a list of visible IDs.
+The [bounded authority profile](../../docs/git-policy-authority-profiles.md)
+requires exact native definitions/dependencies and permits only literal direct
+Task name/active custom access rules. Unknown profiles refuse activation.
+Native authority-input edits and their restoration require fresh approval, even
+when current access did not decrease; conservative invalidation is intentional.
 
 The retained synthetic audit fixture remains append-only and dry-run only.
 Fixture receipts are not authenticated observations, evaluation decisions or

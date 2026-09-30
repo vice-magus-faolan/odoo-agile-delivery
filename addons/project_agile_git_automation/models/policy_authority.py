@@ -67,7 +67,7 @@ def check_scope(repository, project=None, company=None, operation="write"):
     current_company = current_project.company_id
     if not repository.active or not current_project.active or not current_project.agile_enabled:
         raise ValidationError(_("Policy requires an active Agile project and repository."))
-    if not current_company or current_company not in repository.env.companies:
+    if not current_company or not current_company.active or current_company not in repository.env.companies:
         raise AccessError(_("Policy requires a visible company-scoped project."))
     if (project and current_project != project) or (company and current_company != company):
         raise ValidationError(_("Historical policy scope cannot be reassigned."))

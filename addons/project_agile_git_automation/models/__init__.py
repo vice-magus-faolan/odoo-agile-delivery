@@ -7,3 +7,4 @@ from . import project_git_policy_activation
 from . import project_git_policy_approval_wizard
 from . import project_project
 from . import policy_revocation_hooks
+from . import project_task

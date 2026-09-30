@@ -4,11 +4,13 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
 from .policy_authority import MODES, clean_context, lock_records, require_capability
+from .policy_revocation_hooks import _revoke
 
 
 CONTROLS = {"git_policy_enabled", "git_policy_mode", "git_policy_authority_epoch"}
 PROJECT_AUTHORITY_FIELDS = {
     "active", "company_id", "agile_enabled", "privacy_visibility", "message_partner_ids", "user_id",
+    "type_ids", "account_id", "partner_id",
 }
 
 
@@ -27,16 +29,36 @@ class ProjectProject(models.Model):
                 raise ValidationError(_("Project policy controls require explicit authorized actions."))
             values_list.append({**values, "git_policy_enabled": False, "git_policy_mode": "dry_run", "git_policy_authority_epoch": 0})
         context = {key: value for key, value in self.env.context.items() if not key.startswith("default_git_policy_")}
-        return super(ProjectProject, self.with_context(context)).create(values_list)
+        records = super(ProjectProject, self.with_context(context)).create(values_list)
+        # Creating a Project with existing stages edits the inverse relation too;
+        # an old approval's shared-stage fingerprint must not survive restoration.
+        stages = records.sudo().type_ids
+        _revoke(self.env, ["|", ("revision_id.target_stage_id", "in", stages.ids),
+                           ("revision_id.allowed_source_stage_ids", "in", stages.ids)], "stage_changed")
+        return records
 
     def write(self, values):
         if CONTROLS.intersection(values):
             raise ValidationError(_("Project policy controls require explicit authorized actions."))
+        shared_stage_projects = self.env["project.project"]
+        if "type_ids" in values:
+            self.check_access("write")
+            stages = self.sudo().type_ids
+            commands = values["type_ids"] or []
+            stage_ids = [command[1] for command in commands if command[0] in (1, 2, 3, 4)]
+            stage_ids += [stage_id for command in commands if command[0] == 6 for stage_id in command[2]]
+            stages |= self.env["project.task.type"].sudo().browse(stage_ids).exists()
+            shared_stage_projects = stages.project_ids
+            lock_records(self | shared_stage_projects)
         if PROJECT_AUTHORITY_FIELDS.intersection(values):
             lock_records(self)
         result = super().write(values)
         if PROJECT_AUTHORITY_FIELDS.intersection(values):
             self._git_policy_invalidate("project_changed")
+        if shared_stage_projects:
+            self.env["project.git.policy.activation"]._revoke_matching(
+                [("project_id", "in", shared_stage_projects.ids)], "stage_changed"
+            )
         return result
 
     def _git_policy_invalidate(self, reason):

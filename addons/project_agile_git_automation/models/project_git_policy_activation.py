@@ -6,6 +6,7 @@ from odoo.exceptions import AccessError, ValidationError
 from .policy_authority import (
     MODES, check_identity, check_scope, check_task_authority, lock_records, stage_fingerprint,
 )
+from .policy_authority_profile import check_supported_profile
 
 
 REASONS = [(name, name.replace("_", " ").title()) for name in (
@@ -91,6 +92,9 @@ class ProjectGitPolicyActivation(models.Model):
         check_scope(self.repository_id, self.project_id, self.company_id)
         for user in (self.owner_id, self.approver_id):
             check_identity(user, self.repository_id, manager=True)
+        check_supported_profile(self.repository_id, self.owner_id | self.approver_id | self.execution_user_id)
+        for user in (self.owner_id, self.approver_id):
+            check_task_authority(user, self.repository_id, task)
         check_task_authority(self.execution_user_id, self.repository_id, task)
         if stage_fingerprint(self.revision_id) != self.stage_fingerprint:
             raise ValidationError(_("Approved stage configuration has changed."))

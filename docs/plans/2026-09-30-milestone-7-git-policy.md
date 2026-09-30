@@ -190,7 +190,8 @@ Files: models/project_git_policy_execution.py, tests/test_policy_execution.py.
 
 1. RED: force an audit/marker/postcondition failure after normal Task stage write.
    Assert no partial Task/effect/attempt success; sanitize the failure reason.
-2. RED: reject closed/template tasks, removed/unlinked/rating-active target stages,
+2. RED: reject closed/template tasks, removed/unlinked target stages, rating-active,
+   mail-template or SMS-template stages (including the native project_sms extension),
    revoked identity, project disable, or changed approved notification settings.
 3. GREEN: locked revalidation, one typed normal ORM stage write, flush/re-read
    protected/native outcomes, effect+audit+attempt settlement in one savepoint.

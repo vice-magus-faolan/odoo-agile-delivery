@@ -65,6 +65,12 @@ read-only, alongside ADR-011's pinned official Odoo source at
   require native Project/task visibility; additive ACLs are not record authority.
   Runtime file SHA-256:
   `34698c4ee327698a9056e7e6ee0e7beec9bc2a0d7c4c89eb4919fe50e9441cb8`.
+- Native auto-installed `project_sms/models/project_task.py` calls `_send_sms`
+  on a stage write; `sms/models/mail_thread.py` defaults `put_in_queue=False`
+  and calls SMS send directly. This is another nontransactional external boundary,
+  not merely queued tracking. Runtime file SHA-256 values respectively:
+  `7fb21f9882dc45c110b303f612818ad6db88115a4e2fabdb6d661c59ed1d54b2` and
+  `a57cdd8aa198049cc94d1f5286c0f210b06cd60d0e864f1156aeda3380d80215`.
 - Repository `project_scrum/models/project_task.py` captures completion edges
   only when `state` is in incoming write values. A stage-only call does not request
   Sprint assignment, reestimation, or explicit completion history. Do not bypass
@@ -73,10 +79,14 @@ read-only, alongside ADR-011's pinned official Odoo source at
   changes to protected Scrum fields roll back the entire effect.
 
 Initial policy excludes already closed/cancelled tasks and template tasks, and
-rejects target stages with `rating_active` (synchronous external effects are not
-transactionally recoverable). Stage mail templates require explicit approver
-acknowledgment of native tracking/notification behavior at activation and are
-revalidated at execution; changing that configuration revokes the approval epoch.
+rejects target stages with `rating_active`, `mail_template_id`, or (when present)
+`sms_template_id`. Template-driven external effects are not accepted in this
+initial action, and synchronous rating/SMS sends are not transactionally
+recoverable. Ordinary native tracking/notification behavior requires explicit
+approver acknowledgment at activation. Notification configuration is revalidated
+at execution; changing that configuration revokes the approval epoch. Installed
+Task-write extensions must be audited before apply is available; an unreviewed
+extension with irreversible effects blocks apply rather than being suppressed.
 Ordinary tracking/chatter, queued notifications, date-end/stage timestamps,
 durations, and nonterminal state recomputation are native side effects, not direct
 action targets. Do not suppress them with context or promise zero side effects.
@@ -268,6 +278,8 @@ A uniqueness collision never repeats the write. Recovery reads the committed mar
 before retry; it neither compensates a later manual change nor hides partial state.
 Use real independent-connection tests for crash/lease/disable/manual-write races.
 Do not claim to roll back already force-sent external mail (hence rating exclusion).
+The same restriction applies to already-sent SMS; no post-write audit or rollback
+can retract it. Do not add context flags to suppress native notification code.
 
 ## Visibility, bounded audit, and retention
 

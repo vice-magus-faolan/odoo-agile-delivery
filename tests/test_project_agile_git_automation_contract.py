@@ -31,6 +31,13 @@ class TestGitAutomationContract(unittest.TestCase):
         self.assertFalse((self.addon / "data").exists())
         self.assertIn("from . import test_policy_contract", (self.addon / "tests" / "__init__.py").read_text())
 
+    def test_contract_excludes_template_driven_nontransactional_effects(self):
+        contract = (self.root / "docs" / "adrs" / "012-git-workflow-policy-contract.md").read_text()
+        for boundary in ("rating_active", "mail_template_id", "sms_template_id", "put_in_queue=False"):
+            self.assertTrue(boundary in contract, f"Missing explicit notification boundary: {boundary}")
+        self.assertIn("rejects target stages", contract)
+        self.assertIn("not transactionally", contract)
+
     def test_verifier_preserves_existing_modules_and_adds_optional_lifecycle(self):
         script = (self.root / "scripts" / "verify").read_text()
         self.assertIn(

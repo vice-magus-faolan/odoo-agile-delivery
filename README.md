@@ -33,8 +33,9 @@ and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
 ordinary Odoo views and keyboard-accessible actions remain available. Git integration
 now delivers its Milestone 6 facts-and-visibility capability, including the optional
 GitHub adapter. Milestone 7 has an accepted opt-in policy contract and an installable
-inert `project_agile_git_automation` audit fixture only; rule configuration,
-evaluation, and authorized task-stage execution are pending downstream work.
+`project_agile_git_automation` configuration addon with typed revisions,
+two-person activation and terminal authority revocation. Evaluation and authorized
+task-stage execution remain pending downstream work.
 Workflow automation is not operational or activated. Jira migration, release/version
 management, other providers, richer Git UI, and the Task-document connector remain
 later work; ordinary Project behavior is unchanged.
@@ -100,7 +101,7 @@ docs/research/   ecosystem and dependency research
 `./scripts/verify` is the canonical release-candidate gate for
 `project_agile`, `project_scrum`, `project_scrum_analytics`, and the optional
 `project_agile_ui` planning board, plus `project_agile_git`,
-`project_agile_git_github`, and the inert `project_agile_git_automation` fixture.
+`project_agile_git_github`, and the optional `project_agile_git_automation` addon.
 It fails fast on syntax, static-contract, Compose,
 or Odoo-test failures and exercises all three supported lifecycles against
 disposable Odoo 19 databases:
@@ -190,16 +191,25 @@ See [ADR-011](docs/adrs/011-git-facts-and-visibility-contract.md) and the
 [operations runbook](docs/runbooks/github-git-facts-operations.md). Live webhook
 registration/secrets/configuration and deployment are separate operator effects.
 
-## Milestone 7 pending policy implementation
+## Milestone 7 configuration and pending policy engine
 
 [ADR-012](docs/adrs/012-git-workflow-policy-contract.md) supersedes historical
 ADR-008 and fixes the bounded opt-in merged-PR policy contract; the
 [M7 plan](docs/plans/2026-09-30-milestone-7-git-policy.md) sequences the serial
 reviewed implementation. `project_agile_git_automation` depends only on
 `project_agile_git` and is independently installable without GitHub or Scrum.
-This first slice contains only a bounded append-only synthetic audit fixture,
-ACLs/visibility rules and native Odoo contract tests. It has no production
-producer, policy rules, evaluator, cron, Task override, or apply action; installation
-is intrinsically disabled and fixture mode is dry-run only. No automation works
-or production policy is activated by this delivery. Future activation requires
-separate operator approval and exact-SHA authorization/recovery evidence.
+The configuration slice adds repository/project-scoped finite rules, editable
+drafts and immutable approved revisions, distinct author/approver activation,
+approved non-superuser execution identities, and append-only revocation history.
+Installation seeds no rules or capability members; Projects default disabled and
+dry-run. Current native/custom Project visibility, concrete Task permissions and
+company membership are authority, not provider payloads or context. Ownership,
+scope, security, stage settings and follower removal invalidate approval;
+restoration never resurrects a used epoch. See the
+[configuration guide](docs/git-policy-configuration.md).
+
+The bounded synthetic audit fixture remains distinct from authenticated
+observations and consumed effects. There is no evaluator, cron, Task override or
+Task mutation in this slice. No operational automation or production policy is
+activated by this delivery. Live activation requires separate operator approval
+and exact-SHA authorization/recovery evidence.

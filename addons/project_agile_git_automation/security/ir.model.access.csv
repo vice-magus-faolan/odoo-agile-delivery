@@ -1,2 +1,13 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_project_git_policy_audit_user,project.git.policy.audit user,model_project_git_policy_audit,project.group_project_user,1,0,0,0
+access_policy_rule_reader,policy rule reader,model_project_git_policy_rule,project.group_project_user,1,0,0,0
+access_policy_revision_reader,policy revision reader,model_project_git_policy_revision,project.group_project_user,1,0,0,0
+access_policy_check_reader,policy check reader,model_project_git_policy_required_check,project.group_project_user,1,0,0,0
+access_policy_activation_reader,policy activation reader,model_project_git_policy_activation,project.group_project_user,1,0,0,0
+access_policy_revocation_reader,policy revocation reader,model_project_git_policy_revocation,project.group_project_user,1,0,0,0
+access_policy_rule_manager,policy rule manager,model_project_git_policy_rule,group_git_policy_manager,1,1,1,1
+access_policy_revision_manager,policy revision manager,model_project_git_policy_revision,group_git_policy_manager,1,1,1,0
+access_policy_check_manager,policy check manager,model_project_git_policy_required_check,group_git_policy_manager,1,1,1,1
+access_policy_approval_wizard,policy approval wizard,model_project_git_policy_approval_wizard,group_git_policy_manager,1,1,1,1
+access_policy_rule_emergency,policy rule emergency,model_project_git_policy_rule,base.group_system,1,0,0,0
+access_policy_activation_emergency,policy activation emergency,model_project_git_policy_activation,base.group_system,1,0,0,0

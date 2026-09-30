@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_git_policy_rule_list" model="ir.ui.view">
+        <field name="name">project.git.policy.rule.list</field>
+        <field name="model">project.git.policy.rule</field>
+        <field name="arch" type="xml">
+            <list><field name="name"/><field name="project_id"/><field name="repository_id"/><field name="owner_id"/><field name="active_revision_id"/><field name="active"/></list>
+        </field>
+    </record>
+    <record id="view_git_policy_rule_form" model="ir.ui.view">
+        <field name="name">project.git.policy.rule.form</field>
+        <field name="model">project.git.policy.rule</field>
+        <field name="arch" type="xml">
+            <form>
+                <header><button name="action_disable" type="object" string="Disable Rule" groups="project_agile_git_automation.group_git_policy_manager,base.group_system"/></header>
+                <sheet>
+                    <group><field name="name"/><field name="repository_id" readonly="id"/><field name="project_id"/><field name="company_id"/><field name="owner_id"/><field name="active"/><field name="authority_epoch"/><field name="active_revision_id"/></group>
+                    <field name="revision_ids"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_git_policy_revision_list" model="ir.ui.view">
+        <field name="name">project.git.policy.revision.list</field>
+        <field name="model">project.git.policy.revision</field>
+        <field name="arch" type="xml"><list><field name="rule_id"/><field name="revision"/><field name="target_branch"/><field name="target_stage_id"/><field name="execution_user_id"/><field name="approved_at"/></list></field>
+    </record>
+    <record id="view_git_policy_revision_form" model="ir.ui.view">
+        <field name="name">project.git.policy.revision.form</field>
+        <field name="model">project.git.policy.revision</field>
+        <field name="arch" type="xml">
+            <form delete="0">
+                <header>
+                    <button name="action_activate_from_form" type="object" string="Approve and Activate" invisible="approved_at" groups="project_agile_git_automation.group_git_policy_manager"/>
+                    <button name="action_new_revision" type="object" string="New Revision" groups="project_agile_git_automation.group_git_policy_manager"/>
+                </header>
+                <sheet>
+                    <group><field name="rule_id" readonly="id"/><field name="revision"/><field name="company_id"/><field name="project_id"/><field name="repository_id"/><field name="owner_id"/><field name="approver_id"/><field name="approved_at"/></group>
+                    <group><field name="execution_user_id" readonly="approved_at"/><field name="trigger" readonly="1"/><field name="effect" readonly="1"/><field name="target_branch" readonly="approved_at"/><field name="allowed_source_stage_ids" widget="many2many_tags" readonly="approved_at" domain="[('project_ids', 'in', [project_id]), ('user_id', '=', False), ('active', '=', True)]"/><field name="target_stage_id" readonly="approved_at" domain="[('project_ids', 'in', [project_id]), ('user_id', '=', False), ('active', '=', True)]"/></group>
+                    <field name="required_check_ids" readonly="approved_at"><list editable="bottom"><field name="name"/></list></field>
+                    <p>No required checks means CI is not a condition. Activation never backfills earlier merges. This slice has no evaluator or Task writes.</p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_git_policy_approval_wizard" model="ir.ui.view">
+        <field name="name">project.git.policy.approval.wizard.form</field>
+        <field name="model">project.git.policy.approval.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Approve Exact Policy Revision">
+                <p>Native stage writes may track messages, queue notifications, update timestamps and durations, and recompute nonterminal state. Rating, email-template and SMS-template targets are excluded. A different authorized approver must acknowledge these effects. This configuration slice performs no Task writes; live apply remains operator-gated.</p>
+                <group><field name="revision_id"/><field name="acknowledge_native_side_effects"/></group>
+                <footer><button name="action_approve" type="object" string="Approve and Activate" class="btn-primary"/><button string="Cancel" special="cancel"/></footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_git_policy_rules" model="ir.actions.act_window">
+        <field name="name">Git Policy Rules</field><field name="res_model">project.git.policy.rule</field><field name="view_mode">list,form</field>
+    </record>
+    <record id="action_git_policy_revisions" model="ir.actions.act_window">
+        <field name="name">Git Policy Revisions</field><field name="res_model">project.git.policy.revision</field><field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_git_policy_rules" name="Git Policy Rules" parent="project.menu_project_config" action="action_git_policy_rules" groups="project_agile_git_automation.group_git_policy_manager" sequence="80"/>
+    <menuitem id="menu_git_policy_revisions" name="Git Policy Revisions" parent="project.menu_project_config" action="action_git_policy_revisions" groups="project_agile_git_automation.group_git_policy_manager" sequence="81"/>
+    <record id="view_project_git_policy_controls" model="ir.ui.view">
+        <field name="name">project.project.git.policy.controls</field><field name="model">project.project</field><field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Git Policy" name="git_policy" groups="project_agile_git_automation.group_git_policy_manager,base.group_system">
+                    <group><field name="git_policy_enabled"/><field name="git_policy_mode"/><field name="git_policy_authority_epoch"/></group>
+                    <button name="action_enable_git_policy" type="object" string="Enable Dry Run" groups="project_agile_git_automation.group_git_policy_manager"/>
+                    <button name="action_disable_git_policy" type="object" string="Emergency Disable"/>
+                    <p>Defaults are disabled and dry-run. Explicit per-rule approval is also required. No automation engine is delivered in this slice.</p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

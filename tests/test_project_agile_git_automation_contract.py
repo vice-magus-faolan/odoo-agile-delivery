@@ -25,7 +25,7 @@ class TestGitAutomationContract(unittest.TestCase):
         sources = list((self.addon / "models").glob("*.py"))
         combined = "\n".join(path.read_text() for path in sources)
         self.assertNotIn('_inherit = "project.task"', combined)
-        self.assertNotIn("stage_id", combined)
+        self.assertNotIn('write({"stage_id"', combined)
         self.assertNotIn("_cron", combined)
         self.assertFalse((self.addon / "controllers").exists())
         self.assertFalse((self.addon / "data").exists())

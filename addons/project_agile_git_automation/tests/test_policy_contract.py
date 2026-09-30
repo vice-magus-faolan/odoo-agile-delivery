@@ -38,10 +38,12 @@ class TestGitPolicyContract(TransactionCase):
             "event_type": "pull_request", "payload_sha256": "a" * 64, "payload_size": 2,
         })
 
-    def test_defaults_are_inert_dry_run_without_configuration_or_cron(self):
+    def test_defaults_are_inert_dry_run_without_evaluator_or_cron(self):
         self.assertEqual(self.audit.mode, "dry_run")
         self.assertEqual(self.audit.reason, "contract_fixture")
-        self.assertNotIn("project.git.policy.rule", self.env.registry)
+        self.assertIn("project.git.policy.rule", self.env.registry)
+        self.assertFalse(self.project.git_policy_enabled)
+        self.assertEqual(self.project.git_policy_mode, "dry_run")
         model = self.env["ir.model"]._get("project.git.policy.audit")
         self.assertFalse(self.env["ir.cron"].search([("model_id", "=", model.id)]))
         self.assertFalse(hasattr(self.audit, "action_apply"))

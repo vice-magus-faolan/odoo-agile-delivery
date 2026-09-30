@@ -153,7 +153,10 @@ class ResGroups(models.Model):
 
     def write(self, values):
         result = super().write(values)
-        if {"implied_ids", "user_ids", "all_user_ids"}.intersection(values):
+        # Both implication directions share res_groups_implied_rel. Inverse
+        # edits do not necessarily enter the other group's write hook. The
+        # native rule_groups relation likewise changes ir.rule.groups directly.
+        if {"implied_ids", "implied_by_ids", "user_ids", "all_user_ids", "rule_groups", "model_access"}.intersection(values):
             _revoke(self.env, [], "security_changed")
         return result
 

@@ -296,6 +296,14 @@ class TestGitPolicyRules(TransactionCase):
             with self.subTest(source=source[:80]), self.assertRaises(AccessError):
                 _check_literal_domain(source)
 
+    def test_native_group_relation_metadata_drift_refuses_approval(self):
+        for name in ("implied_ids", "implied_by_ids", "rule_groups"):
+            with self.subTest(field=name), patch.object(self.env["res.groups"]._fields[name], "company_dependent", True):
+                self.project.with_user(self.author).action_enable_git_policy()
+                with self.assertRaisesRegex(AccessError, "unsupported"):
+                    self._approve(self.revision)
+                self.assertFalse(self.rule.activation_id)
+
     def test_task_create_unlink_and_bulk_edits_revoke_without_policy_business_writes(self):
         activation = self._activate()
         tasks = self.env["project.task"].with_user(self.author).create([
@@ -471,6 +479,119 @@ class TestGitPolicyRules(TransactionCase):
         self.assertTrue(activation.revocation_ids)
         group.write({"user_ids": [Command.link(self.executor.id)]})
         self.assertFalse(activation._validate_current_authority())
+
+    def _implied_group_authority(self):
+        """Executor has native Project rights only through a synthetic bridge."""
+        group = self.env.ref("project.group_project_user")
+        bridge = self.env["res.groups"].create({
+            "name": "Policy native implication bridge", "implied_ids": [Command.link(group.id)],
+        })
+        self.executor.write({"group_ids": [Command.set((bridge | self.env.ref("base.group_user")).ids)]})
+        admin = mail_new_test_user(self.env, "policy_security_admin", groups="base.group_system")
+        self.assertNotEqual(admin.id, 1)
+        self.assertFalse(self.env(user=admin.id).su)
+        self.assertNotIn(group, self.executor.group_ids)
+        self.assertIn(group, self.executor.all_group_ids)
+        self.task.with_user(self.executor).check_access("write")
+        return group, bridge, admin
+
+    def test_implied_group_both_directions_denial_restore_is_terminal(self):
+        group, bridge, admin = self._implied_group_authority()
+        for inverse in (True, False):
+            for kind in (Command.UNLINK, Command.SET, Command.CLEAR):
+                with self.subTest(inverse=inverse, kind=kind), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                    record, field, removed = (group, "implied_by_ids", bridge) if inverse else (bridge, "implied_ids", group)
+                    original = record[field].ids
+                    command = {
+                        Command.UNLINK: Command.unlink(removed.id),
+                        Command.SET: Command.set([i for i in original if i != removed.id]),
+                        Command.CLEAR: Command.clear(),
+                    }[kind]
+                    activation = self._activate()
+                    record.with_user(admin).with_context(git_policy_skip_revocation=True).write({field: [command]})
+                    self.assertNotIn(group, self.executor.all_group_ids)
+                    with self.assertRaises(AccessError):
+                        self.task.with_user(self.executor).check_access("write")
+                    # No validator is called during the denied interval. Observe
+                    # the tombstone itself before restoring native permission.
+                    revoked_before_restore = bool(activation.revocation_ids)
+                    pointer_cleared_before_restore = not self.rule.activation_id
+                    record.with_user(admin).write({field: [Command.link(removed.id)]})
+                    record.with_user(admin).write({field: [Command.set(original)]})
+                    self.assertIn(group, self.executor.all_group_ids)
+                    self.task.with_user(self.executor).check_access("write")
+                    self.assertTrue(revoked_before_restore)
+                    self.assertTrue(pointer_cleared_before_restore)
+                    self.assertFalse(activation._validate_current_authority())
+                    with self.assertRaises(ValidationError):
+                        self._approve(self.revision)
+                    successor = self._new_revision()
+                    fresh = self._approve(successor)
+                    self.assertNotEqual(fresh, activation)
+                    self.assertEqual(fresh.revision_id, successor)
+                    self.assertEqual(self.rule.activation_id, fresh)
+                    self.assertGreaterEqual(fresh.activated_at, activation.activated_at)
+                    self.assertTrue(fresh._validate_current_authority())
+                    raise _RollbackSubcase()
+
+    def test_implied_group_link_revokes_even_without_current_access_loss(self):
+        group, bridge, admin = self._implied_group_authority()
+        unused = self.env["res.groups"].create({"name": "Unused implication input"})
+        for inverse in (True, False):
+            with self.subTest(inverse=inverse), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                record, field, linked = (group, "implied_by_ids", unused) if inverse else (unused, "implied_ids", group)
+                activation = self._activate()
+                record.with_user(admin).write({field: [Command.link(linked.id)]})
+                self.task.with_user(self.executor).check_access("write")
+                self.assertTrue(activation.revocation_ids)
+                self.assertFalse(self.rule.activation_id)
+                record.with_user(admin).write({field: [Command.unlink(linked.id)]})
+                self.assertFalse(activation._validate_current_authority())
+                raise _RollbackSubcase()
+
+    def test_implied_group_denied_and_enclosing_rollback_are_atomic(self):
+        group, bridge, admin = self._implied_group_authority()
+        for inverse in (True, False):
+            with self.subTest(inverse=inverse), self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                record, field, removed = (group, "implied_by_ids", bridge) if inverse else (bridge, "implied_ids", group)
+                activation = self._activate()
+                original = record[field]
+                for command in (Command.unlink(removed.id), Command.set([]), Command.clear(), Command.link(removed.id)):
+                    with self.assertRaises(AccessError), self.env.cr.savepoint():
+                        record.with_user(self.executor).write({field: [command]})
+                    self.assertEqual(record[field], original)
+                    self.assertFalse(activation.revocation_ids)
+                    self.assertEqual(self.rule.activation_id, activation)
+                with self.assertRaises(_RollbackSubcase), self.env.cr.savepoint():
+                    record.with_user(admin).write({field: [Command.unlink(removed.id)]})
+                    self.assertTrue(activation.revocation_ids)
+                    self.assertFalse(self.rule.activation_id)
+                    raise _RollbackSubcase()
+                # Odoo's registry group graph is global, not savepoint-local.
+                # Rebuild it after the deliberate test rollback (not in production).
+                self.env.registry.clear_cache("groups")
+                self.assertEqual(record[field], original)
+                self.assertIn(group, self.executor.all_group_ids)
+                self.assertFalse(activation.revocation_ids)
+                self.assertEqual(self.rule.activation_id, activation)
+                self.assertTrue(activation._validate_current_authority())
+                raise _RollbackSubcase()
+
+    def test_inverse_group_rule_membership_restore_is_terminal(self):
+        group, bridge, admin = self._implied_group_authority()
+        native = self.env.ref("project.task_comp_rule")
+        self.assertFalse(native.groups)
+        activation = self._activate()
+        group.with_user(admin).write({"rule_groups": [Command.link(native.id)]})
+        self.assertIn(group, native.groups)
+        revoked_before_restore = bool(activation.revocation_ids)
+        pointer_cleared_before_restore = not self.rule.activation_id
+        group.with_user(admin).write({"rule_groups": [Command.unlink(native.id)]})
+        self.assertFalse(native.groups)
+        self.assertTrue(revoked_before_restore)
+        self.assertTrue(pointer_cleared_before_restore)
+        self.assertFalse(activation._validate_current_authority())
+        self.assertTrue(self._approve(self._new_revision())._validate_current_authority())
 
     def test_actor_partner_reassignment_restore_cannot_reuse_epoch(self):
         original = self.executor.partner_id

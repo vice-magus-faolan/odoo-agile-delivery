@@ -655,6 +655,73 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual((delivery.state, delivery.attempt_count), ("failed", 5))
         self.assertEqual(delivery.error_summary, "GitHub fact normalization failed.")
 
+    def test_reprocess_manager_cannot_requeue_an_invisible_other_company_delivery(self):
+        manager = self.env["res.users"].with_context(no_reset_password=True).create(
+            {
+                "name": "Restricted GitHub delivery manager",
+                "login": "restricted-github-delivery-manager@example.invalid",
+                "company_id": self.env.company.id,
+                "company_ids": [(6, 0, [self.env.company.id])],
+                "group_ids": [(4, self.env.ref("project.group_project_manager").id)],
+            }
+        )
+        other_company = self.env["res.company"].create({"name": "Restricted delivery company"})
+        other_project = self.env["project.project"].with_company(other_company).create(
+            {
+                "name": "Restricted delivery project",
+                "company_id": other_company.id,
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "RPD",
+            }
+        )
+        other_repository = self.env["project.git.repository"].with_company(other_company).create(
+            {
+                "name": "restricted delivery repository",
+                "provider": "github",
+                "provider_repository_id": "3002",
+                "canonical_url": "https://github.com/acme/restricted-delivery",
+                "project_id": other_project.id,
+                "webhook_secret": "fixture-secret",
+                "retention_policy": "redacted_excerpt",
+            }
+        )
+        delivery = self.env["project.git.delivery"].with_company(other_company).create(
+            {
+                "repository_id": other_repository.id,
+                "provider_delivery_id": "delivery-reprocess-invisible",
+                "event_type": "push",
+                "payload_sha256": "k" * 64,
+                "payload_size": 1,
+                "retained_payload": json.dumps({"repository": {"id": 3002}}),
+                "state": "failed",
+                "lease_token": "must-not-change",
+                "lease_expires_at": "2026-02-03 04:05:06",
+                "error_summary": "must not clear",
+                "last_error_at": "2026-02-03 04:05:06",
+                "processed_at": "2026-02-03 04:05:06",
+            }
+        )
+        unchanged_fields = [
+            "state",
+            "next_retry_at",
+            "lease_token",
+            "lease_expires_at",
+            "error_summary",
+            "last_error_at",
+            "processed_at",
+        ]
+        before = delivery.read(unchanged_fields)[0]
+
+        self.env["project.git.delivery"].with_user(manager).check_access("read")
+        with self.assertRaises(AccessError):
+            delivery.with_user(manager).check_access("read")
+        with self.assertRaises(AccessError):
+            delivery.with_user(manager).action_reprocess_github_delivery()
+
+        delivery.invalidate_recordset(unchanged_fields)
+        self.assertEqual(delivery.read(unchanged_fields)[0], before)
+
     def test_reprocess_rejects_retryable_and_authorizes_terminal_replay_idempotently(self):
         manager = self.env["res.users"].with_context(no_reset_password=True).create(
             {

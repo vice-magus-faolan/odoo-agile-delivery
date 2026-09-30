@@ -18,7 +18,11 @@ Delivered modules are:
   scope facts, with native list, pivot, graph, export, and authorized drill-down
   reporting surfaces.
 - `project_agile_git`: provider-neutral repository, delivery-ledger, branch,
-  commit, pull-request, check, and immutable Agile-key association foundations.
+  commit, pull-request, check, immutable Agile-key association, and read-only
+  Project/Task visibility.
+- `project_agile_git_github`: signed, bounded GitHub webhook persistence, native
+  scheduled normalization, replay/idempotency, leases/retries, terminal recovery,
+  and bounded redacted-payload retention. It remains observation-only.
 
 Delivered optional Milestone 4 modules are `project_agile_document_page` and
 `project_scrum_document_page`; they use the separately verified OCA Document Page
@@ -27,9 +31,13 @@ delivers the optional `project_agile_ui` planning board: a bounded Odoo client a
 with current-user, server-authoritative draft-Sprint assignment, Product Backlog return,
 and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
 ordinary Odoo views and keyboard-accessible actions remain available. Git integration
-now has its Milestone 6 facts-and-visibility contract and skeleton. Provider ingress,
-fact normalization, and workflow automation remain deferred; Jira migration remains
-deferred; ordinary Project behavior is unchanged.
+now delivers its Milestone 6 facts-and-visibility capability, including the optional
+GitHub adapter. Milestone 7 has an accepted opt-in policy contract and an installable
+inert `project_agile_git_automation` audit fixture only; rule configuration,
+evaluation, and authorized task-stage execution are pending downstream work.
+Workflow automation is not operational or activated. Jira migration, release/version
+management, other providers, richer Git UI, and the Task-document connector remain
+later work; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
@@ -63,7 +71,9 @@ docker compose down --volumes
 ./scripts/verify
 ```
 
-Before `project_agile` exists, this validates repository and Compose structure. Once the module manifest exists, it also performs a clean Odoo install with tests against a disposable `odoo_agile_verify` database.
+This runs static/syntax checks, an independent optional policy-fixture install, and
+seven-module install, targeted upgrade, and dependency-safe uninstall/reinstall
+with discovered Odoo tests against three declared disposable databases.
 
 ## Repository layout
 
@@ -89,12 +99,14 @@ docs/research/   ecosystem and dependency research
 
 `./scripts/verify` is the canonical release-candidate gate for
 `project_agile`, `project_scrum`, `project_scrum_analytics`, and the optional
-`project_agile_ui` planning board. It fails fast on syntax, static-contract, Compose,
+`project_agile_ui` planning board, plus `project_agile_git`,
+`project_agile_git_github`, and the inert `project_agile_git_automation` fixture.
+It fails fast on syntax, static-contract, Compose,
 or Odoo-test failures and exercises all three supported lifecycles against
 disposable Odoo 19 databases:
 
-- clean install of all four modules with their focused test tags;
-- install followed by `--update project_agile,project_scrum,project_scrum_analytics,project_agile_ui`;
+- clean install of all seven modules with their focused test tags;
+- install followed by `--update project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation`;
 - install, dependency-safe ORM uninstall in reverse order, then reinstall with
   focused tests.
 
@@ -169,9 +181,25 @@ keys are the only task-association input. Git facts are visibility, not workflow
 automation: a pull-request merge or successful check cannot change a task stage.
 
 The canonical `./scripts/verify` gate includes clean install, targeted upgrade, and
-dependency-safe uninstall/reinstall of `project_agile_git`. The later processor must
-use Odoo 19's supported `ir.cron` scheduler in bounded, idempotent batches: each batch
-claims durable deliveries with an expiring lease, records retries and sanitized failure
-state, reports progress, and returns. This keeps the base module portable to Odoo.sh and
-self-hosted deployments without accepting a queue runner, webhook registration, or
-production runtime dependency in Milestone 6.
+dependency-safe uninstall/reinstall of both Git addons. The delivered GitHub
+processor uses Odoo 19's supported `ir.cron` scheduler: up to 20 leased deliveries,
+savepoint-atomic normalization, bounded retries/dead letters, sanitized diagnostics,
+and progress commits. Signed ingress returns after persistence, never Task writes.
+Retention and explicit authorized terminal reprocess controls are delivered.
+See [ADR-011](docs/adrs/011-git-facts-and-visibility-contract.md) and the
+[operations runbook](docs/runbooks/github-git-facts-operations.md). Live webhook
+registration/secrets/configuration and deployment are separate operator effects.
+
+## Milestone 7 pending policy implementation
+
+[ADR-012](docs/adrs/012-git-workflow-policy-contract.md) supersedes historical
+ADR-008 and fixes the bounded opt-in merged-PR policy contract; the
+[M7 plan](docs/plans/2026-09-30-milestone-7-git-policy.md) sequences the serial
+reviewed implementation. `project_agile_git_automation` depends only on
+`project_agile_git` and is independently installable without GitHub or Scrum.
+This first slice contains only a bounded append-only synthetic audit fixture,
+ACLs/visibility rules and native Odoo contract tests. It has no production
+producer, policy rules, evaluator, cron, Task override, or apply action; installation
+is intrinsically disabled and fixture mode is dry-run only. No automation works
+or production policy is activated by this delivery. Future activation requires
+separate operator approval and exact-SHA authorization/recovery evidence.

@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed — automation implementation is deferred beyond Milestone 1.
+Superseded by [ADR-012: Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md).
+
+This is the historical Milestone 1 proposal, not the current runtime contract.
+ADR-011 rejects required queue_job; ADR-012 defines the bounded native-scheduled policy continuation.
 
 ## Context
 

@@ -11,10 +11,13 @@ Implemented decisions:
 - [ADR-009 Trustworthy Scrum Analytics Semantics](009-scrum-analytics-semantics.md)
 - [ADR-011 Git Facts and Visibility Contract](011-git-facts-and-visibility-contract.md)
 
+Accepted contract, implementation pending beyond the inert root fixture:
+- [ADR-012 Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md)
+
 Proposed, intentionally deferred decisions:
 - [ADR-005 Release / Version Model](005-release-version-model.md)
 - [ADR-006 Knowledge Relationship Model](006-knowledge-relationship-model.md)
 - [ADR-007 OCA `project_git` Adoption Strategy](007-oca-project-git-adoption-strategy.md)
-- [ADR-008 Git Automation Model](008-git-automation-model.md)
+- [ADR-008 Git Automation Model](008-git-automation-model.md) — historical, superseded by ADR-012
 
 The proposed ADRs do not authorize later module implementation or new runtime dependencies.

@@ -4,7 +4,7 @@
         <field name="name">project.git.policy.rule.list</field>
         <field name="model">project.git.policy.rule</field>
         <field name="arch" type="xml">
-            <list><field name="name"/><field name="project_id"/><field name="repository_id"/><field name="owner_id"/><field name="active_revision_id"/><field name="active"/></list>
+            <list><field name="name"/><field name="policy_status"/><field name="project_id"/><field name="repository_id"/><field name="owner_id"/><field name="active_revision_id"/><field name="active"/></list>
         </field>
     </record>
     <record id="view_git_policy_rule_form" model="ir.ui.view">
@@ -12,9 +12,14 @@
         <field name="model">project.git.policy.rule</field>
         <field name="arch" type="xml">
             <form>
-                <header><button name="action_disable" type="object" string="Disable Rule" groups="project_agile_git_automation.group_git_policy_manager,base.group_system"/></header>
+                <header>
+                    <button name="action_preview" type="object" string="Preview Repository (20 PRs)" groups="project_agile_git_automation.group_git_policy_manager"/>
+                    <button name="action_disable" type="object" string="Disable Rule" groups="project_agile_git_automation.group_git_policy_manager,base.group_system"/>
+                    <field name="policy_status" widget="statusbar"/>
+                </header>
                 <sheet>
-                    <group><field name="name"/><field name="repository_id" readonly="id"/><field name="project_id"/><field name="company_id"/><field name="owner_id"/><field name="active"/><field name="authority_epoch"/><field name="active_revision_id"/></group>
+                    <group><field name="name"/><field name="repository_id" readonly="id"/><field name="project_id"/><field name="company_id"/><field name="owner_id"/><field name="active"/><field name="authority_epoch"/><field name="active_revision_id"/><field name="activation_id"/></group>
+                    <p>Status shows persisted controls, not a guarantee of current Task eligibility. Disable stops future work; it does not undo settled stage changes.</p>
                     <field name="revision_ids"/>
                 </sheet>
             </form>
@@ -48,7 +53,7 @@
         <field name="model">project.git.policy.approval.wizard</field>
         <field name="arch" type="xml">
             <form string="Approve Exact Policy Revision">
-                <p>Native stage writes may track messages, queue notifications, update timestamps and durations, and recompute nonterminal state. Rating, email-template and SMS-template targets are excluded. A different authorized approver must acknowledge these effects. This configuration slice performs no Task writes; live apply remains operator-gated.</p>
+                <p>Native stage writes may track messages, queue notifications, update timestamps and durations, and recompute nonterminal state. Rating, email-template and SMS-template targets are excluded. A different authorized approver must acknowledge these effects. In Apply mode this approval permits future eligible Task stage writes; live activation requires separate operator approval.</p>
                 <group><field name="revision_id"/><field name="acknowledge_native_side_effects"/></group>
                 <footer><button name="action_approve" type="object" string="Approve and Activate" class="btn-primary"/><button string="Cancel" special="cancel"/></footer>
             </form>
@@ -69,8 +74,10 @@
                 <page string="Git Policy" name="git_policy" groups="project_agile_git_automation.group_git_policy_manager,base.group_system">
                     <group><field name="git_policy_enabled"/><field name="git_policy_mode"/><field name="git_policy_authority_epoch"/></group>
                     <button name="action_enable_git_policy" type="object" string="Enable Dry Run" groups="project_agile_git_automation.group_git_policy_manager"/>
+                    <button name="action_enable_git_policy_apply" type="object" string="Select Apply Mode" groups="project_agile_git_automation.group_git_policy_manager" confirm="Requires operator approval and prior dry-run review. This revokes existing approvals; a distinct approver must activate a fresh revision and cutoff. Future eligible stage writes preserve native tracking and notifications."/>
                     <button name="action_disable_git_policy" type="object" string="Emergency Disable"/>
-                    <p>Defaults are disabled and dry-run. Explicit per-rule approval is also required. Informational dry runs are available on the Repository; automatic Task effects are not delivered.</p>
+                    <button name="action_open_git_policy_attempts" type="object" string="View Attempts" groups="project_agile_git_automation.group_git_policy_manager"/>
+                    <p>Defaults are disabled and dry-run. Explicit two-person rule approval and fresh cutoffs are also required. Disable stops future work; it never undoes committed stage changes. Preview on the Repository remains informational in every mode.</p>
                 </page>
             </xpath>
         </field>

@@ -32,11 +32,12 @@ with current-user, server-authoritative draft-Sprint assignment, Product Backlog
 and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
 ordinary Odoo views and keyboard-accessible actions remain available. Git integration
 now delivers its Milestone 6 facts-and-visibility capability, including the optional
-GitHub adapter. Milestone 7 has an accepted opt-in policy contract and an installable
-`project_agile_git_automation` configuration addon with typed revisions,
-two-person activation and terminal authority revocation. Evaluation and authorized
-task-stage execution remain pending downstream work.
-Workflow automation is not operational or activated. Jira migration, release/version
+GitHub adapter. Milestone 7's optional `project_agile_git_automation` now supplies
+typed revisions, two-person activation, terminal revocation, deterministic dry-run
+previews, bounded native scheduling and stage-only execution with durable attempts,
+consumed effects, ordinary operator controls and recovery views/runbook.
+No production policy, provider setup or deployment is activated by this delivery.
+Jira migration, release/version
 management, other providers, richer Git UI, and the Task-document connector remain
 later work; ordinary Project behavior is unchanged.
 
@@ -72,7 +73,8 @@ docker compose down --volumes
 ./scripts/verify
 ```
 
-This runs static/syntax checks, an independent optional policy-fixture install, and
+This runs static/syntax checks, an independent optional policy install without
+GitHub or Scrum, and
 seven-module install, targeted upgrade, and dependency-safe uninstall/reinstall
 with discovered Odoo tests against three declared disposable databases.
 
@@ -121,6 +123,11 @@ The check starts only the Compose `db` service and uses transient
 Google Chrome package and the pinned `websocket-client` package so the native Odoo HttpCase runs the
 `project_agile_ui` Hoot suite; it does not alter the normal development image or
 module dependencies. The Docker build context excludes `.env` and Git metadata.
+Only the verification overlay uses a read-only Odoo filesystem/addon mount and
+an internal DB-only network; writable data/temp storage remains available. Native
+M7 form tours cover approval, safe preview text, disable and confirmed retry;
+separate native-cursor/progress and independent-process fixtures cover interruption,
+revocation/manual-write races and crash recovery. No live Odoo.sh test is claimed.
 
 Before each lifecycle, the verifier touches only its three declared disposable databases
 (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
@@ -179,7 +186,9 @@ a bounded signed webhook route, while the core has no queue runtime dependency. 
 multi-company Git fact and durable-delivery records so future provider adapters can
 persist authenticated deliveries before separate processing. Explicit immutable Agile
 keys are the only task-association input. Git facts are visibility, not workflow
-automation: a pull-request merge or successful check cannot change a task stage.
+automation: with the optional policy addon absent, disabled or in dry-run, a
+pull-request merge or successful check cannot change a task stage. Ingress itself
+never performs a Task write, even when separately approved apply policy is enabled.
 
 The canonical `./scripts/verify` gate includes clean install, targeted upgrade, and
 dependency-safe uninstall/reinstall of both Git addons. The delivered GitHub
@@ -191,7 +200,7 @@ See [ADR-011](docs/adrs/011-git-facts-and-visibility-contract.md) and the
 [operations runbook](docs/runbooks/github-git-facts-operations.md). Live webhook
 registration/secrets/configuration and deployment are separate operator effects.
 
-## Milestone 7 configuration and deterministic dry runs
+## Milestone 7 policy, controls and recovery
 
 [ADR-012](docs/adrs/012-git-workflow-policy-contract.md) supersedes historical
 ADR-008 and fixes the bounded opt-in merged-PR policy contract; the
@@ -217,7 +226,20 @@ The bounded synthetic audit fixture remains distinct from sealed normalized
 observations and consumed effects. The [dry-run evaluator](docs/git-policy-dry-run.md)
 now records versioned exact-head/check/provenance decisions, waits, skips and
 fail-closed conflicts through ordinary immutable views. It never writes Tasks,
-facts, Sprints/history, followers/chatter, or real effect markers. There is no cron
-or policy-initiated Task mutation in this slice. No operational automation or
-production policy is activated by this delivery. Live activation requires separate
-operator approval and exact-SHA authorization/recovery evidence.
+facts, Sprints/history, followers/chatter, or real effect markers. A separate bounded
+native cron discovers and revalidates apply candidates and writes only the approved
+eligible stage under the persisted non-superuser executor. Durable claims, five-claim
+retry limits, a monotonic Task fence and retained consumed markers protect recovery.
+Native side effects are preserved, not suppressed. Disable halts future work and
+does not undo committed stage changes.
+
+Project configuration exposes finite rule status/revisions/approval cutoffs, dry-run
+decisions, attempts with sanitized events and consumed before/after/actor effects.
+Retry accepts only an existing eligible transient failure without resetting its
+identity, evidence, Task fence or budget; it cannot revive terminal/applied work.
+See the [operator runbook](docs/runbooks/git-policy-operations.md) for dry-run-before-
+enable, approval, retention, backups, shutdown, restore/rollback limits and Odoo.sh
+staging/best-effort cron limitations. The exact installed-source profile is a
+conservative compatibility gate, not proof of all Odoo.sh/Enterprise extensions.
+No production policy is activated by local fixture success; publication/deployment/
+live activation and customer-outcome observation remain separately gated.

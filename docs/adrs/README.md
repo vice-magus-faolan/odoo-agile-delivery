@@ -11,7 +11,8 @@ Implemented decisions:
 - [ADR-009 Trustworthy Scrum Analytics Semantics](009-scrum-analytics-semantics.md)
 - [ADR-011 Git Facts and Visibility Contract](011-git-facts-and-visibility-contract.md)
 
-Accepted contract, implementation pending beyond the inert root fixture:
+Accepted M7 contract with configuration, dry-run, apply and operator controls implemented;
+independent adversarial/cumulative delivery gates and live activation remain separate:
 - [ADR-012 Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md)
 
 Proposed, intentionally deferred decisions:

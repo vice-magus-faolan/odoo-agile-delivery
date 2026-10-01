@@ -152,6 +152,30 @@ assert effects.execution_user_id == executor and task.write_uid == executor
 assert attempts.state == 'applied'
 results.append({'scenario': 'native_cron', 'effect_count': len(effects), 'actor_is_nonadmin': effects.execution_user_id.id != 1})
 
+# Native progress still performs the real commit; only its remaining time is
+# exhausted. Separate native cursors prove discovery and settled-item recovery.
+data = fixture(discover=False)
+cron = env.ref('project_agile_git_automation.ir_cron_git_policy')
+cron_class = type(cron)
+commit_progress = cron_class._commit_progress
+def exhaust_budget(self, *args, **kwargs):
+    commit_progress(self, *args, **kwargs)
+    return 0
+with patch.object(cron_class, '_commit_progress', exhaust_budget):
+    cron.method_direct_trigger()
+task, attempts, effects = state(data)
+assert len(attempts) == 1 and attempts.state == 'queued' and not effects
+assert task.stage_id.id == data['source_stage_id']
+results.append({'scenario': 'native_budget_after_discovery', 'queued': len(attempts), 'effects': len(effects)})
+with patch.object(cron_class, '_commit_progress', exhaust_budget):
+    cron.method_direct_trigger()
+task, attempts, effects = state(data)
+assert attempts.state == 'applied' and len(effects) == 1
+cron.method_direct_trigger()
+task, attempts, effects = state(data)
+assert len(effects) == 1 and attempts.attempt_count == 1
+results.append({'scenario': 'native_budget_after_settlement_recovery', 'claims': attempts.attempt_count, 'effects': len(effects)})
+
 with tempfile.TemporaryDirectory(prefix='git-policy-races-', dir='/var/lib/odoo') as temporary:
     workdir = Path(temporary)
     data = fixture()

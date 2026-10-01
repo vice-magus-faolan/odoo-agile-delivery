@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_git_policy_activation_form" model="ir.ui.view">
+        <field name="name">project.git.policy.activation.form</field>
+        <field name="model">project.git.policy.activation</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0" delete="0"><sheet>
+                <p>Immutable approval and UTC cutoff. Restored access cannot resurrect a revoked epoch.</p>
+                <group><field name="rule_id"/><field name="revision_id"/><field name="repository_id"/><field name="project_id"/><field name="company_id"/></group>
+                <group><field name="mode"/><field name="activated_at"/><field name="owner_id"/><field name="approver_id"/><field name="execution_user_id"/><field name="native_side_effects_acknowledged"/></group>
+                <group><field name="authority_epoch"/><field name="project_authority_epoch"/><field name="stage_fingerprint"/></group>
+                <field name="revocation_ids"><list create="0" edit="0" delete="0"><field name="revoked_at"/><field name="reason"/></list></field>
+            </sheet></form>
+        </field>
+    </record>
+    <record id="view_git_policy_attempt_list" model="ir.ui.view">
+        <field name="name">project.git.policy.attempt.list</field>
+        <field name="model">project.git.policy.attempt</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" limit="20">
+                <field name="project_id"/><field name="repository_id"/><field name="agile_key"/>
+                <field name="revision_id"/><field name="state"/><field name="reason"/>
+                <field name="attempt_count"/><field name="next_retry_at"/><field name="lease_expires_at"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_git_policy_attempt_search" model="ir.ui.view">
+        <field name="name">project.git.policy.attempt.search</field>
+        <field name="model">project.git.policy.attempt</field>
+        <field name="arch" type="xml"><search>
+            <field name="agile_key"/><field name="repository_id"/><field name="project_id"/><field name="state"/><field name="reason"/>
+            <filter name="transient_failures" string="Transient Failures" domain="[('state', '=', 'retryable')]"/>
+            <filter name="terminal_failures" string="Terminal Failures" domain="[('state', 'in', ['failed', 'rejected', 'expired', 'revoked'])]"/>
+            <filter name="by_state" string="State" context="{'group_by': 'state'}"/>
+        </search></field>
+    </record>
+    <record id="view_git_policy_attempt_form" model="ir.ui.view">
+        <field name="name">project.git.policy.attempt.form</field>
+        <field name="model">project.git.policy.attempt</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0" delete="0">
+                <header><button name="action_retry" type="object" string="Retry Transient Failure" groups="project_agile_git_automation.group_git_policy_manager" invisible="state != 'retryable' or reason != 'transient_failure' or attempt_count &gt;= 5" confirm="Requeue this existing attempt only. Approval, Task fence and evidence must still be eligible; the five-claim budget is not reset. Native cron revalidates before applying."/></header>
+                <sheet>
+                    <p>Retry never changes the Task, evidence, actor, cutoff, or candidate identity. Stale, consumed, terminal and exhausted attempts cannot be revived.</p>
+                    <group><field name="state"/><field name="reason"/><field name="attempt_count"/><field name="next_retry_at"/><field name="lease_expires_at"/></group>
+                    <group><field name="project_id"/><field name="company_id"/><field name="repository_id"/><field name="rule_id"/><field name="revision_id"/><field name="activation_id"/></group>
+                    <group><field name="task_id"/><field name="agile_key"/><field name="pull_request_id"/><field name="provider_request_id"/><field name="expected_stage_id"/><field name="expected_transition_version"/><field name="observation_id"/></group>
+                    <field name="event_ids"><list create="0" edit="0" delete="0" limit="20"><field name="recorded_at"/><field name="state"/><field name="reason"/><field name="attempt_count"/><field name="actor_id"/></list></field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_git_policy_effect_list" model="ir.ui.view">
+        <field name="name">project.git.policy.effect.list</field><field name="model">project.git.policy.effect</field>
+        <field name="arch" type="xml"><list create="0" edit="0" delete="0" limit="20">
+            <field name="applied_at"/><field name="project_id"/><field name="repository_id"/><field name="agile_key"/>
+            <field name="before_stage_id"/><field name="after_stage_id"/><field name="execution_user_id"/><field name="revision_id"/>
+        </list></field>
+    </record>
+    <record id="view_git_policy_effect_form" model="ir.ui.view">
+        <field name="name">project.git.policy.effect.form</field><field name="model">project.git.policy.effect</field>
+        <field name="arch" type="xml"><form create="0" edit="0" delete="0"><sheet>
+            <p>Consumed effect retained across replay and manual changes. Disable does not undo it. This is historical evidence, not the Task's current stage.</p>
+            <group><field name="repository_id"/><field name="project_id"/><field name="company_id"/><field name="task_id"/><field name="agile_key"/><field name="provider_request_id"/><field name="effect_type"/></group>
+            <group><field name="before_stage_id"/><field name="after_stage_id"/><field name="before_state"/><field name="after_state"/><field name="before_version"/><field name="after_version"/></group>
+            <group><field name="execution_user_id"/><field name="applied_at"/><field name="attempt_id"/><field name="revision_id"/><field name="activation_id"/><field name="observation_id"/></group>
+        </sheet></form></field>
+    </record>
+    <record id="view_git_policy_schedule_list" model="ir.ui.view">
+        <field name="name">project.git.policy.schedule.list</field><field name="model">project.git.policy.schedule</field>
+        <field name="arch" type="xml"><list create="0" edit="0" delete="0" limit="20"><field name="repository_id"/><field name="project_id"/><field name="company_id"/><field name="after_pr_id"/><field name="next_run_at"/><field name="reason"/></list></field>
+    </record>
+    <record id="action_git_policy_attempts" model="ir.actions.act_window">
+        <field name="name">Git Policy Attempts</field><field name="res_model">project.git.policy.attempt</field><field name="view_mode">list,form</field>
+    </record>
+    <record id="action_git_policy_effects" model="ir.actions.act_window">
+        <field name="name">Git Policy Consumed Effects</field><field name="res_model">project.git.policy.effect</field><field name="view_mode">list,form</field>
+    </record>
+    <record id="action_git_policy_schedules" model="ir.actions.act_window">
+        <field name="name">Git Policy Discovery</field><field name="res_model">project.git.policy.schedule</field><field name="view_mode">list</field>
+    </record>
+    <menuitem id="menu_git_policy_attempts" name="Git Policy Attempts" parent="project.menu_project_config" action="action_git_policy_attempts" groups="project_agile_git_automation.group_git_policy_manager" sequence="83"/>
+    <menuitem id="menu_git_policy_effects" name="Git Policy Consumed Effects" parent="project.menu_project_config" action="action_git_policy_effects" groups="project_agile_git_automation.group_git_policy_manager" sequence="84"/>
+    <menuitem id="menu_git_policy_schedules" name="Git Policy Discovery" parent="project.menu_project_config" action="action_git_policy_schedules" groups="project_agile_git_automation.group_git_policy_manager" sequence="85"/>
+</odoo>

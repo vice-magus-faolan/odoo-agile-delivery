@@ -25,6 +25,23 @@ class ProjectGitPolicyRule(models.Model):
     activation_id = fields.Many2one("project.git.policy.activation", readonly=True, ondelete="restrict", copy=False)
     active_revision_id = fields.Many2one(related="activation_id.revision_id", readonly=True)
     revision_ids = fields.One2many("project.git.policy.revision", "rule_id", readonly=True)
+    policy_status = fields.Selection(
+        [("disabled", "Disabled"), ("dry_run", "Dry Run"), ("active", "Active")],
+        compute="_compute_policy_status", compute_sudo=False,
+    )
+
+    @api.depends("active", "activation_id", "activation_id.mode", "activation_id.revocation_ids",
+                 "project_id.git_policy_enabled", "project_id.git_policy_mode")
+    def _compute_policy_status(self):
+        """Display persisted control state, not a certification of current Task access."""
+        for rule in self:
+            activation = rule.activation_id
+            enabled = rule.active and rule.project_id.git_policy_enabled and activation and not activation.revocation_ids
+            rule.policy_status = (
+                "active" if enabled and activation.mode == "apply" and rule.project_id.git_policy_mode == "apply"
+                else "dry_run" if enabled and activation.mode == "dry_run" and rule.project_id.git_policy_mode == "dry_run"
+                else "disabled"
+            )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -97,6 +114,14 @@ class ProjectGitPolicyRule(models.Model):
         self._check_control(emergency=True)
         self._revoke("disabled")
         return True
+
+    def action_preview(self):
+        """Preview the fixed readable repository, never caller-selected Tasks or effects."""
+        self.ensure_one()
+        require_capability(self.env)
+        rule = self.with_context(clean_context(self.env))
+        rule.check_access("read")
+        return rule.repository_id.action_dry_run_git_policy()
 
     def action_transfer_owner(self, new_owner_id):
         self.ensure_one()

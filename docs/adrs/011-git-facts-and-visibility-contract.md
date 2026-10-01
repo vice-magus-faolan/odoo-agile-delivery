@@ -36,7 +36,7 @@ Reject OCA `queue_job` as a required or production runtime dependency for Milest
 
 ## Consequences
 
-Connector facts are observations, not evidence that an Odoo task is complete. No workflow automation, configurable task policy, provider polling, or outbound provider operation exists in this milestone. Every schema/security/cron change requires clean install, update, and dependency-safe uninstall/reinstall verification.
+Connector facts are observations, not evidence that an Odoo task is complete. M6 itself supplies no workflow automation, configurable task policy, provider polling, or outbound provider operation. The separately optional M7 addon in ADR-012 owns approved policy effects; M6 receipt/normalization never writes Tasks. Every schema/security/cron change requires clean install, update, and dependency-safe uninstall/reinstall verification.
 
 ## Sources
 

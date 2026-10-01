@@ -1,8 +1,9 @@
 # Deterministic Git policy dry runs
 
 Target: Odoo 19 Community, private Odoo-compatible LGPL-3 optional addon.
-This slice records informational proposals, not operational automation. There is
-no Task effect, effect marker, attempt queue, cron, provider call or ingress hook.
+The evaluator records informational proposals, never operational authority. It
+does not write Tasks/effect markers or schedule attempts; the separate apply worker
+owns those boundaries. There is no provider call or ingress hook in evaluation.
 
 ## Explicit entry point and visibility
 
@@ -19,9 +20,10 @@ page, at most twenty merged PRs. `next_pr_cursor` in its serializable action is 
 last examined PR ID; authorized RPC callers can pass that cursor to examine the
 next page. The ordinary button evaluates the first page only. Paging is a query
 cursor, never a Task selector or provider authority. Empty pages are harmless.
-There is no automatic wake-up scheduler yet: reevaluating the same page after a
-matching check arrives rechecks the complete rule and all names. Later scheduler
-work must use these repository/head predicates, not associate from check names.
+Dry-run reevaluation is explicit: the same page after a matching check arrives
+rechecks the complete rule and all names. The separate apply scheduler rechecks
+existing eligible waiting attempts with the same repository/head predicates,
+never associating Tasks from check names.
 
 Each page loads at most twenty rules, twenty Tasks per PR, 400 associations,
 8,000 current-delivery key audits, 400 relevant checks, and 8,000 prior decisions.
@@ -98,10 +100,10 @@ Dry runs append only observations and proposals. They do not mutate Tasks,
 Sprints/history, facts, followers/chatter or approval epochs, reserve/consume real
 effect idempotency keys, or authorize execution. A mode/revision change needs fresh
 approval/cutoff; no proposal can be promoted to an effect. An already reached target
-is informational only. The Task transition fence and independent-connection
-apply/manual-edit/disable races belong to the later apply phase, not this dry-run
-snapshot. Current proposals cannot prove an identical manual away-and-back change
-without that later monotonic fence; they are deliberately never executable.
+is informational only. The implemented Task transition fence and independent-
+connection apply/manual-edit/disable races protect the separate apply boundary,
+not this dry-run snapshot. Proposals do not use that fence to prove an identical
+manual away-and-back change; they are deliberately never executable.
 
 Control row locks serialize scoped append producers; database uniqueness is a
 second dedupe guard. Serialization/uniqueness races require a fresh transaction,

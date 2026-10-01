@@ -30,7 +30,7 @@ trap cleanup_verification_resources EXIT
 
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"
-python3 -m compileall -q addons
+python3 -m compileall -q addons scripts
 python3 -m unittest discover -s tests -p "test_*.py" -v
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" build odoo
@@ -77,14 +77,14 @@ uninstall_module() {
 wait_for_database
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --test-enable --test-tags /project_agile_git_automation
-printf "%s\n" "Independent optional Git policy dry-run install passed."
+printf "%s\n" "Independent optional Git policy install passed (without GitHub or Scrum)."
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/git_policy_concurrency_probe.py"
-printf "%s\n" "Native Git policy scheduling, independent-process races and crash recovery passed."
+printf "%s\n" "Native Git policy scheduling, budget interruption, independent-process races and crash recovery passed."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"
@@ -102,4 +102,4 @@ run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
 printf "%s\n" "Milestone 5 planning-board verification passed."
 printf "%s\n" "Milestone 6 Git facts contract verification passed."
-printf "%s\n" "Milestone 7 Git policy dry-run contract verification passed."
+printf "%s\n" "Milestone 7 Git policy controls, dry-run, apply and recovery verification passed."

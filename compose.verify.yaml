@@ -4,3 +4,14 @@ services:
       context: .
       dockerfile: Dockerfile.verify
     image: odoo-agile-delivery-verify:local
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./addons:/mnt/extra-addons:ro
+
+# Verification has DB/loopback connectivity only; provider/network calls cannot
+# become an accidental runtime requirement. This is not a live Odoo.sh fixture.
+networks:
+  default:
+    internal: true

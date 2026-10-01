@@ -1,7 +1,7 @@
 {
     "name": "Agile Git Workflow Policy",
     "summary": "Opt-in typed Git policies, dry runs and bounded native stage application",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.4.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
@@ -15,8 +15,12 @@
         "data/project_git_policy_cron.xml",
         "views/project_git_policy_views.xml",
         "views/project_git_policy_evaluation_views.xml",
+        "views/project_git_policy_operations_views.xml",
     ],
     "installable": True,
+    "assets": {
+        "web.assets_tests": ["project_agile_git_automation/static/tests/tours/git_policy_operations.js"],
+    },
     "auto_install": False,
     "application": False,
 }

@@ -73,7 +73,7 @@ class ProjectProject(models.Model):
         self.check_access("write")
         lock_records(self)
         self.check_access("write")
-        if mode not in dict(MODES):
+        if not isinstance(mode, str) or mode not in dict(MODES):
             raise ValidationError(_("Only finite dry-run/apply modes are supported."))
         if not self.company_id or self.company_id not in self.env.companies:
             raise AccessError(_("Policy requires a currently visible company-scoped project."))
@@ -92,3 +92,19 @@ class ProjectProject(models.Model):
         self._git_policy_invalidate("disabled")
         super(ProjectProject, self.sudo()).write({"git_policy_enabled": False, "git_policy_mode": "dry_run"})
         return True
+
+    def action_enable_git_policy_apply(self):
+        """Explicit native form control; does not activate any rule or promote previews."""
+        return self.action_enable_git_policy(mode="apply")
+
+    def action_open_git_policy_attempts(self):
+        """Fixed current-project navigation; target searches retain live Task rules."""
+        self.ensure_one()
+        require_capability(self.env)
+        project = self.with_context(clean_context(self.env))
+        project.check_access("read")
+        return {
+            "type": "ir.actions.act_window", "name": _("Git Policy Attempts"),
+            "res_model": "project.git.policy.attempt", "view_mode": "list,form",
+            "domain": [("project_id", "=", project.id)], "context": {},
+        }

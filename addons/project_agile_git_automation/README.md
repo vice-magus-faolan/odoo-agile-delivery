@@ -20,7 +20,12 @@ never authorize execution. A server-owned monotonic Task fence detects manual
 away-and-back changes; native tracking is not suppressed. Read the
 [apply boundary](../../docs/git-policy-apply-boundary.md) for recovery and exact
 installed-source compatibility limits.
-Live apply remains separately operator-gated.
+Live apply remains separately operator-gated. The [operations runbook](../../docs/runbooks/git-policy-operations.md)
+documents native rule status, approval/cutoff, Project-scoped attempt navigation,
+confirmed transient-only retry, immutable before/after/actor effects, retention,
+backups, shutdown, rollback limits and Odoo.sh staging restrictions. Native form
+tours exercise server/UI controls with non-admin synthetic users; no production
+OWL widget is required. Retry never replaces a candidate or resets its budget.
 
 Read the [configuration and recovery guide](../../docs/git-policy-configuration.md)
 for capability assignment, two-person acknowledgment, fresh successors/cutoffs,
@@ -53,5 +58,6 @@ text or exceptions. No payload, secret, or task description is stored.
 Run `env -u COMPOSE_PROJECT_NAME ./scripts/verify` for independent optional
 installation first, then the seven-module clean install, targeted upgrade, and
 dependency-safe uninstall/reinstall, including imported Odoo fixture tests.
-Existing Git observations stay observation-only with this addon installed.
+Existing Git ingress/normalization stay observation-only with this addon installed.
+Only separately enabled/approved apply epochs can cause future eligible stage writes.
 Production policy activation remains a separate future operator-approved effect.

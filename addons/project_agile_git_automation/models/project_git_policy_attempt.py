@@ -15,7 +15,7 @@ STATES = [(n, n.replace("_", " ").title()) for n in (
 )]
 ATTEMPT_REASONS = REASONS + [(n, n.replace("_", " ").title()) for n in (
     "applied", "consumed_effect", "transient_failure", "attempt_limit", "postcondition_failed",
-    "evidence_changed", "unsupported_extension",
+    "evidence_changed", "unsupported_extension", "operator_retry",
 )]
 MAX_ATTEMPTS = 5
 
@@ -162,6 +162,7 @@ class ProjectGitPolicyAttemptEvent(models.Model):
     state = fields.Selection(STATES, required=True, readonly=True)
     reason = fields.Selection(ATTEMPT_REASONS, required=True, readonly=True)
     attempt_count = fields.Integer(required=True, readonly=True)
+    actor_id = fields.Many2one("res.users", readonly=True, ondelete="restrict")
     recorded_at = fields.Datetime(required=True, readonly=True)
     _event_once = models.Constraint("UNIQUE(attempt_id, state, reason, attempt_count)", "This scheduling event is already retained.")
 
@@ -182,5 +183,5 @@ class ProjectGitPolicyAttemptEvent(models.Model):
         existing = self.sudo().search(domain, limit=1)
         return existing or super(ProjectGitPolicyAttemptEvent, self.sudo().with_context({})).create({
             "attempt_id": attempt.id, "state": state, "reason": reason,
-            "attempt_count": attempt.attempt_count, "recorded_at": fields.Datetime.now(),
+            "attempt_count": attempt.attempt_count, "recorded_at": fields.Datetime.now(), "actor_id": self.env.uid,
         })

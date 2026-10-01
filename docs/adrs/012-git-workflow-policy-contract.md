@@ -5,9 +5,11 @@
 Accepted for the bounded Milestone 7 continuation of mission brief section 15.
 Supersedes ADR-008's proposed automation design, not ADR-011's observation-only
 connector contract. Acceptance of this design is not production activation or a
-claim that the engine is delivered. The root slice installs an inert audit fixture;
-rules, evaluator, apply worker, operational controls, and adversarial review follow
-in the serial M7 graph. There was no previously accepted numbered M7 specification.
+claim of production activation. The serial lane now implements rules, evaluator,
+apply worker and [operational controls](../runbooks/git-policy-operations.md);
+the root-only statements below describe that historical bounded phase, not current
+scope. Independent adversarial/cumulative review and delivery gates remain in the
+M7 graph. There was no previously accepted numbered M7 specification.
 
 ## Outcome and boundaries
 
@@ -95,7 +97,8 @@ No fixture configures mail/rating templates or contacts an external party.
 ## Finite schema and decision ownership
 
 The following names and semantics are fixed for downstream implementation. They
-are planned schemas, not a claim that these tables already exist.
+define the implemented finite schema; root-fixture restrictions below remain
+historical phase notes, not claims that later runtime tables are absent.
 
 - Project controls: `git_policy_enabled=False`, `git_policy_mode='dry_run'`
   (`dry_run`, `apply`), `git_policy_authority_epoch` monotonic integer.

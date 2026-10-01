@@ -1,6 +1,6 @@
 # Git policy configuration and approval authority
 
-Target: Odoo 19 Community, private Odoo-compatible LGPL-3 addon `project_agile_git_automation`, sole dependency `project_agile_git`. Configuration and [deterministic dry runs](git-policy-dry-run.md) are available; no scheduler or Task writes are delivered. Core Agile and Git facts remain independently installable.
+Target: Odoo 19 Community, private Odoo-compatible LGPL-3 addon `project_agile_git_automation`, sole dependency `project_agile_git`. Configuration, [deterministic dry runs](git-policy-dry-run.md), separate bounded native apply and [operator controls/recovery](runbooks/git-policy-operations.md) are available. Core Agile and Git facts remain independently installable; no live activation/deployment is performed by this delivery.
 
 ## Operating boundary
 
@@ -19,18 +19,18 @@ native XML identities, normalized domain fingerprints, groups, permissions and
 mutable dependencies. Only literal direct stored Task name/active custom rules
 are initially supported; unknown Project/repository/stage/identity or other Task
 profiles fail closed at activation/current validation. Native Odoo remains the
-access evaluator. The rules phase now has a revoke-only Task observer, not a Task
-effect or concurrency-field implementation. Successful authority-input edits,
+access evaluator. The Task observer revokes affected approval epochs and the apply
+layer adds a monotonic stage/state concurrency fence. Successful authority-input edits,
 create/delete and old/new/descendant scope changes invalidate approvals before
 restoration can reuse them. Both stage relation directions are observed.
 
-Global company rules plus fresh native Project subqueries protect search/count/read surfaces. Never cache visible record IDs inside an ir.rule expression: the cached domain can retain stale access. Public controls require caller capability and current record access before narrow server-derived writes. Company context is validated; defaults and arbitrary expressions/actions/model names/methods/fields do not grant authority. Execution identity is persisted in the approved revision, never provider/context-selected. Activation checks every current concrete Project Task under that execution identity; future apply must repeat actual-record access checks under locks.
+Global company rules plus fresh native Project subqueries protect search/count/read surfaces. Never cache visible record IDs inside an ir.rule expression: the cached domain can retain stale access. Public controls require caller capability and current record access before narrow server-derived writes. Company context is validated; defaults and arbitrary expressions/actions/model names/methods/fields do not grant authority. Execution identity is persisted in the approved revision, never provider/context-selected. Activation checks every current concrete Project Task under that execution identity; apply repeats actual-record access checks under locks.
 
-Private helpers fence Project, repository, rule and approval rows and invalidate caches. Public activation/disable controls recheck authority after locking. Approval validity is rechecked against current identities, scope, mode, epochs, stages and Task permissions. Native Project/Task unfollow and follower reassignment revoke through an authorized revoke-only follower hook; restoring access before the next validation cannot resurrect an epoch. Revocation is transaction-local and durable only when the owning transaction commits. Direct database administration remains the trust root. Future workers must implement ADR-012 lock order, provenance, bounded evaluation, retries and actual Task checks; this slice does not authorize live apply.
+Private helpers fence Project, repository, rule and approval rows and invalidate caches. Public activation/disable controls recheck authority after locking. Approval validity is rechecked against current identities, scope, mode, epochs, stages and Task permissions. Native Project/Task unfollow and follower reassignment revoke through an authorized revoke-only follower hook; restoring access before the next validation cannot resurrect an epoch. Revocation is transaction-local and durable only when the owning transaction commits. Direct database administration remains the trust root. The separate apply worker implements ADR-012 lock order, provenance, bounded evaluation, retries and actual Task checks; this delivery does not authorize live apply.
 
 ## Native effects and recovery
 
-This configuration layer does not write Tasks. A future native stage write can create tracking messages/notifications, update timestamps and durations, and recompute nonterminal Task state. Native completion/reopen state, Sprint/history, estimates, followers and messages are not action targets. Rating/email-template/SMS-template targets are excluded. Do not claim a native ORM write has no side effects.
+This configuration layer does not write Tasks. The separately approved native apply stage write can create tracking messages/notifications, update timestamps and durations, and recompute nonterminal Task state. Native completion/reopen state, Sprint/history, estimates, followers and messages are not action targets. Rating/email-template/SMS-template targets are excluded. Do not claim a native ORM write has no side effects.
 
 Emergency disable Project/rule first. Retain immutable approval/revocation evidence. Correct source permissions/configuration, create a successor and obtain fresh distinct-author acknowledgment. No historical/backfill replay is authorized by activation. Apply remains separately operator-gated.
 

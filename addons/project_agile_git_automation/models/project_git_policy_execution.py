@@ -7,7 +7,7 @@ from psycopg2.errors import DeadlockDetected, SerializationFailure
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .policy_authority import lock_records
+from .policy_authority import clean_context, lock_records, require_capability
 from .policy_evidence import MAX_BATCH, MAX_EVIDENCE
 from .policy_write_profile import check_write_profile
 from .project_git_policy_attempt import MAX_ATTEMPTS
@@ -21,6 +21,43 @@ class PolicyPostconditionError(ValidationError):
 
 class ProjectGitPolicyAttempt(models.Model):
     _inherit = "project.git.policy.attempt"
+
+    def action_retry(self):
+        """Requeue one transient failure; never reset its budget, fence or identity.
+
+        No parameters or context values can replace candidate evidence. Terminal,
+        leased, stale, revoked, expired and consumed work cannot be revived.
+        Native cron independently revalidates again before any business effect.
+        """
+        self.ensure_one()
+        require_capability(self.env)
+        attempt = self.with_context(clean_context(self.env))
+        attempt.check_access("read")
+        attempt.rule_id._check_control()
+        attempt.rule_id._lock_control()
+        for records in (attempt.activation_id, attempt, attempt.task_id):
+            lock_records(records)
+        require_capability(attempt.env)
+        attempt.check_access("read")
+        attempt.rule_id._check_control()
+        attempt._check_retry_candidate()
+        attempt._set_schedule({"state": "queued", "reason": "operator_retry", "next_retry_at": False,
+                               "lease_token": False, "lease_expires_at": False})
+        attempt._append_event("queued", "operator_retry")
+        return True
+
+    def _check_retry_candidate(self):
+        """Read-only eligibility under the same controls and Task locks as apply."""
+        if self.state != "retryable" or self.reason != "transient_failure" or self.attempt_count >= MAX_ATTEMPTS:
+            raise ValidationError(_("Only an unexhausted transient failure can be retried."))
+        if self.env["project.git.policy.effect"]._consumed(self.repository_id, self.provider_request_id, self.agile_key):
+            raise ValidationError(_("This PR/Task effect has already been consumed."))
+        try:
+            result, _observation = self._current_candidate(self.repository_id, self.task_id)
+        except (AccessError, ValidationError) as error:
+            raise ValidationError(_("Retry requires unchanged current approval and evidence.")) from error
+        if result[0] not in {"matched", "waiting"}:
+            raise ValidationError(_("Retry requires unchanged Task fence, cutoff and eligible evidence."))
 
     @api.model
     def _candidate_page(self, repository, after_id):

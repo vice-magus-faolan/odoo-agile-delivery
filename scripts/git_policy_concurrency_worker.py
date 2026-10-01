@@ -5,6 +5,7 @@ from pathlib import Path
 import time
 from unittest.mock import patch
 
+from odoo import Command
 from psycopg2.errors import DeadlockDetected, SerializationFailure
 
 scenario = json.loads(os.environ["GIT_POLICY_SCENARIO"])
@@ -24,6 +25,26 @@ def wait(filename):
         time.sleep(0.02)
 
 
+def dependency_away_and_back(task):
+    blocker = env['project.task'].with_user(scenario['executor_id']).browse(scenario['blocker_id'])
+    before = task.git_policy_transition_version
+    if operation == 'manual_dependency':
+        task.write({'depend_on_ids': [Command.link(blocker.id)]})
+    else:
+        blocker.write({'state': '01_in_progress'})
+    env.flush_all()
+    assert task.state == '04_waiting_normal'
+    intermediate = task.git_policy_transition_version
+    assert intermediate > before
+    if operation == 'manual_dependency':
+        task.write({'depend_on_ids': [Command.unlink(blocker.id)]})
+    else:
+        blocker.write({'state': '1_done'})
+    env.flush_all()
+    assert task.state == '01_in_progress' and task.git_policy_transition_version > intermediate
+    result['transition_versions'] = [before, intermediate, task.git_policy_transition_version]
+
+
 def mutate():
     author = env['res.users'].browse(scenario['author_id'])
     task = env['project.task'].with_user(scenario['executor_id']).browse(scenario['task_id'])
@@ -37,6 +58,8 @@ def mutate():
     elif operation == 'manual':
         task.write({'stage_id': scenario['other_stage_id']})
         task.write({'stage_id': scenario['source_stage_id']})
+    elif operation in {'manual_dependency', 'blocker_state'}:
+        dependency_away_and_back(task)
     elif operation == 'identity':
         env['res.users'].browse(scenario['executor_id']).write({'active': False})
     elif operation == 'fact':

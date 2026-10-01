@@ -27,7 +27,7 @@ results = []
 fixture_index = 0
 
 
-def fixture(discover=True):
+def fixture(discover=True, dependency_kind=None):
     global fixture_index
     fixture_index += 1
     executor.active = True
@@ -40,6 +40,14 @@ def fixture(discover=True):
     stages = env['project.task.type'].create([{'name': n, 'project_ids': [Command.link(project.id)]}
                                             for n in ('Source', 'QA', 'Manual')])
     task = env['project.task'].create({'name': 'Synthetic race task', 'project_id': project.id, 'stage_id': stages[0].id})
+    blocker = env['project.task']
+    if dependency_kind:
+        project.write({'allow_task_dependencies': True})
+        blocker = env['project.task'].create({'name': 'Synthetic dependency blocker', 'project_id': project.id,
+            'stage_id': stages[0].id, 'state': '1_done' if dependency_kind == 'blocker_state' else '01_in_progress'})
+        if dependency_kind == 'blocker_state':
+            task.with_user(executor).write({'depend_on_ids': [Command.link(blocker.id)]})
+        env.flush_all()
     rule = env['project.git.policy.rule'].with_user(author).create({'name': 'Race rule', 'repository_id': repository.id})
     revision = env['project.git.policy.revision'].with_user(author).create({
         'rule_id': rule.id, 'target_branch': 'main', 'allowed_source_stage_ids': [Command.set(stages[:1].ids)],
@@ -73,7 +81,7 @@ def fixture(discover=True):
     return {'project_id': project.id, 'repository_id': repository.id, 'task_id': task.id, 'pr_id': pr.id,
             'revision_id': revision.id, 'attempt_id': attempts.id if attempts else False,
             'source_stage_id': stages[0].id, 'target_stage_id': stages[1].id, 'other_stage_id': stages[2].id,
-            'author_id': author.id, 'executor_id': executor.id}
+            'author_id': author.id, 'executor_id': executor.id, 'blocker_id': blocker.id if blocker else False}
 
 
 def refresh():
@@ -166,8 +174,8 @@ with tempfile.TemporaryDirectory(prefix='git-policy-races-', dir='/var/lib/odoo'
                 process.kill()
                 process.communicate()
 
-    for operation in ('disable','revoke','revision','manual','identity','fact','stage'):
-        data = lease(fixture())
+    for operation in ('disable','revoke','revision','manual','identity','fact','stage','manual_dependency','blocker_state'):
+        data = lease(fixture(dependency_kind=operation if operation in {'manual_dependency','blocker_state'} else None))
         directory = workdir/operation
         directory.mkdir()
         writer = launch(directory, data, 'writer', operation)
@@ -183,6 +191,10 @@ with tempfile.TemporaryDirectory(prefix='git-policy-races-', dir='/var/lib/odoo'
             task, attempts, effects = state(data)
             assert not effects and task.stage_id.id == data['source_stage_id'], (operation, attempts.state, attempts.reason)
             assert attempts.state in {'revoked','rejected'}, (operation, attempts.state)
+            if operation in {'manual_dependency','blocker_state'}:
+                assert (attempts.state, attempts.reason) == ('rejected', 'stale_task')
+                assert task.state == '01_in_progress'
+                assert task.git_policy_transition_version > attempts.expected_transition_version
             assert rows[1]['restarts'] >= 1, rows
             results.append({'scenario': operation+'_wins_execution_race', 'workers': rows, 'state': attempts.state, 'reason': attempts.reason})
         finally:

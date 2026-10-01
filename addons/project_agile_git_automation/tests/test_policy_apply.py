@@ -65,6 +65,113 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self._discover()
         self.assertEqual(self.attempts.search_count([]), 1)
 
+    def _dependency_blocker(self, closed=False):
+        self.project.write({"allow_task_dependencies": True})
+        blocker = self.env["project.task"].create({
+            "name": "Dependency blocker", "project_id": self.project.id,
+            "stage_id": self.stages[0].id, "state": "1_done" if closed else "01_in_progress",
+        })
+        if closed:
+            self.task.with_user(self.executor).write({"depend_on_ids": [Command.link(blocker.id)]})
+        self.env.flush_all()
+        self._successor()
+        return blocker.with_user(self.executor)
+
+    def _assert_dependency_stale(self, attempt, version):
+        self.assertGreater(self.task.git_policy_transition_version, version)
+        self.assertEqual(self.task.state, "01_in_progress")
+        self._apply()
+        self.assertEqual((attempt.state, attempt.reason), ("rejected", "stale_task"))
+        self.assertEqual(self.task.stage_id, self.stages[0])
+        self.assertFalse(self.effects.search([]))
+        self._discover()
+        self.assertEqual(self.attempts.search_count([]), 1)
+
+    def test_manual_dependency_away_and_back_fences_original_attempt(self):
+        blocker = self._dependency_blocker()
+        attempt = self._discover()
+        version = self.task.git_policy_transition_version
+        task = self.task.with_user(self.executor)
+        task.write({"depend_on_ids": [Command.link(blocker.id)]})
+        self.env.flush_all()
+        self.assertEqual(task.state, "04_waiting_normal")
+        self.assertGreater(task.git_policy_transition_version, version)
+        intermediate = task.git_policy_transition_version
+        task.write({"depend_on_ids": [Command.unlink(blocker.id)]})
+        self.env.flush_all()
+        self._assert_dependency_stale(attempt, intermediate)
+
+    def test_blocker_state_away_and_back_fences_original_attempt(self):
+        blocker = self._dependency_blocker(closed=True)
+        attempt = self._discover()
+        version = self.task.git_policy_transition_version
+        blocker.write({"state": "01_in_progress"})
+        self.env.flush_all()
+        self.assertEqual(self.task.state, "04_waiting_normal")
+        self.assertGreater(self.task.git_policy_transition_version, version)
+        intermediate = self.task.git_policy_transition_version
+        blocker.write({"state": "1_done"})
+        self.env.flush_all()
+        self._assert_dependency_stale(attempt, intermediate)
+
+    def test_unchanged_dependency_recompute_keeps_fence_and_native_actor(self):
+        blocker = self._dependency_blocker(closed=True)
+        attempt = self._discover()
+        version = self.task.git_policy_transition_version
+        before = self.task.read(["write_uid", "write_date"])
+        blocker.write({"state": "1_canceled"})
+        self.env.flush_all()
+        self.assertEqual(self.task.state, "01_in_progress")
+        self.assertEqual(self.task.git_policy_transition_version, version)
+        self.assertEqual(before, self.task.read(["write_uid", "write_date"]))
+        self._apply()
+        self.assertEqual(attempt.state, "applied", attempt.reason)
+
+    def test_dependency_compute_and_counter_roll_back_together(self):
+        blocker = self._dependency_blocker(closed=True)
+        attempt = self._discover()
+        version = self.task.git_policy_transition_version
+        with self.assertRaisesRegex(RuntimeError, "synthetic rollback"):
+            with self.env.cr.savepoint():
+                blocker.write({"state": "01_in_progress"})
+                self.env.flush_all()
+                self.assertEqual(self.task.state, "04_waiting_normal")
+                self.assertGreater(self.task.git_policy_transition_version, version)
+                raise RuntimeError("synthetic rollback")
+        self.assertEqual(self.task.state, "01_in_progress")
+        self.assertEqual(self.task.git_policy_transition_version, version)
+        self.assertEqual(blocker.state, "1_done")
+        self._apply()
+        self.assertEqual(attempt.state, "applied", attempt.reason)
+
+    def test_batched_dependency_recompute_preserves_closed_state(self):
+        blocker = self._dependency_blocker(closed=True)
+        tasks = self.env["project.task"].create([
+            {"name": "Batch open", "project_id": self.project.id, "stage_id": self.stages[0].id,
+             "depend_on_ids": [Command.link(blocker.id)]},
+            {"name": "Batch closed", "project_id": self.project.id, "stage_id": self.stages[0].id,
+             "state": "1_done", "depend_on_ids": [Command.link(blocker.id)]},
+        ])
+        self.env.flush_all()
+        versions = {task.id: task.git_policy_transition_version for task in tasks}
+        blocker.write({"state": "01_in_progress"})
+        self.env.flush_all()
+        self.assertEqual(tasks[0].state, "04_waiting_normal")
+        self.assertGreater(tasks[0].git_policy_transition_version, versions[tasks[0].id])
+        self.assertEqual(tasks[1].state, "1_done")
+        self.assertEqual(tasks[1].git_policy_transition_version, versions[tasks[1].id])
+
+    def test_unsaved_dependency_compute_does_not_change_durable_fence(self):
+        blocker = self._dependency_blocker()
+        version = self.task.git_policy_transition_version
+        unsaved = self.env["project.task"].with_user(self.executor).new({
+            "name": "Unsaved dependent", "project_id": self.project.id,
+            "stage_id": self.stages[0].id, "depend_on_ids": [Command.link(blocker.id)],
+        })
+        self.assertEqual(unsaved.state, "04_waiting_normal")
+        self.assertEqual(unsaved.git_policy_transition_version, 0)
+        self.assertEqual(self.task.git_policy_transition_version, version)
+
     def test_disable_revision_and_revocation_stop_claimed_work(self):
         attempt = self._discover()
         self.project.with_user(self.author).action_disable_git_policy()

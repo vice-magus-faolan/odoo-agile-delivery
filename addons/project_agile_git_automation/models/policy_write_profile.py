@@ -15,7 +15,7 @@ SOURCES = {
     "addons/mail/models/mail_thread.py": "d884afc1028baaf1423c4b7643a9854b13fa45bad8909ea8f7b84855c4f36a95",
     "addons/project_agile/models/project_task.py": "962767eb1563943f2c4a8e6c7f47c832a69a68a51a10e90b3e61a4a773d15706",
     "addons/project_scrum/models/project_task.py": "976e8c7a62119db686b258267cf4665e86ff4f58e5028809bcb3de27f0447162",
-    "addons/project_agile_git_automation/models/project_task.py": "299fe3c2bbb000c59a2d894259d4f74f76dc48d7f270cda9cae08ed5fa508a54",
+    "addons/project_agile_git_automation/models/project_task.py": "919c7b5fda920fb103cdba24e787225a1ce95497d6a32dab638852be25d2f961",
     "addons/project_agile_git/models/project_git_visibility.py": "a7b25bd6aed5966f018334da300a2e8ca3086a47fa948bc65bb692cbe181b168",
     "addons/project_todo/models/project_task.py": "a6922427c429e07cfbc459d80edba5be03373281fa991fee5466f8210e08099b",
     "addons/portal/models/portal_mixin.py": "09bb21f1fdf2682ab558e3c0fce4f979a33e33ad85b0147f3f98c4c6a48fb582",

@@ -32,7 +32,7 @@ class TestGitAutomationContract(unittest.TestCase):
         tree = ast.parse(hook.read_text())
         cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
         self.assertEqual({n.name for n in cls.body if isinstance(n, ast.FunctionDef)},
-                         {"create", "write", "unlink", "_git_policy_affected_projects", "_git_policy_lock_scopes", "_git_policy_requested_scopes", "_git_policy_fence_tasks"})
+                         {"create", "write", "unlink", "_git_policy_affected_projects", "_git_policy_lock_scopes", "_git_policy_requested_scopes", "_git_policy_fence_tasks", "_compute_state", "_git_policy_advance_transition"})
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"create", "write", "unlink"}:
                 self.assertIsInstance(node.func.value, ast.Call)
@@ -52,6 +52,22 @@ class TestGitAutomationContract(unittest.TestCase):
         self.assertFalse((self.addon / "controllers").exists())
         self.assertTrue((self.addon / "data" / "project_git_policy_cron.xml").exists())
         self.assertIn("from . import test_policy_contract", (self.addon / "tests" / "__init__.py").read_text())
+
+    def test_native_state_observer_preserves_compute_and_pins_source(self):
+        hook = self.addon / "models" / "project_task.py"
+        tree = ast.parse(hook.read_text())
+        cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
+        compute = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "_compute_state")
+        mutations = [node for node in ast.walk(compute) if isinstance(node, ast.Assign)
+                     and any(isinstance(target, ast.Attribute) for target in node.targets)]
+        self.assertFalse(mutations, "Observer must not assign native business fields")
+        self.assertIn("super()._compute_state()", ast.unparse(compute))
+        self.assertIn("depend_on_ids.state", ast.unparse(compute))
+        profile = ast.parse((self.addon / "models" / "policy_write_profile.py").read_text())
+        sources = next(ast.literal_eval(node.value) for node in profile.body if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == "SOURCES" for target in node.targets))
+        self.assertEqual(sources["addons/project_agile_git_automation/models/project_task.py"],
+                         hashlib.sha256(hook.read_bytes()).hexdigest())
 
     def test_contract_excludes_template_driven_nontransactional_effects(self):
         contract = (self.root / "docs" / "adrs" / "012-git-workflow-policy-contract.md").read_text()

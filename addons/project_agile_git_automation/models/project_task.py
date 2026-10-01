@@ -14,6 +14,41 @@ class ProjectTask(models.Model):
 
     git_policy_transition_version = fields.Integer(default=0, readonly=True, copy=False)
 
+    def _git_policy_advance_transition(self):
+        """Increment only the private token, not native business/tracking metadata."""
+        if not self:
+            return
+        self.flush_recordset(["git_policy_transition_version"])
+        self.env.cr.execute(SQL(
+            "UPDATE project_task SET git_policy_transition_version = git_policy_transition_version + 1 WHERE id IN %s",
+            tuple(self.ids),
+        ))
+        self.invalidate_recordset(["git_policy_transition_version"])
+
+    @api.depends("stage_id", "depend_on_ids.state")
+    def _compute_state(self):
+        """Observe native dependency transitions, including propagation and reversal.
+
+        Odoo 19 fields.Field.compute_value removes pending recomputation before
+        invoking this method, so reading the old state here is supported (the
+        native implementation also reads it). Do not flush all fields or lock
+        through lock_records: that could recursively flush the current compute.
+        The fixed row lock and counter-only update settle with the native compute
+        in its transaction, including compute_sudo for inaccessible dependents.
+        No native state, actor, timestamp or Scrum history is written by this hook.
+        New/onchange records have no durable policy attempt and are excluded.
+        """
+        persisted = self.filtered("id")
+        if persisted:
+            self.env.cr.execute(SQL(
+                "SELECT id FROM project_task WHERE id IN %s ORDER BY id FOR UPDATE",
+                tuple(persisted.ids),
+            ))
+        before = {task.id: task.state for task in persisted}
+        super()._compute_state()
+        changed = persisted.filtered(lambda task: task.state != before[task.id])
+        changed._git_policy_advance_transition()
+
     def _git_policy_fence_tasks(self, values):
         """Cover direct mutations and parent-propagated native scope recomputation."""
         inputs = {"stage_id", "state", "project_id", "company_id", "active", "parent_id", "child_ids"}
@@ -88,13 +123,7 @@ class ProjectTask(models.Model):
         # Native authorization/constraints succeed first. A counter-only SQL update
         # batches descendant compute fences and preserves native business write_uid,
         # tracking and timestamp semantics (a second ORM write would alter those).
-        if fenced:
-            fenced.flush_recordset(["git_policy_transition_version"])
-            self.env.cr.execute(SQL(
-                "UPDATE project_task SET git_policy_transition_version = git_policy_transition_version + 1 WHERE id IN %s",
-                tuple(fenced.ids),
-            ))
-            fenced.invalidate_recordset(["git_policy_transition_version"])
+        fenced._git_policy_advance_transition()
         if relevant:
             after = self._git_policy_affected_projects(descendants)
             _revoke(self.env, [("project_id", "in", sorted(set(before) | set(after)))], "authority_changed")

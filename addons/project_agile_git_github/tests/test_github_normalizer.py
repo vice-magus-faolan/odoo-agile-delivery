@@ -4,6 +4,8 @@ import json
 from uuid import uuid4
 from unittest.mock import patch
 
+from psycopg2 import IntegrityError
+
 from odoo import SUPERUSER_ID, api
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
@@ -234,6 +236,47 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         )
         self.assertEqual(set(associations.mapped("agile_key")), {"NRM-1", "NRM-2"})
         self.assertEqual((audits.outcome, audits.reason), ("unassociated", "unknown_key"))
+
+    def test_existing_association_retains_current_delivery_task_proof(self):
+        first = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "first-proof")
+        self._process(first)
+        second = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T04:04:05Z"), "second-proof")
+        self._process(second)
+        audit = self.env["project.git.association.audit"].search([("delivery_id", "=", second.id)])
+        self.assertEqual((audit.outcome, audit.reason), ("already_associated", "duplicate"))
+        self.assertEqual(audit.task_id, self.first_task)
+        self.assertEqual(self.env["project.git.task.association"].search_count([
+            ("repository_id", "=", self.repository.id), ("source_type", "=", "pull_request"),
+        ]), 1)
+
+    def test_unique_collision_requires_exact_association_before_duplicate_proof(self):
+        """Exercise a real unique constraint after a missed initial lookup."""
+        model = self.env["project.git.task.association"]
+        model.create({"repository_id": self.repository.id, "task_id": self.first_task.id,
+                      "source_type": "pull_request", "source_provider_id": "404"})
+        self.env.flush_all()
+        delivery = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "collision-proof")
+        original = type(model).search
+        calls = []
+
+        def miss_once(records, domain, *args, **kwargs):
+            calls.append(domain)
+            return records.browse() if len(calls) == 1 else original(records, domain, *args, **kwargs)
+
+        with patch.object(type(model), "search", miss_once):
+            delivery._associate_agile_key("pull_request", "404", "title", "NRM-1")
+        self.assertGreaterEqual(len(calls), 2)
+        audit = self.env["project.git.association.audit"].search([("delivery_id", "=", delivery.id)])
+        self.assertEqual((audit.outcome, audit.reason), ("already_associated", "duplicate"))
+        self.assertEqual(audit.task_id, self.first_task)
+
+    def test_unrelated_integrity_error_cannot_mint_duplicate_proof(self):
+        delivery = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "unrelated-integrity")
+        model = self.env["project.git.task.association"]
+        with patch.object(type(model), "create", side_effect=IntegrityError("synthetic unrelated constraint")):
+            with self.assertRaises(IntegrityError):
+                delivery._associate_agile_key("pull_request", "404", "title", "NRM-1")
+        self.assertFalse(self.env["project.git.association.audit"].search([("delivery_id", "=", delivery.id)]))
 
     def test_check_run_creates_fact_and_exact_key_association(self):
         delivery = self._delivery(

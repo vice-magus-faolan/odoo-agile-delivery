@@ -571,18 +571,20 @@ class ProjectGitDelivery(models.Model):
             )
             return
         association_model = self.env["project.git.task.association"].sudo()
-        existing = association_model.search(
-            [
-                ("repository_id", "=", self.repository_id.id),
-                ("task_id", "=", task.id),
-                ("source_type", "=", source_type),
-                ("source_provider_id", "=", source_provider_id),
-            ],
-            limit=1,
-        )
+        association_domain = [
+            ("repository_id", "=", self.repository_id.id),
+            ("company_id", "=", self.repository_id.company_id.id),
+            ("task_id", "=", task.id),
+            ("agile_key", "=", agile_key),
+            ("source_type", "=", source_type),
+            ("source_provider_id", "=", source_provider_id),
+        ]
+        existing = association_model.search(association_domain, limit=1)
         if existing:
+            # A durable link is not current-delivery evidence by itself. Preserve
+            # the freshly resolved active local Task on this immutable decision.
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate"
+                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate", task
             )
             return
         try:
@@ -596,8 +598,13 @@ class ProjectGitDelivery(models.Model):
                     }
                 )
         except IntegrityError:
+            # Only an exact visible winner proves a duplicate. An unrelated
+            # constraint or a winner invisible to this transaction must escape
+            # to native fresh-transaction recovery, never mint an audit proof.
+            if not association_model.search(association_domain, limit=1):
+                raise
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate"
+                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate", task
             )
             return
         self._record_association_audit(

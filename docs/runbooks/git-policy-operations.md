@@ -70,6 +70,13 @@ reasons. Raw/redacted GitHub payload operations remain governed by the separate
 [Git facts runbook](github-git-facts-operations.md).
 
 - `waiting`: missing/pending exact-head checks; native processing may recheck them.
+  Missing/pending CI consumes the same five processing claims as transient faults
+  (M7-L1), not a separate 24-hour wait allowance. After five claims, the next due
+  scan settles `failed/attempt_limit`; late success does not resurrect it. Claim
+  spacing depends on backoff and actual cron service, so there is no fixed wall-clock
+  wait SLA. Monitor waiting claim counts/next retry and exhaustion separately from
+  transient failures. This conservative contract limit is retained, not remediated
+  by resetting budgets, reviving old attempts or weakening freshness.
   Multiple same-name check identities, absent `updated_at`, ambiguous ordering,
   another SHA/repository or invalid timestamps fail closed. Do not synthesize dates.
 - `retryable/transient_failure`: inspect sanitized events and the actual operational
@@ -95,6 +102,47 @@ choosing a partial winner. Repository cursors cycle existing facts but never ren
 source timestamps/cutoffs. Retry delay starts at 60 seconds, doubles, caps at 3600;
 five claims exhaust an attempt. Fresh-transaction retry is required after database
 serialization/deadlock; a savepoint cannot refresh repeatable-read evidence.
+
+### Discovery capacity admission (M7-L2)
+
+Expired history still consumes cursor visits; a disposable fixture with 40 expired
+PRs before one fresh PR required 41 visits. One due repository is visited per cron
+invocation, not every repository. This is a retained availability limitation, not
+a safety bypass or evidence that production throughput is adequate.
+
+Before separately approving live apply, measure an upper service-gap bound `C` for
+cron on that environment, the retained discovery cursor count `R` (including
+inactive repositories that still consume visits), oldest undiscovered
+eligible merge age `A`, and rows `H` ahead of it in the ascending-ID scan. Under
+regular fair service, a conservative scan allowance is `(H + 1) * R * C`, plus one
+wrap visit when the cursor is beyond that merge. Include ingress delay, CI readiness,
+attempt service and a safety margin; require the total including `A` to remain below
+24 hours. This is an operator admission calculation, NOT a server-enforced capacity
+gate or a guaranteed Odoo.sh service bound. Continuous backlog/cursor lag monitoring
+must confirm it. If no credible service bound or margin exists, keep facts-only or
+dry-run; do not approve live apply as a reliable automation service. Safety still
+fails closed if an event expires. Do not backfill by changing timestamps/cutoffs.
+
+The official five-minute guidance is a best-effort lower-frequency warning, not an
+upper `C` bound. With one cursor and a hypothetical measured five-minute service
+gap, 40 rows ahead alone cost 205 minutes; more repositories/gaps increase latency.
+Record actual service measurements and residual late-event risk at deployment;
+no live measurement or production admission is supplied by the local fixture.
+Bounded historical skipping or a distinct CI polling budget remain future reviewed
+changes, not hidden modifications of this candidate's authority or retry contract.
+
+### Current-delivery provenance continuity (M7-S1)
+
+Signed opened/merge/repeated-update events must each retain the resolved active
+project/company-local Task on their new association decision, including duplicates.
+The current PR delivery's exact repository/provider/key/Task audit remains mandatory;
+an old permanent link is insufficient. A uniqueness exception alone is not proof:
+the normalizer re-resolves an exact association, or lets the native transaction retry
+when the winner is not visible. No Task is written by normalization. Monitor
+`invalid_provenance`; never repair immutable old audit rows or relax the consumer.
+Old Task-less decisions are not backfilled. An authorized replay preserves the same
+receipt/cutoff and immutable audit; it cannot turn missing historical proof into a
+new trigger. Require genuinely later eligible current delivery evidence instead.
 
 ## Shutdown, rollback and backups
 

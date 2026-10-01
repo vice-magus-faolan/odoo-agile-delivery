@@ -85,6 +85,10 @@ printf "%s\n" "Clean install passed for $MODULES."
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/git_policy_concurrency_probe.py"
 printf "%s\n" "Native Git policy scheduling, budget interruption, independent-process races and crash recovery passed."
+"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/github_association_concurrency_probe.py"
+printf "%s\n" "Current-delivery association proof and independent-process duplicate recovery passed."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"

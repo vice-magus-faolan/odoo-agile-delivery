@@ -1,7 +1,7 @@
 {
     "name": "Agile Git Workflow Policy",
-    "summary": "Opt-in typed Git policies and deterministic effect-free dry-run decisions",
-    "version": "19.0.1.2.0",
+    "summary": "Opt-in typed Git policies, dry runs and bounded native stage application",
+    "version": "19.0.1.3.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
@@ -11,6 +11,8 @@
         "security/ir.model.access.csv",
         "security/project_git_policy_security.xml",
         "security/project_git_policy_rules.xml",
+        "security/project_git_policy_apply_rules.xml",
+        "data/project_git_policy_cron.xml",
         "views/project_git_policy_views.xml",
         "views/project_git_policy_evaluation_views.xml",
     ],

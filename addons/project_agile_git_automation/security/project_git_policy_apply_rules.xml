@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="policy_attempt_company_rule" model="ir.rule">
+        <field name="name">Git Policy Attempts: current Task/Project/company</field>
+        <field name="model_id" ref="model_project_git_policy_attempt"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
+    <record id="policy_effect_company_rule" model="ir.rule">
+        <field name="name">Git Policy Effects: current Task/Project/company</field>
+        <field name="model_id" ref="model_project_git_policy_effect"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
+    <record id="policy_attempt_event_company_rule" model="ir.rule">
+        <field name="name">Git Policy Attempt Audit: current Task/Project/company</field>
+        <field name="model_id" ref="model_project_git_policy_attempt_event"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
+    <record id="policy_schedule_company_rule" model="ir.rule">
+        <field name="name">Git Policy Cursor: current Project/company</field>
+        <field name="model_id" ref="model_project_git_policy_schedule"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
+</odoo>

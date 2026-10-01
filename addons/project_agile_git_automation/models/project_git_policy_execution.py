@@ -1,0 +1,177 @@
+"""Apply only stage_id through native Task ORM under the approved real identity."""
+import json
+
+from psycopg2 import IntegrityError
+from psycopg2.errors import DeadlockDetected, SerializationFailure
+
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError, ValidationError
+
+from .policy_authority import lock_records
+from .policy_evidence import MAX_BATCH, MAX_EVIDENCE
+from .policy_write_profile import check_write_profile
+from .project_git_policy_attempt import MAX_ATTEMPTS
+
+PROTECTED = ("agile_key", "agile_story_points", "parent_id", "agile_item_type_id", "sprint_id")
+
+
+class PolicyPostconditionError(ValidationError):
+    """A native extension crossed the permitted business-effect boundary."""
+
+
+class ProjectGitPolicyAttempt(models.Model):
+    _inherit = "project.git.policy.attempt"
+
+    @api.model
+    def _candidate_page(self, repository, after_id):
+        """Shared proven evidence predicates; apply proposals are never dry-run rows."""
+        evaluator = self.env["project.git.policy.evaluation"]
+        prs, rules, associations, audits, checks, tasks, _, overflow = evaluator._load_batch(repository, after_id)
+        rules = rules.filtered(lambda r: r.activation_id.mode == "apply")
+        authority = evaluator._authority_map(rules, tasks)
+        candidates = []
+        if not prs:
+            return [], after_id, False
+        pr = prs[0]
+        associated = associations.filtered(lambda a: a.source_provider_id == pr.provider_request_id)
+        local_tasks = tasks.filtered(lambda t: t.id in associated.task_id.ids)
+        overflow = overflow or len(local_tasks) > MAX_EVIDENCE
+        for task in local_tasks.sorted("id")[:MAX_EVIDENCE]:
+            lock_records(task)
+            choices = []
+            for rule in rules:
+                result, observation = evaluator._candidate(repository, rule, pr, task, associated, audits,
+                                                           checks, None, overflow, authority[rule.id], fields.Datetime.now())
+                choices.append((rule, result, observation))
+            matched = sum(result[0] == "matched" for _, result, _ in choices)
+            for rule, result, observation in choices:
+                if result[0] == "matched" and matched > 1:
+                    result = ("conflicted", "conflicting_rules")
+                if observation and result[0] in {"matched", "waiting", "conflicted"}:
+                    candidates.append((rule.activation_id, pr, task, observation, result))
+        return candidates, pr.id, overflow or len(candidates) > MAX_BATCH
+
+    @api.model
+    def _discover_repository(self, repository, after_id):
+        """One bounded PR page; no partial overflow winner and no old attempt revival."""
+        repository.check_access("read")
+        repository.project_id.check_access("read")
+        lock_records(repository.project_id)
+        lock_records(repository)
+        candidates, cursor, overflow = self._candidate_page(repository, after_id)
+        attempts = self.browse()
+        if overflow:
+            return attempts, cursor, "evidence_limit"
+        for activation, pr, task, observation, result in candidates:
+            if self.env["project.git.policy.effect"]._consumed(repository, pr.provider_request_id, task.agile_key):
+                continue
+            attempts |= self._enqueue(activation, pr, task, observation, result)
+        return attempts, cursor, "no_ci_condition"
+
+    def _current_candidate(self, repository, task):
+        """Fresh native access/evidence queries within already locked control scope."""
+        activation = self.activation_id.with_env(repository.env)
+        activation._check_current_authority(task)
+        if activation.mode != "apply":
+            return ("revoked", "inactive_policy"), self.env["project.git.policy.observation"]
+        if (task.agile_key != self.agile_key or task.stage_id != self.expected_stage_id
+                or task.git_policy_transition_version != self.expected_transition_version):
+            return ("rejected", "stale_task"), self.env["project.git.policy.observation"]
+        candidates, _, overflow = repository.env["project.git.policy.attempt"]._candidate_page(repository, self.pull_request_id.id - 1)
+        if overflow:
+            return ("rejected", "evidence_limit"), self.env["project.git.policy.observation"]
+        choices = [row for row in candidates if row[0] == activation and row[1].id == self.pull_request_id.id and row[2] == task]
+        if not choices:
+            # Repeat finite predicates for terminal provenance/cutoff diagnostics.
+            evaluator = repository.env["project.git.policy.evaluation"]
+            prs, _, links, audits, checks, _, _, overflow = evaluator._load_batch(repository, self.pull_request_id.id - 1)
+            pr = prs.filtered(lambda p: p.id == self.pull_request_id.id)
+            if not pr:
+                return ("rejected", "invalid_provenance"), self.env["project.git.policy.observation"]
+            result, observation = evaluator._candidate(repository, activation.rule_id, pr, task, links, audits,
+                                                       checks, None, overflow, True, fields.Datetime.now())
+            state = "expired" if result[1] == "expired" else "rejected"
+            return (state, result[1]), observation
+        _, _, _, observation, result = choices[0]
+        if result[0] == "conflicted":
+            return ("rejected", result[1]), observation
+        old = json.loads(self.observation_id.snapshot_json)["pr"]
+        current = json.loads(observation.snapshot_json)["pr"]
+        if any(old[name] != current[name] for name in ("head_sha", "merged_at", "target_branch", "provider_request_id")):
+            return ("rejected", "evidence_changed"), observation
+        return result, observation
+
+    def _has_current_lease(self, expected_token):
+        """Check private claim ownership only after the control/attempt locks."""
+        return bool(expected_token and self.state == "processing" and self.lease_token == expected_token
+                    and self.lease_expires_at and self.lease_expires_at > fields.Datetime.now())
+
+    def _execute_locked(self, expected_token):
+        self.ensure_one()
+        service = self.sudo().with_context({})
+        activation = service.activation_id
+        for records in (service.project_id, service.repository_id, service.rule_id, activation, service):
+            lock_records(records)
+        if not service._has_current_lease(expected_token):
+            return
+        if service.env["project.git.policy.effect"]._consumed(service.repository_id, service.provider_request_id, service.agile_key):
+            service._settle("no_op", "consumed_effect")
+            return
+        # Clean context and with_user remove cron/root authority. No caller context,
+        # notification suppression or Task sudo reaches the business write.
+        repository = service.repository_id.with_user(activation.owner_id).with_context({
+            "allowed_company_ids": service.company_id.ids,
+        })
+        task = repository.env["project.task"].with_user(activation.execution_user_id).browse(service.task_id.id)
+        lock_records(task)
+        try:
+            result, observation = service._current_candidate(repository, task)
+        except (AccessError, ValidationError):
+            service._settle("revoked", "invalid_authority")
+            return
+        if result[0] != "matched":
+            service._settle("waiting" if result[0] == "waiting" else result[0], result[1])
+            return
+        if not check_write_profile(task):
+            service._settle("rejected", "unsupported_extension")
+            return
+        service._write_stage_effect(task, observation)
+
+    def _write_stage_effect(self, task, observation):
+        """Already revalidated and locked; preserve native effects then seal atomically."""
+        service = self
+        activation = service.activation_id
+        before = {"stage_id": task.stage_id.id, "state": task.state, "version": task.git_policy_transition_version,
+                  "protected": task.read([name for name in PROTECTED if name in task._fields])[0]}
+        task.check_access("read")
+        task.check_access("write")
+        task.write({"stage_id": activation.revision_id.target_stage_id.id})
+        task.flush_recordset()
+        task.invalidate_recordset()
+        if task.is_closed or task.stage_id != activation.revision_id.target_stage_id:
+            raise PolicyPostconditionError(_("Native Task effects crossed the permitted stage boundary."))
+        if before["protected"] != task.read([name for name in PROTECTED if name in task._fields])[0]:
+            raise PolicyPostconditionError(_("Native Task effects changed protected Agile/Scrum fields."))
+        service.env["project.git.policy.effect"]._append(service, observation, task, before)
+        service._settle("applied", "applied")
+
+    def _process_claim(self, lease_token=None):
+        """Task/effect/event/settlement all share one savepoint; failure does not leak text."""
+        self.ensure_one()
+        expected_token = lease_token if lease_token is not None else self.sudo().lease_token
+        try:
+            with self.env.cr.savepoint():
+                self._execute_locked(expected_token)
+        except (SerializationFailure, DeadlockDetected):
+            # A savepoint rollback cannot refresh repeatable-read. The native cron
+            # transaction must retry from a new cursor, never settle stale evidence.
+            raise
+        except PolicyPostconditionError:
+            self._settle("failed", "postcondition_failed")
+        except IntegrityError:
+            if self.env["project.git.policy.effect"]._consumed(self.repository_id, self.provider_request_id, self.agile_key):
+                self._settle("no_op", "consumed_effect")
+            else:
+                self._settle("failed" if self.attempt_count >= MAX_ATTEMPTS else "retryable", "transient_failure")
+        except Exception:
+            self._settle("failed" if self.attempt_count >= MAX_ATTEMPTS else "retryable", "transient_failure")

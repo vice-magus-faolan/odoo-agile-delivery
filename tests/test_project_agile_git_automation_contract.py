@@ -23,27 +23,34 @@ class TestGitAutomationContract(unittest.TestCase):
                 continue
             self.assertNotIn("project_agile_git_automation", ast.literal_eval(path.read_text())["depends"])
 
-    def test_no_policy_task_write_or_scheduler(self):
+    def test_typed_stage_only_writer_and_separate_scheduler(self):
         sources = list((self.addon / "models").glob("*.py"))
         combined = "\n".join(path.read_text() for path in sources)
-        # Jimmy's approved R2 amendment permits exactly this revoke-only observer,
-        # not a policy Task effect, configurable dispatch, or concurrency field.
+        # Apply adds the server-owned fence to the same narrow native observer.
         hook = self.addon / "models" / "project_task.py"
         self.assertEqual([p.name for p in sources if '_inherit = "project.task"' in p.read_text()], [hook.name])
         tree = ast.parse(hook.read_text())
         cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
         self.assertEqual({n.name for n in cls.body if isinstance(n, ast.FunctionDef)},
-                         {"create", "write", "unlink", "_git_policy_affected_projects", "_git_policy_lock_scopes", "_git_policy_requested_scopes"})
+                         {"create", "write", "unlink", "_git_policy_affected_projects", "_git_policy_lock_scopes", "_git_policy_requested_scopes", "_git_policy_fence_tasks"})
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"create", "write", "unlink"}:
                 self.assertIsInstance(node.func.value, ast.Call)
                 self.assertEqual(node.func.value.func.id, "super")
-        self.assertNotIn("fields.", hook.read_text())
+        self.assertIn("git_policy_transition_version = fields.Integer", hook.read_text())
         self.assertIn("_revoke(", hook.read_text())
-        self.assertNotIn('write({"stage_id"', combined)
-        self.assertNotIn("_cron", combined)
+        writer = self.addon / "models" / "project_git_policy_execution.py"
+        effect_calls = [n for n in ast.walk(ast.parse(writer.read_text())) if isinstance(n, ast.Call)
+                        and isinstance(n.func, ast.Attribute) and isinstance(n.func.value, ast.Name)
+                        and n.func.value.id == "task" and n.func.attr == "write"]
+        self.assertEqual(len(effect_calls), 1)
+        self.assertEqual([key.value for key in effect_calls[0].args[0].keys], ["stage_id"])
+        self.assertIn("with_user(activation.execution_user_id)", writer.read_text())
+        self.assertNotIn("task.sudo().write", combined)
+        self.assertNotIn("cr.commit(", combined)
+        self.assertNotIn("cr.rollback(", combined)
         self.assertFalse((self.addon / "controllers").exists())
-        self.assertFalse((self.addon / "data").exists())
+        self.assertTrue((self.addon / "data" / "project_git_policy_cron.xml").exists())
         self.assertIn("from . import test_policy_contract", (self.addon / "tests" / "__init__.py").read_text())
 
     def test_contract_excludes_template_driven_nontransactional_effects(self):
@@ -76,7 +83,7 @@ class TestGitAutomationContract(unittest.TestCase):
         self.assertNotIn("project.git.policy.effect", source)
         self.assertNotIn("project.git.policy.attempt", source)
         self.assertNotIn("retained_payload", source)
-        self.assertFalse((self.addon / "models" / "project_git_policy_execution.py").exists())
+        self.assertTrue((self.addon / "models" / "project_git_policy_execution.py").exists())
 
     def test_versioned_evidence_golden_serialization_and_failure_precedence(self):
         path = self.addon / "models" / "policy_evidence.py"

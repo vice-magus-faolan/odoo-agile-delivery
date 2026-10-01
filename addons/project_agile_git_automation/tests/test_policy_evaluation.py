@@ -125,8 +125,8 @@ class TestGitPolicyEvaluation(TransactionCase):
                 record.write({"fingerprint": "f" * 64})
             with self.assertRaises(ValidationError):
                 record.unlink()
-        self.assertNotIn("project.git.policy.effect", self.env.registry)
-        self.assertNotIn("project.git.policy.attempt", self.env.registry)
+        self.assertFalse(self.env["project.git.policy.effect"].search([]))
+        self.assertFalse(self.env["project.git.policy.attempt"].search([]))
 
     def test_public_create_and_forged_context_never_mint_a_seal(self):
         for model in ("project.git.policy.observation", "project.git.policy.evaluation"):

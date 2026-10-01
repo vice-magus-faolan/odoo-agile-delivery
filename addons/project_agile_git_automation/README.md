@@ -12,10 +12,14 @@ Policy Manager capability member. Selectors permit only merged PR, exact branch,
 1–20 eligible source stages, one eligible target stage and 0–20 named checks.
 Activation validates an explicit active internal non-superuser execution user
 with actual concrete Task write authority and required company membership.
-The evaluator now adds sealed normalized evidence and deterministic, informational
-dry-run decisions. There is no scheduler or policy-initiated Task mutation.
-Jimmy's approved remediation adds a bounded revoke-only native Task observer;
-it preserves normal create/write/unlink behavior and adds no concurrency field.
+The evaluator adds sealed normalized evidence and deterministic, informational
+dry-run decisions. The apply slice adds separately scheduled durable attempts,
+expiring leases, five bounded retries, immutable consumed effects and native
+stage-only Task writes under the approved non-superuser identity. Dry-run rows
+never authorize execution. A server-owned monotonic Task fence detects manual
+away-and-back changes; native tracking is not suppressed. Read the
+[apply boundary](../../docs/git-policy-apply-boundary.md) for recovery and exact
+installed-source compatibility limits.
 Live apply remains separately operator-gated.
 
 Read the [configuration and recovery guide](../../docs/git-policy-configuration.md)

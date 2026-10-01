@@ -156,7 +156,11 @@ class TestGitPolicyRules(TransactionCase):
         self.assertFalse(self.rule.activation_id)
         self.assertEqual(self.revision.trigger, "merged_pull_request")
         self.assertEqual(self.revision.effect, "task_stage_transition")
-        self.assertFalse(self.env["ir.cron"].search([("model_id.model", "like", "project.git.policy.%")]))
+        self.assertEqual(self.env["ir.cron"].search([("model_id.model", "like", "project.git.policy.%")]),
+                         self.env.ref("project_agile_git_automation.ir_cron_git_policy"))
+        self.assertFalse(self.env["project.git.policy.schedule"].search([]))
+        self.assertFalse(self.env["project.git.policy.attempt"].search([]))
+        self.assertFalse(self.env["project.git.policy.effect"].search([]))
 
     def test_all_native_stage_relation_directions_and_commands_are_terminal(self):
         for inverse in (False, True):

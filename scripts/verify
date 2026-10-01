@@ -81,6 +81,10 @@ printf "%s\n" "Independent optional Git policy dry-run install passed."
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
+"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/git_policy_concurrency_probe.py"
+printf "%s\n" "Native Git policy scheduling, independent-process races and crash recovery passed."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"

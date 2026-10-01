@@ -13,3 +13,7 @@ access_policy_rule_emergency,policy rule emergency,model_project_git_policy_rule
 access_policy_activation_emergency,policy activation emergency,model_project_git_policy_activation,base.group_system,1,0,0,0
 access_policy_observation_reader,policy observation reader,model_project_git_policy_observation,project.group_project_user,1,0,0,0
 access_policy_evaluation_reader,policy evaluation reader,model_project_git_policy_evaluation,project.group_project_user,1,0,0,0
+access_policy_attempt_reader,policy attempt reader,model_project_git_policy_attempt,project.group_project_user,1,0,0,0
+access_policy_effect_reader,policy effect reader,model_project_git_policy_effect,project.group_project_user,1,0,0,0
+access_policy_attempt_event_reader,policy attempt event reader,model_project_git_policy_attempt_event,project.group_project_user,1,0,0,0
+access_policy_schedule_manager,policy schedule manager,model_project_git_policy_schedule,group_git_policy_manager,1,0,0,0

@@ -38,7 +38,7 @@
                     <group><field name="rule_id" readonly="id"/><field name="revision"/><field name="company_id"/><field name="project_id"/><field name="repository_id"/><field name="owner_id"/><field name="approver_id"/><field name="approved_at"/></group>
                     <group><field name="execution_user_id" readonly="approved_at"/><field name="trigger" readonly="1"/><field name="effect" readonly="1"/><field name="target_branch" readonly="approved_at"/><field name="allowed_source_stage_ids" widget="many2many_tags" readonly="approved_at" domain="[('project_ids', 'in', [project_id]), ('user_id', '=', False), ('active', '=', True)]"/><field name="target_stage_id" readonly="approved_at" domain="[('project_ids', 'in', [project_id]), ('user_id', '=', False), ('active', '=', True)]"/></group>
                     <field name="required_check_ids" readonly="approved_at"><list editable="bottom"><field name="name"/></list></field>
-                    <p>No required checks means CI is not a condition. Activation never backfills earlier merges. This slice has no evaluator or Task writes.</p>
+                    <p>No required checks means CI is not a condition. Activation never backfills earlier merges. Dry runs are informational and never write Tasks.</p>
                 </sheet>
             </form>
         </field>
@@ -70,7 +70,7 @@
                     <group><field name="git_policy_enabled"/><field name="git_policy_mode"/><field name="git_policy_authority_epoch"/></group>
                     <button name="action_enable_git_policy" type="object" string="Enable Dry Run" groups="project_agile_git_automation.group_git_policy_manager"/>
                     <button name="action_disable_git_policy" type="object" string="Emergency Disable"/>
-                    <p>Defaults are disabled and dry-run. Explicit per-rule approval is also required. No automation engine is delivered in this slice.</p>
+                    <p>Defaults are disabled and dry-run. Explicit per-rule approval is also required. Informational dry runs are available on the Repository; automatic Task effects are not delivered.</p>
                 </page>
             </xpath>
         </field>

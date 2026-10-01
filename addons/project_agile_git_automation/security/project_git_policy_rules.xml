@@ -25,4 +25,14 @@
         <field name="model_id" ref="model_project_git_policy_revocation"/>
         <field name="domain_force">[("company_id", "in", company_ids)]</field>
     </record>
+    <record id="project_git_policy_observation_scope_rule" model="ir.rule">
+        <field name="name">Git Policy Observation: current Task, Project and company</field>
+        <field name="model_id" ref="model_project_git_policy_observation"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
+    <record id="project_git_policy_evaluation_scope_rule" model="ir.rule">
+        <field name="name">Git Policy Evaluation: current Task, Project and company</field>
+        <field name="model_id" ref="model_project_git_policy_evaluation"/>
+        <field name="domain_force">[("company_id", "in", company_ids)]</field>
+    </record>
 </odoo>

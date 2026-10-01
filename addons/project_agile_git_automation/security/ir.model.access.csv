@@ -11,3 +11,5 @@ access_policy_check_manager,policy check manager,model_project_git_policy_requir
 access_policy_approval_wizard,policy approval wizard,model_project_git_policy_approval_wizard,group_git_policy_manager,1,1,1,1
 access_policy_rule_emergency,policy rule emergency,model_project_git_policy_rule,base.group_system,1,0,0,0
 access_policy_activation_emergency,policy activation emergency,model_project_git_policy_activation,base.group_system,1,0,0,0
+access_policy_observation_reader,policy observation reader,model_project_git_policy_observation,project.group_project_user,1,0,0,0
+access_policy_evaluation_reader,policy evaluation reader,model_project_git_policy_evaluation,project.group_project_user,1,0,0,0

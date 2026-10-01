@@ -1,6 +1,8 @@
-"""Static guards for the optional Milestone 7 contract fixture."""
+"""Static guards for the optional Milestone 7 dry-run boundary."""
 
 import ast
+import hashlib
+import importlib.util
 from pathlib import Path
 import unittest
 
@@ -21,7 +23,7 @@ class TestGitAutomationContract(unittest.TestCase):
                 continue
             self.assertNotIn("project_agile_git_automation", ast.literal_eval(path.read_text())["depends"])
 
-    def test_no_evaluator_policy_task_write_or_scheduler(self):
+    def test_no_policy_task_write_or_scheduler(self):
         sources = list((self.addon / "models").glob("*.py"))
         combined = "\n".join(path.read_text() for path in sources)
         # Jimmy's approved R2 amendment permits exactly this revoke-only observer,
@@ -62,6 +64,43 @@ class TestGitAutomationContract(unittest.TestCase):
         self.assertIn('run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation', script)
         self.assertIn("Milestone 5 planning-board verification passed.", script)
         self.assertIn("Milestone 6 Git facts contract verification passed.", script)
+
+    def test_dry_run_model_discovery_and_no_effect_consumption(self):
+        models = (self.addon / "models" / "__init__.py").read_text()
+        tests = (self.addon / "tests" / "__init__.py").read_text()
+        for model in ("project_git_policy_observation", "project_git_policy_evaluation"):
+            self.assertIn("from . import " + model, models)
+        self.assertIn("from . import test_policy_evaluation", tests)
+        source = (self.addon / "models" / "project_git_policy_evaluation.py").read_text()
+        self.assertIn("action_dry_run_git_policy", source)
+        self.assertNotIn("project.git.policy.effect", source)
+        self.assertNotIn("project.git.policy.attempt", source)
+        self.assertNotIn("retained_payload", source)
+        self.assertFalse((self.addon / "models" / "project_git_policy_execution.py").exists())
+
+    def test_versioned_evidence_golden_serialization_and_failure_precedence(self):
+        path = self.addon / "models" / "policy_evidence.py"
+        spec = importlib.util.spec_from_file_location("policy_evidence", path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        evidence = {"version": 1, "task": {"stage": 2, "key": "ENG-1"}, "checks": []}
+        golden = b'{"checks":[],"task":{"key":"ENG-1","stage":2},"version":1}'
+        self.assertEqual(module.canonical(evidence).encode(), golden)
+        self.assertEqual(module.fingerprint(evidence), hashlib.sha256(golden).hexdigest())
+        self.assertEqual(module.reduce_conditions([("waiting", "missing_check"), ("rejected", "check_failed")]),
+                         ("rejected", "check_failed"))
+        for size in (40, 64):
+            self.assertIsNotNone(module.FULL_SHA.fullmatch("A" * size))
+        for value in ("a" * 39, "a" * 41, " a" * 20, "a" * 40 + "\n", "g" * 40):
+            self.assertIsNone(module.FULL_SHA.fullmatch(value))
+
+    def test_task_specific_search_uses_live_native_query_not_sudo_ids(self):
+        source = (self.addon / "models" / "project_git_policy_observation.py").read_text()
+        self.assertIn('self.env["project.task"]._search([], active_test=False)', source)
+        self.assertIn('Domain("task_id", "in", tasks)', source)
+        self.assertNotIn('sudo().search(', source)
+        self.assertIn("Only the validated private observation producer", source)
 
 
 if __name__ == "__main__":

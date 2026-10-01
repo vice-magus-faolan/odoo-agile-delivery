@@ -1,6 +1,6 @@
 # Git policy configuration and approval authority
 
-Target: Odoo 19 Community, private Odoo-compatible LGPL-3 addon `project_agile_git_automation`, sole dependency `project_agile_git`. This slice provides configuration, not an evaluator, scheduler or Task writes. Core Agile and Git facts remain independently installable.
+Target: Odoo 19 Community, private Odoo-compatible LGPL-3 addon `project_agile_git_automation`, sole dependency `project_agile_git`. Configuration and [deterministic dry runs](git-policy-dry-run.md) are available; no scheduler or Task writes are delivered. Core Agile and Git facts remain independently installable.
 
 ## Operating boundary
 

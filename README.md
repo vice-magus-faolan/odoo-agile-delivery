@@ -191,7 +191,7 @@ See [ADR-011](docs/adrs/011-git-facts-and-visibility-contract.md) and the
 [operations runbook](docs/runbooks/github-git-facts-operations.md). Live webhook
 registration/secrets/configuration and deployment are separate operator effects.
 
-## Milestone 7 configuration and pending policy engine
+## Milestone 7 configuration and deterministic dry runs
 
 [ADR-012](docs/adrs/012-git-workflow-policy-contract.md) supersedes historical
 ADR-008 and fixes the bounded opt-in merged-PR policy contract; the
@@ -213,8 +213,11 @@ Jimmy's approved revoke-only Task observer and explicit native-profile allowlist
 Only literal direct Task name/active custom access rules are supported initially;
 unknown authority dependencies refuse activation. Both stage-relation directions,
 native authority-input edits and inverse membership changes require fresh approval.
-The bounded synthetic audit fixture remains distinct from authenticated
-observations and consumed effects. There is no evaluator, cron or policy-initiated
-Task mutation in this slice. No operational automation or production policy is
-activated by this delivery. Live activation requires separate operator approval
-and exact-SHA authorization/recovery evidence.
+The bounded synthetic audit fixture remains distinct from sealed normalized
+observations and consumed effects. The [dry-run evaluator](docs/git-policy-dry-run.md)
+now records versioned exact-head/check/provenance decisions, waits, skips and
+fail-closed conflicts through ordinary immutable views. It never writes Tasks,
+facts, Sprints/history, followers/chatter, or real effect markers. There is no cron
+or policy-initiated Task mutation in this slice. No operational automation or
+production policy is activated by this delivery. Live activation requires separate
+operator approval and exact-SHA authorization/recovery evidence.

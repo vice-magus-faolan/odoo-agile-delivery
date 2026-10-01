@@ -1,4 +1,4 @@
-# Agile Git Workflow Policy Configuration
+# Agile Git Workflow Policy and Dry Runs
 
 Optional LGPL-3, Odoo 19 Community-compatible private-suite addon depending
 only on `project_agile_git`. It is not OCA-conformant tooling and does not require
@@ -12,7 +12,8 @@ Policy Manager capability member. Selectors permit only merged PR, exact branch,
 1–20 eligible source stages, one eligible target stage and 0–20 named checks.
 Activation validates an explicit active internal non-superuser execution user
 with actual concrete Task write authority and required company membership.
-There is no evaluator, scheduler or policy-initiated Task mutation in this slice.
+The evaluator now adds sealed normalized evidence and deterministic, informational
+dry-run decisions. There is no scheduler or policy-initiated Task mutation.
 Jimmy's approved remediation adds a bounded revoke-only native Task observer;
 it preserves normal create/write/unlink behavior and adds no concurrency field.
 Live apply remains separately operator-gated.
@@ -28,6 +29,12 @@ requires exact native definitions/dependencies and permits only literal direct
 Task name/active custom access rules. Unknown profiles refuse activation.
 Native authority-input edits and their restoration require fresh approval, even
 when current access did not decrease; conservative invalidation is intentional.
+
+Read the [dry-run guide](../../docs/git-policy-dry-run.md) for exact head/name/repo,
+cutoff/freshness/provenance predicates, unsupported same-name reruns, bounded
+pagination, fail-closed conflicts, immutable fingerprints and current Task-safe
+counts/exports. A later matching check can change a waiting decision only after
+explicit reevaluation. No proposal reserves an effect or authorizes execution.
 
 The retained synthetic audit fixture remains append-only and dry-run only.
 Fixture receipts are not authenticated observations, evaluation decisions or

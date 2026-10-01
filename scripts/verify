@@ -77,7 +77,7 @@ uninstall_module() {
 wait_for_database
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --test-enable --test-tags /project_agile_git_automation
-printf "%s\n" "Independent optional Git policy skeleton install passed."
+printf "%s\n" "Independent optional Git policy dry-run install passed."
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
@@ -98,4 +98,4 @@ run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
 printf "%s\n" "Milestone 5 planning-board verification passed."
 printf "%s\n" "Milestone 6 Git facts contract verification passed."
-printf "%s\n" "Milestone 7 inert Git policy contract verification passed."
+printf "%s\n" "Milestone 7 Git policy dry-run contract verification passed."

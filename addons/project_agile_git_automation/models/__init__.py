@@ -8,3 +8,5 @@ from . import project_git_policy_approval_wizard
 from . import project_project
 from . import policy_revocation_hooks
 from . import project_task
+from . import project_git_policy_observation
+from . import project_git_policy_evaluation

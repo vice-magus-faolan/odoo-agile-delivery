@@ -11,4 +11,39 @@
         <field name="model_id" ref="model_project_agile_solution"/>
         <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
     </record>
+    <record id="solution_document_project_rule" model="ir.rule">
+        <field name="name">Solution documents: current Project access</field>
+        <field name="model_id" ref="model_project_agile_solution_document"/>
+        <field name="domain_force">[('native_project_access', '=', True)]</field>
+    </record>
+    <record id="solution_document_company_rule" model="ir.rule">
+        <field name="name">Solution documents: allowed companies</field>
+        <field name="model_id" ref="model_project_agile_solution_document"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+    <record id="solution_revision_project_rule" model="ir.rule">
+        <field name="name">Solution revisions: current Project access</field>
+        <field name="model_id" ref="model_project_agile_solution_revision"/>
+        <field name="domain_force">[('native_project_access', '=', True)]</field>
+    </record>
+    <record id="solution_revision_company_rule" model="ir.rule">
+        <field name="name">Solution revisions: allowed companies</field>
+        <field name="model_id" ref="model_project_agile_solution_revision"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+    <record id="solution_section_project_rule" model="ir.rule">
+        <field name="name">Solution sections: current Project access</field>
+        <field name="model_id" ref="model_project_agile_solution_section"/>
+        <field name="domain_force">[('native_project_access', '=', True)]</field>
+    </record>
+    <record id="solution_section_company_rule" model="ir.rule">
+        <field name="name">Solution sections: allowed companies</field>
+        <field name="model_id" ref="model_project_agile_solution_section"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+    <record id="solution_template_company_rule" model="ir.rule">
+        <field name="name">Solution templates: allowed companies or intentionally shared</field>
+        <field name="model_id" ref="model_project_agile_solution_template"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
 </odoo>

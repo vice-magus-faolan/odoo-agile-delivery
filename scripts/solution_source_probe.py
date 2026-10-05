@@ -1,4 +1,4 @@
-"""Read-only exact-runtime API discovery; run in the disposable verifier image."""
+"""Read-only exact-runtime API discovery and owned disposable baseline race proof."""
 from pathlib import Path
 import hashlib
 
@@ -25,12 +25,18 @@ for name in files:
 print((root / "release.py").read_text())
 print("M8_NATIVE_SOURCE_PROBE_OK")
 
-# Canonical isolated install must fail closed if Odoo ignored the addon entirely.
+# Fail closed if Odoo silently ignored the addon or the baseline schema.
 solution = env["ir.module.module"].search([("name", "=", "project_agile_solution")])
 assert solution.state == "installed", "Solution addon not actually installed"
-assert "project.agile.solution" in env.registry, "Solution model not registered"
+for model in ("project.agile.solution", "project.agile.solution.document", "project.agile.solution.revision", "project.agile.solution.section", "project.agile.solution.template"):
+    assert model in env.registry, f"Solution model not registered: {model}"
 assert env.ref("project_agile_solution.action_solution_lineage"), "Solution views not loaded"
+assert env.ref("project_agile_solution.action_solution_document"), "Document views not loaded"
 for name in ("project_scrum", "project_agile_git", "sale", "document_page", "knowledge"):
     module = env["ir.module.module"].search([("name", "=", name)])
     assert not module or module.state != "installed", f"Unexpected core dependency: {name}"
 print("M8_ISOLATED_SOLUTION_INSTALL_OK")
+
+# This shell owns a disposable fixture DB: explicit commits are test-only.
+from odoo.addons.project_agile_solution.tests.baseline_concurrency import run_probe
+run_probe(env)

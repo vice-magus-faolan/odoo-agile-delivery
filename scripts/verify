@@ -62,7 +62,8 @@ reset_verification_database() {
 }
 
 run_odoo() {
-    "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"
+    "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@" 2>&1 \
+        | python3 "$ROOT/scripts/check_solution_test_run.py" "$@"
 }
 
 uninstall_module() {
@@ -114,4 +115,4 @@ printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
 printf "%s\n" "Milestone 5 planning-board verification passed."
 printf "%s\n" "Milestone 6 Git facts contract verification passed."
 printf "%s\n" "Milestone 7 Git policy controls, dry-run, apply and recovery verification passed."
-printf "%s\n" "Milestone 8 solution lineage skeleton and synthetic native seeds verified; full M8 remains downstream."
+printf "%s\n" "Milestone 8 lineage/baseline lifecycle, native negative tests and independent allocation/approval races verified; full M8 remains downstream."

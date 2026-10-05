@@ -1,3 +1,12 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_solution_user,Solution lineage user,model_project_agile_solution,project.group_project_user,1,0,0,0
 access_solution_manager,Solution lineage manager,model_project_agile_solution,project.group_project_manager,1,1,1,1
+access_solution_document_user,Solution document user,model_project_agile_solution_document,project.group_project_user,1,0,0,0
+access_solution_document_manager,Solution document manager,model_project_agile_solution_document,project.group_project_manager,1,1,1,1
+access_solution_revision_user,Solution revision user,model_project_agile_solution_revision,project.group_project_user,1,0,0,0
+access_solution_revision_manager,Solution revision manager,model_project_agile_solution_revision,project.group_project_manager,1,1,1,1
+access_solution_section_user,Solution section user,model_project_agile_solution_section,project.group_project_user,1,0,0,0
+access_solution_section_manager,Solution section manager,model_project_agile_solution_section,project.group_project_manager,1,1,1,1
+access_solution_template_user,Solution template user,model_project_agile_solution_template,project.group_project_user,1,0,0,0
+access_solution_template_manager,Solution template manager,model_project_agile_solution_template,project.group_project_manager,1,1,1,1
+access_solution_revision_wizard_manager,Solution revision operation manager,model_project_agile_solution_revision_wizard,project.group_project_manager,1,1,1,1

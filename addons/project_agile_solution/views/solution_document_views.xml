@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_solution_document_list" model="ir.ui.view">
+        <field name="name">solution.document.list</field><field name="model">project.agile.solution.document</field>
+        <field name="arch" type="xml"><list><field name="name"/><field name="kind"/><field name="solution_id"/><field name="project_id"/><field name="approver_id"/></list></field>
+    </record>
+    <record id="view_solution_document_form" model="ir.ui.view">
+        <field name="name">solution.document.form</field><field name="model">project.agile.solution.document</field>
+        <field name="arch" type="xml">
+            <form string="Solution Document">
+                <header><button name="action_new_revision" type="object" string="Open / New Working Revision" groups="project.group_project_manager"/></header>
+                <sheet>
+                    <div class="alert alert-info" role="status">SOW and specification approvals are separate. This is not a legal signature or permission to expand scope.</div>
+                    <group><field name="name"/><field name="kind" readonly="id"/><field name="solution_id" readonly="id"/><field name="project_id"/><field name="approver_id"/><field name="active"/></group>
+                    <field name="revision_ids" readonly="1"><list><field name="number"/><field name="title"/><field name="state"/><field name="approved_by_label"/><field name="approved_at"/></list></field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_solution_revision_list" model="ir.ui.view">
+        <field name="name">solution.revision.list</field><field name="model">project.agile.solution.revision</field>
+        <field name="arch" type="xml"><list><field name="document_id"/><field name="number"/><field name="title"/><field name="state"/><field name="project_id"/><field name="approved_by_label"/></list></field>
+    </record>
+    <record id="view_solution_revision_form" model="ir.ui.view">
+        <field name="name">solution.revision.form</field><field name="model">project.agile.solution.revision</field>
+        <field name="arch" type="xml">
+            <form string="Solution Revision" duplicate="0">
+                <header>
+                    <button name="action_submit" type="object" string="Submit for Review" invisible="state != 'draft'" groups="project.group_project_manager" class="oe_highlight"/>
+                    <button name="action_approve" type="object" string="Approve Exact Revision" invisible="state != 'review'" groups="project.group_project_manager" confirm="Approve this exact frozen revision? This does not approve another document or expand scope automatically."/>
+                    <button name="action_request_return" type="object" string="Return with Reason" invisible="state != 'review'" groups="project.group_project_manager"/>
+                    <button name="action_new_revision" type="object" string="New Working Revision" invisible="state != 'approved'" groups="project.group_project_manager"/>
+                    <button name="action_request_template" type="object" string="Copy Template Sections" invisible="state != 'draft'" groups="project.group_project_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,review,approved,superseded"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="status" invisible="state != 'draft'">Working revision — unapproved. Editing it never changes an approved baseline or historical planning.</div>
+                    <group>
+                        <field name="document_id" readonly="id"/><field name="kind"/><field name="number"/>
+                        <field name="title" readonly="state != 'draft'"/><field name="predecessor_id"/>
+                        <field name="based_sow_revision_id" readonly="state != 'draft'" invisible="kind != 'spec'" domain="[('solution_id', '=', solution_id), ('kind', '=', 'sow')]"/>
+                        <field name="solution_id" invisible="1"/><field name="project_id"/>
+                        <field name="scope_disposition" readonly="state != 'draft'"/>
+                        <field name="scope_change_reason" readonly="state != 'draft'"/>
+                    </group>
+                    <notebook>
+                        <page string="Ordered Narrative">
+                            <field name="section_ids" readonly="state != 'draft'">
+                                <list editable="bottom"><field name="sequence"/><field name="title"/><field name="audience"/></list>
+                                <form string="Narrative Section"><group><field name="sequence"/><field name="title"/><field name="audience"/></group><field name="body"/></form>
+                            </field>
+                        </page>
+                        <page string="Exact Frozen Content"><field name="snapshot_sha256"/><field name="snapshot_json" readonly="1"/><field name="template_snapshot" readonly="1"/></page>
+                        <page string="Approval History"><group><field name="submitted_by_id"/><field name="submitted_at"/><field name="approved_by_label"/><field name="approved_at"/><field name="superseded_by_id"/><field name="return_reason"/></group></page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_solution_template_form" model="ir.ui.view">
+        <field name="name">solution.template.form</field><field name="model">project.agile.solution.template</field>
+        <field name="arch" type="xml"><form string="Narrative Template"><sheet><div class="alert alert-info" role="status">An editable starting point, not a universal or legally sufficient contract. Copying is explicit; later edits do not propagate.</div><group><field name="name"/><field name="kind"/><field name="company_id" readonly="id"/><field name="version"/><field name="active"/></group><field name="sections_json"/></sheet></form></field>
+    </record>
+    <record id="view_solution_revision_wizard" model="ir.ui.view">
+        <field name="name">solution.revision.operation.form</field><field name="model">project.agile.solution.revision.wizard</field>
+        <field name="arch" type="xml"><form string="Explicit Revision Operation"><group><field name="revision_id" readonly="1"/><field name="operation" readonly="1"/><field name="reason" invisible="operation != 'return'" required="operation == 'return'"/><field name="template_id" invisible="operation != 'template'" required="operation == 'template'"/></group><footer><button name="action_confirm" type="object" string="Confirm" class="btn-primary"/><button special="cancel" string="Cancel"/></footer></form></field>
+    </record>
+    <record id="action_solution_document" model="ir.actions.act_window"><field name="name">Solution Documents</field><field name="res_model">project.agile.solution.document</field><field name="view_mode">list,form</field></record>
+    <record id="action_solution_revision" model="ir.actions.act_window"><field name="name">Solution Revisions</field><field name="res_model">project.agile.solution.revision</field><field name="view_mode">list,form</field></record>
+    <record id="action_solution_template" model="ir.actions.act_window"><field name="name">Solution Narrative Templates</field><field name="res_model">project.agile.solution.template</field><field name="view_mode">list,form</field></record>
+    <menuitem id="menu_solution_document" name="Solution Documents" parent="project.menu_main_pm" action="action_solution_document" groups="project.group_project_user" sequence="81"/>
+    <menuitem id="menu_solution_revision" name="Solution Revisions" parent="project.menu_main_pm" action="action_solution_revision" groups="project.group_project_user" sequence="82"/>
+    <menuitem id="menu_solution_template" name="Solution Narrative Templates" parent="project.menu_main_pm" action="action_solution_template" groups="project.group_project_user" sequence="83"/>
+</odoo>

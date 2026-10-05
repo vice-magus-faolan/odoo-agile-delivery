@@ -45,11 +45,13 @@ See [the mission brief](docs/mission-brief.md) for the full direction and non-go
 
 ## Milestone 8 first slice (not full milestone delivery)
 
-`project_agile_solution` is an optional LGPL-3 lineage foundation depending only on
-`project_agile`: Project-scoped identity, rename/archive, native forms/lists, least-
-privilege Project/company access and imported nonadmin regression tests. It does not
-yet implement requirements, document baselines/approval, Task links, acceptance,
-rendering or frozen Scrum context. No customer portal/public route is introduced.
+`project_agile_solution` is an optional LGPL-3 solution addon depending only on
+`project_agile`: Project-scoped lineage/document identity, ordered actual narrative,
+immutable review/approved baselines, separate designated SOW/spec approvals, explicit
+working successors/template copies, native forms and least-privilege Project/company
+access. See [baseline operations and downstream boundary](docs/m8-document-baselines.md).
+Requirements/context revision membership, Task links, acceptance, audience QWeb
+rendering and frozen Scrum context remain downstream. No customer portal is introduced.
 
 Read [ADR-013](docs/adrs/013-solution-definition-contract.md), the unchanged
 [approved scope](docs/milestone-8-approved-scope.md), the

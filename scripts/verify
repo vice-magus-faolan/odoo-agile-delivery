@@ -15,8 +15,8 @@ DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
-MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation
-TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation
+MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation,project_agile_solution
+TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation,/project_agile_solution
 
 cleanup_verification_resources() {
     if [[ $COMPOSE_PROJECT_NAME_WAS_SET == false ]]; then
@@ -79,6 +79,12 @@ reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --test-enable --test-tags /project_agile_git_automation
 printf "%s\n" "Independent optional Git policy install passed (without GitHub or Scrum)."
 reset_verification_database "$DATABASE_INSTALL"
+run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution --test-enable --test-tags /project_agile_solution
+"${COMPOSE[@]}" run --rm -T odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/solution_source_probe.py"
+printf "%s\n" "Independent optional solution install passed (without Scrum, Git, Sales or document backend)."
+reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
@@ -95,6 +101,7 @@ run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_agile_solution
 uninstall_module project_agile_git_automation
 uninstall_module project_agile_git_github
 uninstall_module project_agile_git
@@ -107,3 +114,4 @@ printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
 printf "%s\n" "Milestone 5 planning-board verification passed."
 printf "%s\n" "Milestone 6 Git facts contract verification passed."
 printf "%s\n" "Milestone 7 Git policy controls, dry-run, apply and recovery verification passed."
+printf "%s\n" "Milestone 8 solution lineage skeleton and synthetic native seeds verified; full M8 remains downstream."

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Search hook restores caller authority during sudo rule compilation. -->
+    <record id="solution_project_access_rule" model="ir.rule">
+        <field name="name">Solution lineage: current native Project access</field>
+        <field name="model_id" ref="model_project_agile_solution"/>
+        <field name="domain_force">[('native_project_access', '=', True)]</field>
+    </record>
+    <record id="solution_company_rule" model="ir.rule">
+        <field name="name">Solution lineage: allowed companies</field>
+        <field name="model_id" ref="model_project_agile_solution"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+</odoo>

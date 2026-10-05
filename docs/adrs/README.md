@@ -21,4 +21,9 @@ Proposed, intentionally deferred decisions:
 - [ADR-007 OCA `project_git` Adoption Strategy](007-oca-project-git-adoption-strategy.md)
 - [ADR-008 Git Automation Model](008-git-automation-model.md) — historical, superseded by ADR-012
 
-The proposed ADRs do not authorize later module implementation or new runtime dependencies.
+Proposed M8 contract with a real optional lineage skeleton, pending independent
+same-card exact-SHA review (all other M8 functionality remains downstream):
+- [ADR-013 Solution Definition, Revisions and Delivery Traceability](013-solution-definition-contract.md)
+
+The proposed ADRs do not independently authorize new runtime dependencies or widen
+approved scope. M8 work is bounded by its separately approved scope and serial plan.

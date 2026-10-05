@@ -43,6 +43,24 @@ later work; ordinary Project behavior is unchanged.
 
 See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
 
+## Milestone 8 first slice (not full milestone delivery)
+
+`project_agile_solution` is an optional LGPL-3 lineage foundation depending only on
+`project_agile`: Project-scoped identity, rename/archive, native forms/lists, least-
+privilege Project/company access and imported nonadmin regression tests. It does not
+yet implement requirements, document baselines/approval, Task links, acceptance,
+rendering or frozen Scrum context. No customer portal/public route is introduced.
+
+Read [ADR-013](docs/adrs/013-solution-definition-contract.md), the unchanged
+[approved scope](docs/milestone-8-approved-scope.md), the
+[gap map and serial plan](docs/plans/2026-10-05-milestone-8-solution-definition.md),
+[native/OCA research](docs/research/m8-solution-alternatives.md) and
+[synthetic acceptance contract](docs/research/m8-synthetic-fixtures.md).
+All three JSON scenarios are explicitly synthetic prospective acceptance inputs;
+root tests actually seed only native Projects/Tasks and lineage, not future approvals.
+Independent same-card exact-SHA review remains required. Publication, deployment,
+customer validation and live activation are separate effects.
+
 ## Development environment
 
 Prerequisites: Docker with Compose v2.
@@ -74,8 +92,8 @@ docker compose down --volumes
 ```
 
 This runs static/syntax checks, an independent optional policy install without
-GitHub or Scrum, and
-seven-module install, targeted upgrade, and dependency-safe uninstall/reinstall
+GitHub or Scrum, an independent solution-core install without Scrum/Git/Sales/docs,
+and eight-module install, targeted upgrade, and dependency-safe uninstall/reinstall
 with discovered Odoo tests against three declared disposable databases.
 
 ## Repository layout

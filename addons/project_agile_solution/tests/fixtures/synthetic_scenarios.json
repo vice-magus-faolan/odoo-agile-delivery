@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "warning": "Publicly informed design/acceptance fixtures, not customer data, production evidence, legal advice or market validation. Requirement/context/approval records are contract inputs until downstream cards implement them. Portal is design intent only, no route.",
+  "scenarios": [
+    {
+      "id": "portal",
+      "project_name": "SYNTHETIC Service Request Design",
+      "project_key": "SYNPORTAL",
+      "sow": true,
+      "purpose": "Explain a proposed self-service request submission and own-request tracking capability.",
+      "deliverable": {"key": "D1", "text": "Request submission and own-request tracking design", "requirements": ["FR1", "FR2", "NFR1"]},
+      "actors": [{"key": "requester", "role": "Submit and track own requests"}, {"key": "triage", "role": "Assess incoming requests"}],
+      "domains": ["Request intake", "Request status", "Isolation"],
+      "requirements": [
+        {"key": "FR1", "revision": 1, "type": "fr", "priority": "must", "text": "A requester can submit a request for themselves.", "rationale": "Capture service demand", "verification": "Demonstrate valid own submission and reject a forged requester", "audience": "customer"},
+        {"key": "FR2", "revision": 1, "type": "fr", "priority": "must", "text": "A requester can track only their own requests.", "rationale": "Useful tracking without another requester's disclosure", "verification": "Two requesters attempt list, direct-ID and export access", "audience": "customer"},
+        {"key": "NFR1", "revision": 1, "type": "nfr", "priority": "must", "text": "Project and company boundaries must not leak requests or request metadata.", "rationale": "Isolation is cross-cutting", "verification": "Negative identity/project/company tests with zero leaked names/counts", "audience": "customer"}
+      ],
+      "questions": [{"key": "Q1", "owner_role": "scope_owner", "text": "Who may submit on behalf of another requester?", "requirements": ["FR1", "NFR1"], "planning_significance": "blocks_delegation_only", "resolution": "Delegation excluded from initial scope; future discovery remains open", "audience": "internal"}],
+      "decisions": [{"key": "DEC1", "context": "Delegation authority is unknown", "choice": "Exclude delegated submission from initial scope", "consequences": "Own requests only; later scope approval required for delegation", "requirements": ["FR1", "NFR1"], "audience": "customer"}],
+      "excluded": ["Delegated submission", "Billing", "Actual portal deployment"],
+      "tasks": [
+        {"key": "T1", "name": "SYNTHETIC design own-request submission", "item_type": "story", "requirement_revisions": ["FR1@1", "NFR1@1"], "manual_description": "Preserve this authored task description"},
+        {"key": "T2", "name": "SYNTHETIC design isolated request tracking", "item_type": "task", "requirement_revisions": ["FR2@1", "NFR1@1"]}
+      ],
+      "trace": {"deliverable": "D1", "requirement": "FR1@1", "existing_task": "T1", "verification_reference": "synthetic://portal/own-submit-negative-matrix", "explicit_acceptance": {"authority_role": "scope_owner", "requirement": "FR1@1", "evidence": "synthetic://portal/own-submit-negative-matrix", "status": "expected_fixture_event_not_executed"}},
+      "weaknesses": ["Requester/delegation semantics need actual customer discovery", "Native Project portal sharing is NOT proof of own-request isolation", "Task Done alone cannot satisfy requirement acceptance"]
+    },
+    {
+      "id": "integration",
+      "project_name": "SYNTHETIC Unknown API Discovery",
+      "project_key": "SYNAPI",
+      "sow": true,
+      "purpose": "Discover an unknown interface before agreeing integration scope.",
+      "deliverable": {"key": "D1", "text": "Interface discovery findings", "requirements": ["FR1", "NFR1"]},
+      "actors": [{"key": "operator", "role": "Review reconciliation outcomes"}, {"key": "external_owner", "role": "Supply authoritative interface information"}],
+      "domains": ["Interface discovery", "Reconciliation"],
+      "requirements": [
+        {"key": "FR1", "revision": 1, "type": "fr", "priority": "should", "text": "Proposed exchange direction is pending interface discovery.", "rationale": "Interface documentation not supplied", "verification": "Unverified: owner must provide authoritative direction/schema", "audience": "customer"},
+        {"key": "NFR1", "revision": 1, "type": "nfr", "priority": "must", "text": "Proposed retries must avoid duplicate business effects.", "rationale": "Unknown external idempotency support", "verification": "Pending authoritative replay contract and duplicate experiment", "audience": "customer"}
+      ],
+      "questions": [{"key": "Q1", "owner_role": "external_owner", "text": "What schema, authentication, limits and replay guarantees actually exist?", "requirements": ["FR1", "NFR1"], "planning_significance": "blocks_delivery", "spike_task": "T1", "resolution": null, "audience": "internal"}],
+      "decisions": [{"key": "DEC1", "context": "Unknown external interface", "choice": "Run discovery before implementation commitment", "consequences": "No invented API or automatic delivery estimate", "requirements": ["FR1", "NFR1"], "audience": "customer"}],
+      "tasks": [{"key": "T1", "name": "SYNTHETIC Spike: request interface evidence", "item_type": "spike", "requirement_revisions": ["FR1@1", "NFR1@1"]}],
+      "reviewed_scope_revision": {"from": "FR1@1", "to": "FR1@2", "text": "SYNTHETIC branch: after evidence, propose inbound-only reconciliation", "decision": "DEC2", "decision_context": "Hypothetical discovery branch, not observed external behavior", "consequences": "Old Spike link stays FR1@1; no automatic relink", "requires_separate_sow_and_spec_approval": true, "status": "expected_fixture_event_not_executed"},
+      "weaknesses": ["No actual API/schema/credentials supplied", "Scope revision is a labeled hypothetical acceptance input", "Discovery completion does not approve delivery scope"]
+    },
+    {
+      "id": "internal",
+      "project_name": "SYNTHETIC Internal Operations Initiative",
+      "project_key": "SYNINT",
+      "sow": false,
+      "purpose": "Start from an internal solution brief and preserve existing backlog planning.",
+      "deliverable": {"key": "D1", "text": "Internal operations capability intent", "requirements": ["FR1", "NFR1"]},
+      "actors": [{"key": "operator", "role": "Internal service operator"}],
+      "domains": ["Operations", "Isolation", "Maintenance"],
+      "requirements": [
+        {"key": "FR1", "revision": 1, "type": "fr", "priority": "should", "text": "An operator can inspect operations status in their authorized project.", "rationale": "Internal operational clarity", "verification": "Authorized status view; foreign-project direct ID denied", "audience": "internal"},
+        {"key": "NFR1", "revision": 1, "type": "nfr", "priority": "must", "text": "Company and Project isolation applies to all operations views and exports.", "rationale": "Cross-cutting privacy", "verification": "Single/multiple enabled companies, hidden project and export matrix", "audience": "internal"}
+      ],
+      "questions": [{"key": "Q1", "owner_role": "product_owner", "text": "Which existing Sprint will deliberately take the next delivery slice?", "requirements": ["FR1"], "planning_significance": "planning_only", "resolution": null, "audience": "internal"}],
+      "decisions": [{"key": "DEC1", "context": "Internal funding; no customer SOW", "choice": "Use an internal brief and existing planning", "consequences": "No SOW prerequisite; Sprint selection remains manual", "requirements": ["FR1"], "audience": "internal"}],
+      "tasks": [
+        {"key": "T1", "name": "SYNTHETIC inspect authorized operations status", "item_type": "story", "requirement_revisions": ["FR1@1", "NFR1@1"]},
+        {"key": "T2", "name": "SYNTHETIC harden operations export isolation", "item_type": "task", "requirement_revisions": ["NFR1@1"]},
+        {"key": "T3", "name": "SYNTHETIC maintenance: refresh development dependencies", "item_type": "task", "requirement_revisions": [], "maintenance_reason": "Development maintenance, not missing functional coverage"}
+      ],
+      "planning": {"surface": "Existing Agile backlog and optional native Scrum", "expected_commitment": ["FR1@1", "NFR1@1"], "later_revision": "NFR1@2", "expectation": "Sprint event retains v1; current Task link may deliberately move to v2", "status": "expected_fixture_event_not_executed"},
+      "weaknesses": ["Maintenance must be distinguishable from unexplained unlinked work", "SOW absence must not bypass spec approval", "Frozen Sprint context cannot be derived from current links"]
+    }
+  ]
+}

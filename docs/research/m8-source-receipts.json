@@ -1,0 +1,152 @@
+[
+  {
+    "name": "far-37.602",
+    "url": "https://www.acquisition.gov/far/37.602",
+    "accessed_at": "2026-10-05T17:09:28.888541+00:00",
+    "sha256": "75c176a647bfef75b446c3f47585378e6edee82a16e8a8c3419c71f3125d92ed"
+  },
+  {
+    "name": "nasa-appendix",
+    "url": "https://www.nasa.gov/reference/system-engineering-handbook-appendix/",
+    "accessed_at": "2026-10-05T17:09:29.287263+00:00",
+    "sha256": "d8d275d86c8564de6e984005ca3d07d135ca9eed0d48b79dec353bf21e2ca050"
+  },
+  {
+    "name": "odoo-licenses",
+    "url": "https://www.odoo.com/documentation/19.0/legal/licenses.html",
+    "accessed_at": "2026-10-05T17:09:30.272081+00:00",
+    "sha256": "826a3437c0abe25a3770427263dc99b5a1194ca153dad91dbef42a72563f5d2c"
+  },
+  {
+    "name": "native-project_security.xml",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/addons/project/security/project_security.xml",
+    "accessed_at": "2026-10-05T17:09:30.798574+00:00",
+    "sha256": "34698c4ee327698a9056e7e6ee0e7beec9bc2a0d7c4c89eb4919fe50e9441cb8"
+  },
+  {
+    "name": "native-project_project.py",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/addons/project/models/project_project.py",
+    "accessed_at": "2026-10-05T17:09:31.401296+00:00",
+    "sha256": "1c16f8b687366d0dc68b3d7f155d1687d0a608d32f441cf4f9024d42db0d0349"
+  },
+  {
+    "name": "native-project_task.py",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/addons/project/models/project_task.py",
+    "accessed_at": "2026-10-05T17:09:31.838123+00:00",
+    "sha256": "95f4f20c26bcf97f3c147b141b7411c5c0c9c31aec578e68a24f9869996aecb4"
+  },
+  {
+    "name": "native-models.py",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/odoo/orm/models.py",
+    "accessed_at": "2026-10-05T17:09:32.552720+00:00",
+    "sha256": "68b2f57f19dbff2d0a54fc0e0ac14446233cf5b254499fe2004c642cd6e09d6d"
+  },
+  {
+    "name": "native-domains.py",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/odoo/orm/domains.py",
+    "accessed_at": "2026-10-05T17:09:32.786079+00:00",
+    "sha256": "3b15cf0440970185aa09733ef2806f0522e0258ac3cb66e38fbb179eeb22e632"
+  },
+  {
+    "name": "native-ir_actions_report.py",
+    "url": "https://raw.githubusercontent.com/odoo/odoo/8da213dc6785e097f2558dc2d648b588957786a1/odoo/addons/base/models/ir_actions_report.py",
+    "accessed_at": "2026-10-05T17:09:33.404703+00:00",
+    "sha256": "0907735675feb72319f753b5eadbe061cf83009e0fe92f776bd1473594d152a0"
+  },
+  {
+    "name": "project_task_description_template",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_task_description_template/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:33.645050+00:00",
+    "sha256": "e2492114e1a886dc001c428a8dd94efc14d5ba5d8e437ac4d2a4ca86c638a4b5"
+  },
+  {
+    "name": "project_task_description_template-readme",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_task_description_template/README.rst",
+    "accessed_at": "2026-10-05T17:09:33.886437+00:00",
+    "sha256": "e4d24bc464862c772d6cd0d4bef3bb8535ec6dc33129726328cec48b42615d3d"
+  },
+  {
+    "name": "project_task_code",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_task_code/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:34.050427+00:00",
+    "sha256": "b67fbb913c66cbe698a2ffae43c17664d1cf90a60c14648a5c7ec708397e8757"
+  },
+  {
+    "name": "project_task_code-readme",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_task_code/README.rst",
+    "accessed_at": "2026-10-05T17:09:34.303388+00:00",
+    "sha256": "4c9c8ca20c3a670237501f405ea8fed4e489e9a131c9b192366374ed552b0a36"
+  },
+  {
+    "name": "project_key",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_key/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:34.519136+00:00",
+    "sha256": "856dba60412c2a8cd867d9f3ada51b8dedab1f5866a95aa269dd690fbaf36e95"
+  },
+  {
+    "name": "project_key-readme",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_key/README.rst",
+    "accessed_at": "2026-10-05T17:09:34.753030+00:00",
+    "sha256": "371d10c0280a9dac86f8ea8492ba8bb1f1f3af0f4a36f88efb176aaddb8e1488"
+  },
+  {
+    "name": "project_version",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_version/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:34.988752+00:00",
+    "sha256": "94702297912349163d6a3ef5df15750858dca1fd29969fc8d3ac9d65375587d6"
+  },
+  {
+    "name": "project_version-readme",
+    "url": "https://raw.githubusercontent.com/OCA/project/2ba869c7466476ec7fb913ae55a1ee49be62392b/project_version/README.rst",
+    "accessed_at": "2026-10-05T17:09:35.217998+00:00",
+    "sha256": "576b0650566a0c0540fb62373f75edd3fd99fc0cb763daf0ecefdedbf53ae726"
+  },
+  {
+    "name": "document_page",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:35.366131+00:00",
+    "sha256": "312763ba2f4828244b37e4c5b838967e3121f6e5a9497aa13cebbc2ab6d09dd7"
+  },
+  {
+    "name": "document_page-readme",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page/README.rst",
+    "accessed_at": "2026-10-05T17:09:35.595899+00:00",
+    "sha256": "d338b1622f87b72aba3278805f9ad768810d9371054d23fa597e0c6a66dc424d"
+  },
+  {
+    "name": "document_page_approval",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page_approval/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:35.722277+00:00",
+    "sha256": "a8fd034ccf4b4d7c3390cd3ed53bc2da19de3680aaf717df664a3a0cae5cf2c0"
+  },
+  {
+    "name": "document_page_approval-readme",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page_approval/README.rst",
+    "accessed_at": "2026-10-05T17:09:35.960118+00:00",
+    "sha256": "59d512e289a4c2a0bd05ade1edcfc06cc77f387e66ffce40a145172f6af8632b"
+  },
+  {
+    "name": "document_page_project",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page_project/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:36.093259+00:00",
+    "sha256": "32b490efc07394313e5458e25df0d9868df17fde13a9ac38d981f9dc33afd85b"
+  },
+  {
+    "name": "document_page_project-readme",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_page_project/README.rst",
+    "accessed_at": "2026-10-05T17:09:36.304364+00:00",
+    "sha256": "bb4bf5763f23db5a2d659bccd54228a646630e886728094f05127f5d305285ca"
+  },
+  {
+    "name": "document_knowledge",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_knowledge/__manifest__.py",
+    "accessed_at": "2026-10-05T17:09:36.434778+00:00",
+    "sha256": "99441de6027d0dd0fd95e5252f9c70506ebb91bdfdc108acecef183053a7e11a"
+  },
+  {
+    "name": "document_knowledge-readme",
+    "url": "https://raw.githubusercontent.com/OCA/knowledge/dbf80041c7c0e90337ef1a6d3be84b607da3501c/document_knowledge/README.rst",
+    "accessed_at": "2026-10-05T17:09:36.653895+00:00",
+    "sha256": "1477f7ae81b2accd3883a900855e7cddfd2c715d0fa1751d4a61cba6380c809f"
+  }
+]

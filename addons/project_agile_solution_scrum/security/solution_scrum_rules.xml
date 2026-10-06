@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sprint_context_access_rule" model="ir.rule"><field name="name">Sprint requirements: current reference closure</field><field name="model_id" ref="model_project_agile_solution_sprint_context"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
+    <record id="sprint_context_company_rule" model="ir.rule"><field name="name">Sprint requirements: allowed companies</field><field name="model_id" ref="model_project_agile_solution_sprint_context"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
+    <record id="scope_event_reference_rule" model="ir.rule"><field name="name">Sprint events: current exact requirement and Task access</field><field name="model_id" ref="project_scrum.model_project_sprint_scope_event"/><field name="domain_force">[('solution_native_access', '=', True)]</field></record>
+</odoo>

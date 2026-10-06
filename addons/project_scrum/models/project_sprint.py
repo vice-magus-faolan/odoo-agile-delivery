@@ -92,8 +92,9 @@ class ProjectSprint(models.Model):
             }
             for task in tasks
         ]
-        if values:
-            self.env["project.sprint.scope.event"].sudo().create(values)
+        # Return the exact newly created evidence for optional audit extensions;
+        # lifecycle values and callers remain unchanged, with no history search.
+        return self.env["project.sprint.scope.event"].sudo().create(values)
 
     def _set_lifecycle_state(self, state):
         values = {"state": state}

@@ -19,6 +19,9 @@ SOURCES = {
     # Optional M8 guard rejects inverse discovery edits; stage writes delegate
     # unchanged through super. Keep this exact source pin, never a wildcard.
     "addons/project_agile_solution/models/solution_revision_content.py": "2de129972395f82f562924675b4a5ca4fc19cdce38fc2b4ad089d019b92f1867",
+    # Optional exact trace retention and atomic Task/event delegation only.
+    "addons/project_agile_solution/models/project_task_trace.py": "e29b00cbbe2d068802dd8b4fe3e2f760831aabf577fce1b31f756df6b499b72c",
+    "addons/project_agile_solution_scrum/models/project_task.py": "6f4856fc4360ec749172d42f47ee5ae6d9b626f70a00d2b174a6554c12b34e31",
     "addons/project_agile_git/models/project_git_visibility.py": "a7b25bd6aed5966f018334da300a2e8ca3086a47fa948bc65bb692cbe181b168",
     "addons/project_todo/models/project_task.py": "a6922427c429e07cfbc459d80edba5be03373281fa991fee5466f8210e08099b",
     "addons/portal/models/portal_mixin.py": "09bb21f1fdf2682ab558e3c0fce4f979a33e33ad85b0147f3f98c4c6a48fb582",

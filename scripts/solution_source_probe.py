@@ -47,3 +47,5 @@ from odoo.addons.project_agile_solution.tests.baseline_concurrency import run_pr
 run_probe(env)
 from odoo.addons.project_agile_solution.tests.requirement_concurrency import run_probe as run_content_probe
 run_content_probe(env)
+from odoo.addons.project_agile_solution.tests.task_concurrency import run_probe as run_task_probe
+run_task_probe(env)

@@ -11,3 +11,7 @@ from . import solution_requirement
 from . import solution_context
 from . import solution_revision_content
 from . import solution_question_wizard
+from . import solution_task_access
+from . import solution_task_link
+from . import solution_task_intent
+from . import project_task_trace

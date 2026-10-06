@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sprint_solution_context_user,Frozen Sprint requirement context,model_project_agile_solution_sprint_context,project.group_project_user,1,0,0,0

@@ -46,7 +46,9 @@ class TestSolutionContract(unittest.TestCase):
         self.assertFalse((ADDON / "controllers").exists())
         self.assertFalse((ADDON / "static").exists())
         for addon in (ROOT / "addons").glob("*/__manifest__.py"):
-            if addon.parent != ADDON:
+            if addon.parent.name == 'project_agile_solution_scrum':
+                self.assertEqual(ast.literal_eval(addon.read_text())['depends'], ['project_agile_solution', 'project_scrum'])
+            elif addon.parent != ADDON:
                 self.assertNotIn("project_agile_solution", ast.literal_eval(addon.read_text())["depends"])
 
     def test_verifier_installs_solution_independently_and_in_all_lifecycles(self):

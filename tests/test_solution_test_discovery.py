@@ -26,6 +26,7 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
     def test_exact_parser_fixture_streams_all_declared_methods(self):
         text = ''.join(f'Starting TestSolutionBaseline.{name}\n' for name in sorted(self._methods()))
         text += ''.join(f'Starting TestSolutionRequirements.{name}\n' for name in sorted(self._methods('expected_requirement_methods')))
+        text += ''.join(f'Starting TestSolutionTaskTrace.{name}\n' for name in sorted(self._methods('expected_trace_methods')))
         result = self._run(text, ['--init', 'project_agile_solution', '--test-enable'])
         self.assertEqual(result.returncode, 0)
         self.assertIn('M8_BASELINE_NATIVE_DISCOVERY_OK', result.stdout)

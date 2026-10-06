@@ -1,3 +1,4 @@
 from . import test_solution_lineage
 from . import test_solution_baseline
 from . import test_solution_requirements
+from . import test_solution_task_trace

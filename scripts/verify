@@ -15,8 +15,8 @@ DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
-MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation,project_agile_solution
-TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation,/project_agile_solution
+MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation,project_agile_solution,project_agile_solution_scrum
+TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation,/project_agile_solution,/project_agile_solution_scrum
 
 cleanup_verification_resources() {
     if [[ $COMPOSE_PROJECT_NAME_WAS_SET == false ]]; then
@@ -86,6 +86,12 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution --test-ena
     < "$ROOT/scripts/solution_source_probe.py"
 printf "%s\n" "Independent optional solution install passed (without Scrum, Git, Sales or document backend)."
 reset_verification_database "$DATABASE_INSTALL"
+run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --test-enable --test-tags /project_agile_solution,/project_agile_solution_scrum
+"${COMPOSE[@]}" run --rm -T odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/solution_scrum_probe.py"
+printf "%s\n" "Independent optional solution Scrum bridge install and native relink/event races passed."
+reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
@@ -102,6 +108,7 @@ run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"
+uninstall_module project_agile_solution_scrum
 uninstall_module project_agile_solution
 uninstall_module project_agile_git_automation
 uninstall_module project_agile_git_github
@@ -116,4 +123,5 @@ printf "%s\n" "Milestone 5 planning-board verification passed."
 printf "%s\n" "Milestone 6 Git facts contract verification passed."
 printf "%s\n" "Milestone 7 Git policy controls, dry-run, apply and recovery verification passed."
 printf "%s\n" "Milestone 8 lineage/baseline lifecycle, native negative tests and independent allocation/approval races verified; full M8 remains downstream."
-printf "%s\n" "Milestone 8 exact FR/NFR/context, reusable SOW narrative, native forms and independent identity/revision allocation races verified; Tasks/Scrum/rendering/acceptance remain downstream."
+printf "%s\n" "Milestone 8 exact FR/NFR/context, reusable SOW narrative, native forms and independent identity/revision allocation races verified."
+printf "%s\n" "Milestone 8 deliberate native Task links/intents and optional frozen Scrum context verified; rendering/acceptance remain downstream."

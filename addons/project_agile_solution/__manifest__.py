@@ -1,7 +1,7 @@
 {
     "name": "Agile Solution Definition",
     "summary": "Optional solution documents, immutable baselines and separate approvals",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
@@ -13,6 +13,7 @@
         "views/project_agile_solution_views.xml",
         "views/solution_document_views.xml",
         "views/solution_content_views.xml",
+        "views/solution_task_views.xml",
     ],
     "installable": True,
     "application": False,

@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Storage sentinel only: never assign users or imply from a user role. -->
+    <record id="group_snapshot_storage" model="res.groups">
+        <field name="name">Solution snapshot storage (no user assignment)</field>
+        <field name="user_ids" eval="[(5, 0, 0)]"/>
+        <field name="implied_ids" eval="[(5, 0, 0)]"/>
+        <field name="implied_by_ids" eval="[(5, 0, 0)]"/>
+    </record>
     <!-- Search hook restores caller authority during sudo rule compilation. -->
     <record id="solution_project_access_rule" model="ir.rule">
         <field name="name">Solution lineage: current native Project access</field>

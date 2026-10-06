@@ -50,7 +50,15 @@ invalidate cached projection fields and recheck current Project/document/lineage
 section and referenced SOW closure before exposing sealed text/digest. Template
 provenance follows the same current narrative-access boundary. Internal storage is
 field-group restricted; a narrow elevation fetches already stored payload only after
-parent authority and cannot approve, mutate or supply reference authority. Inaccessible
+parent authority and cannot approve, mutate or supply reference authority. The three
+raw fields (`_snapshot_content`, `_snapshot_digest`, `_template_content`) use the
+unassigned, non-implied `project_agile_solution.group_snapshot_storage` sentinel.
+Never assign it to users or imply it from a user role. Technical Features
+(`base.group_no_one`) is not deny-all: native browser debug mode enables it for
+internal users. Debug mode must not grant raw read/export access. The checked public
+projections still serve intact closure and refuse newly inaccessible closure in both
+normal and debug sessions. Trusted administrators changing group policy or arbitrary
+server/DB code remain the trust root, not an application immutability guarantee. Inaccessible
 closure fails, never silently renders incomplete content as a complete baseline.
 Downstream QWeb/report code must call this checked API, not privileged raw storage.
 No customer projection, public route, report attachment cache or portal grant is added.

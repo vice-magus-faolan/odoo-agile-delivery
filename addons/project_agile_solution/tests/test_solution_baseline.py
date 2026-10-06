@@ -288,6 +288,79 @@ class TestSolutionBaseline(TestSolutionLineage):
             with self.assertRaises(AccessError):
                 record.with_user(self.user).read(['display_name'])
 
+    def _assert_raw_storage_denied(self, caller):
+        self.assertFalse(caller.env.su)
+        for field in ('_snapshot_content', '_snapshot_digest', '_template_content'):
+            with self.subTest(field=field, operation='read'):
+                with self.assertRaises(AccessError):
+                    caller.read([field])
+            with self.subTest(field=field, operation='export'):
+                with self.assertRaises(AccessError):
+                    caller.export_data([field])
+
+    def test_raw_snapshot_storage_read_and_export_denied_in_debug(self):
+        # Exercise the field boundary, not the independent native export role.
+        self.manager.write({'group_ids': [Command.link(self.env.ref('base.group_allow_export').id)]})
+        storage_group = self.env.ref('project_agile_solution.group_snapshot_storage')
+        self.assertFalse(storage_group.user_ids)
+        self.assertFalse(storage_group.implied_ids)
+        self.assertFalse(storage_group.implied_by_ids)
+        revision = self._revision()
+        self._approve(revision)
+        caller = revision.with_user(self.user)
+        self.assertEqual(caller.state, 'approved')  # Row access is not storage authority.
+        self._assert_raw_storage_denied(caller)
+        with self.debug_mode():
+            self.assertTrue(caller.env.user.has_group('base.group_no_one'))
+            self.assertFalse(caller.env.user.has_group('project_agile_solution.group_snapshot_storage'))
+            self._assert_raw_storage_denied(caller)
+            self._assert_raw_storage_denied(revision.with_user(self.manager))
+
+    def _assert_checked_storage_paths(self, caller, snapshot, provenance, denied=False):
+        reads = (
+            lambda: [caller.action_read_snapshot()['snapshot_json']],
+            lambda: list(caller.read(['snapshot_json', 'template_snapshot'])[0][name] for name in ('snapshot_json', 'template_snapshot')),
+            lambda: caller.export_data(['snapshot_json', 'template_snapshot'])['datas'][0],
+        )
+        for read in reads:
+            if denied:
+                with self.assertRaises(AccessError):
+                    read()
+            else:
+                result = read()
+                self.assertEqual(result[0], snapshot)
+                if len(result) == 2:
+                    self.assertEqual(result[1], provenance)
+
+    def test_debug_checked_snapshot_and_template_revalidate_hidden_closure(self):
+        revision = self._revision()
+        template = self.env['project.agile.solution.template'].with_user(self.manager).create({
+            'name': 'SYNTHETIC private provenance', 'kind': 'spec', 'company_id': self.company.id,
+            'sections_json': '[{"title":"Internal narrative","body":"<p>SYNTHETIC_HIDDEN_STORAGE_TEXT</p>"}]',
+        })
+        revision.action_apply_template(template.id)
+        self._approve(revision)
+        snapshot = revision.snapshot_json
+        provenance = revision.template_snapshot
+        self.assertIn('SYNTHETIC_HIDDEN_STORAGE_TEXT', snapshot)
+        self.assertIn('SYNTHETIC_HIDDEN_STORAGE_TEXT', provenance)
+        caller = revision.with_user(self.user)
+        self._assert_checked_storage_paths(caller, snapshot, provenance)
+        with self.debug_mode():
+            self._assert_checked_storage_paths(caller, snapshot, provenance)
+        rule = self.env['ir.rule'].create({
+            'name': 'SYNTHETIC hidden baseline storage section',
+            'model_id': self.env['ir.model']._get_id('project.agile.solution.section'),
+            'domain_force': repr([('id', '!=', revision.section_ids[0].id)]),
+        })
+        self._assert_checked_storage_paths(caller, snapshot, provenance, denied=True)
+        with self.debug_mode():
+            self._assert_raw_storage_denied(caller)
+            self._assert_checked_storage_paths(caller, snapshot, provenance, denied=True)
+        rule.unlink()
+        with self.debug_mode():
+            self._assert_checked_storage_paths(caller, snapshot, provenance)
+
     def test_hidden_sow_cannot_be_treated_as_optional(self):
         sow = self.document.create({'name': 'SOW', 'solution_id': self.solution.id, 'kind': 'sow', 'approver_id': self.manager.id})
         spec = self._revision()

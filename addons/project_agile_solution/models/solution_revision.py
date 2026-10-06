@@ -36,10 +36,13 @@ class SolutionRevision(models.Model):
     scope_change_reason = fields.Text()
     snapshot_json = fields.Text(compute='_compute_checked_snapshot', compute_sudo=False)
     snapshot_sha256 = fields.Char(compute='_compute_checked_snapshot', compute_sudo=False)
-    _snapshot_content = fields.Text(readonly=True, copy=False, groups='base.group_no_one')
-    _snapshot_digest = fields.Char(readonly=True, copy=False, groups='base.group_no_one')
+    # This unassigned, non-implied group is a storage boundary, not a user role.
+    # Technical Features becomes effective in debug; only checked narrow sudo
+    # retrieval may expose storage through the current-caller projections below.
+    _snapshot_content = fields.Text(readonly=True, copy=False, groups='project_agile_solution.group_snapshot_storage')
+    _snapshot_digest = fields.Char(readonly=True, copy=False, groups='project_agile_solution.group_snapshot_storage')
     template_snapshot = fields.Text(compute='_compute_checked_template', compute_sudo=False)
-    _template_content = fields.Text(readonly=True, copy=False, groups='base.group_no_one')
+    _template_content = fields.Text(readonly=True, copy=False, groups='project_agile_solution.group_snapshot_storage')
     submitted_by_id = fields.Many2one('res.users', readonly=True, ondelete='restrict', copy=False)
     submitted_at = fields.Datetime(readonly=True, copy=False)
     approved_by_id = fields.Many2one('res.users', readonly=True, ondelete='restrict', copy=False)

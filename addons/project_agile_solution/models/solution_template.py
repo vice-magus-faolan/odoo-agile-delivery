@@ -1,7 +1,7 @@
 """Small reusable narrative templates, explicitly copied with content provenance."""
 import json
 
-from odoo import _, api, fields, models
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import html_sanitize
 
@@ -21,6 +21,11 @@ class SolutionTemplate(models.Model):
     sections_json = fields.Text(required=True, default='[]')
 
     def _check_manager(self, operation):
+        # Native XML installation uses actual uid=1 (not an active business
+        # approver). Ordinary sudo preserves uid, so it cannot select this path.
+        # Templates have no approval authority or protected sealed history.
+        if self.env.uid == SUPERUSER_ID:
+            return
         caller = self.sudo(False)
         caller.check_access(operation)
         if not caller.env.user.active or not caller.env.user.has_group('project.group_project_manager'):

@@ -53,4 +53,12 @@
         <field name="model_id" ref="model_project_agile_solution_template"/>
         <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
     </record>
+    <record id="requirement_project_rule" model="ir.rule"><field name="name">Requirements: current Project access</field><field name="model_id" ref="model_project_agile_requirement"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
+    <record id="requirement_company_rule" model="ir.rule"><field name="name">Requirements: allowed companies</field><field name="model_id" ref="model_project_agile_requirement"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
+    <record id="requirement_revision_project_rule" model="ir.rule"><field name="name">Requirement revisions: current Project access</field><field name="model_id" ref="model_project_agile_requirement_revision"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
+    <record id="requirement_revision_company_rule" model="ir.rule"><field name="name">Requirement revisions: allowed companies</field><field name="model_id" ref="model_project_agile_requirement_revision"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
+    <record id="context_project_rule" model="ir.rule"><field name="name">Context: current Project access</field><field name="model_id" ref="model_project_agile_solution_context"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
+    <record id="context_company_rule" model="ir.rule"><field name="name">Context: allowed companies</field><field name="model_id" ref="model_project_agile_solution_context"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
+    <record id="context_revision_project_rule" model="ir.rule"><field name="name">Context revisions: current Project access</field><field name="model_id" ref="model_project_agile_solution_context_revision"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
+    <record id="context_revision_company_rule" model="ir.rule"><field name="name">Context revisions: allowed companies</field><field name="model_id" ref="model_project_agile_solution_context_revision"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
 </odoo>

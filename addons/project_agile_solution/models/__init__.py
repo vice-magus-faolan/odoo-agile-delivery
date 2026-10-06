@@ -6,3 +6,8 @@ from . import solution_section
 from . import solution_template
 from . import project_solution_retention
 from . import solution_revision_wizard
+from . import solution_content
+from . import solution_requirement
+from . import solution_context
+from . import solution_revision_content
+from . import solution_question_wizard

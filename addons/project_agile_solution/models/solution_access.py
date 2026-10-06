@@ -57,6 +57,10 @@ class SolutionAccess(models.AbstractModel):
             'project.agile.solution.document': ('solution_id', 'project.agile.solution'),
             'project.agile.solution.revision': ('document_id', 'project.agile.solution.document'),
             'project.agile.solution.section': ('revision_id', 'project.agile.solution.revision'),
+            'project.agile.requirement': ('solution_id', 'project.agile.solution'),
+            'project.agile.requirement.revision': ('requirement_id', 'project.agile.requirement'),
+            'project.agile.solution.context': ('solution_id', 'project.agile.solution'),
+            'project.agile.solution.context.revision': ('context_id', 'project.agile.solution.context'),
         }
         field, model = parents[self._name]
         parent = self.env[model].sudo(False).with_context(active_test=False)

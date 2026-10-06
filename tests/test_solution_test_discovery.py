@@ -25,6 +25,7 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
 
     def test_exact_parser_fixture_streams_all_declared_methods(self):
         text = ''.join(f'Starting TestSolutionBaseline.{name}\n' for name in sorted(self._methods()))
+        text += ''.join(f'Starting TestSolutionRequirements.{name}\n' for name in sorted(self._methods('expected_requirement_methods')))
         result = self._run(text, ['--init', 'project_agile_solution', '--test-enable'])
         self.assertEqual(result.returncode, 0)
         self.assertIn('M8_BASELINE_NATIVE_DISCOVERY_OK', result.stdout)
@@ -34,11 +35,17 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
         for args in (['--init', 'project_agile_solution'], ['--init', 'project_agile_git_automation', '--test-enable']):
             self.assertEqual(self._run('Setup only\n', args).returncode, 0)
 
-    def _methods(self):
+    def test_missing_requirement_discovery_is_rejected(self):
+        text = ''.join(f'Starting TestSolutionBaseline.{name}\n' for name in sorted(self._methods()))
+        result = self._run(text, ['--init', 'project_agile_solution', '--test-enable'])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requirement tests not actually discovered', result.stderr)
+
+    def _methods(self, function='expected_methods'):
         spec = importlib.util.spec_from_file_location('solution_discovery_gate', SCRIPT)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        methods = module.expected_methods()
+        methods = getattr(module, function)()
         self.assertTrue(methods)
         return methods

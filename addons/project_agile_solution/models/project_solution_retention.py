@@ -29,6 +29,9 @@ class ProjectSolutionRetention(models.Model):
         lock_records(self)
         if self.env['project.agile.solution.document'].sudo().with_context(active_test=False).search_count([('solution_id', 'in', lineages.ids)], limit=1):
             raise ValidationError(_('A Project with solution document history cannot change company or be deleted; archive instead.'))
+        for model in ('project.agile.requirement', 'project.agile.solution.context'):
+            if self.env[model].sudo().with_context(active_test=False).search_count([('solution_id', 'in', lineages.ids)], limit=1):
+                raise ValidationError(_('A Project with solution intent history cannot change company or be deleted; archive instead.'))
 
     def write(self, values):
         if 'company_id' in values and any(record.company_id.id != (values['company_id'] or False) for record in self):

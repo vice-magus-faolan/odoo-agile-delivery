@@ -1,9 +1,11 @@
 """Native event semantics and exact frozen requirement context, never live aliases."""
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.project_agile_solution.tests.test_solution_task_trace import TestSolutionTaskTrace
 
@@ -171,6 +173,19 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
             context.read(['_payload'])
         with self.assertRaises(AccessError):
             self.env['project.agile.solution.sprint.context'].with_user(self.portal).search([])
+
+    def test_event_rule_denies_partial_registry_without_losing_current_closure(self):
+        rule = self.env.ref('project_agile_solution_scrum.scope_event_reference_rule')
+        # Expression branch coverage only. Real dependency-ordered registry
+        # rebuild and native security behavior are proved by scripts/verify.
+        partial_user = SimpleNamespace(env={'project.sprint.scope.event': SimpleNamespace(_fields={})})
+        self.assertEqual(safe_eval(rule.domain_force, {'user': partial_user}), [(1, '=', 0)])
+        self.assertEqual(safe_eval(rule.domain_force, {'user': self.env.user}), [('solution_native_access', '=', True)])
+        requirement, task, sprint = self._requirement(), self._task(), self._sprint()
+        self._link(requirement, task)
+        task.write({'sprint_id': sprint.id})
+        sprint.action_start()
+        self.assertEqual(len(self._events(task, 'committed')), 1)
 
     def test_failure_mid_capture_rolls_back_assignment_native_event_and_context(self):
         requirement, task, sprint = self._requirement(), self._task(), self._sprint()

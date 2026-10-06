@@ -50,6 +50,12 @@ not_available and are never backfilled. Edges snapshot sealed requirement conten
 and document state/number at capture. Current restrictions protect old history;
 changing/retiring links, archiving identities or approving new documents cannot
 rewrite old events. Scrum commitment is not specification or requirement approval.
+During a dependency-ordered upgrade, the already-stored event rule denies all
+ordinary event reads until the optional extension's search field is registered;
+it never falls back to privileged or incomplete-looking history. Once the full
+registry is loaded, the same current Task/Sprint/exact-reference closure applies.
+This preserves optional module layering and is exercised by the canonical
+native Scrum upgrade regression, without skipping tests or adding a core dependency.
 
 No external contact, push/publication, deployment, shared service restart,
 provider/configuration changes, generic model/method dispatch, autonomous planning

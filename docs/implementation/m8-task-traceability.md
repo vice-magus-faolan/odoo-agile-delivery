@@ -28,7 +28,11 @@ values run with default_* context stripped, normal caller ORM, no privileged
 creation. Native Task defaults and normal creation effects remain native; this
 addon never supplies stages, estimates, criteria, parent/dependencies, ordering,
 Sprint allocation, or history. Confirmation and all links/seals/consumption share
-one savepoint, including direct Python callers.
+one savepoint, including direct Python callers. The transient confirmation must
+resolve a literal creator-owned currently visible intent before creation. Its
+related projections run without sudo; a current-intent rule closes search/name
+lookup/counts, and read/export re-query reference closure after rule changes.
+Confirmation selection and projected fields cannot be rewritten by RPC.
 
 Concurrency: intent locks serialize confirmations with an id=id MVCC write;
 Task rows serialize working link mutation and event capture. Scrum retains its

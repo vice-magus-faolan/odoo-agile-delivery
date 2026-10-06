@@ -66,4 +66,5 @@
     <record id="task_intent_project_rule" model="ir.rule"><field name="name">Task previews: current reference closure</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
     <record id="task_intent_company_rule" model="ir.rule"><field name="name">Task previews: allowed companies</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
     <record id="task_intent_creator_rule" model="ir.rule"><field name="name">Task previews: exact current creator</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('creator_id', '=', user.id)]</field></record>
+    <record id="task_confirm_intent_rule" model="ir.rule"><field name="name">Task confirmations: current creator and reference closure</field><field name="model_id" ref="model_project_agile_solution_task_confirm_wizard"/><field name="domain_force">[('native_intent_access', '=', True)]</field></record>
 </odoo>

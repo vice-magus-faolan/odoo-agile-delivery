@@ -229,6 +229,46 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
         with self.assertRaises(ValidationError):
             self._link(self._requirement(), intent.task_id)
 
+    def test_confirmation_wizard_cannot_disclose_another_creators_intent(self):
+        intent = self._intent()
+        self.user.write({'group_ids': [Command.link(self.env.ref('project.group_project_manager').id)]})
+        with self.assertRaises(AccessError):
+            intent.with_user(self.user).read(['name'])
+        # Transient ownership alone cannot authorize a related intent projection.
+        with self.assertRaises(AccessError):
+            wizard = self.env['project.agile.solution.task.confirm.wizard'].with_user(self.user).create({'intent_id': intent.id})
+            wizard.read(['name', 'description'])
+
+    def test_confirmation_wizard_rechecks_hidden_reference_after_creation(self):
+        revision = self._requirement()
+        intent = self._intent(revision)
+        model = self.env['project.agile.solution.task.confirm.wizard'].with_user(self.manager)
+        wizard = model.create({'intent_id': intent.id})
+        self.assertEqual(wizard.read(['name'])[0]['name'], intent.name)
+        self.assertIn(wizard, model.search([]))
+        self._hide('project.agile.requirement.revision', revision)
+        self.assertNotIn(wizard, model.search([]))
+        self.assertEqual(model.search_count([('id', '=', wizard.id)]), 0)
+        self.assertEqual(model.name_search(intent.name), [])
+        with self.assertRaises(AccessError):
+            wizard.read(['name', 'description'])
+        with self.assertRaises(AccessError):
+            wizard.export_data(['name'])
+        with self.assertRaises(AccessError):
+            model.create({'intent_id': intent.id})
+
+    def test_confirmation_wizard_rejects_literal_ids_and_projection_overwrites(self):
+        intent = self._intent()
+        model = self.env['project.agile.solution.task.confirm.wizard'].with_user(self.manager)
+        for value in (True, str(intent.id), -1):
+            with self.assertRaises(ValidationError):
+                model.create({'intent_id': value})
+        with self.assertRaises(ValidationError):
+            model.create({'intent_id': intent.id, 'name': 'Forged projection'})
+        wizard = model.create({'intent_id': intent.id})
+        with self.assertRaises(ValidationError):
+            wizard.write({'intent_id': self._intent().id})
+
     def test_real_native_form_shows_preview_and_confirmation(self):
         requirement = self._requirement()
         model = self.env['project.agile.solution.task.intent'].with_user(self.manager)

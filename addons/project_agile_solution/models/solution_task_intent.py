@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
+from odoo.fields import Domain
 
 from .solution_access import lock_records
 from .solution_content import check_reference_commands
@@ -192,13 +193,72 @@ class TaskConfirmWizard(models.TransientModel):
     _description = 'Confirm Previewed Native Task Work'
 
     intent_id = fields.Many2one('project.agile.solution.task.intent', required=True, ondelete='restrict')
-    preview_text = fields.Text(related='intent_id.preview_text', readonly=True)
-    name = fields.Char(related='intent_id.name', readonly=True)
-    description = fields.Html(related='intent_id.description', readonly=True)
-    operation = fields.Selection(related='intent_id.operation', readonly=True)
-    task_id = fields.Many2one(related='intent_id.task_id', readonly=True)
+    preview_text = fields.Text(related='intent_id.preview_text', readonly=True, compute_sudo=False)
+    name = fields.Char(related='intent_id.name', readonly=True, compute_sudo=False)
+    description = fields.Html(related='intent_id.description', readonly=True, compute_sudo=False)
+    operation = fields.Selection(related='intent_id.operation', readonly=True, compute_sudo=False)
+    task_id = fields.Many2one(related='intent_id.task_id', readonly=True, compute_sudo=False)
+    native_intent_access = fields.Boolean(compute='_compute_native_intent_access', search='_search_native_intent_access')
+
+    def _compute_native_intent_access(self):
+        for wizard in self:
+            wizard.native_intent_access = True
+
+    def _search_native_intent_access(self, operator, value):
+        if operator not in ('in', 'not in'):
+            return NotImplemented
+        intents = self.env['project.agile.solution.task.intent'].sudo(False)
+        accessible = Domain('intent_id', 'in', intents._search([]))
+        positive = Domain.OR(accessible if item is True else ~accessible for item in value if type(item) is bool)
+        return positive if operator == 'in' else ~positive
+
+    @api.model
+    def default_get(self, names):
+        return super().default_get([name for name in names if name == 'intent_id'])
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        caller = self.sudo(False)
+        caller.check_access('create')
+        values = []
+        intents = caller.env['project.agile.solution.task.intent']
+        for proposal in vals_list:
+            if set(proposal) - {'intent_id'}:
+                raise ValidationError(_('Confirmation projects an existing preview; its values are not caller supplied.'))
+            intent_id = proposal.get('intent_id', caller.default_get(['intent_id']).get('intent_id'))
+            intent = intents._checked_relation('project.agile.solution.task.intent', intent_id)
+            intent._check_current_trace_read()
+            intent._check_creator()
+            values.append({'intent_id': intent.id})
+        return super(TaskConfirmWizard, caller).create(values)
+
+    def _check_current_intent(self):
+        """Transient ownership cannot grant authority over a related preview.
+
+        Re-query persisted references before projection, even when related values
+        were cached before a custom rule changed. Unsaved native Forms have only
+        an origin, so no transient row or proposal is treated as authority.
+        """
+        caller = self._origin.sudo(False)
+        caller.check_access('read')
+        intents = caller.intent_id.sudo(False)
+        intents._check_current_trace_read()
+        intents._check_creator()
+        return caller
+
+    def read(self, fields=None, load='_classic_read'):
+        self._check_current_intent()
+        return super().read(fields, load)
+
+    def export_data(self, fields_to_export):
+        self._check_current_intent()
+        return super().export_data(fields_to_export)
+
+    def write(self, values):
+        self._check_current_intent()
+        raise ValidationError(_('Confirmation selection is immutable; open a fresh confirmation.'))
 
     def action_confirm(self):
         self.ensure_one()
         self.sudo(False).check_access('write')
-        return self.intent_id.sudo(False).action_confirm()
+        return self._check_current_intent().intent_id.sudo(False).action_confirm()

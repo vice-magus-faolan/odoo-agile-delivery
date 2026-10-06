@@ -179,7 +179,11 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
         # Expression branch coverage only. Real dependency-ordered registry
         # rebuild and native security behavior are proved by scripts/verify.
         partial_user = SimpleNamespace(env={'project.sprint.scope.event': SimpleNamespace(_fields={})})
-        self.assertEqual(safe_eval(rule.domain_force, {'user': partial_user}), [(1, '=', 0)])
+        partial_domain = safe_eval(rule.domain_force, {'user': partial_user})
+        self.assertEqual(partial_domain, [('id', '=', 0)])
+        # Compile and execute the fallback through real Odoo too, rather than
+        # merely comparing a legacy domain shape that Odoo 19 rejects.
+        self.assertFalse(self.env['project.sprint.scope.event'].with_user(self.manager).search(partial_domain))
         self.assertEqual(safe_eval(rule.domain_force, {'user': self.env.user}), [('solution_native_access', '=', True)])
         requirement, task, sprint = self._requirement(), self._task(), self._sprint()
         self._link(requirement, task)

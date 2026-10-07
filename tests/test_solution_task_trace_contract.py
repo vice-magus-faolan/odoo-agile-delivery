@@ -69,6 +69,8 @@ class TestTaskTraceContract(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('TASK_TRACE tests not actually discovered', result.stderr)
         text += ''.join(f'Starting TestSolutionTaskTrace.{name}\n' for name in module.expected_trace_methods())
+        text += ''.join(f'Starting TestSolutionRendering.{name}\n' for name in module.expected_rendering_methods())
+        text += ''.join(f'Starting TestSolutionRenderTour.{name}\n' for name in module.expected_render_tour_methods())
         result = subprocess.run(args, input=text, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('SCRUM_CONTEXT tests not actually discovered', result.stderr)

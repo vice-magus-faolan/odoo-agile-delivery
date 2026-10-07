@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="report_solution_internal_action" model="ir.actions.report">
+        <field name="name">Exact Solution — Internal</field>
+        <field name="model">project.agile.solution.revision</field>
+        <field name="report_type">qweb-html</field>
+        <field name="report_name">project_agile_solution.report_solution_internal</field>
+        <field name="report_file">project_agile_solution.report_solution_internal</field>
+        <field name="binding_model_id" ref="model_project_agile_solution_revision"/>
+        <field name="binding_type">report</field>
+        <field name="attachment_use" eval="False"/>
+        <field name="attachment" eval="False"/>
+    </record>
+    <record id="report_solution_customer_action" model="ir.actions.report">
+        <field name="name">Exact Solution — Redacted Customer</field>
+        <field name="model">project.agile.solution.revision</field>
+        <field name="report_type">qweb-html</field>
+        <field name="report_name">project_agile_solution.report_solution_customer</field>
+        <field name="report_file">project_agile_solution.report_solution_customer</field>
+        <field name="binding_model_id" ref="model_project_agile_solution_revision"/>
+        <field name="binding_type">report</field>
+        <field name="attachment_use" eval="False"/>
+        <field name="attachment" eval="False"/>
+    </record>
+    <template id="report_solution_internal"><t t-call="project_agile_solution.solution_projection_layout"/></template>
+    <template id="report_solution_customer"><t t-call="project_agile_solution.solution_projection_layout"/></template>
+    <template id="solution_projection_layout">
+        <t t-call="web.html_container">
+            <main class="container o_solution_projection" style="white-space: pre-wrap;">
+                <h1 t-out="projection['title']"/>
+                <p><span t-out="projection['document_name']"/> — Revision <span t-out="projection['number']"/> — <span t-out="projection['status']"/></p>
+                <p><span t-out="projection['project_name']"/> / <span t-out="projection['solution_name']"/></p>
+                <div role="status" class="alert alert-info"><p t-out="projection['notice']"/><p t-out="projection['approval_notice']"/></div>
+                <p t-if="projection['approved_at']">Baseline approval recorded: <span t-out="projection['approved_at']"/> UTC <span t-out="projection['approved_by']"/></p>
+                <p>Scope disposition: <span t-out="projection['scope_disposition']"/></p>
+                <p t-if="projection['scope_change_reason']" t-out="projection['scope_change_reason']"/>
+                <section t-foreach="projection['sections']" t-as="section"><h2 t-out="section['title']"/><p t-out="section['text']"/></section>
+                <h2>Exact requirements and evaluation expectations</h2>
+                <section t-foreach="projection['requirements']" t-as="requirement">
+                    <h3><span t-out="requirement['key']"/> v<span t-out="requirement['number']"/> — <span t-out="requirement['title']"/></h3>
+                    <p><span t-out="requirement['requirement_type']"/> / <span t-out="requirement['priority']"/></p>
+                    <p t-out="requirement['description']"/><p>Rationale: <span t-out="requirement['rationale']"/></p>
+                    <p>Verification: <span t-out="requirement['verification_method']"/></p>
+                    <p>Acceptance expectations: <span t-out="requirement['acceptance_expectations']"/></p>
+                </section>
+                <h2>Structured solution context</h2>
+                <section t-foreach="projection['contexts']" t-as="context">
+                    <h3><span t-out="context['kind']"/> — <span t-out="context['title']"/></h3><p t-out="context['text']"/>
+                    <p t-foreach="context['details']" t-as="detail"><span t-out="detail['label']"/>: <span t-out="detail['text']"/></p>
+                    <p t-foreach="context['requirements']" t-as="requirement">Affected requirement: <span t-out="requirement['key']"/> v<span t-out="requirement['number']"/> — <span t-out="requirement['title']"/></p>
+                    <p t-foreach="context['work']" t-as="work">Captured discovery reference (historical): <span t-out="work['key']"/> — <span t-out="work['title']"/></p>
+                </section>
+                <p>Projection only. Task completion and Git facts do not assert requirement acceptance. References are text; no external resource is fetched.</p>
+            </main>
+        </t>
+    </template>
+</odoo>

@@ -44,7 +44,11 @@ class TestSolutionContract(unittest.TestCase):
         self.assertIn("from . import models", (ADDON / "__init__.py").read_text())
         self.assertIn("test_solution_lineage", (ADDON / "tests" / "__init__.py").read_text())
         self.assertFalse((ADDON / "controllers").exists())
-        self.assertFalse((ADDON / "static").exists())
+        self.assertEqual(set(manifest['assets']), {'web.assets_tests'})
+        for path in manifest['assets']['web.assets_tests']:
+            self.assertTrue(path.startswith('project_agile_solution/static/tests/'))
+            self.assertTrue((ROOT / 'addons' / path).is_file())
+        self.assertEqual({str(path.relative_to(ADDON)) for path in (ADDON / 'static').rglob('*.js')}, {'static/tests/tours/solution_render.js'})
         for addon in (ROOT / "addons").glob("*/__manifest__.py"):
             if addon.parent.name == 'project_agile_solution_scrum':
                 self.assertEqual(ast.literal_eval(addon.read_text())['depends'], ['project_agile_solution', 'project_scrum'])

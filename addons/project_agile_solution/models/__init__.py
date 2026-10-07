@@ -15,3 +15,6 @@ from . import solution_task_access
 from . import solution_task_link
 from . import solution_task_intent
 from . import project_task_trace
+from . import solution_projection
+from . import solution_acceptance
+from . import solution_coverage

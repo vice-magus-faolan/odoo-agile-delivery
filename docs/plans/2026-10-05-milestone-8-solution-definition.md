@@ -99,3 +99,22 @@ Recovery: request changes on the same card; amend source on the same retained la
 get a fresh exact-SHA review. Archive history, append successors, never regenerate Tasks
 or infer old Sprint context. Shared/live recovery, publication and data deletion require
 separate operator approval. Back up before any later migration/uninstall of real data.
+
+## Rendering slice implementation (t_a7974c61)
+
+The rendering slice extends the reviewed traceability parent, exact SHA
+`b7bd27ed0f0bda968d8941faf7db2f3ac5e9dcad`. It adds native exact internal/redacted
+customer QWeb actions, current-user closure-checked preview/text export, internal
+coverage/change-impact categories and append-only manual acceptance decisions.
+Only the exact baseline's approving internal authority can record acceptance;
+named external authority is an assertion, distinguished from the authenticated
+recorder. Acceptance never follows Task Done/Git facts or document approver changes.
+
+The [rendering/acceptance runbook](../runbooks/solution-rendering-and-acceptance.md)
+defines projection rules, conservative closure refusal, maintenance/Project scope,
+comparison/acceptance semantics and limits. No new external dependency or license
+change. Native test assets only; no production JavaScript editor or controller.
+All three synthetic narratives are exercised through actual structured records,
+existing Task links, manual synthetic evidence, separate hypothetical scope
+approvals and native browser/report flows. This is not full M8 approval: the
+existing hardening/security/cumulative/delivery/publication graph remains required.

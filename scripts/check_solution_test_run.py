@@ -27,6 +27,14 @@ def expected_scrum_methods():
     return _declared_methods('project_agile_solution_scrum', 'test_sprint_context.py', 'TestSolutionSprintContext')
 
 
+def expected_rendering_methods():
+    return _declared_methods('project_agile_solution', 'test_solution_rendering.py', 'TestSolutionRendering')
+
+
+def expected_render_tour_methods():
+    return _declared_methods('project_agile_solution', 'test_solution_render_tour.py', 'TestSolutionRenderTour')
+
+
 def _declared_methods(addon, filename, classname):
     path = Path(__file__).resolve().parents[1] / 'addons' / addon / 'tests' / filename
     tree = ast.parse(path.read_text())
@@ -41,6 +49,8 @@ def main():
         'TestSolutionBaseline': ('baseline', expected_methods),
         'TestSolutionRequirements': ('requirement', expected_requirement_methods),
         'TestSolutionTaskTrace': ('TASK_TRACE', expected_trace_methods),
+        'TestSolutionRendering': ('RENDERING', expected_rendering_methods),
+        'TestSolutionRenderTour': ('RENDER_TOUR', expected_render_tour_methods),
     }
     if any('project_agile_solution_scrum' in arg for arg in args):
         suites['TestSolutionSprintContext'] = ('SCRUM_CONTEXT', expected_scrum_methods)

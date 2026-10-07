@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_solution_render_buttons" model="ir.ui.view">
+        <field name="name">solution.revision.render.buttons</field><field name="model">project.agile.solution.revision</field>
+        <field name="inherit_id" ref="view_solution_revision_form"/>
+        <field name="arch" type="xml"><xpath expr="//header" position="inside"><button name="action_preview_projection" type="object" string="Preview / Coverage"/></xpath></field>
+    </record>
+    <record id="view_solution_preview_wizard" model="ir.ui.view">
+        <field name="name">solution.preview.wizard.form</field><field name="model">project.agile.solution.preview.wizard</field>
+        <field name="arch" type="xml"><form string="Exact Solution Projection">
+            <div class="alert alert-info" role="status">Internal preview/export only. Customer output is redacted, not a complete internal baseline. Inaccessible required scope refuses rendering; no silent omission. Draft/review is unapproved.</div>
+            <group><field name="revision_id" options="{'no_create': True}"/><field name="document_id" invisible="1"/><field name="audience" widget="radio"/><field name="baseline_id" invisible="audience != 'internal'" domain="[('document_id', '=', document_id), ('state', 'in', ['approved', 'superseded'])]" options="{'no_create': True}"/></group>
+            <notebook><page string="Audience Projection"><field name="projection_text" readonly="1"/></page><page string="Honest Coverage / Change Impact" invisible="audience != 'internal'"><field name="coverage_text" readonly="1"/></page></notebook>
+            <footer><button name="action_render" type="object" string="Render Selected Audience" class="btn-primary"/><button special="cancel" string="Close"/></footer>
+        </form></field>
+    </record>
+    <record id="view_requirement_acceptance_list" model="ir.ui.view">
+        <field name="name">requirement.acceptance.list</field><field name="model">project.agile.requirement.acceptance</field>
+        <field name="arch" type="xml"><list edit="0" delete="0"><field name="requirement_revision_id"/><field name="document_revision_id"/><field name="decision"/><field name="authority_label"/><field name="recorded_by_id"/><field name="recorded_at"/></list></field>
+    </record>
+    <record id="view_requirement_acceptance_form" model="ir.ui.view">
+        <field name="name">requirement.acceptance.form</field><field name="model">project.agile.requirement.acceptance</field>
+        <field name="arch" type="xml"><form string="Explicit Exact Requirement Decision" edit="0" delete="0" duplicate="0"><sheet>
+            <div class="alert alert-warning" role="status">Only the exact specification approving authority may record this decision. Record evaluated criteria, named authority and actual manual evidence. Done/merged is never automatic acceptance. Saved events are immutable; rejection/withdrawal appends history.</div>
+            <group><field name="requirement_revision_id" options="{'no_create': True}"/><field name="document_revision_id" domain="[('kind', '=', 'spec'), ('state', 'in', ['approved', 'superseded'])]" options="{'no_create': True}"/><field name="decision"/><field name="authority_label" string="Asserted Authority / Role"/><field name="project_id"/><field name="recorded_by_id" required="id" invisible="not id"/><field name="recorded_by_label" required="id" invisible="not id"/><field name="recorded_at" required="id" invisible="not id"/><field name="supersedes_id" invisible="not id"/></group>
+            <group><field name="criteria_evaluated"/><field name="evidence"/></group>
+        </sheet></form></field>
+    </record>
+    <record id="view_requirement_acceptance_search" model="ir.ui.view">
+        <field name="name">requirement.acceptance.search</field><field name="model">project.agile.requirement.acceptance</field>
+        <field name="arch" type="xml"><search><field name="requirement_revision_id"/><field name="document_revision_id"/><field name="authority_label"/><filter name="accepted" string="Acceptance events (not current status)" domain="[('decision', '=', 'accepted')]"/><filter name="withdrawn" string="Withdrawal events" domain="[('decision', '=', 'withdrawn')]"/></search></field>
+    </record>
+    <record id="action_requirement_acceptance" model="ir.actions.act_window"><field name="name">Exact Requirement Decisions</field><field name="res_model">project.agile.requirement.acceptance</field><field name="view_mode">list,form</field></record>
+    <menuitem id="menu_requirement_acceptance" name="Exact Requirement Decisions" parent="project.menu_main_pm" action="action_requirement_acceptance" groups="project.group_project_user" sequence="88"/>
+</odoo>

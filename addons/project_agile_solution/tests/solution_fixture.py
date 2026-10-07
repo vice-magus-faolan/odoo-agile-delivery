@@ -3,7 +3,7 @@ from odoo import Command
 
 
 def seed_scenario(env, manager, company, scenario):
-    """Create real intent/context/baselines; task links and acceptance remain later."""
+    """Create real synthetic intent/context/baselines; never infer acceptance."""
     caller = env['project.agile.solution'].with_user(manager).env
     project = caller['project.project'].create({'name': scenario['project_name'], 'agile_key': scenario['project_key'],
                 'company_id': company.id, 'agile_enabled': True, 'privacy_visibility': 'employees'})
@@ -61,7 +61,8 @@ def _seed_context(env, solution, tasks, requirements, scenario):
                              choice=source['choice'], consequences=source['consequences'],
                              affected_requirement_revision_ids=_references(requirements, source), audience=source['audience'])
     contexts |= _context(env, solution, 'section', 'SYNTHETIC user journey / persona narrative',
-                         body='<p>' + scenario['journey'] + '</p>', sequence=5)
+                         body='<p>' + scenario['journey'] + '</p>', sequence=5,
+                         audience='customer' if scenario['sow'] else 'internal')
     return contexts, question
 
 
@@ -85,7 +86,8 @@ def _document(env, solution, kind, scenario, requirements, contexts, sow=None):
     revision.action_apply_template(template.id)
     if kind == 'sow':
         for section, text in zip(revision.section_ids.sorted('sequence'), scenario['sow_narrative']):
-            section.write({'body': '<p>SYNTHETIC: ' + text + '</p>'})
+            section.write({'body': '<p>SYNTHETIC: ' + text + '</p>', 'audience': 'customer'})
     else:
-        revision.section_ids[0].write({'body': '<p>SYNTHETIC: ' + scenario['purpose'] + '</p>'})
+        revision.section_ids[0].write({'body': '<p>SYNTHETIC: ' + scenario['purpose'] + '</p>',
+                                      'audience': 'customer' if scenario['sow'] else 'internal'})
     return revision

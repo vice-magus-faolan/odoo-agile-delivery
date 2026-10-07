@@ -118,3 +118,18 @@ All three synthetic narratives are exercised through actual structured records,
 existing Task links, manual synthetic evidence, separate hypothetical scope
 approvals and native browser/report flows. This is not full M8 approval: the
 existing hardening/security/cumulative/delivery/publication graph remains required.
+
+## Cumulative verification slice (t_1f505e56)
+
+The [hardening acceptance matrix](../implementation/m8-hardening-matrix.md) maps
+the complete approved scope to imported native tests and retained independent
+process/browser proof. Canonical verification additionally exercises optional
+core and bridge persisted-data targeted updates and extension-only removal /
+reinstall, preserving native Tasks/Sprint events without fabricated M8 history.
+The discovery gate now includes lineage and all future imported native suites,
+and rejects native failure summaries rather than accepting test-start lines.
+Coverage cardinality denial uses a bounded elevated count, with real nonadmin
+collection/query-budget and multi-project/company regression checks. HTTP JSON-RPC
+read/export/action/context/acceptance authority negatives execute against the
+actual Odoo 19 dataset route. No contract/dependency/license or effect expansion.
+Independent security/cumulative/exact-SHA review and publication gates remain.

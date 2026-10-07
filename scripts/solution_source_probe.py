@@ -1,6 +1,19 @@
 """Read-only exact-runtime API discovery and owned disposable baseline race proof."""
 from pathlib import Path
 import hashlib
+import os
+
+# Only reviewed public scripts actually used by this lane; never settings,
+# credentials or a recursively selected path. This runs as the real Odoo user.
+public_scripts = ('solution_source_probe.py', 'solution_scrum_probe.py', 'solution_lifecycle_probe.py',
+                  'git_policy_concurrency_probe.py', 'git_policy_concurrency_worker.py',
+                  'github_association_concurrency_probe.py', 'github_association_concurrency_worker.py')
+assert os.geteuid() != 0, 'Readability proof must not run as root'
+for name in public_scripts:
+    path = Path('/mnt/policy-tests') / name
+    assert path.is_file() and os.access(path, os.R_OK), f'Non-root public script unreadable: {name}'
+    print('M8_PUBLIC_SCRIPT_READABLE', name, hashlib.sha256(path.read_bytes()).hexdigest())
+print('M8_PUBLIC_NONROOT_READABILITY_OK uid=' + str(os.geteuid()), flush=True)
 
 root = Path("/usr/lib/python3/dist-packages/odoo")
 files = (

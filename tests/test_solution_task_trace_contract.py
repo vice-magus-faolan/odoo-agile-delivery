@@ -44,7 +44,7 @@ class TestTaskTraceContract(unittest.TestCase):
         self.assertIn('--init project_agile_solution --test-enable', text)
         self.assertIn('--init project_agile_solution_scrum --test-enable', text)
         self.assertIn('solution_scrum_probe.py', text)
-        self.assertLess(text.index('uninstall_module project_agile_solution_scrum'), text.index('uninstall_module project_agile_solution\n'))
+        self.assertLess(text.index('uninstall_module project_agile_solution_scrum\n'), text.index('uninstall_module project_agile_solution\n'))
         self.assertIn('run_task_probe(env)', self._text('scripts/solution_source_probe.py'))
         self.assertIn("('relink', 'close')", self._text('scripts/solution_scrum_probe.py'))
 
@@ -75,4 +75,6 @@ class TestTaskTraceContract(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('SCRUM_CONTEXT tests not actually discovered', result.stderr)
         text += ''.join(f'Starting TestSolutionSprintContext.{name}\n' for name in module.expected_scrum_methods())
+        text = ''.join(f'Starting {name}.{method}\n' for name, (_, methods) in module.declared_suites(
+            ('project_agile_solution', 'project_agile_solution_scrum')).items() for method in methods)
         self.assertEqual(subprocess.run(args, input=text, text=True, capture_output=True).returncode, 0)

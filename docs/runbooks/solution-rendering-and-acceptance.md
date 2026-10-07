@@ -87,7 +87,7 @@ linked to an older exact row remains historical, not silently upgraded.
 Preview refuses scopes exceeding 1000 rows per queried collection (requirement
 identities/revisions, active links, Project Agile Tasks or acceptance events). Each
 collection uses one bounded caller query and one narrow elevated cardinality deny
-check; elevated counts never reach output. Head/event grouping is linear in memory;
+check, both capped at 1001 rows; elevated counts never reach output. Head/event grouping is linear in memory;
 per-row authorization and existing closure checks remain necessary. This is a bounded
 preview, not a promise of constant query count, a large-Project dashboard SLA or
 enterprise performance validation. Split initiatives; never bypass limits with sudo.
@@ -103,13 +103,13 @@ No production restart/deployment/customer distribution is performed by verificat
 Use canonical `./scripts/verify` on a disposable environment. In the registered M8
 lane the approved local entrypoint is:
 
-    python3 /home/molty/.hermes/scripts/odoo_m8_verify.py t_a7974c61 verify
+    python3 /home/molty/.hermes/scripts/odoo_m8_verify.py t_1f505e56 verify
 
 Focused native checks use the same task's capability, declared disposable DB,
 `--init project_agile_solution --test-enable --test-tags /project_agile_solution`
 and stop-after-init. The discovery gate requires every declared rendering test
-and both browser test methods in addition to all baseline/requirement/trace/bridge
-methods. Canonical install, targeted upgrade, reverse uninstall/reinstall and
+and every browser/RPC test method in addition to all imported lineage/baseline/
+requirement/trace/hardening/bridge methods. Canonical install, targeted upgrade, reverse uninstall/reinstall and
 M1–M7 browser/concurrency/Hoot coverage remain intact. No source/archive substitute.
 
 Tests materialize all three explicitly synthetic public-informed narratives: portal
@@ -119,3 +119,9 @@ internal initiative → no SOW, cross-cutting intent and unlinked maintenance. N
 browser journeys preview draft and exact approved direct report separately. These
 prove tested implementation behavior, not observed API facts, legal sufficiency,
 customer acceptance, production isolation or actual Odoo.sh staging compatibility.
+
+The [cumulative hardening matrix](../implementation/m8-hardening-matrix.md) maps
+the whole accepted scope to concrete tests, documents persisted-data optional
+core/bridge lifecycle checks, the bounded collection query budget and controlled
+backup/restore/migration/retention prerequisites. Synthetic proof and native
+portable HTML output remain distinct from production/customer/Odoo.sh validation.

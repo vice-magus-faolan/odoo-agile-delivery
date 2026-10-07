@@ -42,29 +42,92 @@ def _declared_methods(addon, filename, classname):
             for node in cls.body if isinstance(node, ast.FunctionDef) and node.name.startswith('test_')}
 
 
+LABELS = {
+    'TestSolutionLineage': 'LINEAGE', 'TestSolutionBaseline': 'baseline',
+    'TestSolutionRequirements': 'requirement', 'TestSolutionTaskTrace': 'TASK_TRACE',
+    'TestSolutionRendering': 'RENDERING', 'TestSolutionRenderTour': 'RENDER_TOUR',
+    'TestSolutionSprintContext': 'SCRUM_CONTEXT',
+    'TestSolutionHardening': 'HARDENING',
+}
+
+
+def declared_suites(addons=('project_agile_solution',), root=None):
+    """Derive required native methods from source and require package imports.
+
+    Inherited duplicate execution is not discovery of the declaring class.
+    An added test file must be imported; an empty/missing package cannot pass.
+    This AST check never imports Odoo or substitutes for native execution.
+    """
+    root = root or Path(__file__).resolve().parents[1] / 'addons'
+    suites = {}
+    for addon in addons:
+        for path in imported_test_files(root / addon / 'tests'):
+            for name, methods in file_suites(path).items():
+                if name in suites:
+                    raise ValueError(f'Ambiguous native test class: {name}')
+                suites[name] = (LABELS.get(name, name), methods)
+    if not suites:
+        raise ValueError('No declared native test methods')
+    return suites
+
+
+def imported_test_files(directory):
+    imports = ast.parse((directory / '__init__.py').read_text())
+    imported = {alias.name for node in imports.body if isinstance(node, ast.ImportFrom)
+                and node.level == 1 and node.module is None for alias in node.names}
+    files = sorted(directory.glob('test_*.py'))
+    if not files:
+        raise ValueError(f'No native test files in {directory}')
+    for path in files:
+        if path.stem not in imported:
+            raise ValueError(f'Native test file is not imported: {path}')
+    return files
+
+
+def file_suites(path):
+    suites = {}
+    for cls in ast.parse(path.read_text()).body:
+        if isinstance(cls, ast.ClassDef):
+            methods = {node.name for node in cls.body if isinstance(node, ast.FunctionDef)
+                       and node.name.startswith('test_')}
+            if methods:
+                suites[cls.name] = methods
+    return suites
+
+
+def stream_results(suites):
+    """Stream intact output, retaining test identity and native failure summaries."""
+    observed = {name: set() for name in suites}
+    failed = False
+    for line in sys.stdin:
+        print(line, end='', flush=True)
+        match = re.search(r'Starting (Test\w+)\.(test_\w+)', line)
+        if match and match.group(1) in observed:
+            observed[match.group(1)].add(match.group(2))
+        summary = re.search(r'(\d+) failed, (\d+) error\(s\)', line)
+        if summary and any(int(number) for number in summary.groups()):
+            failed = True
+    return observed, failed
+
+
 def main():
     args = sys.argv[1:]
     required = '--test-enable' in args and any('project_agile_solution' in arg for arg in args)
-    suites = {
-        'TestSolutionBaseline': ('baseline', expected_methods),
-        'TestSolutionRequirements': ('requirement', expected_requirement_methods),
-        'TestSolutionTaskTrace': ('TASK_TRACE', expected_trace_methods),
-        'TestSolutionRendering': ('RENDERING', expected_rendering_methods),
-        'TestSolutionRenderTour': ('RENDER_TOUR', expected_render_tour_methods),
-    }
+    addons = ['project_agile_solution']
     if any('project_agile_solution_scrum' in arg for arg in args):
-        suites['TestSolutionSprintContext'] = ('SCRUM_CONTEXT', expected_scrum_methods)
-    observed = {name: set() for name in suites}
-    for line in sys.stdin:
-        print(line, end='', flush=True)
-        match = re.search(r'Starting (TestSolution\w+)\.(test_\w+)', line)
-        if match and match.group(1) in observed:
-            observed[match.group(1)].add(match.group(2))
-    if required:
-        for name, (label, expected) in suites.items():
-            if not _check_discovery(label, expected(), observed[name]):
-                return 1
-    return 0
+        addons.append('project_agile_solution_scrum')
+    try:
+        suites = declared_suites(addons) if required else {}
+    except (OSError, ValueError, SyntaxError) as error:
+        print(f'M8 native discovery contract failed: {error}', file=sys.stderr)
+        return 1
+    observed, failed = stream_results(suites)
+    complete = True
+    for name, (label, expected) in suites.items():
+        complete = _check_discovery(label, expected, observed[name]) and complete
+    if failed:
+        print('Odoo reported a native test failure; starting tests is not passing them.', file=sys.stderr)
+    return 0 if complete and not failed else 1
 
 
 def _check_discovery(label, expected, observed):

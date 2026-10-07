@@ -14,7 +14,7 @@ def complete_rows(env, model, domain):
     rows = caller.search(domain, limit=LIMIT + 1)
     if len(rows) > LIMIT:
         raise ValidationError(_('Selected scope exceeds the bounded preview; split the initiative.'))
-    if caller.sudo().search_count(domain) != len(rows):
+    if caller.sudo().search_count(domain, limit=LIMIT + 1) != len(rows):
         raise AccessError(_('Coverage is unavailable because required scope is inaccessible.'))
     rows.check_access('read')
     return rows

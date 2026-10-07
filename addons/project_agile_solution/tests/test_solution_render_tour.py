@@ -59,3 +59,47 @@ class TestSolutionRenderTour(HttpCase):
         self.authenticate(None, None)
         public = self.url_open(url)
         self.assertNotIn(scenario_title, public.text)
+
+    def _rpc(self, model, method, args, context=None):
+        """Exercise the exact Odoo 19 authenticated dataset JSON-RPC route."""
+        payload = {'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': {
+            'model': model, 'method': method, 'args': args, 'kwargs': {'context': context or {}}}}
+        response = self.url_open('/web/dataset/call_kw', data=json.dumps(payload),
+                                 headers={'Content-Type': 'application/json'})
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def test_native_jsonrpc_hidden_closure_export_and_action_bypass_negatives(self):
+        seeded = seed_scenario(self.env, self.manager, self.env.company, self.scenarios[0])
+        baseline, requirement = seeded['spec'], seeded['requirements']['FR1']
+        self.authenticate(self.reader.login, self.reader.login)
+        model = baseline._name
+        allowed = self._rpc(model, 'action_projection', [baseline.ids, 'customer'])
+        self.assertIn('requirements', allowed['result'])
+        acceptance = self._rpc('project.agile.requirement.acceptance', 'create', [{
+            'document_revision_id': baseline.id, 'requirement_revision_id': requirement.id,
+            'decision': 'accepted', 'authority_label': 'SYNTHETIC forged reader authority',
+            'criteria_evaluated': 'SYNTHETIC forged criteria', 'evidence': 'SYNTHETIC forged evidence'}],
+            {'sudo': True, 'solution_trusted': True})
+        self.assertEqual(acceptance['error']['data']['name'], 'odoo.exceptions.AccessError')
+        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([]))
+        hidden_description = requirement.description
+        self.env['ir.rule'].create({'name': 'SYNTHETIC RPC hidden exact requirement',
+            'model_id': self.env['ir.model']._get_id(requirement._name),
+            'domain_force': repr([('id', '!=', requirement.id)])})
+        self.env.flush_all()
+        context = {'sudo': True, 'solution_trusted': True, 'skip_immutability': True,
+                   'default_state': 'approved', 'audience': 'internal'}
+        calls = [('read', [baseline.ids, ['snapshot_json']]),
+                 ('export_data', [baseline.ids, ['snapshot_json']]),
+                 ('action_read_snapshot', [baseline.ids]),
+                 ('action_projection', [baseline.ids, 'customer']),
+                 ('action_coverage', [baseline.ids]),
+                 ('action_approve', [baseline.ids])]
+        for method, args in calls:
+            with self.subTest(method=method):
+                denied = self._rpc(model, method, args, context)
+                self.assertNotIn('result', denied)
+                self.assertEqual(denied['error']['data']['name'], 'odoo.exceptions.AccessError')
+                self.assertNotIn(hidden_description, json.dumps(denied))
+        self.assertEqual(baseline.state, 'approved')

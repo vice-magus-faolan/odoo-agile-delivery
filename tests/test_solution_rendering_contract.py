@@ -66,4 +66,5 @@ class TestSolutionRenderingContract(unittest.TestCase):
         self.assertNotEqual(missing_browser.returncode, 0)
         self.assertIn('RENDER_TOUR tests not actually discovered', missing_browser.stderr)
         text += ''.join(f'Starting TestSolutionRenderTour.{method}\n' for method in module.expected_render_tour_methods())
+        text = ''.join(f'Starting {name}.{method}\n' for name, (_, methods) in module.declared_suites().items() for method in methods)
         self.assertEqual(subprocess.run(command, input=text, text=True, capture_output=True).returncode, 0)

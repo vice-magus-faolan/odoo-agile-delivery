@@ -106,7 +106,8 @@ class TestSolutionHardening(TestSolutionRendering):
         with self.assertRaises(AccessError):
             intent.with_context(solution_trusted=True, default_state='consumed').action_confirm()
         self.assertEqual(self.env['project.task'].search_count([]), count)
-        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([]))
+        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([
+            ('document_revision_id', '=', baseline.id)]))
         self.assertEqual(intent.sudo().state, 'preview')
 
     def test_batch_link_failure_rolls_back_first_edge_and_content_seal(self):

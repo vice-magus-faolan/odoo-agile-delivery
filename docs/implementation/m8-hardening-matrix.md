@@ -63,8 +63,8 @@ lifecycles on `odoo_agile_verify_install` before aggregate install:
 - Aggregate: clean install on install DB, clean schema plus targeted upgrade on
   `odoo_agile_verify_upgrade`, dependency-reversed uninstall/reinstall on
   `odoo_agile_verify_reinstall`. Every tested phase requires all imported M8
-  declared methods, including lineage/hardening/HTTP and optional bridge. Odoo
-  failure summaries fail the stream gate; upstream process exit is retained by
+  declared methods, including lineage/hardening/HTTP and optional bridge. Selected
+  native skipped methods and failure summaries fail the stream gate; upstream process exit is retained by
   Bash `pipefail`. AST/parser tests are not a native execution substitute.
 
 Non-root readability: check reviewed public files and directory traversal first.
@@ -119,6 +119,11 @@ protection or authorization from a context hint.
 Initial RED evidence preserves omitted-lineage and false-pass failure-summary
 parser regressions plus native uncapped-count failure. An initial unreadable new
 test-file run and a test-fixture late access error are retained, not called proof.
+An additional genuine RED rejects an otherwise complete stream with a skipped
+native browser method: Odoo 19 `tests/result.py` logs a skip but may still report
+zero failures/errors, so a start-line plus summary is insufficient. The gate
+removes skipped selected methods from observed proof. Other addons are not widened
+into this M8 AST contract; their existing process/test/browser checks remain.
 Green results and exact full commit are recorded in the same-card handoff with
 real exit statuses, native discovery markers and capability cleanup receipt.
 

@@ -92,6 +92,15 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
         text = self._complete_stream() + '0 failed, 0 error(s) of 105 tests when loading database\n'
         self.assertEqual(self._run(text, ['--init', 'project_agile_solution', '--test-enable']).returncode, 0)
 
+    def test_skipped_native_browser_method_is_not_execution_proof(self):
+        method = sorted(self._methods('expected_render_tour_methods'))[0]
+        for description in (f'TestSolutionRenderTour.{method}', f'Subtest TestSolutionRenderTour.{method} (method="read")'):
+            with self.subTest(description=description):
+                text = self._complete_stream() + f'skipped {description} : browser unavailable\n'
+                result = self._run(text, ['--init', 'project_agile_solution', '--test-enable'])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('was skipped', result.stderr)
+
     def test_missing_requirement_discovery_is_rejected(self):
         text = ''.join(f'Starting TestSolutionBaseline.{name}\n' for name in sorted(self._methods()))
         result = self._run(text, ['--init', 'project_agile_solution', '--test-enable'])

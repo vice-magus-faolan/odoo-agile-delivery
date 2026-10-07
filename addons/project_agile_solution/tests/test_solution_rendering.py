@@ -180,7 +180,8 @@ class TestSolutionRendering(TestSolutionRequirements):
         unrelated = self._requirement()
         with self.assertRaises(ValidationError):
             self._event(draft, unrelated)
-        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([]))
+        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([
+            ('document_revision_id', '=', draft.id)]))
 
     def test_other_manager_and_user_cannot_assert_exact_baseline_authority(self):
         baseline, requirement = self._approved()

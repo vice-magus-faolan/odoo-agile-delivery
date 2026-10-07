@@ -98,15 +98,23 @@ def file_suites(path):
 def stream_results(suites):
     """Stream intact output, retaining test identity and native failure summaries."""
     observed = {name: set() for name in suites}
+    skipped = {name: set() for name in suites}
     failed = False
     for line in sys.stdin:
         print(line, end='', flush=True)
         match = re.search(r'Starting (Test\w+)\.(test_\w+)', line)
         if match and match.group(1) in observed:
             observed[match.group(1)].add(match.group(2))
+        skip = re.search(r'skipped (?:Subtest )?(Test\w+)\.(test_\w+)\b', line)
+        if skip and skip.group(1) in skipped:
+            skipped[skip.group(1)].add(skip.group(2))
         summary = re.search(r'(\d+) failed, (\d+) error\(s\)', line)
         if summary and any(int(number) for number in summary.groups()):
             failed = True
+    for name, methods in skipped.items():
+        if methods:
+            observed[name] -= methods
+            print(f'Required native test was skipped: {name}.' + ', '.join(sorted(methods)), file=sys.stderr)
     return observed, failed
 
 

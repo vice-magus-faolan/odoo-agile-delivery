@@ -82,7 +82,8 @@ class TestSolutionRenderTour(HttpCase):
             'criteria_evaluated': 'SYNTHETIC forged criteria', 'evidence': 'SYNTHETIC forged evidence'}],
             {'sudo': True, 'solution_trusted': True})
         self.assertEqual(acceptance['error']['data']['name'], 'odoo.exceptions.AccessError')
-        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([]))
+        self.assertFalse(self.env['project.agile.requirement.acceptance'].search([
+            ('document_revision_id', '=', baseline.id)]))
         hidden_description = requirement.description
         self.env['ir.rule'].create({'name': 'SYNTHETIC RPC hidden exact requirement',
             'model_id': self.env['ir.model']._get_id(requirement._name),

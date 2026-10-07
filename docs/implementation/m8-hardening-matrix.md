@@ -131,6 +131,10 @@ The persisted-core retry passed, then genuine bridge seed execution exposed a
 fixture-only JSON serialization error for native event datetimes. A focused
 RED/GREEN covers exact ISO timestamp precision and relational normalization;
 native bridge update/removal/reinstall remains required proof of preservation.
+That native retry then correctly failed discovery on bridge reinstall: Odoo only
+ran the newly initialized bridge, not the already installed core. The reinstall
+now explicitly updates core alongside bridge initialization; all selected native
+suites must execute rather than loosening the gate to accept ten bridge tests.
 Green results and exact full commit are recorded in the same-card handoff with
 real exit statuses, native discovery markers and capability cleanup receipt.
 

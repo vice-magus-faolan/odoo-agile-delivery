@@ -111,7 +111,7 @@ run_odoo --database "$DATABASE_INSTALL" --update project_agile_solution,project_
 solution_lifecycle check_bridge
 uninstall_module project_agile_solution_scrum "$DATABASE_INSTALL"
 solution_lifecycle removed_bridge
-run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --test-enable --test-tags /project_agile_solution,/project_agile_solution_scrum
+run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --update project_agile_solution --test-enable --test-tags /project_agile_solution,/project_agile_solution_scrum
 solution_lifecycle reinstalled_bridge
 printf "%s\n" "Independent bridge persisted-data upgrade and uninstall/reinstall preserve native history without fabricated backfill."
 reset_verification_database "$DATABASE_INSTALL"

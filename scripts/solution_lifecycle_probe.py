@@ -5,6 +5,7 @@ Commits belong exclusively to this owned fixture, never business methods.
 Uninstall destroys M8 history; these checks do not promise archival retention.
 """
 import json
+from datetime import date, datetime
 
 from odoo import Command
 
@@ -26,8 +27,11 @@ def native_values(task):
 
 
 def record_values(record, fields):
-    # Odoo read returns relational tuples; persisted JSON stores arrays.
-    return json.loads(json.dumps(record.read(fields)[0]))
+    # Preserve native event timestamp precision and normalize relational tuples
+    # identically before and after the persisted-data upgrade.
+    values = {key: value.isoformat() if isinstance(value, (date, datetime)) else value
+              for key, value in record.read(fields)[0].items()}
+    return json.loads(json.dumps(values))
 
 
 def seed_fixture(bridge):

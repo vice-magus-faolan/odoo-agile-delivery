@@ -66,7 +66,7 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
 
     def _complete_stream(self, addons=('project_agile_solution',)):
         return ''.join(f'Starting {name}.{method}\n' for name, (_, methods) in self._module().declared_suites(addons).items()
-                       for method in sorted(methods))
+                       for method in sorted(methods)) + '0 failed, 0 error(s) of 105 tests when loading database\n'
 
     def test_bridge_requires_its_own_declared_native_methods(self):
         args = ['--init', 'project_agile_solution_scrum', '--test-enable']
@@ -91,6 +91,20 @@ class TestSolutionNativeDiscoveryGate(unittest.TestCase):
     def test_successful_summary_does_not_reject_a_complete_stream(self):
         text = self._complete_stream() + '0 failed, 0 error(s) of 105 tests when loading database\n'
         self.assertEqual(self._run(text, ['--init', 'project_agile_solution', '--test-enable']).returncode, 0)
+
+    def test_complete_start_lines_without_native_result_are_rejected(self):
+        starts = self._complete_stream().split('0 failed,')[0]
+        result = self._run(starts, ['--init', 'project_agile_solution', '--test-enable'])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Missing successful native result summary', result.stderr)
+
+    def test_empty_result_and_later_success_cannot_mask_missing_or_failed_execution(self):
+        args = ['--init', 'project_agile_solution', '--test-enable']
+        starts = self._complete_stream().split('0 failed,')[0]
+        empty = starts + '0 failed, 0 error(s) of 0 tests when loading database\n'
+        self.assertNotEqual(self._run(empty, args).returncode, 0)
+        failed = '0 failed, 1 error(s) of 105 tests when loading database\n' + self._complete_stream()
+        self.assertNotEqual(self._run(failed, args).returncode, 0)
 
     def test_skipped_native_browser_method_is_not_execution_proof(self):
         method = sorted(self._methods('expected_render_tour_methods'))[0]

@@ -77,4 +77,5 @@ class TestTaskTraceContract(unittest.TestCase):
         text += ''.join(f'Starting TestSolutionSprintContext.{name}\n' for name in module.expected_scrum_methods())
         text = ''.join(f'Starting {name}.{method}\n' for name, (_, methods) in module.declared_suites(
             ('project_agile_solution', 'project_agile_solution_scrum')).items() for method in methods)
+        text += '0 failed, 0 error(s) of 123 tests when loading database\n'
         self.assertEqual(subprocess.run(args, input=text, text=True, capture_output=True).returncode, 0)

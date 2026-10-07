@@ -95,11 +95,21 @@ def file_suites(path):
     return suites
 
 
+def native_result(line):
+    """Interpret an actual Odoo result summary, not a test-start marker."""
+    summary = re.search(r'(\d+) failed, (\d+) error\(s\) of (\d+) tests when loading database', line)
+    if not summary:
+        return False, False
+    failures, errors, tests = map(int, summary.groups())
+    return bool(failures or errors), failures == errors == 0 and tests > 0
+
+
 def stream_results(suites):
     """Stream intact output, retaining test identity and native failure summaries."""
     observed = {name: set() for name in suites}
     skipped = {name: set() for name in suites}
     failed = False
+    successful_summary = False
     for line in sys.stdin:
         print(line, end='', flush=True)
         match = re.search(r'Starting (Test\w+)\.(test_\w+)', line)
@@ -108,14 +118,14 @@ def stream_results(suites):
         skip = re.search(r'skipped (?:Subtest )?(Test\w+)\.(test_\w+)\b', line)
         if skip and skip.group(1) in skipped:
             skipped[skip.group(1)].add(skip.group(2))
-        summary = re.search(r'(\d+) failed, (\d+) error\(s\)', line)
-        if summary and any(int(number) for number in summary.groups()):
-            failed = True
+        line_failed, line_successful = native_result(line)
+        failed = failed or line_failed
+        successful_summary = successful_summary or line_successful
     for name, methods in skipped.items():
         if methods:
             observed[name] -= methods
             print(f'Required native test was skipped: {name}.' + ', '.join(sorted(methods)), file=sys.stderr)
-    return observed, failed
+    return observed, failed, successful_summary
 
 
 def main():
@@ -129,12 +139,15 @@ def main():
     except (OSError, ValueError, SyntaxError) as error:
         print(f'M8 native discovery contract failed: {error}', file=sys.stderr)
         return 1
-    observed, failed = stream_results(suites)
+    observed, failed, successful_summary = stream_results(suites)
     complete = True
     for name, (label, expected) in suites.items():
         complete = _check_discovery(label, expected, observed[name]) and complete
     if failed:
         print('Odoo reported a native test failure; starting tests is not passing them.', file=sys.stderr)
+    if required and not successful_summary:
+        print('Missing successful native result summary for selected M8 tests.', file=sys.stderr)
+        complete = False
     return 0 if complete and not failed else 1
 
 

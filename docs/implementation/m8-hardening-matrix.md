@@ -124,6 +124,13 @@ native browser method: Odoo 19 `tests/result.py` logs a skip but may still repor
 zero failures/errors, so a start-line plus summary is insufficient. The gate
 removes skipped selected methods from observed proof. Other addons are not widened
 into this M8 AST contract; their existing process/test/browser checks remain.
+Another genuine RED demonstrates that all start lines with no native result summary
+passed the old gate. Selected M8 execution now also requires a nonempty successful
+native result summary; truncated/source-only streams cannot supply that proof.
+The persisted-core retry passed, then genuine bridge seed execution exposed a
+fixture-only JSON serialization error for native event datetimes. A focused
+RED/GREEN covers exact ISO timestamp precision and relational normalization;
+native bridge update/removal/reinstall remains required proof of preservation.
 Green results and exact full commit are recorded in the same-card handoff with
 real exit statuses, native discovery markers and capability cleanup receipt.
 

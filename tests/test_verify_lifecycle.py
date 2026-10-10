@@ -125,6 +125,16 @@ class TestVerifyLifecycle(unittest.TestCase):
         self.assertEqual(result.returncode, 23)
         self.assertFalse((self.root / "owned").exists())
 
+    def test_public_probe_mount_is_readable_after_restrictive_checkout(self):
+        scripts = self.root / "scripts"
+        scripts.chmod(0o700)
+        probe = scripts / "solution_source_probe.py"
+        probe.chmod(0o600)
+        result, _ = self.run_verify()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(scripts.stat().st_mode & 0o005, 0o005)
+        self.assertEqual(probe.stat().st_mode & 0o004, 0o004)
+
     def test_cleanup_failure_makes_success_fail(self):
         result, _ = self.run_verify("cleanup_failure")
         self.assertEqual(result.returncode, 1)

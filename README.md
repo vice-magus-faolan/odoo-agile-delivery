@@ -133,10 +133,17 @@ disposable Odoo 19 databases:
 - install, dependency-safe ORM uninstall in reverse order, then reinstall with
   focused tests.
 
-The verifier defaults to a deterministic, worktree-local Compose namespace
-(`odoo-agile-verify-<worktree>`), avoiding the normal development namespace and
-removing only that disposable namespace and its volumes on exit. An explicitly
-provided `COMPOSE_PROJECT_NAME` is respected and never cleaned automatically.
+The verifier defaults to a fresh, worktree-scoped Compose namespace
+(`odoo-agile-verify-<worktree>-<pid>`), avoiding the normal development namespace.
+An explicitly provided `COMPOSE_PROJECT_NAME` must also be fresh: existing
+containers, volumes or networks are refused before database reset or teardown.
+Same-name verifier runs are serialized with `flock` (required alongside Compose).
+Shared/external or custom-named storage is refused. All owned disposable
+containers, volumes and networks are removed on exit, including failure and
+INT/TERM interruption; setting a project name never enables retention.
+Teardown failures are reported separately and make a successful run fail, while
+an original verification failure keeps its exit status. The database healthcheck
+uses TCP so the temporary PostgreSQL initialization server is not considered ready.
 The check starts only the Compose `db` service and uses transient
 `docker compose run --rm` Odoo containers from a committed test-only verification image
 (`Dockerfile.verify` plus `compose.verify.yaml`). That image adds a pinned
@@ -152,9 +159,8 @@ revocation/manual-write races and crash recovery. No live Odoo.sh test is claime
 Before each lifecycle, the verifier touches only its three declared disposable databases
 (`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
 `odoo_agile_verify_reinstall`), terminates their resident sessions, and refuses
-any other database name. Default cleanup removes only its worktree-local disposable
-namespace; it never touches unrelated services, databases, volumes, or an explicitly
-selected Compose project.
+any other database name. Cleanup removes only its fresh disposable namespace;
+it never touches unrelated services, databases or volumes.
 
 Run `./scripts/test_planning_concurrency.py` for the separate real-connection
 regression. It creates, tests, and removes only the task-named

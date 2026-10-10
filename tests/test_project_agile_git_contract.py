@@ -85,8 +85,6 @@ class TestProjectAgileGitContract(unittest.TestCase):
             verify_script,
         )
         self.assertIn("export COMPOSE_PROJECT_NAME", verify_script)
-        self.assertIn("COMPOSE_PROJECT_NAME_WAS_SET=false", verify_script)
-        self.assertIn("if [[ $COMPOSE_PROJECT_NAME_WAS_SET == false ]]", verify_script)
         self.assertIn("trap cleanup_verification_resources EXIT", verify_script)
         self.assertIn('"${COMPOSE[@]}" down --volumes --remove-orphans', verify_script)
 

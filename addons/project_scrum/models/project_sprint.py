@@ -11,6 +11,13 @@ class ProjectSprint(models.Model):
     _description = "Project Sprint"
     _order = "date_start desc, id desc"
 
+    # Keep the legacy SQL name: Odoo reuses existing uncommented indexes on
+    # upgrade, so populated databases retain enforcement without rebuilding it.
+    _active_project_team_unique = models.UniqueIndex(
+        "(project_id, team_id) WHERE state = 'active'",
+        "Only one Sprint can be active for a project and Agile team.",
+    )
+
     name = fields.Char(required=True)
     project_id = fields.Many2one("project.project", required=True, ondelete="restrict", index=True)
     company_id = fields.Many2one(related="project_id.company_id", store=True, readonly=True, index=True)
@@ -48,15 +55,6 @@ class ProjectSprint(models.Model):
                 raise ValidationError(_("The Agile team must belong to the Sprint project."))
             if sprint.date_start and sprint.date_end and sprint.date_start > sprint.date_end:
                 raise ValidationError(_("The Sprint end date cannot precede its start date."))
-
-    @api.constrains("state", "project_id", "team_id")
-    def _check_single_active_sprint(self):
-        for sprint in self.filtered(lambda record: record.state == "active"):
-            if self.search_count([("id", "!=", sprint.id), ("state", "=", "active"), ("project_id", "=", sprint.project_id.id), ("team_id", "=", sprint.team_id.id)]):
-                raise ValidationError(_("Only one Sprint can be active for a project and Agile team."))
-
-    def init(self):
-        self.env.cr.execute("CREATE UNIQUE INDEX IF NOT EXISTS project_sprint_active_project_team_unique ON project_sprint (project_id, team_id) WHERE state = 'active'")
 
     def _append_scope_events(
         self,
@@ -115,6 +113,8 @@ class ProjectSprint(models.Model):
             self._set_lifecycle_state("active")
             self.with_user(SUPERUSER_ID).flush_recordset(["state"])
         except IntegrityError as error:
+            # Direct lifecycle calls do not pass through Odoo's RPC error
+            # translation; action_start's savepoint rolls back all evidence.
             if error.diag.constraint_name == "project_sprint_active_project_team_unique":
                 raise ValidationError(_("Only one Sprint can be active for a project and Agile team.")) from error
             raise
@@ -125,8 +125,6 @@ class ProjectSprint(models.Model):
             if sprint.state != "draft":
                 raise ValidationError(_("Only a draft Sprint can be started."))
             sprint._check_sprint_consistency()
-            if self.search_count([("state", "=", "active"), ("project_id", "=", sprint.project_id.id), ("team_id", "=", sprint.team_id.id)]):
-                raise ValidationError(_("Only one Sprint can be active for a project and Agile team."))
             with self.env.cr.savepoint():
                 sprint._activate()
         return True

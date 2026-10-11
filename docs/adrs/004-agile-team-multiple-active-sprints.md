@@ -26,13 +26,6 @@ Sprints do not reserve this slot. Lifecycle actions retain access, state and
 consistency checks; activation translates this index's `IntegrityError` into a
 business error inside a savepoint, rolling back commitment and scope evidence.
 
-The declaration preserves `project_sprint_active_project_team_unique`, the
-original handwritten index name. Odoo 19's `Index.apply_to_database` reuses an
-existing uncommented index, so ordinary module update adopts the original
-partial index without dropping/rebuilding it or duplicating enforcement. No
-versioned migration or manifest bump is needed for this adoption. Native tests
-cover the catalog, activation rollback and active-team edits.
-
 ## Alternatives
 
 - One active Sprint globally: rejected because it couples unrelated workspaces.

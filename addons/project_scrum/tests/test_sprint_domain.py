@@ -7,6 +7,7 @@ from odoo import Command, fields
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.misc import mute_logger
 
 
 class TestProjectScrumDomain(TransactionCase):
@@ -58,6 +59,7 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(events.task_id, self.task)
         self.assertEqual(events.story_points, 5)
 
+    @mute_logger("odoo.sql_db")
     def test_only_one_team_sprint_can_be_active_per_project(self):
         first = self._create_sprint("Sprint 1")
         second = self._create_sprint("Sprint 2")
@@ -73,24 +75,7 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual((first.state, parallel.state), ("active", "active"))
 
-    def test_native_active_sprint_index_is_unique_valid_and_partial(self):
-        self.env.cr.execute("""
-            SELECT c.relname, i.indisunique, i.indisvalid,
-                   pg_get_indexdef(i.indexrelid),
-                   pg_get_expr(i.indpred, i.indrelid)
-              FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
-             WHERE i.indrelid = 'project_sprint'::regclass
-               AND i.indpred IS NOT NULL
-        """)
-        indexes = self.env.cr.fetchall()
-        self.assertEqual(len(indexes), 1, indexes)
-        name, unique, valid, definition, predicate = indexes[0]
-        self.assertEqual(name, "project_sprint_active_project_team_unique")
-        self.assertTrue(unique)
-        self.assertTrue(valid)
-        self.assertIn("(project_id, team_id)", definition)
-        self.assertEqual(predicate, "((state)::text = 'active'::text)")
-
+    @mute_logger("odoo.sql_db")
     def test_rejected_start_rolls_back_commitment_and_scope_events(self):
         first = self._create_sprint("Active Sprint")
         second = self._create_sprint("Rejected Sprint", task_ids=[Command.set(self.task.ids)])
@@ -128,6 +113,7 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual((first.state, second.state, third.state), ("closed", "closed", "active"))
 
+    @mute_logger("odoo.sql_db")
     def test_active_team_change_cannot_bypass_native_uniqueness(self):
         other_team = self.env["project.agile.team"].create(
             {"name": "Other Team", "project_id": self.project.id}

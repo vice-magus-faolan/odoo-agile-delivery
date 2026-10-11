@@ -11,8 +11,6 @@ class ProjectSprint(models.Model):
     _description = "Project Sprint"
     _order = "date_start desc, id desc"
 
-    # Keep the legacy SQL name: Odoo reuses existing uncommented indexes on
-    # upgrade, so populated databases retain enforcement without rebuilding it.
     _active_project_team_unique = models.UniqueIndex(
         "(project_id, team_id) WHERE state = 'active'",
         "Only one Sprint can be active for a project and Agile team.",

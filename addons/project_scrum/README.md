@@ -54,20 +54,6 @@ The repository `./scripts/verify` is the repository regression gate.
 Run the focused project_scrum command above for this module on a fresh disposable
 database.
 
-The independent-transaction regression in `tests/sprint_start_concurrency.py`
-is run from Odoo shell after ordinary server installation of `project_scrum`
-into the disposable `odoo_agile_scrum_uniqueness` database, or after updating
-the populated legacy `odoo_agile_scrum_legacy` database from the original
-handwritten-index schema:
-
-    from odoo.addons.project_scrum.tests.sprint_start_concurrency import run_probe
-    run_probe(env)
-
-It commits synthetic fixtures and uses two independent native database cursors
-per race, so do not run it against customer data or a TransactionCase cursor.
-Three competing starts verify one winner, the business error, and a clean loser
-savepoint even when the losing transaction subsequently commits.
-
 The implementation follows [ADR-003](../../docs/adrs/003-sprint-scope-history-strategy.md)
 and [ADR-004](../../docs/adrs/004-agile-team-multiple-active-sprints.md).
 

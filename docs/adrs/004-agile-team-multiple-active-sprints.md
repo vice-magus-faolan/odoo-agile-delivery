@@ -20,8 +20,11 @@ Project roles do not provide a durable Sprint ownership boundary. A team belongs
 to one Agile-enabled Project and inherits its company.
 
 Multiple active Sprints are allowed for distinct teams in the same Project. A
-partial unique index and ORM constraint reject a second active Sprint for the
-same `(project_id, team_id)` pair.
+native Odoo 19 `models.UniqueIndex` rejects a second active Sprint for the same
+`(project_id, team_id)` pair, including competing transactions. Draft and closed
+Sprints do not reserve this slot. Lifecycle actions retain access, state and
+consistency checks; activation translates this index's `IntegrityError` into a
+business error inside a savepoint, rolling back commitment and scope evidence.
 
 ## Alternatives
 

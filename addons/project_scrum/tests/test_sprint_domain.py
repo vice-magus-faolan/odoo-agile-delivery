@@ -1,10 +1,13 @@
 from unittest.mock import patch
 
+from psycopg2 import IntegrityError
+
 from odoo import SUPERUSER_ID
 from odoo import Command, fields
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.misc import mute_logger
 
 
 class TestProjectScrumDomain(TransactionCase):
@@ -56,6 +59,7 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(events.task_id, self.task)
         self.assertEqual(events.story_points, 5)
 
+    @mute_logger("odoo.sql_db")
     def test_only_one_team_sprint_can_be_active_per_project(self):
         first = self._create_sprint("Sprint 1")
         second = self._create_sprint("Sprint 2")
@@ -70,6 +74,63 @@ class TestProjectScrumDomain(TransactionCase):
         parallel.action_start()
 
         self.assertEqual((first.state, parallel.state), ("active", "active"))
+
+    @mute_logger("odoo.sql_db")
+    def test_rejected_start_rolls_back_commitment_and_scope_events(self):
+        first = self._create_sprint("Active Sprint")
+        second = self._create_sprint("Rejected Sprint", task_ids=[Command.set(self.task.ids)])
+        self.task.write({"state": "1_done"})
+        first.action_start()
+        manager = mail_new_test_user(
+            self.env, "Rejected start manager", groups="project.group_project_manager"
+        )
+
+        with self.assertRaisesRegex(ValidationError, "Only one Sprint can be active") as caught:
+            second.with_user(manager).action_start()
+
+        # The real native index, not a preflight search, rejected activation.
+        self.assertIsInstance(caught.exception.__cause__, IntegrityError)
+        self.assertEqual(
+            caught.exception.__cause__.diag.constraint_name,
+            "project_sprint_active_project_team_unique",
+        )
+        self.assertEqual(second.state, "draft")
+        self.assertFalse(second.committed_task_ids)
+        self.assertFalse(second.scope_event_ids)
+        self.assertEqual(self.task.sprint_id, second)
+        self.assertEqual(self.task.state, "1_done")
+        self.assertEqual(first.state, "active")
+
+    def test_closed_sprints_do_not_reserve_the_active_team_slot(self):
+        first = self._create_sprint("First Sprint")
+        second = self._create_sprint("Second Sprint")
+        third = self._create_sprint("Third Sprint")
+        first.action_start()
+        first.action_close()
+        second.action_start()
+        second.action_close()
+        third.action_start()
+
+        self.assertEqual((first.state, second.state, third.state), ("closed", "closed", "active"))
+
+    @mute_logger("odoo.sql_db")
+    def test_active_team_change_cannot_bypass_native_uniqueness(self):
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Other Team", "project_id": self.project.id}
+        )
+        first = self._create_sprint("First Sprint")
+        second = self._create_sprint("Second Sprint", team=other_team)
+        first.action_start()
+        second.action_start()
+
+        with self.assertRaises(IntegrityError) as caught, self.env.cr.savepoint():
+            second.write({"team_id": self.team.id})
+            second.flush_recordset(["team_id"])
+
+        self.assertEqual(caught.exception.diag.constraint_name, "project_sprint_active_project_team_unique")
+        self.assertIn("Only one Sprint can be active", second._sql_error_to_message(caught.exception))
+        self.assertEqual(second.team_id, other_team)
+        self.assertEqual((first.state, second.state), ("active", "active"))
 
     def test_lifecycle_state_cannot_bypass_start_action(self):
         sprint = self._create_sprint("Sprint 1")

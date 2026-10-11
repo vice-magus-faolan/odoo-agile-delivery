@@ -12,8 +12,9 @@ Git or Knowledge integration.
 - A Sprint belongs to exactly one Agile Project and one Agile team. Its lifecycle
   is `draft` to `active` to `closed`; lifecycle transitions are action-only at
   the ORM boundary.
-- PostgreSQL and ORM constraints allow one active Sprint for a `(project, team)`
-  pair, while distinct teams can run active Sprints for the same Project.
+- A native Odoo partial unique index allows one active Sprint for a
+  `(project, team)` pair, while distinct teams can run active Sprints for the
+  same Project. Rejected starts roll back commitment and scope evidence.
 - Native `project.task` receives an optional `sprint_id`. Assignment is checked
   at the ORM layer so task, Sprint, Project, and company cannot cross boundaries.
   Sprint assignment also requires a configured Sprint-eligible item type; typeless Agile tasks remain unscheduled. Ordinary non-Agile tasks remain unscheduled and otherwise behave normally.

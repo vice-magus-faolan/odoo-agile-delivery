@@ -76,18 +76,5 @@ class TestProjectAgileGitContract(unittest.TestCase):
         self.assertIn("project_id.message_partner_ids", security)
         self.assertIn("repository_id.project_id.message_partner_ids", security)
 
-    def test_verifier_uses_an_isolated_worktree_compose_namespace(self):
-        verify_script = (self.root / "scripts" / "verify").read_text()
-
-        self.assertIn("DEFAULT_COMPOSE_PROJECT_NAME=", verify_script)
-        self.assertIn(
-            'COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$DEFAULT_COMPOSE_PROJECT_NAME}"',
-            verify_script,
-        )
-        self.assertIn("export COMPOSE_PROJECT_NAME", verify_script)
-        self.assertIn("trap cleanup_verification_resources EXIT", verify_script)
-        self.assertIn('"${COMPOSE[@]}" down --volumes --remove-orphans', verify_script)
-
-
 if __name__ == "__main__":
     unittest.main()

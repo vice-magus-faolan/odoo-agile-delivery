@@ -133,14 +133,12 @@ disposable Odoo 19 databases:
 - install, dependency-safe ORM uninstall in reverse order, then reinstall with
   focused tests.
 
-The verifier defaults to a fresh, worktree-scoped Compose namespace
-(`odoo-agile-verify-<worktree>-<pid>`), avoiding the normal development namespace.
-An explicitly provided `COMPOSE_PROJECT_NAME` must also be fresh: existing
-containers, volumes or networks are refused before database reset or teardown.
-Same-name verifier runs are serialized with `flock` (required alongside Compose).
-Shared/external or custom-named storage is refused. All owned disposable
-containers, volumes and networks are removed on exit, including failure and
-INT/TERM interruption; setting a project name never enables retention.
+The verifier always generates its own worktree-scoped Compose namespace
+(`odoo-agile-verify-<worktree>-<pid>`) and ignores inherited `COMPOSE_PROJECT_NAME`,
+so it never adopts a development stack. All owned disposable containers, volumes
+and networks are removed on exit, including failure and INT/TERM interruption.
+Project-label queries confirm resource absence; failed queries or leftovers
+are reported as teardown failures. No debug retention is enabled.
 Teardown failures are reported separately and make a successful run fail, while
 an original verification failure keeps its exit status. The database healthcheck
 uses TCP so the temporary PostgreSQL initialization server is not considered ready.

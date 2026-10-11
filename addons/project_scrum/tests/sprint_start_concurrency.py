@@ -9,7 +9,7 @@ from threading import Barrier
 
 from psycopg2 import IntegrityError
 
-from odoo import Command, api
+from odoo import api
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import ValidationError
 

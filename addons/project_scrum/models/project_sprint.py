@@ -104,6 +104,9 @@ class ProjectSprint(models.Model):
         self.check_access("write")
 
     def _activate(self):
+        # Translation can read the user's language. Resolve it before SQL can
+        # abort the cursor, without relying on a warm user/context cache.
+        active_sprint_message = _("Only one Sprint can be active for a project and Agile team.")
         self.committed_task_ids = [fields.Command.set(self.task_ids.ids)]
         self._append_scope_events("committed", self.task_ids)
         self._append_scope_events(
@@ -116,7 +119,7 @@ class ProjectSprint(models.Model):
             # Direct lifecycle calls do not pass through Odoo's RPC error
             # translation; action_start's savepoint rolls back all evidence.
             if error.diag.constraint_name == "project_sprint_active_project_team_unique":
-                raise ValidationError(_("Only one Sprint can be active for a project and Agile team.")) from error
+                raise ValidationError(active_sprint_message) from error
             raise
 
     def action_start(self):

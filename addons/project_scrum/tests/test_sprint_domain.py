@@ -96,9 +96,12 @@ class TestProjectScrumDomain(TransactionCase):
         second = self._create_sprint("Rejected Sprint", task_ids=[Command.set(self.task.ids)])
         self.task.write({"state": "1_done"})
         first.action_start()
+        manager = mail_new_test_user(
+            self.env, "Rejected start manager", groups="project.group_project_manager"
+        )
 
         with self.assertRaisesRegex(ValidationError, "Only one Sprint can be active") as caught:
-            second.action_start()
+            second.with_user(manager).action_start()
 
         # The real native index, not a preflight search, rejected activation.
         self.assertIsInstance(caught.exception.__cause__, IntegrityError)

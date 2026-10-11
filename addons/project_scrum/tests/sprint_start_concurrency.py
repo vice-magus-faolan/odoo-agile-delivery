@@ -45,7 +45,7 @@ def _start(registry, uid, sprint_id, rendezvous):
 
 
 def run_probe(env):
-    assert env.cr.dbname == "odoo_agile_scrum_uniqueness", env.cr.dbname
+    assert env.cr.dbname in {"odoo_agile_scrum_uniqueness", "odoo_agile_scrum_legacy"}, env.cr.dbname
     manager = mail_new_test_user(env, "scrum_start_race_manager",
                                 groups="project.group_project_manager")
     results = []

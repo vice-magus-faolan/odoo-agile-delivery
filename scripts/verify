@@ -3,14 +3,10 @@ set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 WORKTREE_NAMESPACE=$(printf '%s' "$(basename "$ROOT")" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-')
-DEFAULT_COMPOSE_PROJECT_NAME="odoo-agile-verify-${WORKTREE_NAMESPACE%-}"
-COMPOSE_PROJECT_NAME_WAS_SET=false
-if [[ -v COMPOSE_PROJECT_NAME ]]; then
-    COMPOSE_PROJECT_NAME_WAS_SET=true
-fi
-COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$DEFAULT_COMPOSE_PROJECT_NAME}"
+# Always own a disposable project; never adopt an inherited development stack.
+COMPOSE_PROJECT_NAME="odoo-agile-verify-${WORKTREE_NAMESPACE%-}-$$"
 export COMPOSE_PROJECT_NAME
-COMPOSE=(docker compose -f compose.yaml -f compose.verify.yaml)
+COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.yaml -f compose.verify.yaml)
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
@@ -19,29 +15,38 @@ MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,pro
 TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation,/project_agile_solution,/project_agile_solution_scrum
 
 cleanup_verification_resources() {
-    if [[ $COMPOSE_PROJECT_NAME_WAS_SET == false ]]; then
-        "${COMPOSE[@]}" down --volumes --remove-orphans
-    else
-        printf "Preserving explicitly selected Compose project: %s\\n" "$COMPOSE_PROJECT_NAME" >&2
-    fi
+    local status=$? failed=0 kind flags resources filter="label=com.docker.compose.project=$COMPOSE_PROJECT_NAME"
+    trap - EXIT INT TERM
+    "${COMPOSE[@]}" down --volumes --remove-orphans || failed=1
+    for kind in container volume network; do
+        flags=-q; if [[ $kind == container ]]; then flags=-aq; fi
+        if ! resources=$(docker "$kind" ls "$flags" --filter "$filter"); then
+            printf 'Verification %s absence query failed: %s\n' "$kind" "$COMPOSE_PROJECT_NAME" >&2
+            failed=1
+        elif [[ -n $resources ]]; then
+            printf 'Verification %s resources remain for %s:\n%s\n' "$kind" "$COMPOSE_PROJECT_NAME" "$resources" >&2
+            failed=1
+        fi
+    done
+    if (( failed )); then
+        printf 'Verification teardown failed; original verification status: %s\n' "$status" >&2
+        (( status != 0 )) || status=1
+    else printf 'Verification teardown complete: %s (no containers, volumes or networks)\n' "$COMPOSE_PROJECT_NAME" >&2; fi
+    exit "$status"
 }
 
+printf 'Owning fresh disposable verification project: %s\n' "$COMPOSE_PROJECT_NAME"
 trap cleanup_verification_resources EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"
+# Public probes are bind-mounted and executed as the non-root Odoo user too.
+chmod -R a+rX "$ROOT/scripts"
 python3 -m compileall -q addons scripts
 python3 -m unittest discover -s tests -p "test_*.py" -v
-"${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" build odoo
-
-wait_for_database() {
-    for _ in $(seq 1 30); do
-        "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1 && return 0
-        sleep 1
-    done
-    "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres
-}
 
 reset_verification_database() {
     local database=$1
@@ -81,8 +86,7 @@ solution_lifecycle() {
         | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http
 }
 
-"${COMPOSE[@]}" up -d db
-wait_for_database
+"${COMPOSE[@]}" up -d --wait db
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --test-enable --test-tags /project_agile_git_automation
 printf "%s\n" "Independent optional Git policy install passed (without GitHub or Scrum)."

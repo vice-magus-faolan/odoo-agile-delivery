@@ -39,6 +39,8 @@ Task name/active custom access rules. Unknown profiles refuse activation.
 Native authority-input edits and their restoration require fresh approval, even
 when current access did not decrease; conservative invalidation is intentional.
 
+Uninstall deletes policy history; reinstall does not restore approvals.
+
 Read the [dry-run guide](../../docs/git-policy-dry-run.md) for exact head/name/repo,
 cutoff/freshness/provenance predicates, unsupported same-name reruns, bounded
 pagination, fail-closed conflicts, immutable fingerprints and current Task-safe

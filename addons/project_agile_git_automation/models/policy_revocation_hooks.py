@@ -8,9 +8,18 @@ from .policy_authority import STAGE_SETTINGS, lock_records
 
 
 def _policy_ready(env):
-    """Internal install/uninstall schema check, never a caller context bypass."""
+    """Exclude owned schema teardown, not caller context or runtime SQL errors."""
     if "project.git.policy.activation" not in env.registry:
         return False
+    if env.registry.ready:
+        return True
+    # Native uninstall marks the module before rebuilding the registry and
+    # removes policy fields/tables before its final metadata callbacks.
+    if env["ir.module.module"].sudo().search_count([
+        ("name", "=", "project_agile_git_automation"), ("state", "=", "to remove"),
+    ], limit=1):
+        return False
+    # During initial registry construction the model can precede its table.
     env.cr.execute(SQL("SELECT to_regclass('project_git_policy_activation')"))
     return bool(env.cr.fetchone()[0])
 
@@ -18,9 +27,9 @@ def _policy_ready(env):
 def _revoke(env, domain, reason):
     """Fixed internal revoke boundary, never grants permission or returns hidden IDs.
 
-    The native create/write/unlink has already authorized and succeeded. On load
-    and uninstall the policy table may not yet exist; this is a schema check, not
-    a caller-controlled bypass. Direct DB administration remains the trust root.
+    The native create/write/unlink has already authorized and succeeded. Only
+    initial schema construction and this addon's native schema teardown are
+    exempt. A ready registry never silently ignores a missing policy table.
     """
     if _policy_ready(env):
         env["project.git.policy.activation"]._revoke_matching(domain, reason)

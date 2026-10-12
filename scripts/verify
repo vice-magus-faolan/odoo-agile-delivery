@@ -73,11 +73,22 @@ run_odoo() {
 
 uninstall_module() {
     local database=${2:-$DATABASE_REINSTALL}
+    local output status=0
+    output=$(mktemp)
     printf "%s\n" \
         "module = env[\"ir.module.module\"].search([(\"name\", \"=\", \"$1\")], limit=1)" \
         "module.button_immediate_uninstall()" \
         "env.cr.commit()" \
-        | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$database" --no-http
+        | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$database" --no-http 2>&1 \
+        | tee "$output" || status=$?
+    # Odoo can log teardown SQL errors yet let its shell exit successfully.
+    # Inspect only this uninstall, not expected negative-test diagnostics.
+    if grep -Eq '(^|[[:space:]])ERROR[[:space:]]' "$output"; then
+        printf 'Uninstall logged an ERROR: %s\n' "$1" >&2
+        (( status != 0 )) || status=1
+    fi
+    rm -f "$output"
+    return "$status"
 }
 
 solution_lifecycle() {

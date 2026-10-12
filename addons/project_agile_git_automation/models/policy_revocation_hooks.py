@@ -1,5 +1,7 @@
 """Revoke-only native hooks: restoration never resurrects a used approval epoch."""
 
+from contextvars import ContextVar
+
 from odoo import _, api, models
 from odoo.exceptions import ValidationError
 from odoo.tools import SQL
@@ -7,10 +9,16 @@ from odoo.tools import SQL
 from .policy_authority import STAGE_SETTINGS, lock_records
 
 
+_POLICY_SCHEMA_REMOVAL = ContextVar("git_policy_schema_removal", default=False)
+
+
 def _policy_ready(env):
-    """Internal install/uninstall schema check, never a caller context bypass."""
-    if "project.git.policy.activation" not in env.registry:
+    """Exclude owned schema teardown, not caller context or runtime SQL errors."""
+    if _POLICY_SCHEMA_REMOVAL.get() or "project.git.policy.activation" not in env.registry:
         return False
+    if env.registry.ready:
+        return True
+    # During initial registry construction the model can precede its table.
     env.cr.execute(SQL("SELECT to_regclass('project_git_policy_activation')"))
     return bool(env.cr.fetchone()[0])
 
@@ -18,9 +26,9 @@ def _policy_ready(env):
 def _revoke(env, domain, reason):
     """Fixed internal revoke boundary, never grants permission or returns hidden IDs.
 
-    The native create/write/unlink has already authorized and succeeded. On load
-    and uninstall the policy table may not yet exist; this is a schema check, not
-    a caller-controlled bypass. Direct DB administration remains the trust root.
+    The native create/write/unlink has already authorized and succeeded. Only
+    initial schema construction and this addon's native schema teardown are
+    exempt. A ready registry never silently ignores a missing policy table.
     """
     if _policy_ready(env):
         env["project.git.policy.activation"]._revoke_matching(domain, reason)
@@ -218,6 +226,23 @@ class AccountAnalyticAccount(models.Model):
 
 class IrModelData(models.Model):
     _inherit = "ir.model.data"
+
+    @api.model
+    def _module_data_uninstall(self, modules_to_remove):
+        """Scope revocation suspension to Odoo's private policy-schema removal.
+
+        Odoo 19 drops fields/tables before its final metadata unlink callbacks,
+        while the old registry still contains the policy models. The native
+        method retains its system-user check; RPC context cannot set this flag.
+        Reset on both success and failure, including nested lifecycle calls.
+        """
+        if "project_agile_git_automation" not in modules_to_remove:
+            return super()._module_data_uninstall(modules_to_remove)
+        token = _POLICY_SCHEMA_REMOVAL.set(True)
+        try:
+            return super()._module_data_uninstall(modules_to_remove)
+        finally:
+            _POLICY_SCHEMA_REMOVAL.reset(token)
 
     @api.model_create_multi
     def create(self, vals_list):

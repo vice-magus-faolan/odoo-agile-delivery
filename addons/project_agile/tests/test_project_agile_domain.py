@@ -1,18 +1,29 @@
 from odoo import Command
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectAgileDomain(TransactionCase):
     def setUp(self):
         super().setUp()
         self.item_type_model = self.env["project.agile.item.type"]
-        self.epic_type = self.item_type_model.create({"name": "Epic", "code": "test_epic"})
-        self.story_type = self.item_type_model.create({"name": "Story", "code": "test_story"})
-        self.task_type = self.item_type_model.create({"name": "Task", "code": "test_task"})
-        self.epic_type.write({"allowed_child_type_ids": [Command.set(self.story_type.ids)]})
-        self.story_type.write({"allowed_child_type_ids": [Command.set(self.task_type.ids)]})
+        self.epic_type = self.item_type_model.create(
+            {"name": "Epic", "code": "test_epic"}
+        )
+        self.story_type = self.item_type_model.create(
+            {"name": "Story", "code": "test_story"}
+        )
+        self.task_type = self.item_type_model.create(
+            {"name": "Task", "code": "test_task"}
+        )
+        self.epic_type.write(
+            {"allowed_child_type_ids": [Command.set(self.story_type.ids)]}
+        )
+        self.story_type.write(
+            {"allowed_child_type_ids": [Command.set(self.task_type.ids)]}
+        )
         self.project = self._create_agile_project("Engineering", "ENG")
         self.other_project = self._create_agile_project("Operations", "OPS")
 
@@ -90,7 +101,10 @@ class TestProjectAgileDomain(TransactionCase):
         key_before = foreign_child.agile_key
         with self.assertRaises(ValidationError):
             foreign_child.write({"parent_id": parent.id})
-        self.assertEqual((foreign_child.project_id, foreign_child.agile_key), (self.other_project, key_before))
+        self.assertEqual(
+            (foreign_child.project_id, foreign_child.agile_key),
+            (self.other_project, key_before),
+        )
 
     def test_keyed_task_cannot_move_to_another_project(self):
         task = self._create_task("Pinned work item")
@@ -150,16 +164,21 @@ class TestProjectAgileDomain(TransactionCase):
             self.env, "Agile employee", groups="project.group_project_user"
         )
 
-        self.item_type_model.with_user(manager).create({"name": "Configured Type", "code": "configured_type"})
+        self.item_type_model.with_user(manager).create(
+            {"name": "Configured Type", "code": "configured_type"}
+        )
         self.item_type_model.with_user(employee).read(["name"])
         with self.assertRaises(AccessError):
-            self.item_type_model.with_user(employee).create({"name": "Blocked", "code": "blocked"})
+            self.item_type_model.with_user(employee).create(
+                {"name": "Blocked", "code": "blocked"}
+            )
 
-        task = self.env["project.task"].with_user(employee).create(
-            {"name": "Employee work", "project_id": self.project.id}
+        task = (
+            self.env["project.task"]
+            .with_user(employee)
+            .create({"name": "Employee work", "project_id": self.project.id})
         )
         self.assertEqual(task.agile_key, "ENG-1")
-
 
     def test_seeded_item_types_and_stable_ui_xml_ids_are_installed(self):
         epic = self.env.ref("project_agile.project_agile_item_type_epic")
@@ -200,7 +219,8 @@ class TestProjectAgileDomain(TransactionCase):
         )
 
         backlog = self.env["project.task"].search(
-            [("project_id.agile_enabled", "=", True)], order="agile_backlog_sequence, id"
+            [("project_id.agile_enabled", "=", True)],
+            order="agile_backlog_sequence, id",
         )
 
         self.assertLess(backlog.ids.index(earlier.id), backlog.ids.index(later.id))

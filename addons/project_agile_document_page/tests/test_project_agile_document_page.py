@@ -1,6 +1,7 @@
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectAgileDocumentPage(TransactionCase):
@@ -43,7 +44,9 @@ class TestProjectAgileDocumentPage(TransactionCase):
         self.assertEqual(page.type, "content")
         self.assertEqual(action["res_id"], page.id)
 
-    def test_non_admin_cannot_create_a_documentation_root_without_page_create_access(self):
+    def test_non_admin_cannot_create_a_documentation_root_without_page_create_access(
+        self,
+    ):
         employee = mail_new_test_user(
             self.env,
             "Agile documentation employee",
@@ -152,7 +155,9 @@ class TestProjectAgileDocumentPage(TransactionCase):
         ordinary_project = self.env["project.project"].create(
             {"name": "Ordinary", "privacy_visibility": "employees"}
         )
-        view = self.env.ref("project_agile_document_page.view_project_form_agile_document_page")
+        view = self.env.ref(
+            "project_agile_document_page.view_project_form_agile_document_page"
+        )
 
         self.assertFalse(ordinary_project.agile_documentation_page_id)
         self.assertIn('invisible="not agile_enabled"', view.arch_db)

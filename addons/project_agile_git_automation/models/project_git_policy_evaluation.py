@@ -5,8 +5,16 @@ from odoo.exceptions import AccessError, ValidationError
 
 from .policy_authority import clean_context, lock_records, require_capability
 from .policy_evidence import (
-    MAX_BATCH, MAX_EVIDENCE, OUTCOMES, REASONS, VERSION, canonical, check_condition,
-    fingerprint, pr_condition, reduce_conditions,
+    MAX_BATCH,
+    MAX_EVIDENCE,
+    OUTCOMES,
+    REASONS,
+    VERSION,
+    canonical,
+    check_condition,
+    fingerprint,
+    pr_condition,
+    reduce_conditions,
 )
 from .project_git_policy_observation import check_evidence, pr_evidence, timestamp
 
@@ -18,20 +26,56 @@ class ProjectGitPolicyEvaluation(models.Model):
     _check_company_auto = True
     _order = "id desc"
 
-    repository_id = fields.Many2one("project.git.repository", required=True, readonly=True, ondelete="restrict", index=True)
-    project_id = fields.Many2one("project.project", required=True, readonly=True, ondelete="restrict", index=True)
-    company_id = fields.Many2one("res.company", required=True, readonly=True, ondelete="restrict", index=True)
-    task_id = fields.Many2one("project.task", required=True, readonly=True, ondelete="restrict", index=True)
+    repository_id = fields.Many2one(
+        "project.git.repository",
+        required=True,
+        readonly=True,
+        ondelete="restrict",
+        index=True,
+    )
+    project_id = fields.Many2one(
+        "project.project", required=True, readonly=True, ondelete="restrict", index=True
+    )
+    company_id = fields.Many2one(
+        "res.company", required=True, readonly=True, ondelete="restrict", index=True
+    )
+    task_id = fields.Many2one(
+        "project.task", required=True, readonly=True, ondelete="restrict", index=True
+    )
     agile_key = fields.Char(required=True, readonly=True, index=True)
-    pull_request_id = fields.Many2one("project.git.pull.request", required=True, readonly=True, ondelete="restrict", index=True)
-    rule_id = fields.Many2one("project.git.policy.rule", required=True, readonly=True, ondelete="restrict", index=True)
-    activation_id = fields.Many2one("project.git.policy.activation", readonly=True, ondelete="restrict", index=True)
-    revision_id = fields.Many2one("project.git.policy.revision", readonly=True, ondelete="restrict", index=True)
-    observation_ids = fields.Many2many("project.git.policy.observation", relation="project_git_policy_eval_observation_rel", readonly=True)
-    mode = fields.Selection([("dry_run", "Dry Run (Never Executable)")], required=True, readonly=True)
+    pull_request_id = fields.Many2one(
+        "project.git.pull.request",
+        required=True,
+        readonly=True,
+        ondelete="restrict",
+        index=True,
+    )
+    rule_id = fields.Many2one(
+        "project.git.policy.rule",
+        required=True,
+        readonly=True,
+        ondelete="restrict",
+        index=True,
+    )
+    activation_id = fields.Many2one(
+        "project.git.policy.activation", readonly=True, ondelete="restrict", index=True
+    )
+    revision_id = fields.Many2one(
+        "project.git.policy.revision", readonly=True, ondelete="restrict", index=True
+    )
+    observation_ids = fields.Many2many(
+        "project.git.policy.observation",
+        relation="project_git_policy_eval_observation_rel",
+        readonly=True,
+    )
+    mode = fields.Selection(
+        [("dry_run", "Dry Run (Never Executable)")], required=True, readonly=True
+    )
     outcome = fields.Selection(OUTCOMES, required=True, readonly=True, index=True)
     reason = fields.Selection(REASONS, required=True, readonly=True, index=True)
-    expected_stage_id = fields.Many2one("project.task.type", readonly=True, ondelete="restrict")
+    expected_stage_id = fields.Many2one(
+        "project.task.type", readonly=True, ondelete="restrict"
+    )
     expected_state = fields.Char(readonly=True)
     expected_write_date = fields.Datetime(readonly=True)
     snapshot_version = fields.Integer(required=True, readonly=True)
@@ -39,16 +83,24 @@ class ProjectGitPolicyEvaluation(models.Model):
     fingerprint = fields.Char(required=True, readonly=True, index=True)
     evaluated_at = fields.Datetime(required=True, readonly=True)
 
-    _fingerprint_unique = models.Constraint("UNIQUE(fingerprint)", "This exact dry-run decision is already recorded.")
+    _fingerprint_unique = models.Constraint(
+        "UNIQUE(fingerprint)", "This exact dry-run decision is already recorded."
+    )
 
     @api.model_create_multi
-    def create(self, vals_list):
-        raise AccessError(_("Only the bounded private evaluator can append a decision."))
+    # Only the private evaluator may append a decision.
+    def create(self, vals_list):  # pylint: disable=method-required-super
+        raise AccessError(
+            _("Only the bounded private evaluator can append a decision.")
+        )
 
-    def write(self, values):
+    # Dry-run decisions are immutable evidence.
+    def write(self, values):  # pylint: disable=method-required-super
         raise ValidationError(_("Policy dry-run decisions are immutable."))
 
-    def unlink(self):
+    # Retention is part of the decision audit contract.
+    def unlink(self):  # pylint: disable=method-required-super
+        # pylint: disable=no-raise-unlink
         raise ValidationError(_("Policy decision history is retained."))
 
     @api.model
@@ -58,48 +110,102 @@ class ProjectGitPolicyEvaluation(models.Model):
         Limits are hard bounds, not truncation-based winners. Overflow produces a
         fail-closed diagnostic instead of certifying a partially loaded candidate.
         """
-        prs = self.env["project.git.pull.request"].search([
-            ("repository_id", "=", repository.id), ("state", "=", "merged"), ("id", ">", after_id),
-        ], order="id", limit=MAX_BATCH)
-        rules = self.env["project.git.policy.rule"].with_context(active_test=False).search([
-            ("repository_id", "=", repository.id),
-        ], order="id", limit=MAX_BATCH + 1)
+        prs = self.env["project.git.pull.request"].search(
+            [
+                ("repository_id", "=", repository.id),
+                ("state", "=", "merged"),
+                ("id", ">", after_id),
+            ],
+            order="id",
+            limit=MAX_BATCH,
+        )
+        rules = (
+            self.env["project.git.policy.rule"]
+            .with_context(active_test=False)
+            .search(
+                [
+                    ("repository_id", "=", repository.id),
+                ],
+                order="id",
+                limit=MAX_BATCH + 1,
+            )
+        )
         activations = rules.activation_id
         names = activations.revision_id.required_check_ids.mapped("name")
-        associations = self.env["project.git.task.association"].search([
-            ("repository_id", "=", repository.id), ("source_type", "=", "pull_request"),
-            ("source_provider_id", "in", prs.mapped("provider_request_id")),
-        ], limit=MAX_BATCH * MAX_EVIDENCE + 1)
-        audits = self.env["project.git.association.audit"].search([
-            ("repository_id", "=", repository.id), ("delivery_id", "in", prs.provenance_delivery_id.ids),
-            ("source_type", "=", "pull_request"),
-        ], limit=MAX_BATCH * MAX_EVIDENCE * MAX_EVIDENCE + 1)
-        checks = self.env["project.git.check"].search([
-            ("repository_id", "=", repository.id), ("head_sha", "in", prs.mapped("head_sha")),
-            ("name", "in", names),
-        ], limit=MAX_BATCH * MAX_EVIDENCE + 1)
+        associations = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", repository.id),
+                ("source_type", "=", "pull_request"),
+                ("source_provider_id", "in", prs.mapped("provider_request_id")),
+            ],
+            limit=MAX_BATCH * MAX_EVIDENCE + 1,
+        )
+        audits = self.env["project.git.association.audit"].search(
+            [
+                ("repository_id", "=", repository.id),
+                ("delivery_id", "in", prs.provenance_delivery_id.ids),
+                ("source_type", "=", "pull_request"),
+            ],
+            limit=MAX_BATCH * MAX_EVIDENCE * MAX_EVIDENCE + 1,
+        )
+        checks = self.env["project.git.check"].search(
+            [
+                ("repository_id", "=", repository.id),
+                ("head_sha", "in", prs.mapped("head_sha")),
+                ("name", "in", names),
+            ],
+            limit=MAX_BATCH * MAX_EVIDENCE + 1,
+        )
         # Native Task search filters hidden associations before any Task data enters
         # a proposal. Reading an association ID does not grant Task read authority.
-        tasks = self.env["project.task"].with_context(active_test=False).search([
-            ("id", "in", associations.task_id.ids), ("project_id", "=", repository.project_id.id),
-            ("company_id", "=", repository.company_id.id),
-        ])
-        history = self.search([
-            ("repository_id", "=", repository.id), ("pull_request_id", "in", prs.ids),
-            ("task_id", "in", tasks.ids),
-        ], order="id", limit=8001)
-        overflow = any((
-            len(rules) > MAX_BATCH, len(associations) > MAX_BATCH * MAX_EVIDENCE,
-            len(audits) > MAX_BATCH * MAX_EVIDENCE * MAX_EVIDENCE,
-            len(checks) > MAX_BATCH * MAX_EVIDENCE, len(history) > 8000,
-        ))
-        return prs, rules[:MAX_BATCH], associations, audits, checks, tasks, history, overflow
+        tasks = (
+            self.env["project.task"]
+            .with_context(active_test=False)
+            .search(
+                [
+                    ("id", "in", associations.task_id.ids),
+                    ("project_id", "=", repository.project_id.id),
+                    ("company_id", "=", repository.company_id.id),
+                ]
+            )
+        )
+        history = self.search(
+            [
+                ("repository_id", "=", repository.id),
+                ("pull_request_id", "in", prs.ids),
+                ("task_id", "in", tasks.ids),
+            ],
+            order="id",
+            limit=8001,
+        )
+        overflow = any(
+            (
+                len(rules) > MAX_BATCH,
+                len(associations) > MAX_BATCH * MAX_EVIDENCE,
+                len(audits) > MAX_BATCH * MAX_EVIDENCE * MAX_EVIDENCE,
+                len(checks) > MAX_BATCH * MAX_EVIDENCE,
+                len(history) > 8000,
+            )
+        )
+        return (
+            prs,
+            rules[:MAX_BATCH],
+            associations,
+            audits,
+            checks,
+            tasks,
+            history,
+            overflow,
+        )
 
     @api.model
     def _check_names(self, pr, revision, checks, now):
         conditions, used = [], self.env["project.git.check"]
         for name in sorted(revision.required_check_ids.mapped("name")):
-            matches = checks.filtered(lambda c: c.name == name and c.head_sha == pr.head_sha)
+            # Odoo filtered consumes the predicate synchronously in this iteration.
+            matches = checks.filtered(
+                lambda c: c.name == name and c.head_sha == pr.head_sha  # noqa: B023
+            )
             if not matches:
                 conditions.append(("waiting", "missing_check"))
             elif len(matches) != 1:
@@ -120,7 +226,10 @@ class ProjectGitPolicyEvaluation(models.Model):
         result = reduce_conditions(conditions)
         if result:
             return result, used
-        return ("matched", "checks_passed" if revision.required_check_ids else "no_ci_condition"), used
+        return (
+            "matched",
+            "checks_passed" if revision.required_check_ids else "no_ci_condition",
+        ), used
 
     @api.model
     def _scope_condition(self, repository, rule, task):
@@ -128,7 +237,11 @@ class ProjectGitPolicyEvaluation(models.Model):
             return "skipped", "inactive_repository"
         if not task.active:
             return "skipped", "inactive_task"
-        if not rule.active or not rule.activation_id or not repository.project_id.git_policy_enabled:
+        if (
+            not rule.active
+            or not rule.activation_id
+            or not repository.project_id.git_policy_enabled
+        ):
             return "skipped", "inactive_policy"
         return None
 
@@ -139,19 +252,39 @@ class ProjectGitPolicyEvaluation(models.Model):
         result = self._scope_condition(repository, rule, task)
         if result:
             return result
-        if prior and (prior.expected_stage_id != task.stage_id or prior.expected_state != task.state
-                      or prior.expected_write_date != task.write_date):
+        if prior and (
+            prior.expected_stage_id != task.stage_id
+            or prior.expected_state != task.state
+            or prior.expected_write_date != task.write_date
+        ):
             return "skipped", "stale_task"
         if task.stage_id == rule.activation_id.revision_id.target_stage_id:
             return "skipped", "already_target"
-        if task.is_closed or task.stage_id not in rule.activation_id.revision_id.allowed_source_stage_ids:
+        if (
+            task.is_closed
+            or task.stage_id
+            not in rule.activation_id.revision_id.allowed_source_stage_ids
+        ):
             return "skipped", "ineligible_task"
         if "is_template" in task._fields and task.is_template:
             return "skipped", "ineligible_task"
         return None
 
     @api.model
-    def _candidate(self, repository, rule, pr, task, associations, audits, checks, prior, overflow, authorized, now):
+    def _candidate(
+        self,
+        repository,
+        rule,
+        pr,
+        task,
+        associations,
+        audits,
+        checks,
+        prior,
+        overflow,
+        authorized,
+        now,
+    ):
         result = self._initial_condition(repository, rule, task, prior, overflow)
         observation = self.env["project.git.policy.observation"]
         if result:
@@ -174,39 +307,76 @@ class ProjectGitPolicyEvaluation(models.Model):
         return result, observation
 
     @api.model
-    def _append(self, repository, rule, pr, task, prior, result, observation, conflicts, now):
-        """Only material input/outcome changes append; polling never renews freshness."""
+    def _append(
+        self, repository, rule, pr, task, prior, result, observation, conflicts, now
+    ):
+        """Only material input/outcome changes append; polling never renews
+        freshness.
+        """
         activation = rule.activation_id
         expected = {
             "stage_id": prior.expected_stage_id.id if prior else task.stage_id.id,
             "state": prior.expected_state if prior else task.state,
-            "write_date": timestamp(prior.expected_write_date if prior else task.write_date),
+            "write_date": timestamp(
+                prior.expected_write_date if prior else task.write_date
+            ),
         }
         snapshot = {
-            "version": VERSION, "mode": "dry_run", "repository_id": repository.id,
-            "project_id": repository.project_id.id, "company_id": repository.company_id.id,
-            "rule_id": rule.id, "activation_id": activation.id, "revision_id": activation.revision_id.id,
-            "pull_request_id": pr.id, "task_id": task.id, "agile_key": task.agile_key,
+            "version": VERSION,
+            "mode": "dry_run",
+            "repository_id": repository.id,
+            "project_id": repository.project_id.id,
+            "company_id": repository.company_id.id,
+            "rule_id": rule.id,
+            "activation_id": activation.id,
+            "revision_id": activation.revision_id.id,
+            "pull_request_id": pr.id,
+            "task_id": task.id,
+            "agile_key": task.agile_key,
             "expected_task": expected,
-            "current_task": {"stage_id": task.stage_id.id, "state": task.state, "active": task.active,
-                             "write_date": timestamp(task.write_date)},
-            "outcome": result[0], "reason": result[1], "observation": observation.fingerprint if observation else False,
+            "current_task": {
+                "stage_id": task.stage_id.id,
+                "state": task.state,
+                "active": task.active,
+                "write_date": timestamp(task.write_date),
+            },
+            "outcome": result[0],
+            "reason": result[1],
+            "observation": observation.fingerprint if observation else False,
             "conflicting_rule_ids": sorted(conflicts),
         }
         digest = fingerprint(snapshot)
         existing = self.search([("fingerprint", "=", digest)], limit=1)
         if existing:
             return existing
-        return super(ProjectGitPolicyEvaluation, self.sudo().with_context({})).create({
-            "repository_id": repository.id, "project_id": repository.project_id.id,
-            "company_id": repository.company_id.id, "task_id": task.id, "agile_key": task.agile_key,
-            "pull_request_id": pr.id, "rule_id": rule.id, "activation_id": activation.id,
-            "revision_id": activation.revision_id.id, "observation_ids": [(6, 0, observation.ids)],
-            "mode": "dry_run", "outcome": result[0], "reason": result[1],
-            "expected_stage_id": expected["stage_id"], "expected_state": expected["state"],
-            "expected_write_date": prior.expected_write_date if prior else task.write_date, "snapshot_version": VERSION,
-            "snapshot_json": canonical(snapshot), "fingerprint": digest, "evaluated_at": now,
-        })
+        # Persist server-derived evidence without caller defaults.
+        # pylint: disable-next=context-overridden
+        return super(ProjectGitPolicyEvaluation, self.sudo().with_context({})).create(
+            {
+                "repository_id": repository.id,
+                "project_id": repository.project_id.id,
+                "company_id": repository.company_id.id,
+                "task_id": task.id,
+                "agile_key": task.agile_key,
+                "pull_request_id": pr.id,
+                "rule_id": rule.id,
+                "activation_id": activation.id,
+                "revision_id": activation.revision_id.id,
+                "observation_ids": [(6, 0, observation.ids)],
+                "mode": "dry_run",
+                "outcome": result[0],
+                "reason": result[1],
+                "expected_stage_id": expected["stage_id"],
+                "expected_state": expected["state"],
+                "expected_write_date": prior.expected_write_date
+                if prior
+                else task.write_date,
+                "snapshot_version": VERSION,
+                "snapshot_json": canonical(snapshot),
+                "fingerprint": digest,
+                "evaluated_at": now,
+            }
+        )
 
     @api.model
     def _authority_map(self, rules, tasks):
@@ -226,7 +396,9 @@ class ProjectGitPolicyEvaluation(models.Model):
 
     @api.model
     def _evaluate_repository(self, repository, after_id):
-        """Serialize append-only dedupe on scoped control rows, never reserve an effect."""
+        """Serialize append-only dedupe on scoped control rows, never reserve
+        an effect.
+        """
         lock_records(repository.project_id)
         lock_records(repository)
         batch = self._load_batch(repository, after_id)
@@ -236,46 +408,98 @@ class ProjectGitPolicyEvaluation(models.Model):
         # implicit retry of a manually changed Task. Apply adds its own real fence.
         prior = {}
         for item in history:
-            prior.setdefault((item.activation_id.id, item.pull_request_id.id, item.task_id.id), item)
+            prior.setdefault(
+                (item.activation_id.id, item.pull_request_id.id, item.task_id.id), item
+            )
         now = fields.Datetime.now()
         decisions = self.browse()
         for pr in prs:
-            associated = associations.filtered(lambda a: a.source_provider_id == pr.provider_request_id)
-            scoped_tasks = tasks.filtered(lambda t: t.id in associated.task_id.ids)
+            # Both filtered predicates run now; neither escapes this iteration.
+            associated = associations.filtered(
+                lambda a: a.source_provider_id == pr.provider_request_id  # noqa: B023
+            )
+            scoped_tasks = tasks.filtered(
+                lambda t: t.id in associated.task_id.ids  # noqa: B023
+            )
             pr_overflow = overflow or len(scoped_tasks) > MAX_EVIDENCE
             for task in scoped_tasks.sorted("id")[:MAX_EVIDENCE]:
                 candidates = []
                 for rule in rules:
                     initial = prior.get((rule.activation_id.id, pr.id, task.id))
-                    result, observation = self._candidate(repository, rule, pr, task, associated, audits, checks, initial, pr_overflow, authorized[rule.id], now)
+                    result, observation = self._candidate(
+                        repository,
+                        rule,
+                        pr,
+                        task,
+                        associated,
+                        audits,
+                        checks,
+                        initial,
+                        pr_overflow,
+                        authorized[rule.id],
+                        now,
+                    )
                     candidates.append((rule, initial, result, observation))
-                eligible = [r.id for r, _, result, _ in candidates if result[0] == "matched"]
+                eligible = [
+                    r.id for r, _, result, _ in candidates if result[0] == "matched"
+                ]
                 for rule, initial, result, observation in candidates:
-                    conflicts = eligible if len(eligible) > 1 and rule.id in eligible else []
+                    conflicts = (
+                        eligible if len(eligible) > 1 and rule.id in eligible else []
+                    )
                     if conflicts:
                         result = ("conflicted", "conflicting_rules")
-                    decisions |= self._append(repository, rule, pr, task, initial, result, observation, conflicts, now)
+                    decisions |= self._append(
+                        repository,
+                        rule,
+                        pr,
+                        task,
+                        initial,
+                        result,
+                        observation,
+                        conflicts,
+                        now,
+                    )
         return decisions, prs[-1].id if prs else after_id
 
 
+# Evaluation stays separate from fact fencing and revocation hook ownership.
 class ProjectGitRepository(models.Model):
+    # Scope the layout exception to this existing extension's inheritance.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.git.repository"
 
     def action_dry_run_git_policy(self, after_id=0):
-        """Explicit capability-owned twenty-PR page; never selects a Task or an action."""
+        """Explicit capability-owned twenty-PR page; never selects a Task or
+        an action.
+        """
         self.ensure_one()
         require_capability(self.env)
         if type(after_id) is not int or not 0 <= after_id <= 2147483647:
-            raise ValidationError(_("Dry-run pagination requires a nonnegative integer cursor."))
+            raise ValidationError(
+                _("Dry-run pagination requires a nonnegative integer cursor.")
+            )
+        # Preview context is replaced to remove untrusted defaults.
+        # pylint: disable-next=context-overridden
         repository = self.with_context(clean_context(self.env))
         repository.check_access("read")
         repository.project_id.check_access("read")
-        if not repository.company_id or repository.company_id not in repository.env.companies:
-            raise AccessError(_("Dry-run requires a currently visible company-scoped repository."))
-        decisions, next_pr_id = repository.env["project.git.policy.evaluation"]._evaluate_repository(repository, after_id)
+        if (
+            not repository.company_id
+            or repository.company_id not in repository.env.companies
+        ):
+            raise AccessError(
+                _("Dry-run requires a currently visible company-scoped repository.")
+            )
+        decisions, next_pr_id = repository.env[
+            "project.git.policy.evaluation"
+        ]._evaluate_repository(repository, after_id)
         return {
-            "type": "ir.actions.act_window", "name": _("Git Policy Dry Run"),
-            "res_model": "project.git.policy.evaluation", "view_mode": "list,form",
-            "domain": [("id", "in", decisions.ids)], "context": {},
+            "type": "ir.actions.act_window",
+            "name": _("Git Policy Dry Run"),
+            "res_model": "project.git.policy.evaluation",
+            "view_mode": "list,form",
+            "domain": [("id", "in", decisions.ids)],
+            "context": {},
             "next_pr_cursor": next_pr_id,
         }

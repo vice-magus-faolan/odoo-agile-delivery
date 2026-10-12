@@ -19,7 +19,9 @@ class ProjectSprint(models.Model):
             raise UserError(_("Closed Sprints cannot change their retrospective link."))
 
     def write(self, values):
-        if "retrospective_page_id" in values and any(sprint.state == "closed" for sprint in self):
+        if "retrospective_page_id" in values and any(
+            sprint.state == "closed" for sprint in self
+        ):
             raise UserError(_("Closed Sprints cannot change their retrospective link."))
         return super().write(values)
 
@@ -58,7 +60,12 @@ class ProjectSprint(models.Model):
             "project_scrum_document_page.document_page_category_sprint_retrospective",
             raise_if_not_found=False,
         )
-        if not template or not template.exists() or not template.active or template.type != "category":
+        if (
+            not template
+            or not template.exists()
+            or not template.active
+            or template.type != "category"
+        ):
             raise UserError(_("The Sprint Retrospective template is unavailable."))
         template.check_access("read")
         return template

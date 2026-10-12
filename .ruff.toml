@@ -1,0 +1,45 @@
+
+target-version = "py310"
+fix = true
+
+[lint]
+extend-select = [
+    "B",
+    "C90",
+    "E501",  # line too long (default 88)
+    "I",  # isort
+    "UP",  # pyupgrade
+]
+extend-safe-fixes = ["UP008"]
+exclude = ["setup/*"]
+
+[format]
+exclude = ["setup/*"]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401", "I001"]  # ignore unused and unsorted imports in __init__.py
+"__manifest__.py" = ["B018"]  # useless expression
+# These exact stdin probes receive env from Odoo shell, not a Python import.
+# solution_lifecycle_probe also receives PHASE from scripts/verify's prefix.
+# No other undefined names were reported in these files at adoption.
+"scripts/git_policy_concurrency_probe.py" = ["F821"]
+"scripts/git_policy_concurrency_worker.py" = ["F821"]
+"scripts/github_association_concurrency_probe.py" = ["F821"]
+"scripts/github_association_concurrency_worker.py" = ["F821"]
+"scripts/oca_document_page_probe.py" = ["F821"]
+"scripts/planning_concurrency_assert.py" = ["F821"]
+"scripts/planning_concurrency_setup.py" = ["F821"]
+"scripts/planning_concurrency_worker.py" = ["F821"]
+"scripts/solution_lifecycle_probe.py" = ["F821"]
+"scripts/solution_scrum_probe.py" = ["F821"]
+"scripts/solution_source_probe.py" = ["F821"]
+
+[lint.isort]
+section-order = ["future", "standard-library", "third-party", "odoo", "odoo-addons", "first-party", "local-folder"]
+
+[lint.isort.sections]
+"odoo" = ["odoo"]
+"odoo-addons" = ["odoo.addons"]
+
+[lint.mccabe]
+max-complexity = 16

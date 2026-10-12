@@ -1,205 +1,289 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_project_agile_team_list" model="ir.ui.view">
-        <field name="name">project.agile.team.list</field>
-        <field name="model">project.agile.team</field>
-        <field name="arch" type="xml">
-            <list>
-                <field name="name"/>
-                <field name="project_id"/>
-                <field name="company_id" groups="base.group_multi_company"/>
-                <field name="active"/>
-            </list>
-        </field>
-    </record>
+  <record id="view_project_agile_team_list" model="ir.ui.view">
+    <field name="name">project.agile.team.list</field>
+    <field name="model">project.agile.team</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="project_id" />
+        <field name="company_id" groups="base.group_multi_company" />
+        <field name="active" />
+      </list>
+    </field>
+  </record>
 
-    <record id="view_project_agile_team_form" model="ir.ui.view">
-        <field name="name">project.agile.team.form</field>
-        <field name="model">project.agile.team</field>
-        <field name="arch" type="xml">
-            <form string="Agile Team">
-                <sheet>
-                    <group>
-                        <field name="name"/>
-                        <field name="project_id" domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]"/>
-                        <field name="company_id" groups="base.group_multi_company"/>
-                        <field name="active"/>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
+  <record id="view_project_agile_team_form" model="ir.ui.view">
+    <field name="name">project.agile.team.form</field>
+    <field name="model">project.agile.team</field>
+    <field name="arch" type="xml">
+      <form string="Agile Team">
+        <sheet>
+          <group>
+            <field name="name" />
+            <field
+              name="project_id"
+              domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]"
+            />
+            <field name="company_id" groups="base.group_multi_company" />
+            <field name="active" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
 
-    <record id="view_project_sprint_list" model="ir.ui.view">
-        <field name="name">project.sprint.list</field>
-        <field name="model">project.sprint</field>
-        <field name="arch" type="xml">
-            <list>
-                <field name="name"/>
-                <field name="project_id"/>
-                <field name="team_id"/>
-                <field name="date_start"/>
-                <field name="date_end"/>
-                <field name="state" widget="badge"/>
-            </list>
-        </field>
-    </record>
+  <record id="view_project_sprint_list" model="ir.ui.view">
+    <field name="name">project.sprint.list</field>
+    <field name="model">project.sprint</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="project_id" />
+        <field name="team_id" />
+        <field name="date_start" />
+        <field name="date_end" />
+        <field name="state" widget="badge" />
+      </list>
+    </field>
+  </record>
 
-    <record id="view_project_sprint_form" model="ir.ui.view">
-        <field name="name">project.sprint.form</field>
-        <field name="model">project.sprint</field>
-        <field name="arch" type="xml">
-            <form string="Sprint">
-                <header>
-                    <button name="action_start" string="Start Sprint" type="object" class="btn-primary" invisible="state != &apos;draft&apos;" groups="project.group_project_manager"/>
-                    <button name="action_close" string="Close Sprint" type="object" invisible="state != &apos;active&apos;" groups="project.group_project_manager"/>
-                    <button name="action_open_product_backlog" string="Product Backlog" type="object" groups="project.group_project_manager"/>
-                    <button name="action_open_sprint_backlog" string="Sprint Backlog" type="object" groups="project.group_project_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,active,closed" readonly="1"/>
-                </header>
-                <sheet>
-                    <group>
-                        <group>
-                            <field name="name" readonly="state == &apos;closed&apos;"/>
-                            <field name="project_id" domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]" readonly="state != &apos;draft&apos;"/>
-                            <field name="team_id" domain="[(&apos;project_id&apos;, &apos;=&apos;, project_id)]" readonly="state != &apos;draft&apos;"/>
-                        </group>
-                        <group>
-                            <field name="date_start" readonly="state != &apos;draft&apos;"/>
-                            <field name="date_end" readonly="state != &apos;draft&apos;"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
-                        </group>
-                    </group>
-                    <notebook>
-                        <page string="Sprint Backlog">
-                            <field name="task_ids" context="{&quot;default_project_id&quot;: project_id}" readonly="state == &apos;closed&apos;">
-                                <list>
-                                    <field name="agile_key"/>
-                                    <field name="name"/>
-                                    <field name="agile_item_type_id"/>
-                                    <field name="agile_story_points"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Scope History">
-                            <field name="scope_event_ids" readonly="1">
-                                <list create="0" edit="0" delete="0">
-                                    <field name="event_at"/>
-                                    <field name="event_type"/>
-                                    <field name="task_id"/>
-                                    <field name="story_points"/>
-                                    <field name="actor_id"/>
-                                    <field name="reason" optional="hide"/>
-                                    <field name="carryover_target_sprint_id" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Goal">
-                            <field name="goal" placeholder="What outcome should this Sprint achieve?" readonly="state == &apos;closed&apos;"/>
-                        </page>
-                    </notebook>
-                </sheet>
-            </form>
-        </field>
-    </record>
+  <record id="view_project_sprint_form" model="ir.ui.view">
+    <field name="name">project.sprint.form</field>
+    <field name="model">project.sprint</field>
+    <field name="arch" type="xml">
+      <form string="Sprint">
+        <header>
+          <button
+            name="action_start"
+            string="Start Sprint"
+            type="object"
+            class="btn-primary"
+            invisible="state != &apos;draft&apos;"
+            groups="project.group_project_manager"
+          />
+          <button
+            name="action_close"
+            string="Close Sprint"
+            type="object"
+            invisible="state != &apos;active&apos;"
+            groups="project.group_project_manager"
+          />
+          <button
+            name="action_open_product_backlog"
+            string="Product Backlog"
+            type="object"
+            groups="project.group_project_manager"
+          />
+          <button
+            name="action_open_sprint_backlog"
+            string="Sprint Backlog"
+            type="object"
+            groups="project.group_project_manager"
+          />
+          <field
+            name="state"
+            widget="statusbar"
+            statusbar_visible="draft,active,closed"
+            readonly="1"
+          />
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="name" readonly="state == &apos;closed&apos;" />
+              <field
+                name="project_id"
+                domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]"
+                readonly="state != &apos;draft&apos;"
+              />
+              <field
+                name="team_id"
+                domain="[(&apos;project_id&apos;, &apos;=&apos;, project_id)]"
+                readonly="state != &apos;draft&apos;"
+              />
+            </group>
+            <group>
+              <field name="date_start" readonly="state != &apos;draft&apos;" />
+              <field name="date_end" readonly="state != &apos;draft&apos;" />
+              <field name="company_id" groups="base.group_multi_company" />
+            </group>
+          </group>
+          <notebook>
+            <page string="Sprint Backlog">
+              <field
+                name="task_ids"
+                context="{&quot;default_project_id&quot;: project_id}"
+                readonly="state == &apos;closed&apos;"
+              >
+                <list>
+                  <field name="agile_key" />
+                  <field name="name" />
+                  <field name="agile_item_type_id" />
+                  <field name="agile_story_points" />
+                </list>
+              </field>
+            </page>
+            <page string="Scope History">
+              <field name="scope_event_ids" readonly="1">
+                <list create="0" edit="0" delete="0">
+                  <field name="event_at" />
+                  <field name="event_type" />
+                  <field name="task_id" />
+                  <field name="story_points" />
+                  <field name="actor_id" />
+                  <field name="reason" optional="hide" />
+                  <field name="carryover_target_sprint_id" optional="hide" />
+                </list>
+              </field>
+            </page>
+            <page string="Goal">
+              <field
+                name="goal"
+                placeholder="What outcome should this Sprint achieve?"
+                readonly="state == &apos;closed&apos;"
+              />
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
 
-    <record id="view_project_sprint_search" model="ir.ui.view">
-        <field name="name">project.sprint.search</field>
-        <field name="model">project.sprint</field>
-        <field name="arch" type="xml">
-            <search>
-                <field name="name"/>
-                <field name="project_id"/>
-                <field name="team_id"/>
-                <filter string="Draft" name="draft" domain="[(&apos;state&apos;, &apos;=&apos;, &apos;draft&apos;)]"/>
-                <filter string="Active" name="active" domain="[(&apos;state&apos;, &apos;=&apos;, &apos;active&apos;)]"/>
-                <filter string="Closed" name="closed" domain="[(&apos;state&apos;, &apos;=&apos;, &apos;closed&apos;)]"/>
-            </search>
-        </field>
-    </record>
+  <record id="view_project_sprint_search" model="ir.ui.view">
+    <field name="name">project.sprint.search</field>
+    <field name="model">project.sprint</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name" />
+        <field name="project_id" />
+        <field name="team_id" />
+        <filter
+          string="Draft"
+          name="draft"
+          domain="[(&apos;state&apos;, &apos;=&apos;, &apos;draft&apos;)]"
+        />
+        <filter
+          string="Active"
+          name="active"
+          domain="[(&apos;state&apos;, &apos;=&apos;, &apos;active&apos;)]"
+        />
+        <filter
+          string="Closed"
+          name="closed"
+          domain="[(&apos;state&apos;, &apos;=&apos;, &apos;closed&apos;)]"
+        />
+      </search>
+    </field>
+  </record>
 
-    <record id="view_task_form_scrum" model="ir.ui.view">
-        <field name="name">project.task.form.scrum</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_form2"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;project_id&apos;]" position="after">
-                <field name="agile_project_enabled" invisible="1"/>
-                <field name="sprint_id" invisible="not agile_project_enabled" domain="[(&apos;project_id&apos;, &apos;=&apos;, project_id), (&apos;state&apos;, &apos;in&apos;, [&apos;draft&apos;, &apos;active&apos;])]"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_form_scrum" model="ir.ui.view">
+    <field name="name">project.task.form.scrum</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_form2" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;project_id&apos;]" position="after">
+        <field name="agile_project_enabled" invisible="1" />
+        <field
+          name="sprint_id"
+          invisible="not agile_project_enabled"
+          domain="[(&apos;project_id&apos;, &apos;=&apos;, project_id), (&apos;state&apos;, &apos;in&apos;, [&apos;draft&apos;, &apos;active&apos;])]"
+        />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_task_list_scrum" model="ir.ui.view">
-        <field name="name">project.task.list.scrum</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_tree2"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;name&apos;]" position="after">
-                <field name="sprint_id" optional="hide"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_list_scrum" model="ir.ui.view">
+    <field name="name">project.task.list.scrum</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_tree2" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;name&apos;]" position="after">
+        <field name="sprint_id" optional="hide" />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_task_search_scrum" model="ir.ui.view">
-        <field name="name">project.task.search.scrum</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_search_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
-                <field name="sprint_id"/>
-                <filter string="Sprint Backlog" name="sprint_backlog" domain="[(&apos;sprint_id&apos;, &apos;!=&apos;, False)]"/>
-            </xpath>
-            <xpath expr="//group" position="inside">
-                <filter string="Sprint" name="group_by_sprint" context="{&quot;group_by&quot;: &quot;sprint_id&quot;}"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_search_scrum" model="ir.ui.view">
+    <field name="name">project.task.search.scrum</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_search_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
+        <field name="sprint_id" />
+        <filter
+          string="Sprint Backlog"
+          name="sprint_backlog"
+          domain="[(&apos;sprint_id&apos;, &apos;!=&apos;, False)]"
+        />
+      </xpath>
+      <xpath expr="//group" position="inside">
+        <filter
+          string="Sprint"
+          name="group_by_sprint"
+          context="{&quot;group_by&quot;: &quot;sprint_id&quot;}"
+        />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_project_agile_item_type_form_scrum" model="ir.ui.view">
-        <field name="name">project.agile.item.type.form.scrum</field>
-        <field name="model">project.agile.item.type</field>
-        <field name="inherit_id" ref="project_agile.view_project_agile_item_type_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;active&apos;]" position="after">
-                <field name="can_schedule_in_sprint"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_project_agile_item_type_form_scrum" model="ir.ui.view">
+    <field name="name">project.agile.item.type.form.scrum</field>
+    <field name="model">project.agile.item.type</field>
+    <field name="inherit_id" ref="project_agile.view_project_agile_item_type_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;active&apos;]" position="after">
+        <field name="can_schedule_in_sprint" />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="action_assign_tasks_to_sprint" model="ir.actions.server">
-        <field name="name">Assign to Sprint</field>
-        <field name="model_id" ref="project.model_project_task"/>
-        <field name="binding_model_id" ref="project.model_project_task"/>
-        <field name="binding_type">action</field>
-        <field name="state">code</field>
-        <field name="code">action = records.action_assign_to_sprint()</field>
-    </record>
+  <record id="action_assign_tasks_to_sprint" model="ir.actions.server">
+    <field name="name">Assign to Sprint</field>
+    <field name="model_id" ref="project.model_project_task" />
+    <field name="binding_model_id" ref="project.model_project_task" />
+    <field name="binding_type">action</field>
+    <field name="state">code</field>
+    <field name="code">action = records.action_assign_to_sprint()</field>
+  </record>
 
-    <record id="action_remove_tasks_from_sprint" model="ir.actions.server">
-        <field name="name">Remove from Sprint</field>
-        <field name="model_id" ref="project.model_project_task"/>
-        <field name="binding_model_id" ref="project.model_project_task"/>
-        <field name="binding_type">action</field>
-        <field name="state">code</field>
-        <field name="code">action = records.action_remove_from_sprint()</field>
-    </record>
+  <record id="action_remove_tasks_from_sprint" model="ir.actions.server">
+    <field name="name">Remove from Sprint</field>
+    <field name="model_id" ref="project.model_project_task" />
+    <field name="binding_model_id" ref="project.model_project_task" />
+    <field name="binding_type">action</field>
+    <field name="state">code</field>
+    <field name="code">action = records.action_remove_from_sprint()</field>
+  </record>
 
-    <record id="action_project_sprint" model="ir.actions.act_window">
-        <field name="name">Sprints</field>
-        <field name="res_model">project.sprint</field>
-        <field name="view_mode">list,form</field>
-        <field name="view_id" ref="view_project_sprint_list"/>
-        <field name="search_view_id" ref="view_project_sprint_search"/>
-    </record>
+  <record id="action_project_sprint" model="ir.actions.act_window">
+    <field name="name">Sprints</field>
+    <field name="res_model">project.sprint</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_project_sprint_list" />
+    <field name="search_view_id" ref="view_project_sprint_search" />
+  </record>
 
-    <record id="action_project_agile_team" model="ir.actions.act_window">
-        <field name="name">Agile Teams</field>
-        <field name="res_model">project.agile.team</field>
-        <field name="view_mode">list,form</field>
-        <field name="view_id" ref="view_project_agile_team_list"/>
-    </record>
+  <record id="action_project_agile_team" model="ir.actions.act_window">
+    <field name="name">Agile Teams</field>
+    <field name="res_model">project.agile.team</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_project_agile_team_list" />
+  </record>
 
-    <menuitem id="menu_project_sprint" name="Sprints" parent="project.menu_project_management" action="action_project_sprint" sequence="25"/>
-    <menuitem id="menu_project_agile_team" name="Agile Teams" parent="project.menu_project_config" action="action_project_agile_team" groups="project.group_project_manager" sequence="35"/>
+  <menuitem
+    id="menu_project_sprint"
+    name="Sprints"
+    parent="project.menu_project_management"
+    action="action_project_sprint"
+    sequence="25"
+  />
+  <menuitem
+    id="menu_project_agile_team"
+    name="Agile Teams"
+    parent="project.menu_project_config"
+    action="action_project_agile_team"
+    groups="project.group_project_manager"
+    sequence="35"
+  />
 </odoo>

@@ -1,6 +1,7 @@
 {
     "name": "Agile GitHub Delivery Ingress",
-    "summary": "Authenticated GitHub delivery persistence and normalization for Agile Git Facts",
+    "summary": "Authenticated GitHub delivery persistence and normalization "
+    "for Agile Git Facts",
     "version": "19.0.1.2.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",

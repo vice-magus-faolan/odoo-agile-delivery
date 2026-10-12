@@ -1,8 +1,9 @@
 """Regression coverage for authoritative Agile planning mutations."""
 
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectAgilePlanningActions(TransactionCase):
@@ -32,8 +33,12 @@ class TestProjectAgilePlanningActions(TransactionCase):
         self.planner = mail_new_test_user(
             self.env, "Interactive planner", groups="project.group_project_manager"
         )
-        self.first_task = self._create_task("First Product Backlog item", agile_backlog_sequence=10)
-        self.second_task = self._create_task("Second Product Backlog item", agile_backlog_sequence=20)
+        self.first_task = self._create_task(
+            "First Product Backlog item", agile_backlog_sequence=10
+        )
+        self.second_task = self._create_task(
+            "Second Product Backlog item", agile_backlog_sequence=20
+        )
         self.sprint = self.env["project.sprint"].create(
             {
                 "name": "Interactive Sprint",
@@ -52,18 +57,32 @@ class TestProjectAgilePlanningActions(TransactionCase):
         return self.env["project.task"].create(task_values)
 
     def _snapshot(self):
-        return self.env["project.project"].with_user(self.planner).get_agile_planning_snapshot(
-            self.project.id
+        return (
+            self.env["project.project"]
+            .with_user(self.planner)
+            .get_agile_planning_snapshot(self.project.id)
         )
 
-    def _change(self, operation, task_ids, *, sprint_id=False, before_task_id=False, versions=None):
+    def _change(
+        self,
+        operation,
+        task_ids,
+        *,
+        sprint_id=False,
+        before_task_id=False,
+        versions=None,
+    ):
         expected_versions = versions or {}
         if expected_versions and set(expected_versions) != {"tasks", "sprints"}:
             task_version_ids = set(task_ids)
             if before_task_id:
                 task_version_ids.add(before_task_id)
-            sprint_version_ids = {sprint_id} if sprint_id else set(
-                self.env["project.task"].browse(task_ids).mapped("sprint_id").ids
+            sprint_version_ids = (
+                {sprint_id}
+                if sprint_id
+                else set(
+                    self.env["project.task"].browse(task_ids).mapped("sprint_id").ids
+                )
             )
             expected_versions = {
                 "tasks": {
@@ -77,18 +96,24 @@ class TestProjectAgilePlanningActions(TransactionCase):
                     if record_id in expected_versions
                 },
             }
-        return self.env["project.project"].with_user(self.planner).apply_agile_planning_change(
-            self.project.id,
-            operation,
-            task_ids,
-            sprint_id=sprint_id,
-            before_task_id=before_task_id,
-            expected_versions=expected_versions,
+        return (
+            self.env["project.project"]
+            .with_user(self.planner)
+            .apply_agile_planning_change(
+                self.project.id,
+                operation,
+                task_ids,
+                sprint_id=sprint_id,
+                before_task_id=before_task_id,
+                expected_versions=expected_versions,
+            )
         )
 
     @staticmethod
     def _backlog_item(snapshot, task):
-        return next(item for item in snapshot["backlog"]["items"] if item["id"] == task.id)
+        return next(
+            item for item in snapshot["backlog"]["items"] if item["id"] == task.id
+        )
 
     @staticmethod
     def _sprint_item(snapshot, sprint):
@@ -103,16 +128,24 @@ class TestProjectAgilePlanningActions(TransactionCase):
             "assign",
             [self.first_task.id],
             sprint_id=self.sprint.id,
-            versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+            versions={
+                self.first_task.id: task["version"],
+                self.sprint.id: sprint["version"],
+            },
         )
 
         self.assertEqual(self.first_task.sprint_id, self.sprint)
         sprint_data = self._sprint_item(updated, self.sprint)
-        self.assertEqual([item["id"] for item in sprint_data["items"]], [self.first_task.id])
-        self.assertNotIn(self.first_task.id, [item["id"] for item in updated["backlog"]["items"]])
+        self.assertEqual(
+            [item["id"] for item in sprint_data["items"]], [self.first_task.id]
+        )
+        self.assertNotIn(
+            self.first_task.id, [item["id"] for item in updated["backlog"]["items"]]
+        )
 
-
-    def test_assigns_when_task_and_sprint_ids_collide_in_separate_version_namespaces(self):
+    def test_assigns_when_task_and_sprint_ids_collide_in_separate_version_namespaces(
+        self,
+    ):
         """Task and Sprint optimistic tokens must not alias on equal numeric IDs."""
         task = self._create_task("Colliding Product Backlog item")
         sprint = self.sprint
@@ -135,7 +168,9 @@ class TestProjectAgilePlanningActions(TransactionCase):
             sprint_id=sprint.id,
             versions={
                 "tasks": {str(task.id): self._backlog_item(snapshot, task)["version"]},
-                "sprints": {str(sprint.id): self._sprint_item(snapshot, sprint)["version"]},
+                "sprints": {
+                    str(sprint.id): self._sprint_item(snapshot, sprint)["version"]
+                },
             },
         )
 
@@ -144,8 +179,12 @@ class TestProjectAgilePlanningActions(TransactionCase):
     def test_assigns_multiple_current_backlog_items_atomically(self):
         snapshot = self._snapshot()
         versions = {
-            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
-            self.second_task.id: self._backlog_item(snapshot, self.second_task)["version"],
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)[
+                "version"
+            ],
+            self.second_task.id: self._backlog_item(snapshot, self.second_task)[
+                "version"
+            ],
             self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
         }
 
@@ -170,15 +209,24 @@ class TestProjectAgilePlanningActions(TransactionCase):
                 "assign",
                 [self.first_task.id],
                 sprint_id=self.sprint.id,
-                versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+                versions={
+                    self.first_task.id: task["version"],
+                    self.sprint.id: sprint["version"],
+                },
             )
 
         self.assertFalse(self.first_task.sprint_id)
         self.assertFalse(self.sprint.scope_event_ids)
 
-    def test_rejects_multi_assignment_with_an_ineligible_item_without_partial_write(self):
+    def test_rejects_multi_assignment_with_an_ineligible_item_without_partial_write(
+        self,
+    ):
         ineligible_type = self.env["project.agile.item.type"].create(
-            {"name": "Interactive Chore", "code": "interactive_chore", "can_schedule_in_sprint": False}
+            {
+                "name": "Interactive Chore",
+                "code": "interactive_chore",
+                "can_schedule_in_sprint": False,
+            }
         )
         ineligible_task = self.env["project.task"].create(
             {
@@ -189,8 +237,12 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
         snapshot = self._snapshot()
         versions = {
-            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
-            ineligible_task.id: self.env["project.project"]._agile_planning_record_version(ineligible_task),
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)[
+                "version"
+            ],
+            ineligible_task.id: self.env[
+                "project.project"
+            ]._agile_planning_record_version(ineligible_task),
             self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
         }
 
@@ -217,7 +269,10 @@ class TestProjectAgilePlanningActions(TransactionCase):
                 "assign",
                 [self.first_task.id],
                 sprint_id=self.sprint.id,
-                versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+                versions={
+                    self.first_task.id: task["version"],
+                    self.sprint.id: sprint["version"],
+                },
             )
 
         self.assertFalse(self.first_task.sprint_id)
@@ -225,13 +280,22 @@ class TestProjectAgilePlanningActions(TransactionCase):
     def test_rejects_duplicate_assignment_retry_without_partial_state(self):
         snapshot = self._snapshot()
         versions = {
-            self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"],
+            self.first_task.id: self._backlog_item(snapshot, self.first_task)[
+                "version"
+            ],
             self.sprint.id: self._sprint_item(snapshot, self.sprint)["version"],
         }
-        self._change("assign", [self.first_task.id], sprint_id=self.sprint.id, versions=versions)
+        self._change(
+            "assign", [self.first_task.id], sprint_id=self.sprint.id, versions=versions
+        )
 
         with self.assertRaises(ValidationError):
-            self._change("assign", [self.first_task.id], sprint_id=self.sprint.id, versions=versions)
+            self._change(
+                "assign",
+                [self.first_task.id],
+                sprint_id=self.sprint.id,
+                versions=versions,
+            )
 
         self.assertEqual(self.first_task.sprint_id, self.sprint)
         self.assertFalse(self.sprint.scope_event_ids)
@@ -245,14 +309,20 @@ class TestProjectAgilePlanningActions(TransactionCase):
             "reorder",
             [self.second_task.id],
             before_task_id=self.first_task.id,
-            versions={self.second_task.id: second["version"], self.first_task.id: first["version"]},
+            versions={
+                self.second_task.id: second["version"],
+                self.first_task.id: first["version"],
+            },
         )
 
         self.assertEqual(
             [item["id"] for item in updated["backlog"]["items"][:2]],
             [self.second_task.id, self.first_task.id],
         )
-        self.assertLess(self.second_task.agile_backlog_sequence, self.first_task.agile_backlog_sequence)
+        self.assertLess(
+            self.second_task.agile_backlog_sequence,
+            self.first_task.agile_backlog_sequence,
+        )
 
     def test_rejects_a_stale_reorder_without_changing_the_current_order(self):
         snapshot = self._snapshot()
@@ -269,16 +339,27 @@ class TestProjectAgilePlanningActions(TransactionCase):
                 "reorder",
                 [self.second_task.id],
                 before_task_id=self.first_task.id,
-                versions={self.second_task.id: second["version"], self.first_task.id: first["version"]},
+                versions={
+                    self.second_task.id: second["version"],
+                    self.first_task.id: first["version"],
+                },
             )
 
-        self.assertEqual(self.first_task.agile_backlog_sequence, original_sequences[self.first_task.id])
-        self.assertEqual(self.second_task.agile_backlog_sequence, original_sequences[self.second_task.id])
+        self.assertEqual(
+            self.first_task.agile_backlog_sequence,
+            original_sequences[self.first_task.id],
+        )
+        self.assertEqual(
+            self.second_task.agile_backlog_sequence,
+            original_sequences[self.second_task.id],
+        )
 
     def test_reorder_updates_a_bounded_neighbor_set_for_a_large_backlog(self):
         """A single reorder must not lock or rewrite every backlog row."""
         for index in range(250):
-            self._create_task(f"Large backlog item {index}", agile_backlog_sequence=(index + 3) * 10)
+            self._create_task(
+                f"Large backlog item {index}", agile_backlog_sequence=(index + 3) * 10
+            )
         snapshot = self._snapshot()
         first = self._backlog_item(snapshot, self.first_task)
         second = self._backlog_item(snapshot, self.second_task)
@@ -298,9 +379,14 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
 
         self.assertLess(self.cr.sql_log_count - query_count, 60)
-        self.assertLess(self.second_task.agile_backlog_sequence, self.first_task.agile_backlog_sequence)
+        self.assertLess(
+            self.second_task.agile_backlog_sequence,
+            self.first_task.agile_backlog_sequence,
+        )
 
-    def test_active_sprint_return_appends_scope_history_through_the_shared_task_path(self):
+    def test_active_sprint_return_appends_scope_history_through_the_shared_task_path(
+        self,
+    ):
         self.first_task.assign_product_backlog_to_sprint(self.sprint)
         self.sprint.action_start()
         snapshot = self._snapshot()
@@ -315,7 +401,10 @@ class TestProjectAgilePlanningActions(TransactionCase):
         self._change(
             "return",
             [self.first_task.id],
-            versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+            versions={
+                self.first_task.id: task["version"],
+                self.sprint.id: sprint["version"],
+            },
         )
 
         self.assertFalse(self.first_task.sprint_id)
@@ -325,14 +414,21 @@ class TestProjectAgilePlanningActions(TransactionCase):
     def test_rejects_return_from_a_closed_sprint_without_erasing_history(self):
         self.first_task.assign_product_backlog_to_sprint(self.sprint)
         self.sprint._set_lifecycle_state("closed")
-        task_version = self.env["project.project"]._agile_planning_record_version(self.first_task)
-        sprint_version = self.env["project.project"]._agile_planning_record_version(self.sprint)
+        task_version = self.env["project.project"]._agile_planning_record_version(
+            self.first_task
+        )
+        sprint_version = self.env["project.project"]._agile_planning_record_version(
+            self.sprint
+        )
 
         with self.assertRaises(ValidationError):
             self._change(
                 "return",
                 [self.first_task.id],
-                versions={self.first_task.id: task_version, self.sprint.id: sprint_version},
+                versions={
+                    self.first_task.id: task_version,
+                    self.sprint.id: sprint_version,
+                },
             )
 
         self.assertEqual(self.first_task.sprint_id, self.sprint)
@@ -352,7 +448,11 @@ class TestProjectAgilePlanningActions(TransactionCase):
             {"name": "Other Planning Team", "project_id": other_project.id}
         )
         other_sprint = self.env["project.sprint"].create(
-            {"name": "Other Sprint", "project_id": other_project.id, "team_id": other_team.id}
+            {
+                "name": "Other Sprint",
+                "project_id": other_project.id,
+                "team_id": other_team.id,
+            }
         )
         snapshot = self._snapshot()
 
@@ -361,17 +461,29 @@ class TestProjectAgilePlanningActions(TransactionCase):
                 "assign",
                 [self.first_task.id],
                 sprint_id=other_sprint.id,
-                versions={self.first_task.id: self._backlog_item(snapshot, self.first_task)["version"]},
+                versions={
+                    self.first_task.id: self._backlog_item(snapshot, self.first_task)[
+                        "version"
+                    ]
+                },
             )
 
         self.assertFalse(self.first_task.sprint_id)
 
-    def test_non_manager_with_enabled_multi_company_access_uses_current_company_scope(self):
-        other_company = self.env["res.company"].create({"name": "Planning Secondary Company"})
-        planner = mail_new_test_user(self.env, "Multi-company project user", groups="project.group_project_user")
+    def test_non_manager_with_enabled_multi_company_access_uses_current_company_scope(
+        self,
+    ):
+        other_company = self.env["res.company"].create(
+            {"name": "Planning Secondary Company"}
+        )
+        planner = mail_new_test_user(
+            self.env, "Multi-company project user", groups="project.group_project_user"
+        )
         planner.company_ids = [(6, 0, (self.env.company | other_company).ids)]
-        planner_env = self.env["project.project"].with_user(planner).with_context(
-            allowed_company_ids=(self.env.company | other_company).ids
+        planner_env = (
+            self.env["project.project"]
+            .with_user(planner)
+            .with_context(allowed_company_ids=(self.env.company | other_company).ids)
         )
         snapshot = planner_env.get_agile_planning_snapshot(self.project.id)
         task = self._backlog_item(snapshot, self.first_task)
@@ -388,7 +500,9 @@ class TestProjectAgilePlanningActions(TransactionCase):
             },
         )
 
-        self.assertNotIn(self.first_task.id, [item["id"] for item in updated["backlog"]["items"]])
+        self.assertNotIn(
+            self.first_task.id, [item["id"] for item in updated["backlog"]["items"]]
+        )
         self.assertEqual(self.first_task.sprint_id, self.sprint)
 
     def test_rejects_an_inaccessible_project_before_disclosing_or_mutating_tasks(self):
@@ -405,7 +519,11 @@ class TestProjectAgilePlanningActions(TransactionCase):
             {"name": "Private Planning Team", "project_id": private_project.id}
         )
         private_sprint = self.env["project.sprint"].create(
-            {"name": "Private Sprint", "project_id": private_project.id, "team_id": private_team.id}
+            {
+                "name": "Private Sprint",
+                "project_id": private_project.id,
+                "team_id": private_team.id,
+            }
         )
         private_task = self.env["project.task"].create(
             {
@@ -415,7 +533,9 @@ class TestProjectAgilePlanningActions(TransactionCase):
             }
         )
         outsider = mail_new_test_user(
-            self.env, "Planning unauthorized outsider", groups="project.group_project_user"
+            self.env,
+            "Planning unauthorized outsider",
+            groups="project.group_project_user",
         )
 
         with self.assertRaises(AccessError):
@@ -430,7 +550,9 @@ class TestProjectAgilePlanningActions(TransactionCase):
         self.assertFalse(private_task.sprint_id)
 
     def test_rejects_unreadable_selected_tasks_before_any_mutation(self):
-        other_company = self.env["res.company"].create({"name": "Unrelated Planning Company"})
+        other_company = self.env["res.company"].create(
+            {"name": "Unrelated Planning Company"}
+        )
         other_project = self.env["project.project"].create(
             {
                 "name": "Unrelated Planning Project",
@@ -449,10 +571,11 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
 
         with self.assertRaises(AccessError):
-            self._change("assign", [self.first_task.id, other_task.id], sprint_id=self.sprint.id)
+            self._change(
+                "assign", [self.first_task.id, other_task.id], sprint_id=self.sprint.id
+            )
 
         self.assertFalse(self.first_task.sprint_id)
-
 
     def test_rejects_version_payloads_without_exact_model_namespaces(self):
         snapshot = self._snapshot()
@@ -460,12 +583,17 @@ class TestProjectAgilePlanningActions(TransactionCase):
         sprint = self._sprint_item(snapshot, self.sprint)
 
         with self.assertRaises(ValidationError):
-            self.env["project.project"].with_user(self.planner).apply_agile_planning_change(
+            self.env["project.project"].with_user(
+                self.planner
+            ).apply_agile_planning_change(
                 self.project.id,
                 "assign",
                 [self.first_task.id],
                 sprint_id=self.sprint.id,
-                expected_versions={self.first_task.id: task["version"], self.sprint.id: sprint["version"]},
+                expected_versions={
+                    self.first_task.id: task["version"],
+                    self.sprint.id: sprint["version"],
+                },
             )
 
         self.assertFalse(self.first_task.sprint_id)

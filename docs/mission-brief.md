@@ -2,11 +2,14 @@
 
 ## Mission
 
-Design and begin implementation of a modular Odoo 19 suite that makes **Odoo Project + Knowledge a credible software-delivery workspace for Agile/Scrum teams**, with later integration to Git providers such as GitHub, GitLab, and Bitbucket.
+Design and begin implementation of a modular Odoo 19 suite that makes **Odoo Project +
+Knowledge a credible software-delivery workspace for Agile/Scrum teams**, with later
+integration to Git providers such as GitHub, GitLab, and Bitbucket.
 
 The goal is **not** to recreate Jira or Confluence inside Odoo.
 
-The goal is to add the software-development semantics that Odoo lacks while preserving native Odoo behavior and taking advantage of Odoo's broader ERP capabilities.
+The goal is to add the software-development semantics that Odoo lacks while preserving
+native Odoo behavior and taking advantage of Odoo's broader ERP capabilities.
 
 The target experience should eventually provide:
 
@@ -28,11 +31,14 @@ The target experience should eventually provide:
 
 # 1. North Star
 
-> **Make Odoo Project and Knowledge a credible, integrated software-delivery workspace without sacrificing the ERP capabilities that make Odoo valuable.**
+> **Make Odoo Project and Knowledge a credible, integrated software-delivery workspace
+> without sacrificing the ERP capabilities that make Odoo valuable.**
 
-The suite should feel natural to teams coming from Jira + Confluence + GitHub/Bitbucket, but the implementation must remain **Odoo-native first**.
+The suite should feel natural to teams coming from Jira + Confluence + GitHub/Bitbucket,
+but the implementation must remain **Odoo-native first**.
 
-Do not force Odoo to mimic Jira's data model where native Odoo concepts already solve the problem.
+Do not force Odoo to mimic Jira's data model where native Odoo concepts already solve
+the problem.
 
 ---
 
@@ -44,7 +50,8 @@ These rules are non-negotiable unless the team documents a compelling reason to 
 
 Do not introduce a parallel issue model.
 
-Epics, Stories, Bugs, Tasks, Spikes, and other Agile items remain `project.task` records with additional metadata.
+Epics, Stories, Bugs, Tasks, Spikes, and other Agile items remain `project.task` records
+with additional metadata.
 
 ### Rule 2 — Use native Odoo hierarchy
 
@@ -70,7 +77,8 @@ Blocked By
 Blocks
 ```
 
-Only introduce a new semantic relationship model for relationships Odoo does not represent, such as:
+Only introduce a new semantic relationship model for relationships Odoo does not
+represent, such as:
 
 ```text
 Relates To
@@ -89,7 +97,8 @@ Create a dedicated:
 project.sprint
 ```
 
-A Sprint may optionally reference an Odoo `project.milestone`, but the two concepts must remain distinct.
+A Sprint may optionally reference an Odoo `project.milestone`, but the two concepts must
+remain distinct.
 
 ### Rule 5 — Agile must be opt-in
 
@@ -113,7 +122,8 @@ Work-item types and allowed parent/child relationships should be configurable.
 
 Do not build a custom wiki.
 
-Use Odoo Knowledge for architecture documentation, ADRs, runbooks, retrospectives, Definition of Done, release notes, and related project documentation.
+Use Odoo Knowledge for architecture documentation, ADRs, runbooks, retrospectives,
+Definition of Done, release notes, and related project documentation.
 
 ### Rule 9 — Git integrations report facts
 
@@ -136,17 +146,20 @@ A separate configurable automation layer determines workflow effects.
 
 ### Rule 10 — Historical Scrum data must remain historical
 
-Never calculate past Sprint commitment exclusively from the tasks currently assigned to a Sprint.
+Never calculate past Sprint commitment exclusively from the tasks currently assigned to
+a Sprint.
 
 Scope changes must be captured as events or snapshots.
 
 ### Rule 11 — Custom OWL UX comes later
 
-A Jira-like Sprint planning UI is valuable, but the backend must first be fully usable through ordinary Odoo views and actions.
+A Jira-like Sprint planning UI is valuable, but the backend must first be fully usable
+through ordinary Odoo views and actions.
 
 ### Rule 12 — Prefer contribution over duplication
 
-Where an OCA project already solves or is actively solving the problem, investigate extending or forward-porting it before creating a competing implementation.
+Where an OCA project already solves or is actively solving the problem, investigate
+extending or forward-porting it before creating a competing implementation.
 
 ---
 
@@ -191,7 +204,8 @@ with analytics following once the Sprint lifecycle is stable.
 
 ## Objective
 
-Create the smallest stable domain layer required to treat Odoo Projects as software-development workspaces.
+Create the smallest stable domain layer required to treat Odoo Projects as
+software-development workspaces.
 
 ## Extend `project.project`
 
@@ -214,7 +228,8 @@ scrum
 kanban
 ```
 
-Do not assume these exact field names are final. Validate naming against Odoo conventions before implementation.
+Do not assume these exact field names are final. Validate naming against Odoo
+conventions before implementation.
 
 ---
 
@@ -505,7 +520,8 @@ Move to selected Sprint
 Leave unscheduled
 ```
 
-Moving a task out of the Sprint must not erase the historical fact that it was part of the Sprint commitment.
+Moving a task out of the Sprint must not erase the historical fact that it was part of
+the Sprint commitment.
 
 ---
 
@@ -616,7 +632,8 @@ project_agile_knowledge
 
 ## Objective
 
-Make Odoo Knowledge function as the documentation half of the software-delivery workspace.
+Make Odoo Knowledge function as the documentation half of the software-delivery
+workspace.
 
 Potential project relationship:
 
@@ -1436,7 +1453,8 @@ upgrade-sensitive patterns
 
 # 28. Initial Decision Gate
 
-Before Milestone 1 implementation proceeds beyond the skeleton, the team should be able to answer:
+Before Milestone 1 implementation proceeds beyond the skeleton, the team should be able
+to answer:
 
 ```text
 1. Are all hard dependencies actually required?
@@ -1483,6 +1501,8 @@ The order matters.
 
 If the Agile domain model is clean, the later pieces become integrations.
 
-If the Agile domain model is designed around Jira, GitHub, or a particular customer workflow, every later phase becomes a workaround.
+If the Agile domain model is designed around Jira, GitHub, or a particular customer
+workflow, every later phase becomes a workaround.
 
-**Start with `project_agile`. Make the domain boring, native, testable, and extensible. Then build outward.**
+**Start with `project_agile`. Make the domain boring, native, testable, and extensible.
+Then build outward.**

@@ -1,10 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo noupdate="1">
-    <!-- Deliberately shared, editable starting points. No legal/financial defaults. -->
-    <record id="template_sow_skeleton" model="project.agile.solution.template">
-        <field name="name">SOW starting skeleton — project-specific, not legal advice</field>
-        <field name="kind">sow</field><field name="company_id" eval="False"/>
-        <field name="sections_json">[
+  <!-- Deliberately shared, editable starting points. No legal/financial defaults. -->
+  <record id="template_sow_skeleton" model="project.agile.solution.template">
+    <field
+      name="name"
+    >SOW starting skeleton — project-specific, not legal advice</field>
+    <field name="kind">sow</field>
+    <field name="company_id" eval="False" />
+    <field name="sections_json">[
             {"sequence":10,"title":"Purpose, beneficiaries and expected outcomes","body":"&lt;p&gt;Describe the intended outcomes and beneficiaries for this project.&lt;/p&gt;","audience":"customer"},
             {"sequence":20,"title":"Included capabilities, excluded scope and boundaries","body":"&lt;p&gt;Specify included capabilities, exclusions and authority boundaries.&lt;/p&gt;","audience":"customer"},
             {"sequence":30,"title":"Deliverables and evaluation expectations","body":"&lt;p&gt;Identify deliverables and observable evaluation expectations.&lt;/p&gt;","audience":"customer"},
@@ -16,11 +19,12 @@
             {"sequence":90,"title":"Optional commercial references","body":"&lt;p&gt;Optional narrative or external references only. No pricing, payment, legal or billing defaults.&lt;/p&gt;","audience":"customer"},
             {"sequence":100,"title":"Approval and revision history","body":"&lt;p&gt;Reference exact SOW revisions; specification approval remains separate. This is not a legal signature.&lt;/p&gt;","audience":"customer"}
         ]</field>
-    </record>
-    <record id="template_internal_brief" model="project.agile.solution.template">
-        <field name="name">Internal solution brief starting skeleton</field>
-        <field name="kind">spec</field><field name="company_id" eval="False"/>
-        <field name="sections_json">[
+  </record>
+  <record id="template_internal_brief" model="project.agile.solution.template">
+    <field name="name">Internal solution brief starting skeleton</field>
+    <field name="kind">spec</field>
+    <field name="company_id" eval="False" />
+    <field name="sections_json">[
             {"sequence":10,"title":"Purpose, beneficiaries and outcomes","body":"&lt;p&gt;Describe this initiative's intended outcomes.&lt;/p&gt;"},
             {"sequence":20,"title":"Capabilities, exclusions and boundaries","body":"&lt;p&gt;Keep solution intent separate from task planning.&lt;/p&gt;"},
             {"sequence":30,"title":"Journeys, personas and domain concepts","body":"&lt;p&gt;Use project-specific narrative and business roles, not account permissions.&lt;/p&gt;"},
@@ -29,5 +33,5 @@
             {"sequence":60,"title":"Responsibilities and acceptance authority","body":"&lt;p&gt;Identify responsible people and acceptance evidence.&lt;/p&gt;"},
             {"sequence":70,"title":"Changes, decisions and approval history","body":"&lt;p&gt;Approve exact specification revisions explicitly; native planning remains manual.&lt;/p&gt;"}
         ]</field>
-    </record>
+  </record>
 </odoo>

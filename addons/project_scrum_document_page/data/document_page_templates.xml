@@ -1,19 +1,35 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo noupdate="1">
-    <record id="document_page_category_adr" model="document.page">
-        <field name="name">ADR Template</field><field name="type">category</field><field name="company_id" eval="False"/>
-        <field name="template"><![CDATA[<h1>Architecture Decision Record</h1><h2>Status</h2><p></p><h2>Context</h2><p></p><h2>Decision</h2><p></p><h2>Alternatives Considered</h2><p></p><h2>Consequences</h2><p></p><h2>Related Work Items</h2><p></p>]]></field>
-    </record>
-    <record id="document_page_category_sprint_retrospective" model="document.page">
-        <field name="name">Sprint Retrospective Template</field><field name="type">category</field><field name="company_id" eval="False"/>
-        <field name="template"><![CDATA[<h1>Sprint Retrospective</h1><h2>Sprint Goal</h2><p></p><h2>Outcome</h2><p></p><h2>What Went Well</h2><p></p><h2>What Did Not Go Well</h2><p></p><h2>Experiments / Actions</h2><p></p><h2>Owners</h2><p></p>]]></field>
-    </record>
-    <record id="document_page_category_runbook" model="document.page">
-        <field name="name">Runbook Template</field><field name="type">category</field><field name="company_id" eval="False"/>
-        <field name="template"><![CDATA[<h1>Runbook</h1><h2>Purpose</h2><p></p><h2>Dependencies</h2><p></p><h2>Procedure</h2><p></p><h2>Validation</h2><p></p><h2>Rollback</h2><p></p><h2>Escalation</h2><p></p>]]></field>
-    </record>
-    <record id="document_page_category_release_notes" model="document.page">
-        <field name="name">Release Notes Template</field><field name="type">category</field><field name="company_id" eval="False"/>
-        <field name="template"><![CDATA[<h1>Release Notes</h1><h2>Version</h2><p></p><h2>Release Date</h2><p></p><h2>Highlights</h2><p></p><h2>Features</h2><p></p><h2>Bug Fixes</h2><p></p><h2>Breaking Changes</h2><p></p><h2>Upgrade Notes</h2><p></p><h2>Known Issues</h2><p></p>]]></field>
-    </record>
+  <record id="document_page_category_adr" model="document.page">
+    <field name="name">ADR Template</field>
+    <field name="type">category</field>
+    <field name="company_id" eval="False" />
+    <field
+      name="template"
+    ><![CDATA[<h1>Architecture Decision Record</h1><h2>Status</h2><p></p><h2>Context</h2><p></p><h2>Decision</h2><p></p><h2>Alternatives Considered</h2><p></p><h2>Consequences</h2><p></p><h2>Related Work Items</h2><p></p>]]></field>
+  </record>
+  <record id="document_page_category_sprint_retrospective" model="document.page">
+    <field name="name">Sprint Retrospective Template</field>
+    <field name="type">category</field>
+    <field name="company_id" eval="False" />
+    <field
+      name="template"
+    ><![CDATA[<h1>Sprint Retrospective</h1><h2>Sprint Goal</h2><p></p><h2>Outcome</h2><p></p><h2>What Went Well</h2><p></p><h2>What Did Not Go Well</h2><p></p><h2>Experiments / Actions</h2><p></p><h2>Owners</h2><p></p>]]></field>
+  </record>
+  <record id="document_page_category_runbook" model="document.page">
+    <field name="name">Runbook Template</field>
+    <field name="type">category</field>
+    <field name="company_id" eval="False" />
+    <field
+      name="template"
+    ><![CDATA[<h1>Runbook</h1><h2>Purpose</h2><p></p><h2>Dependencies</h2><p></p><h2>Procedure</h2><p></p><h2>Validation</h2><p></p><h2>Rollback</h2><p></p><h2>Escalation</h2><p></p>]]></field>
+  </record>
+  <record id="document_page_category_release_notes" model="document.page">
+    <field name="name">Release Notes Template</field>
+    <field name="type">category</field>
+    <field name="company_id" eval="False" />
+    <field
+      name="template"
+    ><![CDATA[<h1>Release Notes</h1><h2>Version</h2><p></p><h2>Release Date</h2><p></p><h2>Highlights</h2><p></p><h2>Features</h2><p></p><h2>Bug Fixes</h2><p></p><h2>Breaking Changes</h2><p></p><h2>Upgrade Notes</h2><p></p><h2>Known Issues</h2><p></p>]]></field>
+  </record>
 </odoo>

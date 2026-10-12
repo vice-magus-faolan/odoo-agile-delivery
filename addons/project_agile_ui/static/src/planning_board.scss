@@ -1,67 +1,67 @@
 .o_agile_planning_board {
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
 }
 
 .o_agile_planning_board__header,
 .o_agile_planning_board__fallbacks,
 .o_agile_planning_board__regions {
-    display: flex;
-    gap: 1rem;
+  display: flex;
+  gap: 1rem;
 }
 
 .o_agile_planning_board__header {
-    align-items: start;
-    justify-content: space-between;
+  align-items: start;
+  justify-content: space-between;
 }
 
 .o_agile_planning_board__fallbacks {
-    flex-wrap: wrap;
+  flex-wrap: wrap;
 }
 
 .o_agile_planning_board__regions {
-    align-items: start;
+  align-items: start;
 }
 
 .o_agile_planning_board__region {
-    display: grid;
-    flex: 1 1 0;
-    gap: 0.75rem;
-    min-width: 0;
+  display: grid;
+  flex: 1 1 0;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .o_agile_planning_board__metadata {
-    display: block;
-    color: var(--body-color, #495057);
-    font-size: 0.875rem;
+  display: block;
+  color: var(--body-color, #495057);
+  font-size: 0.875rem;
 }
 
 .o_agile_planning_board__skeleton div {
-    background: var(--gray-200, #e9ecef);
-    height: 5rem;
-    margin-bottom: 0.75rem;
+  background: var(--gray-200, #e9ecef);
+  height: 5rem;
+  margin-bottom: 0.75rem;
 }
 
 .o_agile_planning_board :focus-visible {
-    outline: 3px solid var(--o-brand-primary, #0d6efd);
-    outline-offset: 2px;
+  outline: 3px solid var(--o-brand-primary, #0d6efd);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .o_agile_planning_board *,
-    .o_agile_planning_board *::before,
-    .o_agile_planning_board *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-    }
+  .o_agile_planning_board *,
+  .o_agile_planning_board *::before,
+  .o_agile_planning_board *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 767px) {
-    .o_agile_planning_board__header,
-    .o_agile_planning_board__regions {
-        flex-direction: column;
-    }
+  .o_agile_planning_board__header,
+  .o_agile_planning_board__regions {
+    flex-direction: column;
+  }
 }

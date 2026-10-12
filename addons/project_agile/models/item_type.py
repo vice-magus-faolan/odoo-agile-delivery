@@ -42,5 +42,9 @@ class ProjectAgileItemType(models.Model):
                     task._check_agile_parent_policy()
                 except ValidationError as error:
                     raise ValidationError(
-                        _("This item type policy would invalidate existing Agile task hierarchy: %(error)s", error=error)
+                        _(
+                            "This item type policy would invalidate existing "
+                            "Agile task hierarchy: %(error)s",
+                            error=error,
+                        )
                     ) from error

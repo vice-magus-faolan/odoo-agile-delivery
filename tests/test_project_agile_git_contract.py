@@ -1,14 +1,15 @@
 """Regression checks for the Milestone 6 Git facts boundary."""
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestProjectAgileGitContract(unittest.TestCase):
     """Keep Git facts provider-neutral, native-scheduled, and independent."""
 
-    def setUp(self):
+    # Plain unittest.TestCase has no Odoo transaction setup to chain.
+    def setUp(self):  # pylint: disable=method-required-super
         self.root = Path(__file__).resolve().parents[1]
         self.module_root = self.root / "addons" / "project_agile_git"
 
@@ -52,7 +53,9 @@ class TestProjectAgileGitContract(unittest.TestCase):
         self.assertNotIn("automation", module_files.lower())
 
     def test_accepted_adr_selects_native_portable_scheduling_not_queue_job(self):
-        adr = (self.root / "docs" / "adrs" / "011-git-facts-and-visibility-contract.md").read_text()
+        adr = (
+            self.root / "docs" / "adrs" / "011-git-facts-and-visibility-contract.md"
+        ).read_text()
         verify_script = (self.root / "scripts" / "verify").read_text()
         module_readme = (self.module_root / "README.md").read_text()
 
@@ -68,13 +71,16 @@ class TestProjectAgileGitContract(unittest.TestCase):
         self.assertNotIn("accepted OCA `queue_job`", module_readme)
 
     def test_security_keeps_facts_within_project_visibility_and_company_scope(self):
-        security = (self.module_root / "security" / "project_agile_git_security.xml").read_text()
+        security = (
+            self.module_root / "security" / "project_agile_git_security.xml"
+        ).read_text()
 
         self.assertEqual(security.count("multi-company"), 8)
         self.assertEqual(security.count("Project visibility"), 8)
         self.assertEqual(security.count("Project manager"), 8)
         self.assertIn("project_id.message_partner_ids", security)
         self.assertIn("repository_id.project_id.message_partner_ids", security)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,14 +1,15 @@
 """Structural regression checks for the Milestone 5 UI contract fixture."""
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestProjectAgileUiContract(unittest.TestCase):
     """Keep the optional frontend boundary narrow and independently installable."""
 
-    def setUp(self):
+    # Plain unittest.TestCase has no Odoo transaction setup to chain.
+    def setUp(self):  # pylint: disable=method-required-super
         self.root = Path(__file__).resolve().parents[1]
         self.module_root = self.root / "addons" / "project_agile_ui"
 
@@ -33,7 +34,9 @@ class TestProjectAgileUiContract(unittest.TestCase):
         self.assertNotIn("QUnit", test_source)
 
     def test_contract_and_plan_record_scope_and_verification(self):
-        adr = (self.root / "docs" / "adrs" / "010-advanced-agile-ui-contract.md").read_text()
+        adr = (
+            self.root / "docs" / "adrs" / "010-advanced-agile-ui-contract.md"
+        ).read_text()
         plan = (
             self.root / "docs" / "plans" / "2026-09-28-project-agile-ui-skeleton.md"
         ).read_text()

@@ -1,58 +1,64 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        <record id="project_agile_team_company_rule" model="ir.rule">
-            <field name="name">Agile Team: multi-company</field>
-            <field name="model_id" ref="model_project_agile_team"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_sprint_company_rule" model="ir.rule">
-            <field name="name">Sprint: multi-company</field>
-            <field name="model_id" ref="model_project_sprint"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_sprint_scope_event_company_rule" model="ir.rule">
-            <field name="name">Sprint Scope Event: multi-company</field>
-            <field name="model_id" ref="model_project_sprint_scope_event"/>
-            <field name="domain_force">[("sprint_id.company_id", "in", company_ids + [False])]</field>
-        </record>
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <record id="project_agile_team_company_rule" model="ir.rule">
+    <field name="name">Agile Team: multi-company</field>
+    <field name="model_id" ref="model_project_agile_team" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_sprint_company_rule" model="ir.rule">
+    <field name="name">Sprint: multi-company</field>
+    <field name="model_id" ref="model_project_sprint" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_sprint_scope_event_company_rule" model="ir.rule">
+    <field name="name">Sprint Scope Event: multi-company</field>
+    <field name="model_id" ref="model_project_sprint_scope_event" />
+    <field
+      name="domain_force"
+    >[("sprint_id.company_id", "in", company_ids + [False])]</field>
+  </record>
 
-        <record id="project_agile_team_visibility_rule" model="ir.rule">
-            <field name="name">Agile Team: project visibility</field>
-            <field name="model_id" ref="model_project_agile_team"/>
-            <field name="domain_force">["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('base.group_user'))]"/>
-        </record>
-        <record id="project_sprint_visibility_rule" model="ir.rule">
-            <field name="name">Sprint: project visibility</field>
-            <field name="model_id" ref="model_project_sprint"/>
-            <field name="domain_force">["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('base.group_user'))]"/>
-        </record>
-        <record id="project_sprint_scope_event_visibility_rule" model="ir.rule">
-            <field name="name">Sprint Scope Event: project visibility</field>
-            <field name="model_id" ref="model_project_sprint_scope_event"/>
-            <field name="domain_force">["|", ("sprint_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("sprint_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('base.group_user'))]"/>
-        </record>
+  <record id="project_agile_team_visibility_rule" model="ir.rule">
+    <field name="name">Agile Team: project visibility</field>
+    <field name="model_id" ref="model_project_agile_team" />
+    <field
+      name="domain_force"
+    >["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('base.group_user'))]" />
+  </record>
+  <record id="project_sprint_visibility_rule" model="ir.rule">
+    <field name="name">Sprint: project visibility</field>
+    <field name="model_id" ref="model_project_sprint" />
+    <field
+      name="domain_force"
+    >["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('base.group_user'))]" />
+  </record>
+  <record id="project_sprint_scope_event_visibility_rule" model="ir.rule">
+    <field name="name">Sprint Scope Event: project visibility</field>
+    <field name="model_id" ref="model_project_sprint_scope_event" />
+    <field
+      name="domain_force"
+    >["|", ("sprint_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("sprint_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('base.group_user'))]" />
+  </record>
 
-        <record id="project_agile_team_manager_rule" model="ir.rule">
-            <field name="name">Agile Team: project manager visibility</field>
-            <field name="model_id" ref="model_project_agile_team"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_sprint_manager_rule" model="ir.rule">
-            <field name="name">Sprint: project manager visibility</field>
-            <field name="model_id" ref="model_project_sprint"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_sprint_scope_event_manager_rule" model="ir.rule">
-            <field name="name">Sprint Scope Event: project manager visibility</field>
-            <field name="model_id" ref="model_project_sprint_scope_event"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-    </data>
+  <record id="project_agile_team_manager_rule" model="ir.rule">
+    <field name="name">Agile Team: project manager visibility</field>
+    <field name="model_id" ref="model_project_agile_team" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_sprint_manager_rule" model="ir.rule">
+    <field name="name">Sprint: project manager visibility</field>
+    <field name="model_id" ref="model_project_sprint" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_sprint_scope_event_manager_rule" model="ir.rule">
+    <field name="name">Sprint Scope Event: project manager visibility</field>
+    <field name="model_id" ref="model_project_sprint_scope_event" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
 </odoo>

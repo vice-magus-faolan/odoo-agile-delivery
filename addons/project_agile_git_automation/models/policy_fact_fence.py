@@ -5,6 +5,7 @@ Row locks alone cannot refresh Odoo's repeatable-read snapshot after a waiter wa
 Every ORM provenance input serializes with apply; rolled-back native operations
 also roll back the counter. Core facts remain independently installable.
 """
+
 from odoo import api, fields, models
 from odoo.tools import SQL
 
@@ -15,23 +16,35 @@ from .policy_revocation_hooks import _policy_ready
 class ProjectGitRepository(models.Model):
     _inherit = "project.git.repository"
 
-    git_policy_evidence_version = fields.Integer(default=0, readonly=True, copy=False, groups="base.group_system")
+    git_policy_evidence_version = fields.Integer(
+        default=0, readonly=True, copy=False, groups="base.group_system"
+    )
 
 
 def fence_inputs(records, vals_list=()):
-    """Internal fixed repository mapping; native ACLs/validation remain authoritative."""
+    """Internal fixed repository mapping; native ACLs/validation remain
+    authoritative.
+    """
     if not _policy_ready(records.env):
         return
     ids = records.sudo().repository_id.ids
-    ids += [v["repository_id"] for v in vals_list if type(v.get("repository_id")) is int]
-    repositories = records.env["project.git.repository"].sudo().browse(sorted(set(ids))).exists()
+    ids += [
+        v["repository_id"] for v in vals_list if type(v.get("repository_id")) is int
+    ]
+    repositories = (
+        records.env["project.git.repository"].sudo().browse(sorted(set(ids))).exists()
+    )
     lock_records(repositories.project_id)
     lock_records(repositories)
     if repositories:
-        records.env.cr.execute(SQL(
-            "UPDATE project_git_repository SET git_policy_evidence_version = git_policy_evidence_version + 1 WHERE id IN %s",
-            tuple(repositories.ids),
-        ))
+        records.env.cr.execute(
+            SQL(
+                "UPDATE project_git_repository "
+                "SET git_policy_evidence_version = git_policy_evidence_version + 1 "
+                "WHERE id IN %s",
+                tuple(repositories.ids),
+            )
+        )
         repositories.invalidate_recordset(["git_policy_evidence_version"])
 
 

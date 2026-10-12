@@ -3,14 +3,17 @@
 from odoo import api, fields, models
 from odoo.tools import SQL
 
-
 RETENTION_CLEANUP_BATCH_SIZE = 100
 _PURGEABLE_STATES = ("processed", "discarded")
 
 
+# Retention remains separate from authenticated ingress and normalization.
 class ProjectGitDelivery(models.Model):
-    """Purge only expired terminal payload excerpts while preserving delivery evidence."""
+    """Purge only expired terminal payload excerpts while preserving delivery
+    evidence.
+    """
 
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.git.delivery"
 
     retained_payload_purged_at = fields.Datetime(readonly=True, copy=False, index=True)

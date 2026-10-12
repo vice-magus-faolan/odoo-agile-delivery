@@ -1,14 +1,45 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_project_sprint_form_document_page" model="ir.ui.view">
-        <field name="name">project.sprint.form.document.page</field><field name="model">project.sprint</field><field name="inherit_id" ref="project_scrum.view_project_sprint_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//header" position="inside">
-                <button name="action_open_retrospective_page" string="Retrospective" type="object" invisible="not retrospective_page_id" groups="project.group_project_manager"/>
-            </xpath>
-            <xpath expr="//notebook" position="inside">
-                <page string="Retrospective"><group><field name="retrospective_page_id" readonly="state == 'closed'" domain="[('type', '=', 'content'), ('project_id', '=', project_id), ('company_id', '=', company_id), ('active', '=', True)]"/><button name="action_create_retrospective_page" type="object" string="Create Retrospective" invisible="retrospective_page_id or state == 'closed'" groups="project.group_project_manager"/><button name="action_clear_retrospective_page" type="object" string="Clear Retrospective" invisible="not retrospective_page_id or state == 'closed'" confirm="Clearing the retrospective link does not delete or reparent the page." groups="project.group_project_manager"/></group></page>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_project_sprint_form_document_page" model="ir.ui.view">
+    <field name="name">project.sprint.form.document.page</field>
+    <field name="model">project.sprint</field>
+    <field name="inherit_id" ref="project_scrum.view_project_sprint_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button
+          name="action_open_retrospective_page"
+          string="Retrospective"
+          type="object"
+          invisible="not retrospective_page_id"
+          groups="project.group_project_manager"
+        />
+      </xpath>
+      <xpath expr="//notebook" position="inside">
+        <page string="Retrospective">
+          <group>
+            <field
+              name="retrospective_page_id"
+              readonly="state == 'closed'"
+              domain="[('type', '=', 'content'), ('project_id', '=', project_id), ('company_id', '=', company_id), ('active', '=', True)]"
+            />
+            <button
+              name="action_create_retrospective_page"
+              type="object"
+              string="Create Retrospective"
+              invisible="retrospective_page_id or state == 'closed'"
+              groups="project.group_project_manager"
+            />
+            <button
+              name="action_clear_retrospective_page"
+              type="object"
+              string="Clear Retrospective"
+              invisible="not retrospective_page_id or state == 'closed'"
+              confirm="Clearing the retrospective link does not delete or reparent the page."
+              groups="project.group_project_manager"
+            />
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
 </odoo>

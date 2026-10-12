@@ -5,7 +5,6 @@ from urllib.parse import unquote, urlsplit
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-
 _PROVIDER_SELECTION = [
     ("github", "GitHub"),
     ("gitlab", "GitLab"),
@@ -28,7 +27,9 @@ def _parse_https_url(value, label):
         parsed = urlsplit(value)
         port = parsed.port
     except ValueError as error:
-        raise ValidationError(_("The %(label)s must be an HTTPS URL.", label=label)) from error
+        raise ValidationError(
+            _("The %(label)s must be an HTTPS URL.", label=label)
+        ) from error
     if (
         parsed.scheme != "https"
         or not parsed.hostname
@@ -65,7 +66,10 @@ def _validate_repository_url(provider, canonical_url):
         or _has_unsafe_url_path_component(parsed.path)
     ):
         raise ValidationError(
-            _("The canonical repository URL must use the supported host for its provider.")
+            _(
+                "The canonical repository URL must use the supported host "
+                "for its provider."
+            )
         )
     return parsed
 
@@ -78,10 +82,14 @@ def _validate_fact_url(repository, value):
     canonical = _validate_repository_url(repository.provider, repository.canonical_url)
     parsed = _parse_https_url(value, "fact URL")
     root_path = canonical.path.rstrip("/")
-    if parsed.hostname.lower() != canonical.hostname.lower() or not (
-        parsed.path == root_path or parsed.path.startswith(root_path + "/")
-    ) or _has_unsafe_url_path_component(parsed.path):
-        raise ValidationError(_("The fact URL must stay within its configured repository."))
+    if (
+        parsed.hostname.lower() != canonical.hostname.lower()
+        or not (parsed.path == root_path or parsed.path.startswith(root_path + "/"))
+        or _has_unsafe_url_path_component(parsed.path)
+    ):
+        raise ValidationError(
+            _("The fact URL must stay within its configured repository.")
+        )
 
 
 class ProjectGitRepository(models.Model):
@@ -97,15 +105,25 @@ class ProjectGitRepository(models.Model):
     provider_repository_id = fields.Char(required=True, copy=False, index=True)
     canonical_url = fields.Char(required=True)
     project_id = fields.Many2one(
-        "project.project", required=True, ondelete="restrict", index=True, check_company=True
+        "project.project",
+        required=True,
+        ondelete="restrict",
+        index=True,
+        check_company=True,
     )
     company_id = fields.Many2one(
         related="project_id.company_id", store=True, readonly=True, index=True
     )
     active = fields.Boolean(default=True)
-    git_delivery_ids = fields.One2many("project.git.delivery", "repository_id", readonly=True)
-    git_branch_ids = fields.One2many("project.git.branch", "repository_id", readonly=True)
-    git_commit_ids = fields.One2many("project.git.commit", "repository_id", readonly=True)
+    git_delivery_ids = fields.One2many(
+        "project.git.delivery", "repository_id", readonly=True
+    )
+    git_branch_ids = fields.One2many(
+        "project.git.branch", "repository_id", readonly=True
+    )
+    git_commit_ids = fields.One2many(
+        "project.git.commit", "repository_id", readonly=True
+    )
     git_pull_request_ids = fields.One2many(
         "project.git.pull.request", "repository_id", readonly=True
     )
@@ -168,7 +186,9 @@ class ProjectGitRepository(models.Model):
             repository._validated_canonical_url()
 
     def _validated_canonical_url(self):
-        """Return this repository's safe public URL for a provider adapter's fact links."""
+        """Return this repository's safe public URL for a provider adapter's
+        fact links.
+        """
 
         self.ensure_one()
         return _validate_repository_url(self.provider, self.canonical_url)
@@ -186,25 +206,37 @@ class ProjectGitRepository(models.Model):
     def action_open_git_deliveries(self):
         if not self.env.user.has_group("project.group_project_manager"):
             raise AccessError(_("Only Project Managers can inspect Git deliveries."))
-        return self._action_open_git_records("project_agile_git.action_project_git_delivery")
+        return self._action_open_git_records(
+            "project_agile_git.action_project_git_delivery"
+        )
 
     def action_open_git_branches(self):
-        return self._action_open_git_records("project_agile_git.action_project_git_branch")
+        return self._action_open_git_records(
+            "project_agile_git.action_project_git_branch"
+        )
 
     def action_open_git_commits(self):
-        return self._action_open_git_records("project_agile_git.action_project_git_commit")
+        return self._action_open_git_records(
+            "project_agile_git.action_project_git_commit"
+        )
 
     def action_open_git_pull_requests(self):
-        return self._action_open_git_records("project_agile_git.action_project_git_pull_request")
+        return self._action_open_git_records(
+            "project_agile_git.action_project_git_pull_request"
+        )
 
     def action_open_git_checks(self):
-        return self._action_open_git_records("project_agile_git.action_project_git_check")
+        return self._action_open_git_records(
+            "project_agile_git.action_project_git_check"
+        )
 
     @api.constrains("project_id")
     def _check_agile_project(self):
         for repository in self:
             if not repository.project_id.agile_enabled:
-                raise ValidationError(_("Git repositories require an Agile-enabled project."))
+                raise ValidationError(
+                    _("Git repositories require an Agile-enabled project.")
+                )
 
 
 class ProjectGitDelivery(models.Model):
@@ -216,12 +248,18 @@ class ProjectGitDelivery(models.Model):
     _order = "received_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="restrict", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="restrict",
+        index=True,
+        check_company=True,
     )
     company_id = fields.Many2one(
         related="repository_id.company_id", store=True, readonly=True, index=True
     )
-    provider = fields.Selection(related="repository_id.provider", store=True, readonly=True)
+    provider = fields.Selection(
+        related="repository_id.provider", store=True, readonly=True
+    )
     provider_delivery_id = fields.Char(required=True, copy=False, index=True)
     event_type = fields.Char(required=True, index=True)
     payload_sha256 = fields.Char(required=True, readonly=True, copy=False, index=True)
@@ -249,7 +287,9 @@ class ProjectGitDelivery(models.Model):
     lease_expires_at = fields.Datetime(readonly=True, copy=False, index=True)
     error_summary = fields.Char(readonly=True, copy=False)
     last_error_at = fields.Datetime(readonly=True, copy=False, index=True)
-    received_at = fields.Datetime(default=fields.Datetime.now, required=True, readonly=True, index=True)
+    received_at = fields.Datetime(
+        default=fields.Datetime.now, required=True, readonly=True, index=True
+    )
     processed_at = fields.Datetime(readonly=True, copy=False, index=True)
     replay_mismatch_count = fields.Integer(default=0, readonly=True, copy=False)
     last_replay_mismatch_at = fields.Datetime(readonly=True, copy=False, index=True)
@@ -269,9 +309,15 @@ class ProjectGitBranch(models.Model):
     _order = "repository_id, name, id"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     provider_branch_id = fields.Char(readonly=True, copy=False, index=True)
     name = fields.Char(required=True, index=True)
     head_sha = fields.Char(index=True)
@@ -283,7 +329,10 @@ class ProjectGitBranch(models.Model):
     )
     ordering_state = fields.Selection(
         [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
-        required=True, default="ambiguous", readonly=True, index=True,
+        required=True,
+        default="ambiguous",
+        readonly=True,
+        index=True,
     )
 
     _branch_unique = models.Constraint(
@@ -306,9 +355,15 @@ class ProjectGitCommit(models.Model):
     _order = "authored_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     sha = fields.Char(required=True, copy=False, index=True)
     message_excerpt = fields.Char(copy=False)
     authored_at = fields.Datetime(index=True)
@@ -319,7 +374,8 @@ class ProjectGitCommit(models.Model):
     )
 
     _commit_unique = models.Constraint(
-        "UNIQUE(repository_id, sha)", "A commit can be recorded only once per repository."
+        "UNIQUE(repository_id, sha)",
+        "A commit can be recorded only once per repository.",
     )
 
     @api.constrains("repository_id", "url")
@@ -337,14 +393,25 @@ class ProjectGitPullRequest(models.Model):
     _order = "updated_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     provider_request_id = fields.Char(required=True, copy=False, index=True)
     number = fields.Char(index=True)
     title = fields.Char()
     state = fields.Selection(
-        [("open", "Open"), ("closed", "Closed"), ("merged", "Merged"), ("draft", "Draft")],
+        [
+            ("open", "Open"),
+            ("closed", "Closed"),
+            ("merged", "Merged"),
+            ("draft", "Draft"),
+        ],
         index=True,
     )
     source_branch = fields.Char()
@@ -359,7 +426,10 @@ class ProjectGitPullRequest(models.Model):
     )
     ordering_state = fields.Selection(
         [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
-        required=True, default="ambiguous", readonly=True, index=True,
+        required=True,
+        default="ambiguous",
+        readonly=True,
+        index=True,
     )
 
     _pull_request_unique = models.Constraint(
@@ -382,9 +452,15 @@ class ProjectGitCheck(models.Model):
     _order = "completed_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     provider_check_id = fields.Char(required=True, copy=False, index=True)
     name = fields.Char(required=True)
     state = fields.Selection(
@@ -411,7 +487,10 @@ class ProjectGitCheck(models.Model):
     )
     ordering_state = fields.Selection(
         [("known", "Known"), ("stale", "Stale"), ("ambiguous", "Ambiguous")],
-        required=True, default="ambiguous", readonly=True, index=True,
+        required=True,
+        default="ambiguous",
+        readonly=True,
+        index=True,
     )
 
     _check_unique = models.Constraint(
@@ -434,18 +513,39 @@ class ProjectGitAssociationAudit(models.Model):
     _order = "observed_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     delivery_id = fields.Many2one(
-        "project.git.delivery", required=True, ondelete="restrict", index=True, check_company=True
+        "project.git.delivery",
+        required=True,
+        ondelete="restrict",
+        index=True,
+        check_company=True,
     )
-    task_id = fields.Many2one("project.task", readonly=True, ondelete="restrict", check_company=True)
+    task_id = fields.Many2one(
+        "project.task", readonly=True, ondelete="restrict", check_company=True
+    )
     source_type = fields.Selection(
-        [("branch", "Branch"), ("commit", "Commit"), ("pull_request", "Pull Request"), ("check", "Check")],
-        required=True, readonly=True, copy=False,
+        [
+            ("branch", "Branch"),
+            ("commit", "Commit"),
+            ("pull_request", "Pull Request"),
+            ("check", "Check"),
+        ],
+        required=True,
+        readonly=True,
+        copy=False,
     )
-    source_provider_id = fields.Char(required=True, readonly=True, copy=False, index=True)
+    source_provider_id = fields.Char(
+        required=True, readonly=True, copy=False, index=True
+    )
     source_field = fields.Char(required=True, readonly=True, copy=False)
     agile_key = fields.Char(required=True, readonly=True, copy=False, index=True)
     outcome = fields.Selection(
@@ -455,28 +555,43 @@ class ProjectGitAssociationAudit(models.Model):
             ("unassociated", "Unassociated"),
             ("rejected", "Rejected"),
         ],
-        required=True, readonly=True, copy=False, index=True,
+        required=True,
+        readonly=True,
+        copy=False,
+        index=True,
     )
     reason = fields.Selection(
         [
-            ("exact_key", "Exact Key"), ("duplicate", "Duplicate"),
-            ("unknown_key", "Unknown Key"), ("wrong_project", "Wrong Project"),
-            ("cross_company", "Cross Company"), ("archived_task", "Archived Task"),
-            ("invalid_key", "Invalid Key"), ("too_many_keys", "Too Many Keys"),
+            ("exact_key", "Exact Key"),
+            ("duplicate", "Duplicate"),
+            ("unknown_key", "Unknown Key"),
+            ("wrong_project", "Wrong Project"),
+            ("cross_company", "Cross Company"),
+            ("archived_task", "Archived Task"),
+            ("invalid_key", "Invalid Key"),
+            ("too_many_keys", "Too Many Keys"),
         ],
-        required=True, readonly=True, copy=False, index=True,
+        required=True,
+        readonly=True,
+        copy=False,
+        index=True,
     )
-    observed_at = fields.Datetime(default=fields.Datetime.now, required=True, readonly=True, index=True)
+    observed_at = fields.Datetime(
+        default=fields.Datetime.now, required=True, readonly=True, index=True
+    )
 
     _audit_unique = models.Constraint(
         "UNIQUE(delivery_id, source_type, source_provider_id, source_field, agile_key)",
         "This Git association decision is already recorded for the delivery.",
     )
 
-    def write(self, values):
+    # Audit facts are append-only; super would permit forbidden mutation.
+    def write(self, values):  # pylint: disable=method-required-super
         raise ValidationError(_("Git association audit facts are immutable."))
 
-    def unlink(self):
+    # Audit evidence must not be deleted, including through RPC.
+    def unlink(self):  # pylint: disable=method-required-super
+        # pylint: disable=no-raise-unlink
         raise ValidationError(_("Git association audit facts are immutable."))
 
 
@@ -489,21 +604,40 @@ class ProjectGitTaskAssociation(models.Model):
     _order = "matched_at desc, id desc"
 
     repository_id = fields.Many2one(
-        "project.git.repository", required=True, ondelete="cascade", index=True, check_company=True
+        "project.git.repository",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        check_company=True,
     )
-    company_id = fields.Many2one(related="repository_id.company_id", store=True, readonly=True)
+    company_id = fields.Many2one(
+        related="repository_id.company_id", store=True, readonly=True
+    )
     task_id = fields.Many2one(
-        "project.task", required=True, ondelete="restrict", index=True, check_company=True
+        "project.task",
+        required=True,
+        ondelete="restrict",
+        index=True,
+        check_company=True,
     )
     agile_key = fields.Char(required=True, readonly=True, copy=False, index=True)
     source_type = fields.Selection(
-        [("branch", "Branch"), ("commit", "Commit"), ("pull_request", "Pull Request"), ("check", "Check")],
+        [
+            ("branch", "Branch"),
+            ("commit", "Commit"),
+            ("pull_request", "Pull Request"),
+            ("check", "Check"),
+        ],
         required=True,
         readonly=True,
         copy=False,
     )
-    source_provider_id = fields.Char(required=True, readonly=True, copy=False, index=True)
-    matched_at = fields.Datetime(default=fields.Datetime.now, required=True, readonly=True)
+    source_provider_id = fields.Char(
+        required=True, readonly=True, copy=False, index=True
+    )
+    matched_at = fields.Datetime(
+        default=fields.Datetime.now, required=True, readonly=True
+    )
 
     _association_unique = models.Constraint(
         "UNIQUE(repository_id, task_id, source_type, source_provider_id)",
@@ -514,7 +648,11 @@ class ProjectGitTaskAssociation(models.Model):
     def create(self, vals_list):
         values_list = [dict(values) for values in vals_list]
         repositories = self.env["project.git.repository"].browse(
-            [values["repository_id"] for values in values_list if values.get("repository_id")]
+            [
+                values["repository_id"]
+                for values in values_list
+                if values.get("repository_id")
+            ]
         )
         tasks = self.env["project.task"].browse(
             [values["task_id"] for values in values_list if values.get("task_id")]
@@ -523,9 +661,13 @@ class ProjectGitTaskAssociation(models.Model):
             repository = repositories.browse(values.get("repository_id"))
             task = tasks.browse(values.get("task_id"))
             if not repository or not task or repository.project_id != task.project_id:
-                raise ValidationError(_("Git task associations must stay within the repository project."))
+                raise ValidationError(
+                    _("Git task associations must stay within the repository project.")
+                )
             if not task.agile_key:
-                raise ValidationError(_("Git task associations require an immutable Agile key."))
+                raise ValidationError(
+                    _("Git task associations require an immutable Agile key.")
+                )
             values["agile_key"] = task.agile_key
         return super().create(values_list)
 
@@ -542,5 +684,7 @@ class ProjectGitTaskAssociation(models.Model):
             raise ValidationError(_("An Agile key association is immutable."))
         return super().write(values)
 
-    def unlink(self):
+    # Association identity is retained evidence; super would delete it.
+    def unlink(self):  # pylint: disable=method-required-super
+        # pylint: disable=no-raise-unlink
         raise ValidationError(_("An Agile key association is immutable."))

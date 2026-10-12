@@ -28,11 +28,15 @@ class ProjectProject(models.Model):
         if not self.agile_enabled:
             raise error_class(_("Only Agile projects can have a documentation root."))
         if page.type != "content" or not page.active:
-            raise error_class(_("The Agile documentation root must be an active content page."))
+            raise error_class(
+                _("The Agile documentation root must be an active content page.")
+            )
         if page.project_id != self:
             raise error_class(_("The documentation root must belong to this project."))
         if page.company_id and page.company_id != self.company_id:
-            raise error_class(_("The documentation root must belong to the project company."))
+            raise error_class(
+                _("The documentation root must belong to the project company.")
+            )
 
     @api.constrains("agile_enabled", "agile_documentation_page_id", "company_id")
     def _check_agile_documentation_root(self):
@@ -60,7 +64,12 @@ class ProjectProject(models.Model):
     def action_create_agile_documentation_root(self):
         self._check_agile_documentation_write_access()
         if self.agile_documentation_page_id:
-            raise UserError(_("Clear the current Agile documentation root before creating another one."))
+            raise UserError(
+                _(
+                    "Clear the current Agile documentation root "
+                    "before creating another one."
+                )
+            )
         page_model = self.env["document.page"]
         page_model.check_access("create")
         page = page_model.create(

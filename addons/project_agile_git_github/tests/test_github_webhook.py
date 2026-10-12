@@ -44,9 +44,10 @@ class TestGitHubWebhook(HttpCase):
     def _post(self, payload, delivery_id="delivery-1", secret=None, **headers):
         raw_body = json.dumps(payload, separators=(",", ":")).encode()
         signing_secret = self.secret if secret is None else secret
-        signature = "sha256=" + hmac.new(
-            signing_secret.encode(), raw_body, hashlib.sha256
-        ).hexdigest()
+        signature = (
+            "sha256="
+            + hmac.new(signing_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        )
         request_headers = {
             "Content-Type": "application/json",
             "X-GitHub-Event": "push",
@@ -71,10 +72,16 @@ class TestGitHubWebhook(HttpCase):
 
         self.assertEqual(response.status_code, 202)
         delivery = self.env["project.git.delivery"].search(
-            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-valid")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-valid"),
+            ]
         )
         self.assertEqual((delivery.state, delivery.attempt_count), ("queued", 0))
-        self.assertEqual(delivery.payload_sha256, hashlib.sha256(b'{"repository":{"id":"4242"}}').hexdigest())
+        self.assertEqual(
+            delivery.payload_sha256,
+            hashlib.sha256(b'{"repository":{"id":"4242"}}').hexdigest(),
+        )
         self.assertEqual(task.read(["stage_id", "message_partner_ids"])[0], before)
 
     def test_replay_returns_accepted_without_duplicate_ledger_work(self):
@@ -114,7 +121,10 @@ class TestGitHubWebhook(HttpCase):
         self.assertEqual((first.status_code, replay.status_code), (202, 409))
         self.assertEqual(self._delivery_count(), 1)
         delivery = self.env["project.git.delivery"].search(
-            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-event-mismatch")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-event-mismatch"),
+            ]
         )
         self.assertEqual(delivery.replay_mismatch_count, 1)
 
@@ -126,7 +136,10 @@ class TestGitHubWebhook(HttpCase):
             (deeply_nested, "delivery-deep-json"),
             (large_number, "delivery-large-number"),
         ):
-            signature = "sha256=" + hmac.new(self.secret.encode(), body, hashlib.sha256).hexdigest()
+            signature = (
+                "sha256="
+                + hmac.new(self.secret.encode(), body, hashlib.sha256).hexdigest()
+            )
             responses.append(
                 self.url_open(
                     self.route,
@@ -195,19 +208,26 @@ class TestGitHubWebhook(HttpCase):
         self.repository.active = False
         inactive = self._post(self._payload(), delivery_id="delivery-inactive")
 
-        self.assertEqual((invalid.status_code, unknown.status_code, inactive.status_code), (401, 401, 401))
+        self.assertEqual(
+            (invalid.status_code, unknown.status_code, inactive.status_code),
+            (401, 401, 401),
+        )
         self.assertEqual(self._delivery_count(), 0)
 
     def test_cross_company_repository_requires_its_own_configured_secret(self):
         other_company = self.env["res.company"].create({"name": "Other company"})
-        other_project = self.env["project.project"].with_company(other_company).create(
-            {
-                "name": "Other GitHub ingress",
-                "company_id": other_company.id,
-                "privacy_visibility": "employees",
-                "agile_enabled": True,
-                "agile_key": "OTH",
-            }
+        other_project = (
+            self.env["project.project"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "Other GitHub ingress",
+                    "company_id": other_company.id,
+                    "privacy_visibility": "employees",
+                    "agile_enabled": True,
+                    "agile_key": "OTH",
+                }
+            )
         )
         other_repository = self.env["project.git.repository"].create(
             {
@@ -221,7 +241,9 @@ class TestGitHubWebhook(HttpCase):
         )
 
         response = self._post(
-            self._payload("4243"), delivery_id="delivery-cross-company", secret=self.secret
+            self._payload("4243"),
+            delivery_id="delivery-cross-company",
+            secret=self.secret,
         )
 
         self.assertEqual(response.status_code, 401)
@@ -233,9 +255,10 @@ class TestGitHubWebhook(HttpCase):
 
     def test_malformed_oversized_and_unsupported_requests_are_rejected(self):
         malformed_body = b"{"
-        malformed_signature = "sha256=" + hmac.new(
-            self.secret.encode(), malformed_body, hashlib.sha256
-        ).hexdigest()
+        malformed_signature = (
+            "sha256="
+            + hmac.new(self.secret.encode(), malformed_body, hashlib.sha256).hexdigest()
+        )
         malformed = self.url_open(
             self.route,
             data=malformed_body,
@@ -253,7 +276,10 @@ class TestGitHubWebhook(HttpCase):
             headers={"Content-Type": "application/json"},
         )
 
-        self.assertEqual((malformed.status_code, unsupported.status_code, oversized.status_code), (400, 415, 413))
+        self.assertEqual(
+            (malformed.status_code, unsupported.status_code, oversized.status_code),
+            (400, 415, 413),
+        )
         self.assertEqual(self._delivery_count(), 0)
 
     def test_missing_signature_is_rejected_without_creating_a_delivery(self):
@@ -281,7 +307,10 @@ class TestGitHubWebhook(HttpCase):
 
         self.assertEqual(response.status_code, 202)
         delivery = self.env["project.git.delivery"].search(
-            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-redacted")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-redacted"),
+            ]
         )
         self.assertIn("[redacted]", delivery.retained_payload)
         self.assertNotIn("must-not-be-retained", delivery.retained_payload)
@@ -317,7 +346,10 @@ class TestGitHubWebhook(HttpCase):
 
         self.assertEqual(response.status_code, 202)
         delivery = self.env["project.git.delivery"].search(
-            [("repository_id", "=", self.repository.id), ("provider_delivery_id", "=", "delivery-github-pat")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "delivery-github-pat"),
+            ]
         )
         self.assertNotIn(credential, delivery.retained_payload)
         self.assertIn("[redacted]", delivery.retained_payload)

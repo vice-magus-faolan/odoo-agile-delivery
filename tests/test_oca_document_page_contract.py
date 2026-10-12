@@ -1,16 +1,19 @@
 """Static contract for the pinned OCA Document Page verification surface."""
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestOcaDocumentPageContract(unittest.TestCase):
     """Keep the OCA fixture explicit without widening the Community gate."""
 
-    def setUp(self):
+    # Plain unittest.TestCase has no Odoo transaction setup to chain.
+    def setUp(self):  # pylint: disable=method-required-super
         self.root = Path(__file__).resolve().parents[1]
-        self.adr = (self.root / "docs" / "adrs" / "006-knowledge-relationship-model.md").read_text()
+        self.adr = (
+            self.root / "docs" / "adrs" / "006-knowledge-relationship-model.md"
+        ).read_text()
         self.plan = (
             self.root / "docs" / "plans" / "2026-09-26-project-agile-knowledge.md"
         ).read_text()
@@ -58,8 +61,8 @@ class TestOcaDocumentPageContract(unittest.TestCase):
         self.assertIn("tmpfs", self.compose)
         self.assertIn("/mnt/extra-addons:ro", self.compose)
         self.assertNotIn("ports:", self.compose)
-        self.assertIn("--init \"$MODULES\"", self.verify)
-        self.assertIn("--update \"$MODULES\"", self.verify)
+        self.assertIn('--init "$MODULES"', self.verify)
+        self.assertIn('--update "$MODULES"', self.verify)
         self.assertIn("uninstall_module document_page_project", self.verify)
         self.assertIn("uninstall_module document_page", self.verify)
         self.assertIn("uninstall_module document_knowledge", self.verify)
@@ -78,7 +81,7 @@ class TestOcaDocumentPageContract(unittest.TestCase):
 
         self.assertIn(f"`{module_assignment}`", self.fixture)
         self.assertIn(f"`{module_assignment}`", self.plan)
-        self.assertIn(expected_uninstall_order, self.fixture)
+        self.assertIn(expected_uninstall_order, " ".join(self.fixture.split()))
 
     def test_community_gate_remains_community_only(self):
         community_verify = (self.root / "scripts" / "verify").read_text()
@@ -93,7 +96,9 @@ class TestOcaDocumentPageContract(unittest.TestCase):
         module = self.root / "addons" / "project_agile_document_page"
         manifest = ast.literal_eval((module / "__manifest__.py").read_text())
         self.assertEqual(manifest["license"], "AGPL-3")
-        self.assertEqual(manifest["depends"], ["project_agile", "document_page_project"])
+        self.assertEqual(
+            manifest["depends"], ["project_agile", "document_page_project"]
+        )
         self.assertFalse((module / "static").exists())
         self.assertIn("never deletes or reparents", (module / "README.md").read_text())
 
@@ -104,6 +109,9 @@ class TestOcaDocumentPageContract(unittest.TestCase):
         self.assertIn("/mnt/extra-addons:ro", self.compose)
         self.assertNotIn("ports:", self.compose)
         community_verify = (self.root / "scripts" / "verify").read_text()
-        self.assertIn("MODULES=project_agile,project_scrum,project_scrum_analytics", community_verify)
+        self.assertIn(
+            "MODULES=project_agile,project_scrum,project_scrum_analytics",
+            community_verify,
+        )
         self.assertNotIn("project_agile_document_page", community_verify)
         self.assertIn("AGPL-3", self.fixture)

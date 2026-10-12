@@ -28,17 +28,25 @@ class ProjectScrumAnalytics(models.AbstractModel):
             raise AccessError(_("The requested Sprint is not available."))
         sprint.check_access("read")
         if sprint.company_id and sprint.company_id not in self.env.companies:
-            raise AccessError(_("The requested Sprint belongs to an unavailable company."))
+            raise AccessError(
+                _("The requested Sprint belongs to an unavailable company.")
+            )
         sprint.project_id.check_access("read")
         return sprint
 
     def _replay_sprint(self, sprint):
-        boundary = sprint.closed_at if sprint.state == "closed" and sprint.closed_at else False
+        boundary = (
+            sprint.closed_at if sprint.state == "closed" and sprint.closed_at else False
+        )
         domain = [("sprint_id", "=", sprint.id)]
         if boundary:
             domain.append(("event_at", "<=", boundary))
-        events = self.env["project.sprint.scope.event"].search(domain, order="event_at, id")
-        task_states = defaultdict(lambda: {"in_scope": False, "done": False, "points": 0.0})
+        events = self.env["project.sprint.scope.event"].search(
+            domain, order="event_at, id"
+        )
+        task_states = defaultdict(
+            lambda: {"in_scope": False, "done": False, "points": 0.0}
+        )
         committed_points = {}
         scope_change = {"initial": 0.0, "added": 0.0, "removed": 0.0}
         timeline = []
@@ -109,7 +117,9 @@ class ProjectScrumAnalytics(models.AbstractModel):
     def _raw_metrics(self, task_states):
         in_scope = [state for state in task_states.values() if state["in_scope"]]
         return {
-            "remaining": sum(state["points"] for state in in_scope if not state["done"]),
+            "remaining": sum(
+                state["points"] for state in in_scope if not state["done"]
+            ),
             "completed": sum(state["points"] for state in in_scope if state["done"]),
             "total": sum(state["points"] for state in in_scope),
         }

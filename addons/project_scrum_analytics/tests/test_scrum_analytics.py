@@ -1,7 +1,8 @@
 from odoo import Command, fields
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestScrumAnalytics(TransactionCase):
@@ -124,7 +125,9 @@ class TestScrumAnalytics(TransactionCase):
         self.task.write({"state": "01_in_progress", "agile_story_points": 13})
         self.project.write({"name": "Renamed after close"})
 
-        self.assertEqual(self.env["project.scrum.analytics"].get_report(sprint.id), expected)
+        self.assertEqual(
+            self.env["project.scrum.analytics"].get_report(sprint.id), expected
+        )
         self.assertEqual(expected["velocity"], 5.0)
 
     def test_carry_over_and_zero_point_work_do_not_create_velocity(self):
@@ -294,12 +297,18 @@ class TestScrumAnalytics(TransactionCase):
         )
 
         self.assertEqual(
-            self.env["project.scrum.analytics"].with_user(user).get_report(sprint.id)["sprint"]["id"],
+            self.env["project.scrum.analytics"]
+            .with_user(user)
+            .get_report(sprint.id)["sprint"]["id"],
             sprint.id,
         )
         with self.assertRaises(AccessError):
-            self.env["project.scrum.analytics"].with_user(user).get_report(foreign_sprint.id)
+            self.env["project.scrum.analytics"].with_user(user).get_report(
+                foreign_sprint.id
+            )
         with self.assertRaises(AccessError):
-            self.env["project.scrum.analytics"].with_user(user).get_report(other_sprint.id)
+            self.env["project.scrum.analytics"].with_user(user).get_report(
+                other_sprint.id
+            )
         with self.assertRaises(AccessError):
             self.env["project.scrum.analytics"].with_user(user).get_report("not-an-id")

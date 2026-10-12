@@ -4,7 +4,12 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
 from .policy_authority import (
-    check_identity, check_scope, clean_context, lock_records, reject_keys, require_capability,
+    check_identity,
+    check_scope,
+    clean_context,
+    lock_records,
+    reject_keys,
+    require_capability,
 )
 
 
@@ -16,30 +21,68 @@ class ProjectGitPolicyRule(models.Model):
     _order = "project_id, id"
 
     name = fields.Char(required=True)
-    repository_id = fields.Many2one("project.git.repository", required=True, readonly=True, ondelete="restrict", index=True)
-    project_id = fields.Many2one("project.project", required=True, readonly=True, ondelete="restrict", index=True)
-    company_id = fields.Many2one("res.company", required=True, readonly=True, ondelete="restrict", index=True)
-    owner_id = fields.Many2one("res.users", required=True, readonly=True, ondelete="restrict")
+    repository_id = fields.Many2one(
+        "project.git.repository",
+        required=True,
+        readonly=True,
+        ondelete="restrict",
+        index=True,
+    )
+    project_id = fields.Many2one(
+        "project.project", required=True, readonly=True, ondelete="restrict", index=True
+    )
+    company_id = fields.Many2one(
+        "res.company", required=True, readonly=True, ondelete="restrict", index=True
+    )
+    owner_id = fields.Many2one(
+        "res.users", required=True, readonly=True, ondelete="restrict"
+    )
     active = fields.Boolean(default=True)
     authority_epoch = fields.Integer(default=0, readonly=True, copy=False)
-    activation_id = fields.Many2one("project.git.policy.activation", readonly=True, ondelete="restrict", copy=False)
-    active_revision_id = fields.Many2one(related="activation_id.revision_id", readonly=True)
-    revision_ids = fields.One2many("project.git.policy.revision", "rule_id", readonly=True)
+    activation_id = fields.Many2one(
+        "project.git.policy.activation", readonly=True, ondelete="restrict", copy=False
+    )
+    active_revision_id = fields.Many2one(
+        related="activation_id.revision_id", readonly=True
+    )
+    revision_ids = fields.One2many(
+        "project.git.policy.revision", "rule_id", readonly=True
+    )
     policy_status = fields.Selection(
         [("disabled", "Disabled"), ("dry_run", "Dry Run"), ("active", "Active")],
-        compute="_compute_policy_status", compute_sudo=False,
+        compute="_compute_policy_status",
+        compute_sudo=False,
     )
 
-    @api.depends("active", "activation_id", "activation_id.mode", "activation_id.revocation_ids",
-                 "project_id.git_policy_enabled", "project_id.git_policy_mode")
+    @api.depends(
+        "active",
+        "activation_id",
+        "activation_id.mode",
+        "activation_id.revocation_ids",
+        "project_id.git_policy_enabled",
+        "project_id.git_policy_mode",
+    )
     def _compute_policy_status(self):
-        """Display persisted control state, not a certification of current Task access."""
+        """Display persisted control state, not a certification of current
+        Task access.
+        """
         for rule in self:
             activation = rule.activation_id
-            enabled = rule.active and rule.project_id.git_policy_enabled and activation and not activation.revocation_ids
+            enabled = (
+                rule.active
+                and rule.project_id.git_policy_enabled
+                and activation
+                and not activation.revocation_ids
+            )
             rule.policy_status = (
-                "active" if enabled and activation.mode == "apply" and rule.project_id.git_policy_mode == "apply"
-                else "dry_run" if enabled and activation.mode == "dry_run" and rule.project_id.git_policy_mode == "dry_run"
+                "active"
+                if enabled
+                and activation.mode == "apply"
+                and rule.project_id.git_policy_mode == "apply"
+                else "dry_run"
+                if enabled
+                and activation.mode == "dry_run"
+                and rule.project_id.git_policy_mode == "dry_run"
                 else "disabled"
             )
 
@@ -49,13 +92,26 @@ class ProjectGitPolicyRule(models.Model):
         values_list = []
         for values in vals_list:
             reject_keys(values, {"name", "repository_id"})
-            repository = self.env["project.git.repository"].browse(values.get("repository_id"))
+            repository = self.env["project.git.repository"].browse(
+                values.get("repository_id")
+            )
             check_scope(repository)
-            values_list.append({
-                **values, "project_id": repository.project_id.id, "company_id": repository.company_id.id,
-                "owner_id": self.env.uid, "active": True, "authority_epoch": 0, "activation_id": False,
-            })
-        return super(ProjectGitPolicyRule, self.with_context(clean_context(self.env))).create(values_list)
+            values_list.append(
+                {
+                    **values,
+                    "project_id": repository.project_id.id,
+                    "company_id": repository.company_id.id,
+                    "owner_id": self.env.uid,
+                    "active": True,
+                    "authority_epoch": 0,
+                    "activation_id": False,
+                }
+            )
+        return super(
+            # Caller defaults must be removed, not merged back into this create.
+            ProjectGitPolicyRule,
+            self.with_context(clean_context(self.env)),  # pylint: disable=context-overridden
+        ).create(values_list)
 
     def _check_control(self, owner=False, emergency=False):
         require_capability(self.env, emergency=emergency)
@@ -68,28 +124,41 @@ class ProjectGitPolicyRule(models.Model):
             for rule in self:
                 check_scope(rule.repository_id, rule.project_id, rule.company_id)
                 if not rule.active:
-                    raise ValidationError(_("Archived policy identities cannot be reused."))
+                    raise ValidationError(
+                        _("Archived policy identities cannot be reused.")
+                    )
                 if owner and rule.owner_id != self.env.user:
-                    raise AccessError(_("Only the current policy owner can edit its drafts."))
+                    raise AccessError(
+                        _("Only the current policy owner can edit its drafts.")
+                    )
 
     def _lock_control(self):
         lock_records(self.project_id)
         lock_records(self.repository_id)
         lock_records(self)
 
-    def _revoke(self, reason):
-        """Private terminal epoch update; callers authorize or revoke-only native hooks."""
+    # Terminal update is side-effect-only, not an inherited write return API.
+    def _revoke(self, reason):  # pylint: disable=missing-return
+        """Private terminal epoch update; callers authorize or revoke-only
+        native hooks.
+        """
         self._lock_control()
         for rule in self:
             if rule.activation_id:
                 rule.activation_id._revoke(reason)
-            super(ProjectGitPolicyRule, rule.sudo()).write({
-                "authority_epoch": rule.authority_epoch + 1, "activation_id": False,
-            })
+            super(ProjectGitPolicyRule, rule.sudo()).write(
+                {
+                    "authority_epoch": rule.authority_epoch + 1,
+                    "activation_id": False,
+                }
+            )
 
-    def _set_activation(self, activation):
+    # Private control update intentionally returns no native write result.
+    def _set_activation(self, activation):  # pylint: disable=missing-return
         self.ensure_one()
-        super(ProjectGitPolicyRule, self.sudo()).write({"activation_id": activation.id if activation else False})
+        super(ProjectGitPolicyRule, self.sudo()).write(
+            {"activation_id": activation.id if activation else False}
+        )
 
     def write(self, values):
         self._check_control(owner=True)
@@ -97,12 +166,18 @@ class ProjectGitPolicyRule(models.Model):
         self._lock_control()
         self._check_control(owner=True)
         if values.get("active"):
-            raise ValidationError(_("Policy identities cannot be recycled through unarchive."))
+            raise ValidationError(
+                _("Policy identities cannot be recycled through unarchive.")
+            )
         self._revoke("rule_changed" if values.get("active", True) else "archived")
         return super().write(values)
 
-    def unlink(self):
-        """Deletion requests archive identities, retaining revision/activation tombstones."""
+    # Deletion deliberately archives; super would erase retained history.
+    def unlink(self):  # pylint: disable=method-required-super
+        """Deletion requests archive identities.
+
+        Retain revision/activation tombstones.
+        """
         self._check_control(owner=True)
         self.write({"active": False})
         return True
@@ -116,9 +191,13 @@ class ProjectGitPolicyRule(models.Model):
         return True
 
     def action_preview(self):
-        """Preview the fixed readable repository, never caller-selected Tasks or effects."""
+        """Preview the fixed readable repository, never caller-selected Tasks
+        or effects.
+        """
         self.ensure_one()
         require_capability(self.env)
+        # Strip caller defaults before resolving the fixed preview target.
+        # pylint: disable-next=context-overridden
         rule = self.with_context(clean_context(self.env))
         rule.check_access("read")
         return rule.repository_id.action_dry_run_git_policy()

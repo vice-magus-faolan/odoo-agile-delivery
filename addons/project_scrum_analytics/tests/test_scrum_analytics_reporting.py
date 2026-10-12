@@ -1,9 +1,10 @@
 from datetime import timedelta
 
 from odoo import Command
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestScrumAnalyticsReporting(TransactionCase):
@@ -83,7 +84,9 @@ class TestScrumAnalyticsReporting(TransactionCase):
         self.assertEqual(report.precision, "trusted")
         self.assertTrue(report.closed_at)
 
-    def test_actions_and_views_are_additive_and_drill_down_only_to_authorized_records(self):
+    def test_actions_and_views_are_additive_and_drill_down_only_to_authorized_records(
+        self,
+    ):
         sprint = self._create_sprint(task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
         report = self.env["project.scrum.analytics.report"].search(
@@ -93,31 +96,48 @@ class TestScrumAnalyticsReporting(TransactionCase):
             [("report_id", "=", report.id)]
         )
 
-        report_action = self.env.ref("project_scrum_analytics.action_scrum_analytics_report")
-        timeline_action = self.env.ref("project_scrum_analytics.action_scrum_analytics_timeline")
+        report_action = self.env.ref(
+            "project_scrum_analytics.action_scrum_analytics_report"
+        )
+        timeline_action = self.env.ref(
+            "project_scrum_analytics.action_scrum_analytics_timeline"
+        )
         self.assertEqual(report_action.res_model, "project.scrum.analytics.report")
         self.assertEqual(timeline_action.res_model, "project.scrum.analytics.timeline")
         self.assertEqual(
-            self.env.ref("project_scrum_analytics.view_scrum_analytics_report_pivot").type,
+            self.env.ref(
+                "project_scrum_analytics.view_scrum_analytics_report_pivot"
+            ).type,
             "pivot",
         )
         self.assertEqual(
-            self.env.ref("project_scrum_analytics.view_scrum_analytics_report_graph").type,
+            self.env.ref(
+                "project_scrum_analytics.view_scrum_analytics_report_graph"
+            ).type,
             "graph",
         )
         self.assertEqual(
-            self.env.ref("project_scrum_analytics.view_scrum_analytics_timeline_pivot").type,
+            self.env.ref(
+                "project_scrum_analytics.view_scrum_analytics_timeline_pivot"
+            ).type,
             "pivot",
         )
         self.assertEqual(
-            self.env.ref("project_scrum_analytics.view_scrum_analytics_timeline_graph").type,
+            self.env.ref(
+                "project_scrum_analytics.view_scrum_analytics_timeline_graph"
+            ).type,
             "graph",
         )
-        self.assertEqual(report.action_open_timeline()["domain"], [("report_id", "=", report.id)])
+        self.assertEqual(
+            report.action_open_timeline()["domain"], [("report_id", "=", report.id)]
+        )
         self.assertEqual(report.action_open_sprint()["res_id"], sprint.id)
         self.assertEqual(timeline[-1].action_open_task()["res_id"], self.task.id)
 
-    def test_report_search_grouping_export_and_drill_down_enforce_project_and_company_access(self):
+    # Preserve the existing native test identifier.
+    def test_report_search_grouping_export_and_drill_down_enforce_project_and_company_access(  # noqa: E501
+        self,
+    ):
         user = mail_new_test_user(
             self.env, "Analytics reporting user", groups="project.group_project_user"
         )
@@ -139,15 +159,15 @@ class TestScrumAnalyticsReporting(TransactionCase):
         foreign_team = self.env["project.agile.team"].create(
             {"name": "Foreign reporting team", "project_id": foreign_project.id}
         )
-        foreign_sprint = self._create_sprint(
-            project=foreign_project, team=foreign_team
-        )
+        foreign_sprint = self._create_sprint(project=foreign_project, team=foreign_team)
         foreign_sprint.action_start()
         foreign_report = self.env["project.scrum.analytics.report"].search(
             [("sprint_id", "=", foreign_sprint.id)]
         )
 
-        other_company = self.env["res.company"].create({"name": "Other reporting company"})
+        other_company = self.env["res.company"].create(
+            {"name": "Other reporting company"}
+        )
         other_project = self.env["project.project"].create(
             {
                 "name": "Other-company reporting project",
@@ -178,10 +198,16 @@ class TestScrumAnalyticsReporting(TransactionCase):
                 }
             ],
         )
-        self.assertEqual(reports.search_count([("sprint_id", "=", foreign_sprint.id)]), 0)
+        self.assertEqual(
+            reports.search_count([("sprint_id", "=", foreign_sprint.id)]), 0
+        )
         self.assertEqual(reports.search_count([("sprint_id", "=", other_sprint.id)]), 0)
-        self.assertEqual(timelines.search_count([("report_id", "=", foreign_report.id)]), 0)
-        self.assertEqual(reports._read_group([], ["project_id"], ["__count"])[0][0], self.project)
+        self.assertEqual(
+            timelines.search_count([("report_id", "=", foreign_report.id)]), 0
+        )
+        self.assertEqual(
+            reports._read_group([], ["project_id"], ["__count"])[0][0], self.project
+        )
         with self.assertRaises(AccessError):
             reports.browse(foreign_report.id).action_open_timeline()
         with self.assertRaises(AccessError):
@@ -206,7 +232,9 @@ class TestScrumAnalyticsReporting(TransactionCase):
 
         sprint.sudo().write({"closed_at": sprint.closed_at - timedelta(days=1)})
 
-        report.invalidate_recordset(["burndown_remaining", "burnup_completed", "burnup_total"])
+        report.invalidate_recordset(
+            ["burndown_remaining", "burnup_completed", "burnup_total"]
+        )
         self.assertEqual(report.burndown_remaining, 0.0)
         self.assertEqual(report.burnup_completed, 0.0)
         self.assertEqual(report.burnup_total, 0.0)

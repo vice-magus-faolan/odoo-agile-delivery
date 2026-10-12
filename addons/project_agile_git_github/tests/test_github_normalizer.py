@@ -1,8 +1,8 @@
 """Runtime coverage for native leased GitHub fact normalization."""
 
 import json
-from uuid import uuid4
 from unittest.mock import patch
+from uuid import uuid4
 
 from psycopg2 import IntegrityError
 
@@ -78,8 +78,12 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             ],
         }
 
-    def _check_run(self, name, output, provider_check_id=3001, updated_at="2026-01-02T03:04:05Z"):
-        """Return a complete GitHub check-run payload with caller-controlled ordering and keys."""
+    def _check_run(
+        self, name, output, provider_check_id=3001, updated_at="2026-01-02T03:04:05Z"
+    ):
+        """Return a complete GitHub check-run payload with caller-controlled
+        ordering and keys.
+        """
 
         return {
             "repository": {"id": 2001},
@@ -97,7 +101,9 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         }
 
     def _pull_request(self, title, updated_at):
-        """Return a complete pull-request payload with caller-controlled title ordering."""
+        """Return a complete pull-request payload with caller-controlled title
+        ordering.
+        """
 
         return {
             "repository": {"id": 2001},
@@ -138,7 +144,8 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                     "name": "concurrent-" + unique_key.lower(),
                     "provider": "github",
                     "provider_repository_id": "concurrent-" + unique_key,
-                    "canonical_url": "https://github.com/acme/concurrent-" + unique_key.lower(),
+                    "canonical_url": "https://github.com/acme/concurrent-"
+                    + unique_key.lower(),
                     "project_id": project.id,
                     "webhook_secret": "fixture-secret",
                     "retention_policy": "redacted_excerpt",
@@ -162,7 +169,8 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                                     "id": "c" * 40,
                                     "message": task.agile_key,
                                     "timestamp": "2026-01-02T03:04:05Z",
-                                    "url": "https://example.invalid/commit/" + ("c" * 40),
+                                    "url": "https://example.invalid/commit/"
+                                    + ("c" * 40),
                                 }
                             ],
                         }
@@ -183,8 +191,12 @@ class TestGitHubDeliveryNormalization(TransactionCase):
 
         self._process(delivery)
 
-        branch = self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)])
-        commit = self.env["project.git.commit"].search([("repository_id", "=", self.repository.id)])
+        branch = self.env["project.git.branch"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        commit = self.env["project.git.commit"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
         association = self.env["project.git.task.association"].search(
             [
                 ("repository_id", "=", self.repository.id),
@@ -200,9 +212,13 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             branch.url,
             "https://github.com/acme/normalizer/tree/feature/NRM-1-delivery",
         )
-        self.assertEqual(commit.url, "https://github.com/acme/normalizer/commit/" + "a" * 40)
+        self.assertEqual(
+            commit.url, "https://github.com/acme/normalizer/commit/" + "a" * 40
+        )
         self.assertEqual(association.agile_key, self.first_task.agile_key)
-        self.assertEqual(self.first_task.read(["stage_id", "message_partner_ids"])[0], before)
+        self.assertEqual(
+            self.first_task.read(["stage_id", "message_partner_ids"])[0], before
+        )
 
     def test_pull_request_preserves_multiple_explicit_key_decisions(self):
         delivery = self._delivery(
@@ -229,64 +245,122 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self._process(delivery)
 
         associations = self.env["project.git.task.association"].search(
-            [("repository_id", "=", self.repository.id), ("source_type", "=", "pull_request")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("source_type", "=", "pull_request"),
+            ]
         )
         audits = self.env["project.git.association.audit"].search(
             [("delivery_id", "=", delivery.id), ("agile_key", "=", "NRM-999")]
         )
         self.assertEqual(set(associations.mapped("agile_key")), {"NRM-1", "NRM-2"})
-        self.assertEqual((audits.outcome, audits.reason), ("unassociated", "unknown_key"))
+        self.assertEqual(
+            (audits.outcome, audits.reason), ("unassociated", "unknown_key")
+        )
 
     def test_existing_association_retains_current_delivery_task_proof(self):
-        first = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "first-proof")
+        first = self._delivery(
+            "pull_request",
+            self._pull_request("NRM-1", "2026-01-02T03:04:05Z"),
+            "first-proof",
+        )
         self._process(first)
-        second = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T04:04:05Z"), "second-proof")
+        second = self._delivery(
+            "pull_request",
+            self._pull_request("NRM-1", "2026-01-02T04:04:05Z"),
+            "second-proof",
+        )
         self._process(second)
-        audit = self.env["project.git.association.audit"].search([("delivery_id", "=", second.id)])
-        self.assertEqual((audit.outcome, audit.reason), ("already_associated", "duplicate"))
+        audit = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", second.id)]
+        )
+        self.assertEqual(
+            (audit.outcome, audit.reason), ("already_associated", "duplicate")
+        )
         self.assertEqual(audit.task_id, self.first_task)
-        self.assertEqual(self.env["project.git.task.association"].search_count([
-            ("repository_id", "=", self.repository.id), ("source_type", "=", "pull_request"),
-        ]), 1)
+        self.assertEqual(
+            self.env["project.git.task.association"].search_count(
+                [
+                    ("repository_id", "=", self.repository.id),
+                    ("source_type", "=", "pull_request"),
+                ]
+            ),
+            1,
+        )
 
     def test_unique_collision_requires_exact_association_before_duplicate_proof(self):
         """Exercise a real unique constraint after a missed initial lookup."""
         model = self.env["project.git.task.association"]
-        model.create({"repository_id": self.repository.id, "task_id": self.first_task.id,
-                      "source_type": "pull_request", "source_provider_id": "404"})
+        model.create(
+            {
+                "repository_id": self.repository.id,
+                "task_id": self.first_task.id,
+                "source_type": "pull_request",
+                "source_provider_id": "404",
+            }
+        )
         self.env.flush_all()
-        delivery = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "collision-proof")
+        delivery = self._delivery(
+            "pull_request",
+            self._pull_request("NRM-1", "2026-01-02T03:04:05Z"),
+            "collision-proof",
+        )
         original = type(model).search
         calls = []
 
         def miss_once(records, domain, *args, **kwargs):
             calls.append(domain)
-            return records.browse() if len(calls) == 1 else original(records, domain, *args, **kwargs)
+            return (
+                records.browse()
+                if len(calls) == 1
+                else original(records, domain, *args, **kwargs)
+            )
 
         with patch.object(type(model), "search", miss_once):
             delivery._associate_agile_key("pull_request", "404", "title", "NRM-1")
         self.assertGreaterEqual(len(calls), 2)
-        audit = self.env["project.git.association.audit"].search([("delivery_id", "=", delivery.id)])
-        self.assertEqual((audit.outcome, audit.reason), ("already_associated", "duplicate"))
+        audit = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual(
+            (audit.outcome, audit.reason), ("already_associated", "duplicate")
+        )
         self.assertEqual(audit.task_id, self.first_task)
 
     def test_unrelated_integrity_error_cannot_mint_duplicate_proof(self):
-        delivery = self._delivery("pull_request", self._pull_request("NRM-1", "2026-01-02T03:04:05Z"), "unrelated-integrity")
+        delivery = self._delivery(
+            "pull_request",
+            self._pull_request("NRM-1", "2026-01-02T03:04:05Z"),
+            "unrelated-integrity",
+        )
         model = self.env["project.git.task.association"]
-        with patch.object(type(model), "create", side_effect=IntegrityError("synthetic unrelated constraint")):
+        with patch.object(
+            type(model),
+            "create",
+            side_effect=IntegrityError("synthetic unrelated constraint"),
+        ):
             with self.assertRaises(IntegrityError):
                 delivery._associate_agile_key("pull_request", "404", "title", "NRM-1")
-        self.assertFalse(self.env["project.git.association.audit"].search([("delivery_id", "=", delivery.id)]))
+        self.assertFalse(
+            self.env["project.git.association.audit"].search(
+                [("delivery_id", "=", delivery.id)]
+            )
+        )
 
     def test_check_run_creates_fact_and_exact_key_association(self):
         delivery = self._delivery(
-            "check_run", self._check_run("CI for NRM-1", {"title": "Build passed"}), "check-run"
+            "check_run",
+            self._check_run("CI for NRM-1", {"title": "Build passed"}),
+            "check-run",
         )
 
         self._process(delivery)
 
         check = self.env["project.git.check"].search(
-            [("repository_id", "=", self.repository.id), ("provider_check_id", "=", "3001")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_check_id", "=", "3001"),
+            ]
         )
         association = self.env["project.git.task.association"].search(
             [
@@ -306,18 +380,30 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             ]
         )
         self.assertEqual(delivery.state, "processed")
-        self.assertEqual((check.name, check.state, check.ordering_state), ("CI for NRM-1", "success", "known"))
-        self.assertEqual((association.agile_key, audit.outcome, audit.reason), ("NRM-1", "associated", "exact_key"))
+        self.assertEqual(
+            (check.name, check.state, check.ordering_state),
+            ("CI for NRM-1", "success", "known"),
+        )
+        self.assertEqual(
+            (association.agile_key, audit.outcome, audit.reason),
+            ("NRM-1", "associated", "exact_key"),
+        )
 
     def test_stale_and_ambiguous_pull_request_deliveries_keep_own_key_provenance(self):
         newer = self._delivery(
-            "pull_request", self._pull_request("NRM-1 current", "2026-01-03T03:04:05Z"), "pr-newer"
+            "pull_request",
+            self._pull_request("NRM-1 current", "2026-01-03T03:04:05Z"),
+            "pr-newer",
         )
         stale = self._delivery(
-            "pull_request", self._pull_request("NRM-2 stale", "2026-01-01T03:04:05Z"), "pr-stale"
+            "pull_request",
+            self._pull_request("NRM-2 stale", "2026-01-01T03:04:05Z"),
+            "pr-stale",
         )
         ambiguous = self._delivery(
-            "pull_request", self._pull_request("NRM-2 equal", "2026-01-03T03:04:05Z"), "pr-ambiguous"
+            "pull_request",
+            self._pull_request("NRM-2 equal", "2026-01-03T03:04:05Z"),
+            "pr-ambiguous",
         )
 
         self._process(newer)
@@ -325,7 +411,10 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self._process(ambiguous)
 
         pull = self.env["project.git.pull.request"].search(
-            [("repository_id", "=", self.repository.id), ("provider_request_id", "=", "404")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_request_id", "=", "404"),
+            ]
         )
         association = self.env["project.git.task.association"].search(
             [
@@ -353,7 +442,9 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 ("agile_key", "=", self.first_task.agile_key),
             ]
         )
-        self.assertEqual((pull.title, pull.ordering_state), ("NRM-1 current", "ambiguous"))
+        self.assertEqual(
+            (pull.title, pull.ordering_state), ("NRM-1 current", "ambiguous")
+        )
         self.assertEqual(association.agile_key, self.second_task.agile_key)
         self.assertEqual(len(delivery_audits), 2)
         self.assertFalse(leaked_audits)
@@ -380,7 +471,10 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self._process(ambiguous)
 
         check = self.env["project.git.check"].search(
-            [("repository_id", "=", self.repository.id), ("provider_check_id", "=", "3002")]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_check_id", "=", "3002"),
+            ]
         )
         association = self.env["project.git.task.association"].search(
             [
@@ -408,7 +502,9 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 ("agile_key", "=", self.first_task.agile_key),
             ]
         )
-        self.assertEqual((check.name, check.ordering_state), ("NRM-1 current", "ambiguous"))
+        self.assertEqual(
+            (check.name, check.ordering_state), ("NRM-1 current", "ambiguous")
+        )
         self.assertEqual(association.agile_key, self.second_task.agile_key)
         self.assertEqual(len(delivery_audits), 2)
         self.assertFalse(leaked_audits)
@@ -416,10 +512,14 @@ class TestGitHubDeliveryNormalization(TransactionCase):
     def test_same_sha_push_deliveries_keep_own_commit_key_provenance(self):
         sha = "r" * 40
         first = self._delivery(
-            "push", self._push(sha, "2026-01-02T03:04:05Z", "NRM-1 first"), "commit-first"
+            "push",
+            self._push(sha, "2026-01-02T03:04:05Z", "NRM-1 first"),
+            "commit-first",
         )
         second = self._delivery(
-            "push", self._push(sha, "2026-01-03T03:04:05Z", "NRM-2 second"), "commit-second"
+            "push",
+            self._push(sha, "2026-01-03T03:04:05Z", "NRM-2 second"),
+            "commit-second",
         )
 
         self._process(first)
@@ -474,14 +574,20 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(commit.message_excerpt, "NRM-1 first")
         self.assertEqual(first_association.agile_key, self.first_task.agile_key)
         self.assertEqual(second_association.agile_key, self.second_task.agile_key)
-        self.assertEqual((first_audit.outcome, first_audit.reason), ("associated", "exact_key"))
-        self.assertEqual((second_audit.outcome, second_audit.reason), ("associated", "exact_key"))
+        self.assertEqual(
+            (first_audit.outcome, first_audit.reason), ("associated", "exact_key")
+        )
+        self.assertEqual(
+            (second_audit.outcome, second_audit.reason), ("associated", "exact_key")
+        )
         self.assertFalse(leaked_second_audit)
 
     def test_push_ref_path_traversal_dead_letters_without_branch_creation(self):
         """A signed ref must not escape the configured repository URL path."""
 
-        payload = self._push("t" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key)
+        payload = self._push(
+            "t" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key
+        )
         payload["ref"] = "refs/heads/../../other-owner/other-repository"
         delivery = self._delivery("push", payload, "traversal-ref")
 
@@ -489,11 +595,17 @@ class TestGitHubDeliveryNormalization(TransactionCase):
 
         self.assertEqual(delivery.state, "failed")
         self.assertIn("branch ref", delivery.error_summary)
-        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
 
     def test_out_of_order_push_does_not_regress_a_newer_branch_head(self):
         newer = self._delivery(
-            "push", self._push("c" * 40, "2026-01-03T03:04:05Z", "NRM-1 newest"), "newer"
+            "push",
+            self._push("c" * 40, "2026-01-03T03:04:05Z", "NRM-1 newest"),
+            "newer",
         )
         older = self._delivery(
             "push", self._push("d" * 40, "2026-01-01T03:04:05Z", "NRM-1 older"), "older"
@@ -502,7 +614,9 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self._process(newer)
         self._process(older)
 
-        branch = self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)])
+        branch = self.env["project.git.branch"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
         self.assertEqual(branch.head_sha, "c" * 40)
         self.assertEqual(branch.ordering_state, "stale")
         self.assertEqual((newer.state, older.state), ("processed", "processed"))
@@ -511,20 +625,31 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         """Verify a second transaction skips the first worker's held lease lock."""
 
         fixture = self._create_committed_delivery()
-        with self.registry._db.cursor() as first_cursor, self.registry._db.cursor() as second_cursor:
+        with (
+            self.registry._db.cursor() as first_cursor,
+            self.registry._db.cursor() as second_cursor,
+        ):
             first_environment = api.Environment(first_cursor, SUPERUSER_ID, {})
             second_environment = api.Environment(second_cursor, SUPERUSER_ID, {})
-            first_claim = first_environment["project.git.delivery"]._claim_github_delivery()
-            second_claim = second_environment["project.git.delivery"]._claim_github_delivery()
+            first_claim = first_environment[
+                "project.git.delivery"
+            ]._claim_github_delivery()
+            second_claim = second_environment[
+                "project.git.delivery"
+            ]._claim_github_delivery()
 
             self.assertEqual(first_claim.id, fixture["delivery_id"])
             self.assertFalse(second_claim)
-            self.assertEqual((first_claim.state, first_claim.attempt_count), ("processing", 1))
+            self.assertEqual(
+                (first_claim.state, first_claim.attempt_count), ("processing", 1)
+            )
             self.assertTrue(first_claim.lease_token)
 
     def test_expired_normalizer_lease_is_recovered_and_settled(self):
         delivery = self._delivery(
-            "push", self._push("g" * 40, "2026-01-03T03:04:05Z", "NRM-1 recovered"), "expired"
+            "push",
+            self._push("g" * 40, "2026-01-03T03:04:05Z", "NRM-1 recovered"),
+            "expired",
         )
         delivery.write(
             {
@@ -542,13 +667,18 @@ class TestGitHubDeliveryNormalization(TransactionCase):
     def test_archived_exact_key_is_audited_without_association(self):
         self.first_task.active = False
         delivery = self._delivery(
-            "push", self._push("h" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key), "archived"
+            "push",
+            self._push("h" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key),
+            "archived",
         )
 
         self._process(delivery)
 
         associations = self.env["project.git.task.association"].search(
-            [("repository_id", "=", self.repository.id), ("task_id", "=", self.first_task.id)]
+            [
+                ("repository_id", "=", self.repository.id),
+                ("task_id", "=", self.first_task.id),
+            ]
         )
         audit = self.env["project.git.association.audit"].search(
             [
@@ -562,28 +692,41 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertFalse(audit.task_id)
 
     def test_cross_company_key_is_indistinguishable_from_an_unknown_key(self):
-        other_company = self.env["res.company"].create({"name": "Other normalizer company"})
-        other_project = self.env["project.project"].with_company(other_company).create(
-            {
-                "name": "Other normalizer project",
-                "company_id": other_company.id,
-                "privacy_visibility": "employees",
-                "agile_enabled": True,
-                "agile_key": "OTH",
-            }
+        other_company = self.env["res.company"].create(
+            {"name": "Other normalizer company"}
         )
-        other_task = self.env["project.task"].with_company(other_company).create(
-            {"name": "Other task", "project_id": other_project.id}
+        other_project = (
+            self.env["project.project"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "Other normalizer project",
+                    "company_id": other_company.id,
+                    "privacy_visibility": "employees",
+                    "agile_enabled": True,
+                    "agile_key": "OTH",
+                }
+            )
+        )
+        other_task = (
+            self.env["project.task"]
+            .with_company(other_company)
+            .create({"name": "Other task", "project_id": other_project.id})
         )
         delivery = self._delivery(
-            "push", self._push("i" * 40, "2026-01-03T03:04:05Z", other_task.agile_key), "wrong-project"
+            "push",
+            self._push("i" * 40, "2026-01-03T03:04:05Z", other_task.agile_key),
+            "wrong-project",
         )
 
         self._process(delivery)
 
         self.assertFalse(
             self.env["project.git.task.association"].search(
-                [("repository_id", "=", self.repository.id), ("task_id", "=", other_task.id)]
+                [
+                    ("repository_id", "=", self.repository.id),
+                    ("task_id", "=", other_task.id),
+                ]
             )
         )
         audit = self.env["project.git.association.audit"].search(
@@ -596,7 +739,9 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual((audit.outcome, audit.reason), ("unassociated", "unknown_key"))
         self.assertFalse(audit.task_id)
 
-    def test_embedded_or_unicode_agile_key_text_does_not_create_commit_associations(self):
+    def test_embedded_or_unicode_agile_key_text_does_not_create_commit_associations(
+        self,
+    ):
         message = " ".join(
             (
                 "prefixnrmxNRM-1ysuffix",
@@ -642,11 +787,17 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self._process(delivery)
 
         self.assertEqual(delivery.state, "failed")
-        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
         self.assertTrue(delivery.error_summary)
 
     def test_falsy_malformed_push_commits_dead_letters_without_fact_writes(self):
-        payload = self._push("l" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key)
+        payload = self._push(
+            "l" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key
+        )
         payload["commits"] = ""
         delivery = self._delivery("push", payload, "malformed-commits")
 
@@ -654,24 +805,42 @@ class TestGitHubDeliveryNormalization(TransactionCase):
 
         self.assertEqual(delivery.state, "failed")
         self.assertIn("commits collection", delivery.error_summary)
-        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
-        self.assertFalse(self.env["project.git.commit"].search([("repository_id", "=", self.repository.id)]))
         self.assertFalse(
-            self.env["project.git.task.association"].search([("repository_id", "=", self.repository.id)])
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        self.assertFalse(
+            self.env["project.git.commit"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        self.assertFalse(
+            self.env["project.git.task.association"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
         )
 
     def test_falsy_malformed_check_output_dead_letters_without_fact_writes(self):
         delivery = self._delivery(
-            "check_run", self._check_run(self.first_task.agile_key, []), "malformed-check-output"
+            "check_run",
+            self._check_run(self.first_task.agile_key, []),
+            "malformed-check-output",
         )
 
         self._process(delivery)
 
         self.assertEqual(delivery.state, "failed")
         self.assertIn("check output", delivery.error_summary)
-        self.assertFalse(self.env["project.git.check"].search([("repository_id", "=", self.repository.id)]))
         self.assertFalse(
-            self.env["project.git.task.association"].search([("repository_id", "=", self.repository.id)])
+            self.env["project.git.check"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        self.assertFalse(
+            self.env["project.git.task.association"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
         )
 
     def test_mismatched_payload_repository_is_rejected_without_fact_writes(self):
@@ -683,12 +852,22 @@ class TestGitHubDeliveryNormalization(TransactionCase):
 
         self.assertEqual(delivery.state, "failed")
         self.assertIn("does not match", delivery.error_summary)
-        self.assertFalse(self.env["project.git.branch"].search([("repository_id", "=", self.repository.id)]))
+        self.assertFalse(
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
 
     def test_transient_failure_retries_then_dead_letters_after_the_bound(self):
-        delivery = self._delivery("push", self._push("f" * 40, "2026-01-03T03:04:05Z", "NRM-1"), "retry")
+        delivery = self._delivery(
+            "push", self._push("f" * 40, "2026-01-03T03:04:05Z", "NRM-1"), "retry"
+        )
 
-        with patch.object(type(delivery), "_normalize_github_delivery", side_effect=RuntimeError("fixture")):
+        with patch.object(
+            type(delivery),
+            "_normalize_github_delivery",
+            side_effect=RuntimeError("fixture"),
+        ):
             for attempt in range(5):
                 self._process(delivery)
                 if attempt < 4:
@@ -699,51 +878,71 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         self.assertEqual(delivery.error_summary, "GitHub fact normalization failed.")
 
     def test_reprocess_manager_cannot_requeue_an_invisible_other_company_delivery(self):
-        manager = self.env["res.users"].with_context(no_reset_password=True).create(
-            {
-                "name": "Restricted GitHub delivery manager",
-                "login": "restricted-github-delivery-manager@example.invalid",
-                "company_id": self.env.company.id,
-                "company_ids": [(6, 0, [self.env.company.id])],
-                "group_ids": [(4, self.env.ref("project.group_project_manager").id)],
-            }
+        manager = (
+            self.env["res.users"]
+            .with_context(no_reset_password=True)
+            .create(
+                {
+                    "name": "Restricted GitHub delivery manager",
+                    "login": "restricted-github-delivery-manager@example.invalid",
+                    "company_id": self.env.company.id,
+                    "company_ids": [(6, 0, [self.env.company.id])],
+                    "group_ids": [
+                        (4, self.env.ref("project.group_project_manager").id)
+                    ],
+                }
+            )
         )
-        other_company = self.env["res.company"].create({"name": "Restricted delivery company"})
-        other_project = self.env["project.project"].with_company(other_company).create(
-            {
-                "name": "Restricted delivery project",
-                "company_id": other_company.id,
-                "privacy_visibility": "employees",
-                "agile_enabled": True,
-                "agile_key": "RPD",
-            }
+        other_company = self.env["res.company"].create(
+            {"name": "Restricted delivery company"}
         )
-        other_repository = self.env["project.git.repository"].with_company(other_company).create(
-            {
-                "name": "restricted delivery repository",
-                "provider": "github",
-                "provider_repository_id": "3002",
-                "canonical_url": "https://github.com/acme/restricted-delivery",
-                "project_id": other_project.id,
-                "webhook_secret": "fixture-secret",
-                "retention_policy": "redacted_excerpt",
-            }
+        other_project = (
+            self.env["project.project"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "Restricted delivery project",
+                    "company_id": other_company.id,
+                    "privacy_visibility": "employees",
+                    "agile_enabled": True,
+                    "agile_key": "RPD",
+                }
+            )
         )
-        delivery = self.env["project.git.delivery"].with_company(other_company).create(
-            {
-                "repository_id": other_repository.id,
-                "provider_delivery_id": "delivery-reprocess-invisible",
-                "event_type": "push",
-                "payload_sha256": "k" * 64,
-                "payload_size": 1,
-                "retained_payload": json.dumps({"repository": {"id": 3002}}),
-                "state": "failed",
-                "lease_token": "must-not-change",
-                "lease_expires_at": "2026-02-03 04:05:06",
-                "error_summary": "must not clear",
-                "last_error_at": "2026-02-03 04:05:06",
-                "processed_at": "2026-02-03 04:05:06",
-            }
+        other_repository = (
+            self.env["project.git.repository"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "restricted delivery repository",
+                    "provider": "github",
+                    "provider_repository_id": "3002",
+                    "canonical_url": "https://github.com/acme/restricted-delivery",
+                    "project_id": other_project.id,
+                    "webhook_secret": "fixture-secret",
+                    "retention_policy": "redacted_excerpt",
+                }
+            )
+        )
+        delivery = (
+            self.env["project.git.delivery"]
+            .with_company(other_company)
+            .create(
+                {
+                    "repository_id": other_repository.id,
+                    "provider_delivery_id": "delivery-reprocess-invisible",
+                    "event_type": "push",
+                    "payload_sha256": "k" * 64,
+                    "payload_size": 1,
+                    "retained_payload": json.dumps({"repository": {"id": 3002}}),
+                    "state": "failed",
+                    "lease_token": "must-not-change",
+                    "lease_expires_at": "2026-02-03 04:05:06",
+                    "error_summary": "must not clear",
+                    "last_error_at": "2026-02-03 04:05:06",
+                    "processed_at": "2026-02-03 04:05:06",
+                }
+            )
         )
         unchanged_fields = [
             "state",
@@ -765,27 +964,41 @@ class TestGitHubDeliveryNormalization(TransactionCase):
         delivery.invalidate_recordset(unchanged_fields)
         self.assertEqual(delivery.read(unchanged_fields)[0], before)
 
-    def test_reprocess_rejects_retryable_and_authorizes_terminal_replay_idempotently(self):
-        manager = self.env["res.users"].with_context(no_reset_password=True).create(
-            {
-                "name": "GitHub delivery manager",
-                "login": "github-delivery-manager@example.invalid",
-                "company_id": self.env.company.id,
-                "company_ids": [(6, 0, [self.env.company.id])],
-                "group_ids": [(4, self.env.ref("project.group_project_manager").id)],
-            }
+    def test_reprocess_rejects_retryable_and_authorizes_terminal_replay_idempotently(
+        self,
+    ):
+        manager = (
+            self.env["res.users"]
+            .with_context(no_reset_password=True)
+            .create(
+                {
+                    "name": "GitHub delivery manager",
+                    "login": "github-delivery-manager@example.invalid",
+                    "company_id": self.env.company.id,
+                    "company_ids": [(6, 0, [self.env.company.id])],
+                    "group_ids": [
+                        (4, self.env.ref("project.group_project_manager").id)
+                    ],
+                }
+            )
         )
-        ordinary_user = self.env["res.users"].with_context(no_reset_password=True).create(
-            {
-                "name": "GitHub delivery ordinary user",
-                "login": "github-delivery-user@example.invalid",
-                "company_id": self.env.company.id,
-                "company_ids": [(6, 0, [self.env.company.id])],
-                "group_ids": [(4, self.env.ref("base.group_user").id)],
-            }
+        ordinary_user = (
+            self.env["res.users"]
+            .with_context(no_reset_password=True)
+            .create(
+                {
+                    "name": "GitHub delivery ordinary user",
+                    "login": "github-delivery-user@example.invalid",
+                    "company_id": self.env.company.id,
+                    "company_ids": [(6, 0, [self.env.company.id])],
+                    "group_ids": [(4, self.env.ref("base.group_user").id)],
+                }
+            )
         )
         delivery = self._delivery(
-            "push", self._push("j" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key), "reprocess"
+            "push",
+            self._push("j" * 40, "2026-01-03T03:04:05Z", self.first_task.agile_key),
+            "reprocess",
         )
         delivery.state = "retryable"
 

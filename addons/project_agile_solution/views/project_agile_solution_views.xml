@@ -1,33 +1,51 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_solution_lineage_list" model="ir.ui.view">
-        <field name="name">project.agile.solution.list</field>
-        <field name="model">project.agile.solution</field>
-        <field name="arch" type="xml">
-            <list><field name="name"/><field name="project_id"/><field name="company_id" groups="base.group_multi_company"/></list>
-        </field>
-    </record>
-    <record id="view_solution_lineage_form" model="ir.ui.view">
-        <field name="name">project.agile.solution.form</field>
-        <field name="model">project.agile.solution</field>
-        <field name="arch" type="xml">
-            <form string="Solution Lineage">
-                <sheet>
-                    <div class="alert alert-info" role="status">Lineage identity only. This foundation does not approve a SOW or solution specification.</div>
-                    <group>
-                        <field name="name"/>
-                        <field name="project_id" readonly="id" domain="[('agile_enabled', '=', True)]"/>
-                        <field name="company_id" groups="base.group_multi_company"/>
-                        <field name="active"/>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-    <record id="action_solution_lineage" model="ir.actions.act_window">
-        <field name="name">Solution Lineages</field>
-        <field name="res_model">project.agile.solution</field>
-        <field name="view_mode">list,form</field>
-    </record>
-    <menuitem id="menu_solution_lineage" name="Solution Lineages" parent="project.menu_main_pm" action="action_solution_lineage" groups="project.group_project_user" sequence="80"/>
+  <record id="view_solution_lineage_list" model="ir.ui.view">
+    <field name="name">project.agile.solution.list</field>
+    <field name="model">project.agile.solution</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="project_id" />
+        <field name="company_id" groups="base.group_multi_company" />
+      </list>
+    </field>
+  </record>
+  <record id="view_solution_lineage_form" model="ir.ui.view">
+    <field name="name">project.agile.solution.form</field>
+    <field name="model">project.agile.solution</field>
+    <field name="arch" type="xml">
+      <form string="Solution Lineage">
+        <sheet>
+          <div
+            class="alert alert-info"
+            role="status"
+          >Lineage identity only. This foundation does not approve a SOW or solution specification.</div>
+          <group>
+            <field name="name" />
+            <field
+              name="project_id"
+              readonly="id"
+              domain="[('agile_enabled', '=', True)]"
+            />
+            <field name="company_id" groups="base.group_multi_company" />
+            <field name="active" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_solution_lineage" model="ir.actions.act_window">
+    <field name="name">Solution Lineages</field>
+    <field name="res_model">project.agile.solution</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <menuitem
+    id="menu_solution_lineage"
+    name="Solution Lineages"
+    parent="project.menu_main_pm"
+    action="action_solution_lineage"
+    groups="project.group_project_user"
+    sequence="80"
+  />
 </odoo>

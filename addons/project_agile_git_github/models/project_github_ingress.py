@@ -1,6 +1,5 @@
 """Internal GitHub ingress persistence helpers for the provider-neutral ledger."""
 
-import hashlib
 import hmac
 import json
 import re
@@ -9,7 +8,6 @@ from psycopg2 import IntegrityError
 
 from odoo import api, fields, models
 from odoo.tools import SQL
-
 
 MAX_RETAINED_PAYLOAD_CHARS = 4096
 MAX_RETAINED_COLLECTION_ITEMS = 100
@@ -69,13 +67,16 @@ def _redact_payload_value(value, depth=0):
 
 
 class ProjectGitRepository(models.Model):
-    """Keep the public ingress lookup narrow and independent of caller company context."""
+    """Keep the public ingress lookup narrow and independent of caller company
+    context.
+    """
 
     _inherit = "project.git.repository"
 
     @api.model
     def _github_ingress_configuration(self, provider_repository_id):
-        """Return active GitHub ingress configuration without exposing it through the ORM.
+        """Return active GitHub ingress configuration without exposing it through
+        the ORM.
 
         A public webhook has no Project ACL. This parameterized internal lookup is
         deliberately limited to a globally unique provider identity and returns no
@@ -105,7 +106,9 @@ class ProjectGitRepository(models.Model):
 
     @api.model
     def _redacted_github_payload_excerpt(self, payload):
-        """Return one valid bounded redacted payload, or no payload when it cannot fit safely."""
+        """Return one valid bounded redacted payload, or no payload when it cannot
+        fit safely.
+        """
 
         excerpt = json.dumps(
             _redact_payload_value(payload), ensure_ascii=True, separators=(",", ":")
@@ -130,7 +133,8 @@ class ProjectGitDelivery(models.Model):
         retention_error=None,
         return_replay_status=False,
     ):
-        """Persist one authenticated delivery without normalizing or mutating workflow state.
+        """Persist one authenticated delivery without normalizing or mutating
+        workflow state.
 
         Elevation is deliberately after the controller's HMAC check. It only lets
         the server create its protected ledger record; it is never used to grant
@@ -185,7 +189,8 @@ class ProjectGitDelivery(models.Model):
                     SQL(
                         """
                         UPDATE project_git_delivery
-                           SET replay_mismatch_count = LEAST(replay_mismatch_count + 1, %s),
+                           SET replay_mismatch_count =
+                               LEAST(replay_mismatch_count + 1, %s),
                                last_replay_mismatch_at = NOW()
                          WHERE id = %s
                         """,

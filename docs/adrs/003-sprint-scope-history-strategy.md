@@ -7,30 +7,28 @@ Accepted — implemented by the Milestone 2 project_scrum foundation.
 ## Context
 
 A Sprint is not a Milestone, and current task-to-Sprint assignments are mutable.
-Analytics cannot reconstruct original commitment, added or removed scope,
-completion, or carry-over from current relationships alone.
+Analytics cannot reconstruct original commitment, added or removed scope, completion, or
+carry-over from current relationships alone.
 
 ## Decision
 
-The `project_scrum` module keeps Sprint lifecycle separate from milestones and
-records an immutable commitment snapshot when a Sprint starts. It appends
-`project.sprint.scope.event` records for committed, added, and removed scope.
-Each record retains the Sprint, task, story-point value observed at the event,
-timestamp, actor, and optional reason. Native Odoo 19 state `1_done` owns
-completion: a non-done to `1_done` edge appends `completed`, and a `1_done` to
-non-done edge appends `reopened`. `is_closed` and folded stages are rejected as
-signals because `1_canceled` is closed but not completed. The task write path
-captures pre-write state, so repeated writes are idempotent and bulk, UI, and
-RPC writes share the same evidence.
+The `project_scrum` module keeps Sprint lifecycle separate from milestones and records
+an immutable commitment snapshot when a Sprint starts. It appends
+`project.sprint.scope.event` records for committed, added, and removed scope. Each
+record retains the Sprint, task, story-point value observed at the event, timestamp,
+actor, and optional reason. Native Odoo 19 state `1_done` owns completion: a non-done to
+`1_done` edge appends `completed`, and a `1_done` to non-done edge appends `reopened`.
+`is_closed` and folded stages are rejected as signals because `1_canceled` is closed but
+not completed. The task write path captures pre-write state, so repeated writes are
+idempotent and bulk, UI, and RPC writes share the same evidence.
 
-At Sprint start, each `committed` event is followed by `completed` for every
-task already in native `1_done`, preserving completed work at the immutable
-commitment boundary. Other completion transitions append facts only while the
-assigned Sprint is active.
-After close, native task state may change but cannot mutate the closed ledger or
-historical numbers. Ordinary ORM users cannot create, change, or delete scope
-events. Superuser recovery may correct `closed_at` or immutable scope facts, while
-lifecycle state remains action-only, including for superuser.
+At Sprint start, each `committed` event is followed by `completed` for every task
+already in native `1_done`, preserving completed work at the immutable commitment
+boundary. Other completion transitions append facts only while the assigned Sprint is
+active. After close, native task state may change but cannot mutate the closed ledger or
+historical numbers. Ordinary ORM users cannot create, change, or delete scope events.
+Superuser recovery may correct `closed_at` or immutable scope facts, while lifecycle
+state remains action-only, including for superuser.
 
 ## Close transaction and carry-over
 
@@ -38,37 +36,36 @@ Closing is one database transaction. Completed tasks remain assigned to the clos
 Sprint. For unfinished tasks, a manager must explicitly choose Product Backlog
 (unscheduled) or a different compatible Draft Sprint. The source ledger appends
 `carried_to_backlog` or `carried_to_sprint`; the latter has a typed target-Sprint
-relation, so reports never infer carry-over from free text or an ordinary
-`removed` event. The target does not receive commitment facts until it starts.
+relation, so reports never infer carry-over from free text or an ordinary `removed`
+event. The target does not receive commitment facts until it starts.
 
-The close path locks involved Sprints and unfinished task rows, validates the
-source remains active and the target remains a same-project/company/team Draft
-Sprint, checks caller Sprint and task write access before writes, moves all
-unfinished tasks, appends facts, then closes the source. Any validation, access,
-concurrency, or task-write failure rolls back the complete transaction. Closed
-Sprints reject normal Sprint/task assignment changes. Superuser recovery may
-correct `closed_at` or immutable scope facts; lifecycle state remains action-only,
-including for superuser.
+The close path locks involved Sprints and unfinished task rows, validates the source
+remains active and the target remains a same-project/company/team Draft Sprint, checks
+caller Sprint and task write access before writes, moves all unfinished tasks, appends
+facts, then closes the source. Any validation, access, concurrency, or task-write
+failure rolls back the complete transaction. Closed Sprints reject normal Sprint/task
+assignment changes. Superuser recovery may correct `closed_at` or immutable scope facts;
+lifecycle state remains action-only, including for superuser.
 
 ## Alternatives
 
-- Derive history from current task assignments: rejected because moved tasks
-erase history.
+- Derive history from current task assignments: rejected because moved tasks erase
+  history.
 - Store periodic aggregate snapshots only: rejected because task-level audit and
-correction semantics are lost.
-- Reuse project milestones as Sprints: rejected because their lifecycle and
-historical meaning differ.
+  correction semantics are lost.
+- Reuse project milestones as Sprints: rejected because their lifecycle and historical
+  meaning differ.
 
 ## Consequences
 
-Burndown, burnup, velocity, scope change, and commitment-versus-completion
-remain deferred until completed and reopened event semantics exist. The
-append-only record creates an audit surface and requires explicit retention,
-access, and correction rules.
+Burndown, burnup, velocity, scope change, and commitment-versus-completion remain
+deferred until completed and reopened event semantics exist. The append-only record
+creates an audit surface and requires explicit retention, access, and correction rules.
 
 ## Resolved by ADR-009
 
-ADR-009 defines active-Sprint reestimation, task-born-complete, start-boundary completion, close-time, and correction semantics for trustworthy analytics.
+ADR-009 defines active-Sprint reestimation, task-born-complete, start-boundary
+completion, close-time, and correction semantics for trustworthy analytics.
 
 ## Evidence
 

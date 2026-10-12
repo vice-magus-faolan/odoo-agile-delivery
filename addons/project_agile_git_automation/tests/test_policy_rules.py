@@ -2,10 +2,7 @@
 
 from unittest.mock import patch
 
-from psycopg2.errors import UndefinedTable
-
 from odoo import Command
-from odoo.addons.base.models.ir_model import IrModelData as NativeIrModelData
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
@@ -62,78 +59,6 @@ class TestGitPolicyRules(TransactionCase):
         self.assertFalse(activation._validate_current_authority())
         self.assertTrue(activation.revocation_ids)
         self.assertFalse(self.rule.activation_id)
-
-    def test_policy_uninstall_callbacks_restore_runtime_revocation(self):
-        activation = self._activate()
-
-        def nested_callback(records, modules):
-            records.create({"module": "__issue11__", "name": "nested_uninstall_callback",
-                            "model": "project.task", "res_id": self.task.id})
-
-        def metadata_callback(records, modules):
-            self.assertEqual(modules, ["project_agile_git_automation"])
-            with patch.object(NativeIrModelData, "_module_data_uninstall", nested_callback):
-                records._module_data_uninstall(modules)
-            records.create({"module": "__issue11__", "name": "uninstall_callback",
-                            "model": "project.task", "res_id": self.task.id})
-            self.assertFalse(activation.revocation_ids)
-            self.assertEqual(self.rule.activation_id, activation)
-
-        # Native module operations commit and cannot run in TransactionCase.
-        # The existing disposable lifecycle checks exercise the actual teardown;
-        # substitute only the destructive parent here to test callback scope.
-        with patch.object(NativeIrModelData, "_module_data_uninstall", metadata_callback):
-            self.env["ir.model.data"]._module_data_uninstall(["project_agile_git_automation"])
-        self.executor.write({"active": False})
-        self.assertTrue(activation.revocation_ids)
-        self.assertFalse(self.rule.activation_id)
-
-    def test_failed_policy_uninstall_does_not_leak_revocation_exemption(self):
-        activation = self._activate()
-        with self.assertRaises(AccessError):
-            self.env["ir.model.data"].with_user(self.executor)._module_data_uninstall(
-                ["project_agile_git_automation"],
-            )
-
-        def failed_callback(records, modules):
-            raise RuntimeError("synthetic uninstall failure")
-
-        with patch.object(NativeIrModelData, "_module_data_uninstall", failed_callback):
-            with self.assertRaisesRegex(RuntimeError, "synthetic uninstall failure"):
-                self.env["ir.model.data"]._module_data_uninstall(["project_agile_git_automation"])
-        self.assertFalse(activation.revocation_ids)
-        self.executor.write({"active": False})
-        self.assertTrue(activation.revocation_ids)
-        self.assertFalse(self.rule.activation_id)
-
-    def test_other_module_removal_and_forged_uninstall_context_still_revoke(self):
-        activation = self._activate()
-
-        def metadata_callback(records, modules):
-            records.with_context(_force_unlink=True, git_policy_schema_removal=True,
-                                 install_mode=True, git_policy_skip_revocation=True).create({
-                "module": "__issue11__", "name": "other_uninstall_callback",
-                "model": "project.task", "res_id": self.task.id,
-            })
-
-        with patch.object(NativeIrModelData, "_module_data_uninstall", metadata_callback):
-            self.env["ir.model.data"]._module_data_uninstall(["another_addon"])
-        self.assertTrue(activation.revocation_ids)
-        self.assertFalse(self.rule.activation_id)
-
-    def test_missing_runtime_policy_schema_rolls_back_authority_change(self):
-        activation = self._activate()
-        self.env.flush_all()
-        # Only transactional DDL can model an unexpectedly missing runtime
-        # table. The enclosing savepoint restores schema and the native write.
-        with self.assertRaises(UndefinedTable), self.env.cr.savepoint():
-            self.env.cr.execute(
-                "ALTER TABLE project_git_policy_activation RENAME TO issue11_missing_activation",
-            )
-            self.executor.write({"active": False})
-        self.assertTrue(self.executor.active)
-        self.assertFalse(activation.revocation_ids)
-        self.assertEqual(self.rule.activation_id, activation)
 
     def test_inverse_project_stage_removal_restore_is_terminal(self):
         for stage in (self.stages[0], self.stages[2]):

@@ -1,10 +1,54 @@
 """Regression checks for the safe Milestone 3 verification workflow."""
 
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 
 class TestVerifyContract(unittest.TestCase):
+    def test_uninstall_reports_logged_errors_and_preserves_command_status(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (root / "scripts" / "verify").read_text()
+        # Run the production function without the verifier's Docker lifecycle.
+        function = script.split("\nuninstall_module() {", 1)[1].split(
+            "\nsolution_lifecycle() {", 1
+        )[0]
+        cases = (
+            ("INFO uninstall complete", 0, 0),
+            ("ERROR missing policy table during uninstall", 0, 1),
+            ("ERROR uninstall command failed", 23, 23),
+        )
+        for output, command_status, expected_status in cases:
+            with self.subTest(output=output, command_status=command_status):
+                with tempfile.TemporaryDirectory(prefix="verify-uninstall-") as directory:
+                    fixture = Path(directory)
+                    producer = fixture / "producer"
+                    producer.write_text(
+                        'while IFS= read -r line; do :; done\n'
+                        'printf "%s\\n" "$UNINSTALL_OUTPUT" >&2\n'
+                        'exit "$UNINSTALL_STATUS"\n'
+                    )
+                    driver = fixture / "driver"
+                    driver.write_text(
+                        'set -euo pipefail\n'
+                        'COMPOSE=(bash "$1")\n'
+                        'DATABASE_REINSTALL=disposable_fixture\n'
+                        'uninstall_module() {' + function
+                        + '\nuninstall_module project_agile_git_automation\n'
+                    )
+                    result = subprocess.run(
+                        ["bash", str(driver), str(producer)],
+                        env=dict(os.environ, TMPDIR=directory,
+                                 UNINSTALL_OUTPUT=output,
+                                 UNINSTALL_STATUS=str(command_status)),
+                        capture_output=True, text=True, timeout=10, check=False,
+                    )
+                    self.assertEqual(result.returncode, expected_status, result.stderr)
+                    self.assertIn(output, result.stdout + result.stderr)
+                    self.assertEqual(set(fixture.iterdir()), {driver, producer})
+
     def test_verification_covers_all_modules_and_lifecycles(self):
         root = Path(__file__).resolve().parents[1]
         verify_script = (root / "scripts" / "verify").read_text()

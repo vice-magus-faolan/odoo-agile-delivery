@@ -1,7 +1,5 @@
 """Revoke-only native hooks: restoration never resurrects a used approval epoch."""
 
-from contextvars import ContextVar
-
 from odoo import _, api, models
 from odoo.exceptions import ValidationError
 from odoo.tools import SQL
@@ -9,15 +7,18 @@ from odoo.tools import SQL
 from .policy_authority import STAGE_SETTINGS, lock_records
 
 
-_POLICY_SCHEMA_REMOVAL = ContextVar("git_policy_schema_removal", default=False)
-
-
 def _policy_ready(env):
     """Exclude owned schema teardown, not caller context or runtime SQL errors."""
-    if _POLICY_SCHEMA_REMOVAL.get() or "project.git.policy.activation" not in env.registry:
+    if "project.git.policy.activation" not in env.registry:
         return False
     if env.registry.ready:
         return True
+    # Native uninstall marks the module before rebuilding the registry and
+    # removes policy fields/tables before its final metadata callbacks.
+    if env["ir.module.module"].sudo().search_count([
+        ("name", "=", "project_agile_git_automation"), ("state", "=", "to remove"),
+    ], limit=1):
+        return False
     # During initial registry construction the model can precede its table.
     env.cr.execute(SQL("SELECT to_regclass('project_git_policy_activation')"))
     return bool(env.cr.fetchone()[0])
@@ -226,23 +227,6 @@ class AccountAnalyticAccount(models.Model):
 
 class IrModelData(models.Model):
     _inherit = "ir.model.data"
-
-    @api.model
-    def _module_data_uninstall(self, modules_to_remove):
-        """Scope revocation suspension to Odoo's private policy-schema removal.
-
-        Odoo 19 drops fields/tables before its final metadata unlink callbacks,
-        while the old registry still contains the policy models. The native
-        method retains its system-user check; RPC context cannot set this flag.
-        Reset on both success and failure, including nested lifecycle calls.
-        """
-        if "project_agile_git_automation" not in modules_to_remove:
-            return super()._module_data_uninstall(modules_to_remove)
-        token = _POLICY_SCHEMA_REMOVAL.set(True)
-        try:
-            return super()._module_data_uninstall(modules_to_remove)
-        finally:
-            _POLICY_SCHEMA_REMOVAL.reset(token)
 
     @api.model_create_multi
     def create(self, vals_list):

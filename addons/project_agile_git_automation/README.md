@@ -39,14 +39,7 @@ Task name/active custom access rules. Unknown profiles refuse activation.
 Native authority-input edits and their restoration require fresh approval, even
 when current access did not decrease; conservative invalidation is intentional.
 
-During native removal of this addon, Odoo 19 drops policy fields and tables
-before its final metadata callbacks, while the old registry remains loaded.
-Revocation hooks are suspended only inside the private `_module_data_uninstall`
-call that removes `project_agile_git_automation`, using execution-local state
-reset on success or failure. Caller context (including `_force_unlink`) cannot
-enable this exemption; other module removals and normal authority changes still
-revoke approvals. Missing policy schema on a ready registry remains an error.
-Uninstall destroys policy history; reinstall never restores an approval epoch.
+Uninstall deletes policy history; reinstall does not restore approvals.
 
 Read the [dry-run guide](../../docs/git-policy-dry-run.md) for exact head/name/repo,
 cutoff/freshness/provenance predicates, unsupported same-name reruns, bounded

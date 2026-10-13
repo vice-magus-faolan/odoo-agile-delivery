@@ -519,19 +519,23 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
             self.skipTest("Native timesheets are not installed in standalone fixture")
         self.assertIn("timesheet_ids", self.task._fields)
         self.task.with_user(self.executor).write({"allocated_hours": 8.0})
+        self.env.flush_all()
         before = self.task.read(["allocated_hours", "effective_hours", "timesheet_ids"])
         attempt = self._discover()
         self.assertEqual(attempt.state, "queued")
         self.assertEqual(self._apply(), attempt)
         self.assertEqual(attempt.state, "applied", attempt.reason)
         self.assertEqual(self.task.stage_id, self.stages[1])
-        self.assertEqual(self.task.write_uid, self.executor)
+        # Native stored computes can update log-access metadata independently;
+        # the immutable effect retains the approved policy execution identity.
+        effect = self.effects.search([])
+        self.assertEqual(len(effect), 1)
+        self.assertEqual(effect.execution_user_id, self.executor)
         self.assertFalse(self.task.is_closed)
         self.assertEqual(
             before,
             self.task.read(["allocated_hours", "effective_hours", "timesheet_ids"]),
         )
-        self.assertEqual(self.effects.search_count([]), 1)
 
     def test_effect_and_event_are_immutable_and_task_visible_only(self):
         self._discover()

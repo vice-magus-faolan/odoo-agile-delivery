@@ -33,7 +33,6 @@ ATTEMPT_REASONS = REASONS + [
         "attempt_limit",
         "postcondition_failed",
         "evidence_changed",
-        "unsupported_extension",
         "operator_retry",
     )
 ]

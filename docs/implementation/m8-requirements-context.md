@@ -16,15 +16,11 @@ or service dependency. Scrum/Git/Sales/docs remain optional. ADR-013 and its pin
 native/OCA discovery remain the authority. The canonical source probe additionally
 inspects installed `ir_sequence.py` / `next_by_id`.
 
-The optional Task inverse/edit guard extends the native Task inheritance chain. M7's
-finite `policy_write_profile.SOURCES` therefore includes this exact source digest:
-ordinary stage writes delegate unchanged to `super()`, while discovery inverse edits
-remain rejected. No dependency on Solution is added to Git policy; the pin is only
-evaluated if Solution is installed. Unknown inheritance, modified files and runtime
-write monkeypatches still fail closed. The first cumulative run exposed 21 M7
-`unsupported_extension` failures and was retained, not waived. The focused static pin
-regression proves RED before adding the exact pin; full canonical native apply/rollback
-and unreviewed-write negatives prove coexistence.
+The optional Task inverse/edit guard extends the native Task inheritance chain. Ordinary
+stage writes delegate unchanged to `super()`, while discovery inverse edits remain
+rejected. Git policy uses that ordinary inheritance without source-file pins; no
+dependency on Solution is added. Canonical native apply/rollback regressions exercise
+coexistence with the optional Solution addons.
 
 ## Concrete records and operations
 

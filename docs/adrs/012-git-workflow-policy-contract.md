@@ -35,7 +35,7 @@ non-goals and do not gate M7.
 
 ## Exact source findings (observed, not inferred)
 
-Inspected the current Odoo 19 Community container image
+Originally inspected the Odoo 19 Community container image
 `odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`
 read-only, alongside ADR-011's pinned official Odoo source at
 `c2957158eb2f7a341a874c3c58884c8a162ef59a`. Runtime files are under
@@ -83,13 +83,15 @@ target stages with `rating_active`, `mail_template_id`, or (when present)
 action, and synchronous rating/SMS sends are not transactionally recoverable. Ordinary
 native tracking/notification behavior requires explicit approver acknowledgment at
 activation. Notification configuration is revalidated at execution; changing that
-configuration revokes the approval epoch. Installed Task-write extensions must be
-audited before apply is available; an unreviewed extension with irreversible effects
-blocks apply rather than being suppressed. Ordinary tracking/chatter, queued
-notifications, date-end/stage timestamps, durations, and nonterminal state recomputation
-are native side effects, not direct action targets. Do not suppress them with context or
-promise zero side effects. No fixture configures mail/rating templates or contacts an
-external party.
+configuration revokes the approval epoch. Task writes use ordinary ORM inheritance, not
+source hashes or a code allowlist. Assess installed extensions for irreversible effects
+before live enablement; do not suppress those effects or claim that rollback can retract
+them. Canonical verification covers current official Odoo 19 and native `hr_timesheet`
+alongside the optional suite addons. Ordinary tracking/chatter, queued notifications,
+date-end/stage timestamps, durations, and nonterminal state recomputation are native
+side effects, not direct action targets. Do not suppress them with context or promise
+zero side effects. No fixture configures mail/rating templates or contacts an external
+party.
 
 ## Finite schema and decision ownership
 

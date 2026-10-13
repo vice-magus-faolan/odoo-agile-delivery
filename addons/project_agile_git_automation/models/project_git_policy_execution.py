@@ -10,7 +10,6 @@ from odoo.exceptions import AccessError, ValidationError
 
 from .policy_authority import clean_context, lock_records, require_capability
 from .policy_evidence import MAX_BATCH, MAX_EVIDENCE
-from .policy_write_profile import check_write_profile
 from .project_git_policy_attempt import MAX_ATTEMPTS
 
 PROTECTED = (
@@ -283,9 +282,6 @@ class ProjectGitPolicyAttempt(models.Model):
             service._settle(
                 "waiting" if result[0] == "waiting" else result[0], result[1]
             )
-            return
-        if not check_write_profile(task):
-            service._settle("rejected", "unsupported_extension")
             return
         service._write_stage_effect(task, observation)
 

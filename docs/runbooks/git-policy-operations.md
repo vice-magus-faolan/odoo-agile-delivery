@@ -198,11 +198,11 @@ fixtures, not simulated transaction success.
 This is NOT a live Odoo.sh, Enterprise or arbitrary-extension test. Verification builds
 from current official `odoo:19.0` and includes the installed native `hr_timesheet` addon
 in aggregate apply/lifecycle coverage. It does not use a source-file compatibility
-allowlist. Actual runtime identity is recorded with each verification run. Other Task
-extensions continue through ordinary ORM inheritance; assess their behavior,
-particularly irreversible external effects, before enabling live apply. See
-[apply boundary](../git-policy-apply-boundary.md) and ADR-012 for current identity,
-stage and transactional safeguards.
+allowlist. Check the verify log for the Odoo build (for example,
+`Odoo version 19.0-20260926`). Other Task extensions continue through ordinary ORM
+inheritance; assess their behavior, particularly irreversible external effects, before
+enabling live apply. See [apply boundary](../git-policy-apply-boundary.md) and ADR-012
+for current identity, stage and transactional safeguards.
 
 Official
 [Odoo.sh technical FAQ](https://www.odoo.com/documentation/19.0/administration/odoo_sh/advanced/frequent_technical_questions.html)

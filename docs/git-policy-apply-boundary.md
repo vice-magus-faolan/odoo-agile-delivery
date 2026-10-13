@@ -75,10 +75,10 @@ install (no Scrum/GitHub), aggregate install/upgrade/uninstall-reinstall and dis
 apply tests with Scrum and the real native `hr_timesheet` addon. The timesheet
 regression requires the installed module and native fields, applies through the approved
 actor and preserves allocation/timesheet data. `hr_timesheet` is a verifier scenario
-only, not a production dependency. Verification builds from current `odoo:19.0`; runtime
-identity belongs in each run’s private evidence. It also runs
-`scripts/git_policy_concurrency_probe.py` through disposable Odoo shell: native cron
-progress, independent OS processes/PostgreSQL backends claiming concurrently,
+only, not a production dependency. Verification builds from current `odoo:19.0`; check
+the verify log for the Odoo build (for example, `Odoo version 19.0-20260926`). It also
+runs `scripts/git_policy_concurrency_probe.py` through disposable Odoo shell: native
+cron progress, independent OS processes/PostgreSQL backends claiming concurrently,
 disable/revoke/revision/manual/identity/fact/stage and native
 dependency-link/blocker-state races, effect-before-disable settlement and process death
 between claim/write/audit with rollback and recovery. TransactionCase tests cover native

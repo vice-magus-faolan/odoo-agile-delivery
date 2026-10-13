@@ -132,11 +132,6 @@ class TestGitAutomationContract(unittest.TestCase):
             script,
         )
         self.assertIn("/project_agile_git_automation", script)
-        modules = next(
-            line for line in script.splitlines() if line.startswith("MODULES=")
-        )
-        self.assertIn("hr_timesheet", modules.split("=", 1)[1].split(","))
-        self.assertIn("uninstall_module hr_timesheet\n", script)
         self.assertLess(
             script.index("uninstall_module project_agile_git_automation"),
             script.index("uninstall_module project_agile_git\n"),

@@ -1,110 +1,161 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_task_form_agile" model="ir.ui.view">
-        <field name="name">project.task.form.agile</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_form2"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;project_id&apos;]" position="after">
-                <field name="agile_project_enabled" invisible="1"/>
-                <field name="agile_key" readonly="1" invisible="not agile_project_enabled"/>
-                <field name="agile_item_type_id" invisible="not agile_project_enabled" domain="[(&apos;active&apos;, &apos;=&apos;, True)]"/>
-                <field name="agile_story_points" invisible="not agile_project_enabled"/>
-            </xpath>
-            <xpath expr="//page[@name=&apos;description_page&apos;]" position="after">
-                <page name="agile" string="Agile" invisible="not agile_project_enabled">
-                    <field name="agile_acceptance_criteria" type="html" options="{&quot;resizable&quot;: false}" placeholder="Add acceptance criteria for this work item..."/>
-                </page>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_form_agile" model="ir.ui.view">
+    <field name="name">project.task.form.agile</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_form2" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;project_id&apos;]" position="after">
+        <field name="agile_project_enabled" invisible="1" />
+        <field name="agile_key" readonly="1" invisible="not agile_project_enabled" />
+        <field
+          name="agile_item_type_id"
+          invisible="not agile_project_enabled"
+          domain="[(&apos;active&apos;, &apos;=&apos;, True)]"
+        />
+        <field name="agile_story_points" invisible="not agile_project_enabled" />
+      </xpath>
+      <xpath expr="//page[@name=&apos;description_page&apos;]" position="after">
+        <page name="agile" string="Agile" invisible="not agile_project_enabled">
+          <field
+            name="agile_acceptance_criteria"
+            type="html"
+            options="{&quot;resizable&quot;: false}"
+            placeholder="Add acceptance criteria for this work item..."
+          />
+        </page>
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_task_list_agile" model="ir.ui.view">
-        <field name="name">project.task.list.agile</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_tree2"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;name&apos;]" position="after">
-                <field name="agile_project_enabled" column_invisible="True"/>
-                <field name="agile_key" optional="show" invisible="not agile_project_enabled"/>
-                <field name="agile_item_type_id" optional="hide" invisible="not agile_project_enabled"/>
-                <field name="agile_story_points" optional="hide" invisible="not agile_project_enabled"/>
-                <field name="agile_backlog_sequence" optional="hide" invisible="not agile_project_enabled"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_list_agile" model="ir.ui.view">
+    <field name="name">project.task.list.agile</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_tree2" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;name&apos;]" position="after">
+        <field name="agile_project_enabled" column_invisible="True" />
+        <field name="agile_key" optional="show" invisible="not agile_project_enabled" />
+        <field
+          name="agile_item_type_id"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
+        <field
+          name="agile_story_points"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
+        <field
+          name="agile_backlog_sequence"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_task_list_agile_backlog" model="ir.ui.view">
-        <field name="name">project.task.list.agile.backlog</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="view_task_list_agile"/>
-        <field name="mode">primary</field>
-        <field name="arch" type="xml">
-            <list position="attributes">
-                <attribute name="default_order">agile_backlog_sequence, id</attribute>
-            </list>
-            <field name="agile_backlog_sequence" position="attributes">
-                <attribute name="widget">handle</attribute>
-                <attribute name="optional">show</attribute>
-                <attribute name="invisible">0</attribute>
-            </field>
-        </field>
-    </record>
+  <record id="view_task_list_agile_backlog" model="ir.ui.view">
+    <field name="name">project.task.list.agile.backlog</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="view_task_list_agile" />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+      <list position="attributes">
+        <attribute name="default_order">agile_backlog_sequence, id</attribute>
+      </list>
+      <field name="agile_backlog_sequence" position="attributes">
+        <attribute name="widget">handle</attribute>
+        <attribute name="optional">show</attribute>
+        <attribute name="invisible">0</attribute>
+      </field>
+    </field>
+  </record>
 
-    <record id="view_task_kanban_agile" model="ir.ui.view">
-        <field name="name">project.task.kanban.agile</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_kanban"/>
-        <field name="arch" type="xml">
-            <xpath expr="//kanban/field[@name=&apos;state&apos;]" position="after">
-                <field name="agile_project_enabled"/>
-                <field name="agile_key"/>
-                <field name="agile_item_type_id"/>
-                <field name="agile_story_points"/>
-            </xpath>
-            <xpath expr="//templates/t[@t-name=&apos;card&apos;]//field[@name=&apos;name&apos;]" position="after">
-                <div t-if="record.agile_project_enabled.raw_value" class="text-muted d-flex gap-2">
-                    <field name="agile_key"/>
-                    <field name="agile_item_type_id"/>
-                    <span t-if="record.agile_story_points.raw_value">
-                        <field name="agile_story_points"/> pts
+  <record id="view_task_kanban_agile" model="ir.ui.view">
+    <field name="name">project.task.kanban.agile</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_kanban" />
+    <field name="arch" type="xml">
+      <xpath expr="//kanban/field[@name=&apos;state&apos;]" position="after">
+        <field name="agile_project_enabled" />
+        <field name="agile_key" />
+        <field name="agile_item_type_id" />
+        <field name="agile_story_points" />
+      </xpath>
+      <xpath
+        expr="//templates/t[@t-name=&apos;card&apos;]//field[@name=&apos;name&apos;]"
+        position="after"
+      >
+        <div
+          t-if="record.agile_project_enabled.raw_value"
+          class="text-muted d-flex gap-2"
+        >
+          <field name="agile_key" />
+          <field name="agile_item_type_id" />
+          <span t-if="record.agile_story_points.raw_value">
+                        <field name="agile_story_points" /> pts
                     </span>
-                </div>
-            </xpath>
-        </field>
-    </record>
+        </div>
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_task_search_agile" model="ir.ui.view">
-        <field name="name">project.task.search.agile</field>
-        <field name="model">project.task</field>
-        <field name="inherit_id" ref="project.view_task_search_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
-                <field name="agile_key"/>
-                <field name="agile_item_type_id"/>
-                <filter string="Agile Work" name="agile_work" domain="[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True)]"/>
-                <filter string="Product Backlog" name="agile_backlog" domain="[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True)]"/>
-            </xpath>
-            <xpath expr="//group" position="inside">
-                <filter string="Agile Item Type" name="group_by_agile_item_type" context="{&quot;group_by&quot;: &quot;agile_item_type_id&quot;}"/>
-                <filter string="Agile Project" name="group_by_agile_project" context="{&quot;group_by&quot;: &quot;project_id&quot;}"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_task_search_agile" model="ir.ui.view">
+    <field name="name">project.task.search.agile</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_search_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
+        <field name="agile_key" />
+        <field name="agile_item_type_id" />
+        <filter
+          string="Agile Work"
+          name="agile_work"
+          domain="[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True)]"
+        />
+        <filter
+          string="Product Backlog"
+          name="agile_backlog"
+          domain="[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True)]"
+        />
+      </xpath>
+      <xpath expr="//group" position="inside">
+        <filter
+          string="Agile Item Type"
+          name="group_by_agile_item_type"
+          context="{&quot;group_by&quot;: &quot;agile_item_type_id&quot;}"
+        />
+        <filter
+          string="Agile Project"
+          name="group_by_agile_project"
+          context="{&quot;group_by&quot;: &quot;project_id&quot;}"
+        />
+      </xpath>
+    </field>
+  </record>
 
-    <record id="action_project_agile_backlog" model="ir.actions.act_window">
-        <field name="name">Product Backlog</field>
-        <field name="res_model">project.task</field>
-        <field name="view_mode">list,kanban,form</field>
-        <field name="view_id" ref="view_task_list_agile_backlog"/>
-        <field name="search_view_id" ref="view_task_search_agile"/>
-        <field name="domain">[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True), (&apos;has_template_ancestor&apos;, &apos;=&apos;, False), (&apos;has_project_template&apos;, &apos;=&apos;, False)]</field>
-        <field name="context">{&quot;search_default_agile_backlog&quot;: 1}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">No Agile backlog items found.</p>
-            <p>Enable Agile on a Project, then create work items to prioritize here.</p>
-        </field>
-    </record>
+  <record id="action_project_agile_backlog" model="ir.actions.act_window">
+    <field name="name">Product Backlog</field>
+    <field name="res_model">project.task</field>
+    <field name="view_mode">list,kanban,form</field>
+    <field name="view_id" ref="view_task_list_agile_backlog" />
+    <field name="search_view_id" ref="view_task_search_agile" />
+    <field
+      name="domain"
+    >[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True), (&apos;has_template_ancestor&apos;, &apos;=&apos;, False), (&apos;has_project_template&apos;, &apos;=&apos;, False)]</field>
+    <field name="context">{&quot;search_default_agile_backlog&quot;: 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No Agile backlog items found.</p>
+      <p>Enable Agile on a Project, then create work items to prioritize here.</p>
+    </field>
+  </record>
 
-    <menuitem id="menu_project_agile_backlog" name="Product Backlog" parent="project.menu_project_management" action="action_project_agile_backlog" sequence="20"/>
+  <menuitem
+    id="menu_project_agile_backlog"
+    name="Product Backlog"
+    parent="project.menu_project_management"
+    action="action_project_agile_backlog"
+    sequence="20"
+  />
 </odoo>

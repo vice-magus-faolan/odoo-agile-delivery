@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 
-
 output_directory = Path("/mnt/planning-concurrency")
 project = env["project.project"].create(
     {
@@ -25,7 +24,11 @@ item_type = env["project.agile.item.type"].create(
     }
 )
 sprint = env["project.sprint"].create(
-    {"name": "Planning concurrency Sprint", "project_id": project.id, "team_id": team.id}
+    {
+        "name": "Planning concurrency Sprint",
+        "project_id": project.id,
+        "team_id": team.id,
+    }
 )
 conflict_task = env["project.task"].create(
     {
@@ -63,12 +66,17 @@ scenario = {
     "sprint_id": sprint.id,
     "conflict_task_id": conflict_task.id,
     "assign_return_versions": {
-        "tasks": {str(conflict_task.id): planning._agile_planning_record_version(conflict_task)},
+        "tasks": {
+            str(conflict_task.id): planning._agile_planning_record_version(
+                conflict_task
+            )
+        },
         "sprints": {str(sprint.id): planning._agile_planning_record_version(sprint)},
     },
     "reorder_task_ids": reorder_tasks.ids,
     "reorder_versions": {
-        str(task.id): planning._agile_planning_record_version(task) for task in reorder_tasks
+        str(task.id): planning._agile_planning_record_version(task)
+        for task in reorder_tasks
     },
 }
 env.cr.commit()

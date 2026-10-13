@@ -1,143 +1,157 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        <record id="project_git_repository_company_rule" model="ir.rule">
-            <field name="name">Git Repository: multi-company</field>
-            <field name="model_id" ref="model_project_git_repository"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_delivery_company_rule" model="ir.rule">
-            <field name="name">Git Delivery: multi-company</field>
-            <field name="model_id" ref="model_project_git_delivery"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_branch_company_rule" model="ir.rule">
-            <field name="name">Git Branch: multi-company</field>
-            <field name="model_id" ref="model_project_git_branch"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_commit_company_rule" model="ir.rule">
-            <field name="name">Git Commit: multi-company</field>
-            <field name="model_id" ref="model_project_git_commit"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_pull_request_company_rule" model="ir.rule">
-            <field name="name">Git Pull Request: multi-company</field>
-            <field name="model_id" ref="model_project_git_pull_request"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_check_company_rule" model="ir.rule">
-            <field name="name">Git Check: multi-company</field>
-            <field name="model_id" ref="model_project_git_check"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_task_association_company_rule" model="ir.rule">
-            <field name="name">Git Task Association: multi-company</field>
-            <field name="model_id" ref="model_project_git_task_association"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <record id="project_git_repository_company_rule" model="ir.rule">
+    <field name="name">Git Repository: multi-company</field>
+    <field name="model_id" ref="model_project_git_repository" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_delivery_company_rule" model="ir.rule">
+    <field name="name">Git Delivery: multi-company</field>
+    <field name="model_id" ref="model_project_git_delivery" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_branch_company_rule" model="ir.rule">
+    <field name="name">Git Branch: multi-company</field>
+    <field name="model_id" ref="model_project_git_branch" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_commit_company_rule" model="ir.rule">
+    <field name="name">Git Commit: multi-company</field>
+    <field name="model_id" ref="model_project_git_commit" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_pull_request_company_rule" model="ir.rule">
+    <field name="name">Git Pull Request: multi-company</field>
+    <field name="model_id" ref="model_project_git_pull_request" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_check_company_rule" model="ir.rule">
+    <field name="name">Git Check: multi-company</field>
+    <field name="model_id" ref="model_project_git_check" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_task_association_company_rule" model="ir.rule">
+    <field name="name">Git Task Association: multi-company</field>
+    <field name="model_id" ref="model_project_git_task_association" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
 
-        <record id="project_git_repository_visibility_rule" model="ir.rule">
-            <field name="name">Git Repository: Project visibility</field>
-            <field name="model_id" ref="model_project_git_repository"/>
-            <field name="domain_force">["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_delivery_visibility_rule" model="ir.rule">
-            <field name="name">Git Delivery: Project visibility</field>
-            <field name="model_id" ref="model_project_git_delivery"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_branch_visibility_rule" model="ir.rule">
-            <field name="name">Git Branch: Project visibility</field>
-            <field name="model_id" ref="model_project_git_branch"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_commit_visibility_rule" model="ir.rule">
-            <field name="name">Git Commit: Project visibility</field>
-            <field name="model_id" ref="model_project_git_commit"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_pull_request_visibility_rule" model="ir.rule">
-            <field name="name">Git Pull Request: Project visibility</field>
-            <field name="model_id" ref="model_project_git_pull_request"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_check_visibility_rule" model="ir.rule">
-            <field name="name">Git Check: Project visibility</field>
-            <field name="model_id" ref="model_project_git_check"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
-        <record id="project_git_task_association_visibility_rule" model="ir.rule">
-            <field name="name">Git Task Association: Project visibility</field>
-            <field name="model_id" ref="model_project_git_task_association"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
-        </record>
+  <record id="project_git_repository_visibility_rule" model="ir.rule">
+    <field name="name">Git Repository: Project visibility</field>
+    <field name="model_id" ref="model_project_git_repository" />
+    <field
+      name="domain_force"
+    >["|", ("project_id.privacy_visibility", "in", ["employees", "portal"]), ("project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_delivery_visibility_rule" model="ir.rule">
+    <field name="name">Git Delivery: Project visibility</field>
+    <field name="model_id" ref="model_project_git_delivery" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_branch_visibility_rule" model="ir.rule">
+    <field name="name">Git Branch: Project visibility</field>
+    <field name="model_id" ref="model_project_git_branch" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_commit_visibility_rule" model="ir.rule">
+    <field name="name">Git Commit: Project visibility</field>
+    <field name="model_id" ref="model_project_git_commit" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_pull_request_visibility_rule" model="ir.rule">
+    <field name="name">Git Pull Request: Project visibility</field>
+    <field name="model_id" ref="model_project_git_pull_request" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_check_visibility_rule" model="ir.rule">
+    <field name="name">Git Check: Project visibility</field>
+    <field name="model_id" ref="model_project_git_check" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
+  <record id="project_git_task_association_visibility_rule" model="ir.rule">
+    <field name="name">Git Task Association: Project visibility</field>
+    <field name="model_id" ref="model_project_git_task_association" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_user'))]" />
+  </record>
 
-        <record id="project_git_repository_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Repository: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_repository"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_delivery_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Delivery: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_delivery"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_branch_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Branch: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_branch"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_commit_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Commit: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_commit"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_pull_request_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Pull Request: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_pull_request"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_check_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Check: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_check"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_task_association_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Task Association: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_task_association"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_association_audit_company_rule" model="ir.rule">
-            <field name="name">Git Association Audit: multi-company</field>
-            <field name="model_id" ref="model_project_git_association_audit"/>
-            <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
-        </record>
-        <record id="project_git_association_audit_visibility_rule" model="ir.rule">
-            <field name="name">Git Association Audit: Project visibility</field>
-            <field name="model_id" ref="model_project_git_association_audit"/>
-            <field name="domain_force">["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-        <record id="project_git_association_audit_manager_visibility_rule" model="ir.rule">
-            <field name="name">Git Association Audit: Project manager sees all</field>
-            <field name="model_id" ref="model_project_git_association_audit"/>
-            <field name="domain_force">[(1, "=", 1)]</field>
-            <field name="groups" eval="[(4, ref('project.group_project_manager'))]"/>
-        </record>
-    </data>
+  <record id="project_git_repository_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Repository: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_repository" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_delivery_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Delivery: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_delivery" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_branch_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Branch: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_branch" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_commit_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Commit: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_commit" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_pull_request_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Pull Request: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_pull_request" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_check_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Check: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_check" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_task_association_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Task Association: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_task_association" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_association_audit_company_rule" model="ir.rule">
+    <field name="name">Git Association Audit: multi-company</field>
+    <field name="model_id" ref="model_project_git_association_audit" />
+    <field name="domain_force">[("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="project_git_association_audit_visibility_rule" model="ir.rule">
+    <field name="name">Git Association Audit: Project visibility</field>
+    <field name="model_id" ref="model_project_git_association_audit" />
+    <field
+      name="domain_force"
+    >["|", ("repository_id.project_id.privacy_visibility", "in", ["employees", "portal"]), ("repository_id.project_id.message_partner_ids", "in", [user.partner_id.id])]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
+  <record id="project_git_association_audit_manager_visibility_rule" model="ir.rule">
+    <field name="name">Git Association Audit: Project manager sees all</field>
+    <field name="model_id" ref="model_project_git_association_audit" />
+    <field name="domain_force">[(1, "=", 1)]</field>
+    <field name="groups" eval="[(4, ref('project.group_project_manager'))]" />
+  </record>
 </odoo>

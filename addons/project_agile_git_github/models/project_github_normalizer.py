@@ -13,7 +13,6 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import SQL
 
-
 BATCH_SIZE = 20
 LEASE_SECONDS = 300
 MAX_ATTEMPTS = 5
@@ -52,7 +51,9 @@ def _text(value, maximum=MAX_SOURCE_TEXT):
     """Return a bounded string or fail closed for a malformed provider field."""
 
     if not isinstance(value, str) or len(value) > maximum:
-        raise GitHubPayloadError("A required GitHub text field is malformed or oversized.")
+        raise GitHubPayloadError(
+            "A required GitHub text field is malformed or oversized."
+        )
     return value
 
 
@@ -104,7 +105,9 @@ def _github_branch_name(value):
 
 
 def _github_fact_url(repository, path, identifier, preserve_slashes=False):
-    """Derive an external GitHub fact URL from validated repository configuration only."""
+    """Derive an external GitHub fact URL from validated repository configuration
+    only.
+    """
 
     try:
         repository._validated_canonical_url()
@@ -113,13 +116,18 @@ def _github_fact_url(repository, path, identifier, preserve_slashes=False):
     safe = "/" if preserve_slashes else ""
     return (
         repository.canonical_url.rstrip("/")
-        + "/" + path + "/" + quote(identifier, safe=safe)
+        + "/"
+        + path
+        + "/"
+        + quote(identifier, safe=safe)
     )
 
 
 class ProjectGitDelivery(models.Model):
     """Lease and normalize retained GitHub deliveries outside the webhook request."""
 
+    # Asynchronous normalization is separate from authenticated ingress.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.git.delivery"
 
     @api.model
@@ -141,8 +149,10 @@ class ProjectGitDelivery(models.Model):
                              WHERE provider = 'github'
                                AND (
                                     (state IN ('queued', 'retryable')
-                                     AND (next_retry_at IS NULL OR next_retry_at <= NOW()))
-                                    OR (state = 'processing' AND lease_expires_at <= NOW())
+                                     AND (next_retry_at IS NULL
+                                          OR next_retry_at <= NOW()))
+                                     OR (state = 'processing'
+                                        AND lease_expires_at <= NOW())
                                )
                              ORDER BY received_at, id
                              LIMIT 1
@@ -168,12 +178,16 @@ class ProjectGitDelivery(models.Model):
         if not row:
             return self.browse()
         delivery = self.sudo().browse(row[0])
-        delivery.invalidate_recordset(["state", "lease_token", "lease_expires_at", "attempt_count"])
+        delivery.invalidate_recordset(
+            ["state", "lease_token", "lease_expires_at", "attempt_count"]
+        )
         return delivery.with_context(git_delivery_lease=lease_token)
 
     @api.model
     def _cron_normalize_github_deliveries(self):
-        """Process a bounded leased batch and commit each settled delivery separately."""
+        """Process a bounded leased batch and commit each settled delivery
+        separately.
+        """
 
         remaining = self.sudo().search_count(
             [
@@ -202,11 +216,17 @@ class ProjectGitDelivery(models.Model):
         return processed
 
     def _settle_github_delivery(self):
-        """Settle one claimed delivery atomically, retaining either facts or diagnostics."""
+        """Settle one claimed delivery atomically, retaining either facts or
+        diagnostics.
+        """
 
         self.ensure_one()
         lease_token = self.env.context.get("git_delivery_lease")
-        if self.state != "processing" or not lease_token or self.lease_token != lease_token:
+        if (
+            self.state != "processing"
+            or not lease_token
+            or self.lease_token != lease_token
+        ):
             return False
         try:
             with self.env.cr.savepoint():
@@ -234,7 +254,9 @@ class ProjectGitDelivery(models.Model):
         except GitHubPayloadError as error:
             self._record_github_failure(str(error), retryable=False)
         except Exception:
-            self._record_github_failure("GitHub fact normalization failed.", retryable=True)
+            self._record_github_failure(
+                "GitHub fact normalization failed.", retryable=True
+            )
         return True
 
     def _record_github_failure(self, summary, retryable):
@@ -254,7 +276,9 @@ class ProjectGitDelivery(models.Model):
             values.update(
                 {
                     "state": "retryable",
-                    "next_retry_at": fields.Datetime.add(fields.Datetime.now(), seconds=delay),
+                    "next_retry_at": fields.Datetime.add(
+                        fields.Datetime.now(), seconds=delay
+                    ),
                 }
             )
         else:
@@ -262,16 +286,27 @@ class ProjectGitDelivery(models.Model):
         self.write(values)
 
     def action_reprocess_github_delivery(self):
-        """Safely requeue a failed GitHub delivery after server-side manager authorization."""
+        """Safely requeue a failed GitHub delivery after server-side manager
+        authorization.
+        """
 
         if not self.env.user.has_group("project.group_project_manager"):
-            raise AccessError(_("Only Project Managers can reprocess GitHub deliveries."))
+            raise AccessError(
+                _("Only Project Managers can reprocess GitHub deliveries.")
+            )
         self.check_access("read")
         for delivery in self:
-            if delivery.provider != "github" or delivery.state not in {"failed", "discarded"}:
-                raise ValidationError(_("Only terminal GitHub deliveries can be reprocessed."))
+            if delivery.provider != "github" or delivery.state not in {
+                "failed",
+                "discarded",
+            }:
+                raise ValidationError(
+                    _("Only terminal GitHub deliveries can be reprocessed.")
+                )
             if not delivery.sudo().retained_payload:
-                raise ValidationError(_("This GitHub delivery has no retained payload to reprocess."))
+                raise ValidationError(
+                    _("This GitHub delivery has no retained payload to reprocess.")
+                )
         self.sudo().write(
             {
                 "state": "queued",
@@ -290,16 +325,29 @@ class ProjectGitDelivery(models.Model):
 
         self.ensure_one()
         if self.provider != "github" or not self.retained_payload:
-            raise GitHubPayloadError("No retained redacted payload is available for normalization.")
+            raise GitHubPayloadError(
+                "No retained redacted payload is available for normalization."
+            )
         try:
             payload = json.loads(self.retained_payload)
         except (TypeError, json.JSONDecodeError) as error:
-            raise GitHubPayloadError("The retained GitHub payload is malformed.") from error
+            raise GitHubPayloadError(
+                "The retained GitHub payload is malformed."
+            ) from error
         if not isinstance(payload, dict):
-            raise GitHubPayloadError("The retained GitHub payload must be a JSON object.")
+            raise GitHubPayloadError(
+                "The retained GitHub payload must be a JSON object."
+            )
         repository = payload.get("repository")
-        if not isinstance(repository, dict) or _identifier(repository.get("id")) != self.repository_id.provider_repository_id:
-            raise GitHubPayloadError("The GitHub payload repository does not match the authenticated delivery.")
+        if (
+            not isinstance(repository, dict)
+            or _identifier(repository.get("id"))
+            != self.repository_id.provider_repository_id
+        ):
+            raise GitHubPayloadError(
+                "The GitHub payload repository does not match "
+                "the authenticated delivery."
+            )
         handlers = {
             "push": self._normalize_github_push,
             "pull_request": self._normalize_github_pull_request,
@@ -324,20 +372,28 @@ class ProjectGitDelivery(models.Model):
             raise GitHubPayloadError("The GitHub push head commit is malformed.")
         source_updated_at = _utc_datetime(head_commit.get("timestamp"))
         branch = self._upsert_branch(ref, branch_name, head_sha, source_updated_at)
-        self._associate_source_keys("branch", branch.provider_branch_id, {"ref": branch_name})
+        self._associate_source_keys(
+            "branch", branch.provider_branch_id, {"ref": branch_name}
+        )
         commits = payload.get("commits", [])
         if not isinstance(commits, list) or len(commits) > 100:
-            raise GitHubPayloadError("The GitHub push commits collection is malformed or oversized.")
+            raise GitHubPayloadError(
+                "The GitHub push commits collection is malformed or oversized."
+            )
         for commit_data in commits:
             if not isinstance(commit_data, dict):
                 raise GitHubPayloadError("The GitHub push contains a malformed commit.")
             commit_sha = _text(commit_data.get("id"), 128)
             commit_message = _text(commit_data.get("message"))
             self._upsert_commit(commit_data)
-            self._associate_source_keys("commit", commit_sha, {"message": commit_message})
+            self._associate_source_keys(
+                "commit", commit_sha, {"message": commit_message}
+            )
 
     def _normalize_github_pull_request(self, payload):
-        """Normalize GitHub pull-request lifecycle observations and referenced branches."""
+        """Normalize GitHub pull-request lifecycle observations and referenced
+        branches.
+        """
 
         pull_request = payload.get("pull_request")
         if not isinstance(pull_request, dict):
@@ -351,7 +407,11 @@ class ProjectGitDelivery(models.Model):
         source_branch = _github_branch_name(head.get("ref"))
         target_branch = _github_branch_name(base.get("ref"))
         head_sha = _text(head.get("sha"), 128)
-        state = "merged" if pull_request.get("merged") else _text(pull_request.get("state"), 32)
+        state = (
+            "merged"
+            if pull_request.get("merged")
+            else _text(pull_request.get("state"), 32)
+        )
         if state not in {"open", "closed", "merged", "draft"}:
             raise GitHubPayloadError("The GitHub pull request state is unsupported.")
         updated_at = _utc_datetime(pull_request.get("updated_at"))
@@ -369,8 +429,12 @@ class ProjectGitDelivery(models.Model):
                 "updated_at": updated_at,
             }
         )
-        self._upsert_branch("refs/heads/" + source_branch, source_branch, head_sha, updated_at)
-        self._upsert_branch("refs/heads/" + target_branch, target_branch, False, updated_at)
+        self._upsert_branch(
+            "refs/heads/" + source_branch, source_branch, head_sha, updated_at
+        )
+        self._upsert_branch(
+            "refs/heads/" + target_branch, target_branch, False, updated_at
+        )
         self._associate_source_keys(
             "pull_request",
             provider_request_id,
@@ -393,7 +457,9 @@ class ProjectGitDelivery(models.Model):
             {
                 "provider_check_id": provider_check_id,
                 "name": _text(check_run.get("name")),
-                "state": _github_state(check_run.get("status"), check_run.get("conclusion")),
+                "state": _github_state(
+                    check_run.get("status"), check_run.get("conclusion")
+                ),
                 "head_sha": _optional_text(check_run.get("head_sha"), 128),
                 "url": _github_fact_url(self.repository_id, "runs", provider_check_id),
                 "completed_at": _utc_datetime(check_run.get("completed_at")),
@@ -429,17 +495,25 @@ class ProjectGitDelivery(models.Model):
             "source_updated_at": source_updated_at,
             "last_seen_at": fields.Datetime.now(),
             "provenance_delivery_id": self.id,
-            "url": _github_fact_url(self.repository_id, "tree", name, preserve_slashes=True),
+            "url": _github_fact_url(
+                self.repository_id, "tree", name, preserve_slashes=True
+            ),
             "ordering_state": "known" if source_updated_at else "ambiguous",
         }
         if not branch:
             return branch_model.create(
-                {"repository_id": self.repository_id.id, "provider_branch_id": provider_branch_id, **values}
+                {
+                    "repository_id": self.repository_id.id,
+                    "provider_branch_id": provider_branch_id,
+                    **values,
+                }
             )
         return self._apply_ordered_fact_update(branch, values, "source_updated_at")
 
     def _upsert_commit(self, commit_data):
-        """Create an immutable GitHub commit fact or refresh its observation provenance."""
+        """Create an immutable GitHub commit fact or refresh its observation
+        provenance.
+        """
 
         sha = _text(commit_data.get("id"), 128)
         commit_model = self.env["project.git.commit"].sudo()
@@ -454,12 +528,21 @@ class ProjectGitDelivery(models.Model):
             "provenance_delivery_id": self.id,
         }
         if commit:
-            commit.write({"last_seen_at": values["last_seen_at"], "provenance_delivery_id": self.id})
+            commit.write(
+                {
+                    "last_seen_at": values["last_seen_at"],
+                    "provenance_delivery_id": self.id,
+                }
+            )
             return commit
-        return commit_model.create({"repository_id": self.repository_id.id, "sha": sha, **values})
+        return commit_model.create(
+            {"repository_id": self.repository_id.id, "sha": sha, **values}
+        )
 
     def _upsert_pull_request(self, values):
-        """Upsert a pull request without allowing old or ambiguous events to regress it."""
+        """Upsert a pull request without allowing old or ambiguous events to
+        regress it.
+        """
 
         model = self.env["project.git.pull.request"].sudo()
         record = model.search(
@@ -503,7 +586,9 @@ class ProjectGitDelivery(models.Model):
         return self._apply_ordered_fact_update(record, values, "updated_at")
 
     def _apply_ordered_fact_update(self, record, values, timestamp_field):
-        """Refresh observation metadata without guessing when source order is unknown."""
+        """Refresh observation metadata without guessing when source order is
+        unknown.
+        """
 
         incoming = values[timestamp_field]
         current = record[timestamp_field]
@@ -517,7 +602,12 @@ class ProjectGitDelivery(models.Model):
             record.write(observation_values)
             return record
         if incoming == current:
-            state_fields = {key: value for key, value in values.items() if key not in {"last_seen_at", "provenance_delivery_id", "ordering_state"}}
+            state_fields = {
+                key: value
+                for key, value in values.items()
+                if key
+                not in {"last_seen_at", "provenance_delivery_id", "ordering_state"}
+            }
             if any(record[key] != value for key, value in state_fields.items()):
                 observation_values["ordering_state"] = "ambiguous"
             record.write(observation_values)
@@ -526,23 +616,43 @@ class ProjectGitDelivery(models.Model):
         return record
 
     def _associate_source_keys(self, source_type, source_provider_id, fields_by_name):
-        """Create immutable associations or idempotent audit facts for explicit key tokens."""
+        """Create immutable associations or idempotent audit facts for explicit
+        key tokens.
+        """
 
         for source_field, text in fields_by_name.items():
-            keys = list(dict.fromkeys(match.group("key") for match in AGILE_KEY_PATTERN.finditer(text)))
+            keys = list(
+                dict.fromkeys(
+                    match.group("key") for match in AGILE_KEY_PATTERN.finditer(text)
+                )
+            )
             if len(keys) > MAX_KEYS_PER_SOURCE:
                 self._record_association_audit(
-                    source_type, source_provider_id, source_field, "[invalid]", "rejected", "too_many_keys"
+                    source_type,
+                    source_provider_id,
+                    source_field,
+                    "[invalid]",
+                    "rejected",
+                    "too_many_keys",
                 )
                 continue
             if not keys and KEY_LIKE_PATTERN.search(text):
                 self._record_association_audit(
-                    source_type, source_provider_id, source_field, "[invalid]", "rejected", "invalid_key"
+                    source_type,
+                    source_provider_id,
+                    source_field,
+                    "[invalid]",
+                    "rejected",
+                    "invalid_key",
                 )
             for agile_key in keys:
-                self._associate_agile_key(source_type, source_provider_id, source_field, agile_key)
+                self._associate_agile_key(
+                    source_type, source_provider_id, source_field, agile_key
+                )
 
-    def _associate_agile_key(self, source_type, source_provider_id, source_field, agile_key):
+    def _associate_agile_key(
+        self, source_type, source_provider_id, source_field, agile_key
+    ):
         """Resolve a key only inside the repository project and record the outcome."""
 
         task_model = (
@@ -552,22 +662,40 @@ class ProjectGitDelivery(models.Model):
             .with_context(active_test=False)
         )
         project_tasks = task_model.search(
-            [("project_id", "=", self.repository_id.project_id.id), ("agile_key", "=", agile_key)]
+            [
+                ("project_id", "=", self.repository_id.project_id.id),
+                ("agile_key", "=", agile_key),
+            ]
         )
         if len(project_tasks) != 1:
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "unassociated", "unknown_key"
+                source_type,
+                source_provider_id,
+                source_field,
+                agile_key,
+                "unassociated",
+                "unknown_key",
             )
             return
         task = project_tasks
         if task.company_id != self.repository_id.company_id:
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "rejected", "cross_company"
+                source_type,
+                source_provider_id,
+                source_field,
+                agile_key,
+                "rejected",
+                "cross_company",
             )
             return
         if not task.active:
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "rejected", "archived_task"
+                source_type,
+                source_provider_id,
+                source_field,
+                agile_key,
+                "rejected",
+                "archived_task",
             )
             return
         association_model = self.env["project.git.task.association"].sudo()
@@ -584,7 +712,13 @@ class ProjectGitDelivery(models.Model):
             # A durable link is not current-delivery evidence by itself. Preserve
             # the freshly resolved active local Task on this immutable decision.
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate", task
+                source_type,
+                source_provider_id,
+                source_field,
+                agile_key,
+                "already_associated",
+                "duplicate",
+                task,
             )
             return
         try:
@@ -604,17 +738,38 @@ class ProjectGitDelivery(models.Model):
             if not association_model.search(association_domain, limit=1):
                 raise
             self._record_association_audit(
-                source_type, source_provider_id, source_field, agile_key, "already_associated", "duplicate", task
+                source_type,
+                source_provider_id,
+                source_field,
+                agile_key,
+                "already_associated",
+                "duplicate",
+                task,
             )
             return
         self._record_association_audit(
-            source_type, source_provider_id, source_field, agile_key, "associated", "exact_key", task
+            source_type,
+            source_provider_id,
+            source_field,
+            agile_key,
+            "associated",
+            "exact_key",
+            task,
         )
 
     def _record_association_audit(
-        self, source_type, source_provider_id, source_field, agile_key, outcome, reason, task=None
+        self,
+        source_type,
+        source_provider_id,
+        source_field,
+        agile_key,
+        outcome,
+        reason,
+        task=None,
     ):
-        """Persist an immutable, delivery-scoped association decision without task writes."""
+        """Persist an immutable, delivery-scoped association decision without
+        task writes.
+        """
 
         audit_model = self.env["project.git.association.audit"].sudo()
         existing = audit_model.search(

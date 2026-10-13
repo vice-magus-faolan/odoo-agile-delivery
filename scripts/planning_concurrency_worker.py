@@ -2,11 +2,10 @@
 
 import json
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 from odoo.exceptions import AccessError, ValidationError
-
 
 output_directory = Path("/mnt/planning-concurrency")
 worker = os.environ["PLANNING_WORKER"]
@@ -23,7 +22,10 @@ operations = {
     "assign": (
         "assign",
         [scenario["conflict_task_id"]],
-        {"sprint_id": scenario["sprint_id"], "expected_versions": scenario["assign_return_versions"]},
+        {
+            "sprint_id": scenario["sprint_id"],
+            "expected_versions": scenario["assign_return_versions"],
+        },
     ),
     "return": (
         "return",
@@ -37,8 +39,12 @@ operations = {
             "before_task_id": reorder_first,
             "expected_versions": {
                 "tasks": {
-                    str(reorder_third): scenario["reorder_versions"][str(reorder_third)],
-                    str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                    str(reorder_third): scenario["reorder_versions"][
+                        str(reorder_third)
+                    ],
+                    str(reorder_first): scenario["reorder_versions"][
+                        str(reorder_first)
+                    ],
                 },
                 "sprints": {},
             },
@@ -51,8 +57,12 @@ operations = {
             "before_task_id": reorder_first,
             "expected_versions": {
                 "tasks": {
-                    str(reorder_second): scenario["reorder_versions"][str(reorder_second)],
-                    str(reorder_first): scenario["reorder_versions"][str(reorder_first)],
+                    str(reorder_second): scenario["reorder_versions"][
+                        str(reorder_second)
+                    ],
+                    str(reorder_first): scenario["reorder_versions"][
+                        str(reorder_first)
+                    ],
                 },
                 "sprints": {},
             },

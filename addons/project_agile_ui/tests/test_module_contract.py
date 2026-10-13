@@ -12,7 +12,9 @@ class TestProjectAgileUiModuleContract(TransactionCase):
     def test_module_is_installed_with_the_narrow_scrum_dependency(self):
         module_root = Path(__file__).resolve().parents[1]
         manifest = ast.literal_eval((module_root / "__manifest__.py").read_text())
-        module = self.env["ir.module.module"].search([("name", "=", "project_agile_ui")])
+        module = self.env["ir.module.module"].search(
+            [("name", "=", "project_agile_ui")]
+        )
 
         self.assertEqual(module.state, "installed")
         self.assertEqual(manifest["depends"], ["project_scrum"])
@@ -34,7 +36,9 @@ class TestProjectAgileUiModuleContract(TransactionCase):
                 "project_agile_ui/static/src/planning_board.scss",
             ],
         )
-        self.assertTrue(self.env.ref("project_agile_ui.view_project_form_agile_planning"))
+        self.assertTrue(
+            self.env.ref("project_agile_ui.view_project_form_agile_planning")
+        )
 
     def test_frontend_fixture_resolves_through_odoo_asset_discovery(self):
         """Use the exact Odoo 19 asset API only in this regression fixture."""
@@ -45,7 +49,9 @@ class TestProjectAgileUiModuleContract(TransactionCase):
 
         self.assertTrue(
             any(
-                path.endswith("/project_agile_ui/static/tests/planning_board_contract.test.js")
+                path.endswith(
+                    "/project_agile_ui/static/tests/planning_board_contract.test.js"
+                )
                 for path, _full_path, _bundle, _modified in asset_paths
             )
         )

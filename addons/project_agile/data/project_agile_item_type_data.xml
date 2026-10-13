@@ -1,31 +1,58 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        <record id="project_agile_item_type_subtask" model="project.agile.item.type">
-            <field name="name">Subtask</field><field name="code">subtask</field><field name="sequence">70</field>
-        </record>
-        <record id="project_agile_item_type_task" model="project.agile.item.type">
-            <field name="name">Task</field><field name="code">task</field><field name="sequence">50</field>
-            <field name="allowed_child_type_ids" eval="[(6, 0, [ref(&apos;project_agile_item_type_subtask&apos;)])]"/>
-        </record>
-        <record id="project_agile_item_type_story" model="project.agile.item.type">
-            <field name="name">Story</field><field name="code">story</field><field name="sequence">30</field>
-            <field name="allowed_child_type_ids" eval="[(6, 0, [ref(&apos;project_agile_item_type_task&apos;), ref(&apos;project_agile_item_type_subtask&apos;)])]"/>
-        </record>
-        <record id="project_agile_item_type_bug" model="project.agile.item.type">
-            <field name="name">Bug</field><field name="code">bug</field><field name="sequence">40</field>
-            <field name="allowed_child_type_ids" eval="[(6, 0, [ref(&apos;project_agile_item_type_task&apos;), ref(&apos;project_agile_item_type_subtask&apos;)])]"/>
-        </record>
-        <record id="project_agile_item_type_spike" model="project.agile.item.type">
-            <field name="name">Spike</field><field name="code">spike</field><field name="sequence">60</field>
-        </record>
-        <record id="project_agile_item_type_feature" model="project.agile.item.type">
-            <field name="name">Feature</field><field name="code">feature</field><field name="sequence">20</field>
-            <field name="allowed_child_type_ids" eval="[(6, 0, [ref(&apos;project_agile_item_type_story&apos;), ref(&apos;project_agile_item_type_bug&apos;), ref(&apos;project_agile_item_type_spike&apos;)])]"/>
-        </record>
-        <record id="project_agile_item_type_epic" model="project.agile.item.type">
-            <field name="name">Epic</field><field name="code">epic</field><field name="sequence">10</field>
-            <field name="allowed_child_type_ids" eval="[(6, 0, [ref(&apos;project_agile_item_type_feature&apos;), ref(&apos;project_agile_item_type_story&apos;), ref(&apos;project_agile_item_type_bug&apos;), ref(&apos;project_agile_item_type_spike&apos;)])]"/>
-        </record>
-    </data>
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <record id="project_agile_item_type_subtask" model="project.agile.item.type">
+    <field name="name">Subtask</field>
+    <field name="code">subtask</field>
+    <field name="sequence">70</field>
+  </record>
+  <record id="project_agile_item_type_task" model="project.agile.item.type">
+    <field name="name">Task</field>
+    <field name="code">task</field>
+    <field name="sequence">50</field>
+    <field
+      name="allowed_child_type_ids"
+      eval="[(6, 0, [ref(&apos;project_agile_item_type_subtask&apos;)])]"
+    />
+  </record>
+  <record id="project_agile_item_type_story" model="project.agile.item.type">
+    <field name="name">Story</field>
+    <field name="code">story</field>
+    <field name="sequence">30</field>
+    <field
+      name="allowed_child_type_ids"
+      eval="[(6, 0, [ref(&apos;project_agile_item_type_task&apos;), ref(&apos;project_agile_item_type_subtask&apos;)])]"
+    />
+  </record>
+  <record id="project_agile_item_type_bug" model="project.agile.item.type">
+    <field name="name">Bug</field>
+    <field name="code">bug</field>
+    <field name="sequence">40</field>
+    <field
+      name="allowed_child_type_ids"
+      eval="[(6, 0, [ref(&apos;project_agile_item_type_task&apos;), ref(&apos;project_agile_item_type_subtask&apos;)])]"
+    />
+  </record>
+  <record id="project_agile_item_type_spike" model="project.agile.item.type">
+    <field name="name">Spike</field>
+    <field name="code">spike</field>
+    <field name="sequence">60</field>
+  </record>
+  <record id="project_agile_item_type_feature" model="project.agile.item.type">
+    <field name="name">Feature</field>
+    <field name="code">feature</field>
+    <field name="sequence">20</field>
+    <field
+      name="allowed_child_type_ids"
+      eval="[(6, 0, [ref(&apos;project_agile_item_type_story&apos;), ref(&apos;project_agile_item_type_bug&apos;), ref(&apos;project_agile_item_type_spike&apos;)])]"
+    />
+  </record>
+  <record id="project_agile_item_type_epic" model="project.agile.item.type">
+    <field name="name">Epic</field>
+    <field name="code">epic</field>
+    <field name="sequence">10</field>
+    <field
+      name="allowed_child_type_ids"
+      eval="[(6, 0, [ref(&apos;project_agile_item_type_feature&apos;), ref(&apos;project_agile_item_type_story&apos;), ref(&apos;project_agile_item_type_bug&apos;), ref(&apos;project_agile_item_type_spike&apos;)])]"
+    />
+  </record>
 </odoo>

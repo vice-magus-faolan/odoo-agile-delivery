@@ -9,11 +9,22 @@ class ProjectScrumAnalyticsAccess(models.AbstractModel):
     _description = "Scrum Analytics Project Access"
 
     def _analytics_project_domain(self):
+        # Visibility domain requires every readable Project, not a truncated set.
+        # pylint: disable-next=no-search-all
         projects = self.env["project.project"].search([])
         return [("project_id", "in", projects.ids)]
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, *, active_test=True, bypass_access=False):
+    def _search(
+        self,
+        domain,
+        offset=0,
+        limit=None,
+        order=None,
+        *,
+        active_test=True,
+        bypass_access=False,
+    ):
         domain = fields.Domain.AND(
             [fields.Domain(domain), fields.Domain(self._analytics_project_domain())]
         )
@@ -29,9 +40,13 @@ class ProjectScrumAnalyticsAccess(models.AbstractModel):
     def check_access(self, operation):
         result = super().check_access(operation)
         if operation == "read" and self and not self.env.is_superuser():
+            # Access comparison requires the complete current-user visible set.
+            # pylint: disable-next=no-search-all
             permitted_project_ids = set(self.env["project.project"].search([]).ids)
             if not set(self.project_id.ids).issubset(permitted_project_ids):
-                raise AccessError(_("The requested analytics records are not available."))
+                raise AccessError(
+                    _("The requested analytics records are not available.")
+                )
         return result
 
 
@@ -44,20 +59,42 @@ class ProjectScrumAnalyticsReport(models.Model):
     _rec_name = "sprint_id"
     _order = "closed_at desc, sprint_id desc"
 
-    sprint_id = fields.Many2one("project.sprint", required=True, readonly=True, ondelete="cascade", index=True)
-    project_id = fields.Many2one(related="sprint_id.project_id", store=True, readonly=True, index=True)
-    company_id = fields.Many2one(related="sprint_id.company_id", store=True, readonly=True, index=True)
-    team_id = fields.Many2one(related="sprint_id.team_id", store=True, readonly=True, index=True)
-    state = fields.Selection(related="sprint_id.state", store=True, readonly=True, index=True)
-    date_start = fields.Date(related="sprint_id.date_start", store=True, readonly=True, index=True)
-    date_end = fields.Date(related="sprint_id.date_end", store=True, readonly=True, index=True)
-    closed_at = fields.Datetime(related="sprint_id.closed_at", store=True, readonly=True, index=True)
+    sprint_id = fields.Many2one(
+        "project.sprint", required=True, readonly=True, ondelete="cascade", index=True
+    )
+    project_id = fields.Many2one(
+        related="sprint_id.project_id", store=True, readonly=True, index=True
+    )
+    company_id = fields.Many2one(
+        related="sprint_id.company_id", store=True, readonly=True, index=True
+    )
+    team_id = fields.Many2one(
+        related="sprint_id.team_id", store=True, readonly=True, index=True
+    )
+    state = fields.Selection(
+        related="sprint_id.state", store=True, readonly=True, index=True
+    )
+    date_start = fields.Date(
+        related="sprint_id.date_start", store=True, readonly=True, index=True
+    )
+    date_end = fields.Date(
+        related="sprint_id.date_end", store=True, readonly=True, index=True
+    )
+    closed_at = fields.Datetime(
+        related="sprint_id.closed_at", store=True, readonly=True, index=True
+    )
     precision = fields.Selection(
-        [("trusted", "Trusted closed-Sprint replay"), ("active_or_legacy", "Active or legacy replay")],
+        [
+            ("trusted", "Trusted closed-Sprint replay"),
+            ("active_or_legacy", "Active or legacy replay"),
+        ],
         compute="_compute_precision",
         store=True,
         readonly=True,
-        help="Closed Sprints with a close timestamp are replayed to that immutable boundary.",
+        help=(
+            "Closed Sprints with a close timestamp are replayed "
+            "to that immutable boundary."
+        ),
     )
     points_unit = fields.Selection(
         [("story_points", "Story Points")],
@@ -77,14 +114,20 @@ class ProjectScrumAnalyticsReport(models.Model):
         store=True,
         readonly=True,
     )
-    burndown_remaining = fields.Float(string="Burndown Remaining (Story Points)", readonly=True)
-    burnup_completed = fields.Float(string="Burnup Completed (Story Points)", readonly=True)
+    burndown_remaining = fields.Float(
+        string="Burndown Remaining (Story Points)", readonly=True
+    )
+    burnup_completed = fields.Float(
+        string="Burnup Completed (Story Points)", readonly=True
+    )
     burnup_total = fields.Float(string="Burnup Total (Story Points)", readonly=True)
     scope_initial = fields.Float(string="Initial Scope (Story Points)", readonly=True)
     scope_added = fields.Float(string="Scope Added (Story Points)", readonly=True)
     scope_removed = fields.Float(string="Scope Removed (Story Points)", readonly=True)
     scope_final = fields.Float(string="Final Scope (Story Points)", readonly=True)
-    commitment_points = fields.Float(string="Original Commitment (Story Points)", readonly=True)
+    commitment_points = fields.Float(
+        string="Original Commitment (Story Points)", readonly=True
+    )
     completed_commitment_points = fields.Float(
         string="Completed Commitment (Story Points)", readonly=True
     )
@@ -100,16 +143,22 @@ class ProjectScrumAnalyticsReport(models.Model):
     def _compute_precision(self):
         for report in self:
             report.precision = (
-                "trusted" if report.state == "closed" and report.closed_at else "active_or_legacy"
+                "trusted"
+                if report.state == "closed" and report.closed_at
+                else "active_or_legacy"
             )
 
     @api.depends("state", "burnup_completed")
     def _compute_velocity(self):
         for report in self:
-            report.velocity = report.burnup_completed if report.state == "closed" else 0.0
+            report.velocity = (
+                report.burnup_completed if report.state == "closed" else 0.0
+            )
 
     @api.model
     def _ensure_all_sprints(self):
+        # Initial projection must cover all visible Sprints; no partial baseline.
+        # pylint: disable-next=no-search-all
         self._sync_sprints(self.env["project.sprint"].search([]))
 
     @api.model
@@ -133,9 +182,13 @@ class ProjectScrumAnalyticsReport(models.Model):
     def _ensure_reports(self, sprints):
         existing = self.search([("sprint_id", "in", sprints.ids)])
         existing_sprint_ids = set(existing.sprint_id.ids)
-        missing_sprints = sprints.filtered(lambda sprint: sprint.id not in existing_sprint_ids)
+        missing_sprints = sprints.filtered(
+            lambda sprint: sprint.id not in existing_sprint_ids
+        )
         if missing_sprints:
-            existing |= self.create([{"sprint_id": sprint.id} for sprint in missing_sprints])
+            existing |= self.create(
+                [{"sprint_id": sprint.id} for sprint in missing_sprints]
+            )
         return existing
 
     def _report_values(self, report_data):
@@ -148,8 +201,12 @@ class ProjectScrumAnalyticsReport(models.Model):
             "scope_removed": report_data["scope_change"]["removed"],
             "scope_final": report_data["scope_change"]["final"],
             "commitment_points": report_data["commitment_completion"]["commitment"],
-            "completed_commitment_points": report_data["commitment_completion"]["completed"],
-            "commitment_completion_ratio": report_data["commitment_completion"]["completion_ratio"],
+            "completed_commitment_points": report_data["commitment_completion"][
+                "completed"
+            ],
+            "commitment_completion_ratio": report_data["commitment_completion"][
+                "completion_ratio"
+            ],
         }
 
     def _sync_timeline(self, timeline):
@@ -174,7 +231,9 @@ class ProjectScrumAnalyticsReport(models.Model):
                 line.write(values)
             else:
                 self.env["project.scrum.analytics.timeline"].create(values)
-        lines.filtered(lambda line: line.scope_event_id.id not in timeline_event_ids).unlink()
+        lines.filtered(
+            lambda line: line.scope_event_id.id not in timeline_event_ids
+        ).unlink()
 
     def _check_report_read_access(self):
         self.ensure_one()
@@ -212,22 +271,52 @@ class ProjectScrumAnalyticsTimeline(models.Model):
     _description = "Scrum Analytics Timeline"
     _order = "event_at, id"
 
-    report_id = fields.Many2one("project.scrum.analytics.report", required=True, readonly=True, ondelete="cascade", index=True)
-    scope_event_id = fields.Many2one("project.sprint.scope.event", required=True, readonly=True, ondelete="cascade", index=True)
-    project_id = fields.Many2one(related="report_id.project_id", store=True, readonly=True, index=True)
-    company_id = fields.Many2one(related="report_id.company_id", store=True, readonly=True, index=True)
-    sprint_id = fields.Many2one(related="report_id.sprint_id", store=True, readonly=True, index=True)
-    team_id = fields.Many2one(related="report_id.team_id", store=True, readonly=True, index=True)
-    state = fields.Selection(related="report_id.state", store=True, readonly=True, index=True)
-    task_id = fields.Many2one(related="scope_event_id.task_id", store=True, readonly=True, index=True)
-    event_type = fields.Selection(related="scope_event_id.event_type", store=True, readonly=True, index=True)
+    report_id = fields.Many2one(
+        "project.scrum.analytics.report",
+        required=True,
+        readonly=True,
+        ondelete="cascade",
+        index=True,
+    )
+    scope_event_id = fields.Many2one(
+        "project.sprint.scope.event",
+        required=True,
+        readonly=True,
+        ondelete="cascade",
+        index=True,
+    )
+    project_id = fields.Many2one(
+        related="report_id.project_id", store=True, readonly=True, index=True
+    )
+    company_id = fields.Many2one(
+        related="report_id.company_id", store=True, readonly=True, index=True
+    )
+    sprint_id = fields.Many2one(
+        related="report_id.sprint_id", store=True, readonly=True, index=True
+    )
+    team_id = fields.Many2one(
+        related="report_id.team_id", store=True, readonly=True, index=True
+    )
+    state = fields.Selection(
+        related="report_id.state", store=True, readonly=True, index=True
+    )
+    task_id = fields.Many2one(
+        related="scope_event_id.task_id", store=True, readonly=True, index=True
+    )
+    event_type = fields.Selection(
+        related="scope_event_id.event_type", store=True, readonly=True, index=True
+    )
     event_at = fields.Datetime(
         string="Event Timestamp (UTC; chart buckets use your timezone)",
         readonly=True,
         index=True,
     )
-    burndown_remaining = fields.Float(string="Burndown Remaining (Story Points)", readonly=True)
-    burnup_completed = fields.Float(string="Burnup Completed (Story Points)", readonly=True)
+    burndown_remaining = fields.Float(
+        string="Burndown Remaining (Story Points)", readonly=True
+    )
+    burnup_completed = fields.Float(
+        string="Burnup Completed (Story Points)", readonly=True
+    )
     burnup_total = fields.Float(string="Burnup Total (Story Points)", readonly=True)
 
     _scope_event_unique = models.Constraint(
@@ -275,13 +364,17 @@ class ProjectSprintScopeEvent(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         events = super().create(vals_list)
-        self.env["project.scrum.analytics.report"].sudo()._sync_sprints(events.sprint_id)
+        self.env["project.scrum.analytics.report"].sudo()._sync_sprints(
+            events.sprint_id
+        )
         return events
 
     def write(self, values):
         sprints = self.sprint_id
         result = super().write(values)
-        self.env["project.scrum.analytics.report"].sudo()._sync_sprints(sprints | self.sprint_id)
+        self.env["project.scrum.analytics.report"].sudo()._sync_sprints(
+            sprints | self.sprint_id
+        )
         return result
 
     def unlink(self):

@@ -1,37 +1,51 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_project_form_agile" model="ir.ui.view">
-        <field name="name">project.project.form.agile</field>
-        <field name="model">project.project</field>
-        <field name="inherit_id" ref="project.edit_project"/>
-        <field name="arch" type="xml">
-            <xpath expr="//page[@name=&apos;settings&apos;]/group/group[@name=&apos;extra_settings&apos;]" position="inside">
-                <group string="Agile" groups="project.group_project_manager">
-                    <field name="agile_enabled"/>
-                    <group invisible="not agile_enabled">
-                        <field name="agile_key" required="agile_enabled"/>
-                        <field name="agile_default_item_type_id" domain="[(&apos;active&apos;, &apos;=&apos;, True)]"/>
-                        <field name="agile_estimation_method"/>
-                    </group>
-                </group>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_project_form_agile" model="ir.ui.view">
+    <field name="name">project.project.form.agile</field>
+    <field name="model">project.project</field>
+    <field name="inherit_id" ref="project.edit_project" />
+    <field name="arch" type="xml">
+      <xpath
+        expr="//page[@name=&apos;settings&apos;]/group/group[@name=&apos;extra_settings&apos;]"
+        position="inside"
+      >
+        <group string="Agile" groups="project.group_project_manager">
+          <field name="agile_enabled" />
+          <group invisible="not agile_enabled">
+            <field name="agile_key" required="agile_enabled" />
+            <field
+              name="agile_default_item_type_id"
+              domain="[(&apos;active&apos;, &apos;=&apos;, True)]"
+            />
+            <field name="agile_estimation_method" />
+          </group>
+        </group>
+      </xpath>
+    </field>
+  </record>
 
-    <record id="view_project_search_agile" model="ir.ui.view">
-        <field name="name">project.project.search.agile</field>
-        <field name="model">project.project</field>
-        <field name="inherit_id" ref="project.view_project_project_filter"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name=&apos;name&apos;]" position="after">
-                <field name="agile_key"/>
-            </xpath>
-            <xpath expr="//filter[@name=&apos;my_projects&apos;]" position="after">
-                <filter string="Agile Projects" name="agile_projects" domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]"/>
-            </xpath>
-            <xpath expr="//group" position="inside">
-                <filter string="Agile Method" name="group_by_agile_method" context="{&quot;group_by&quot;: &quot;agile_estimation_method&quot;}"/>
-            </xpath>
-        </field>
-    </record>
+  <record id="view_project_search_agile" model="ir.ui.view">
+    <field name="name">project.project.search.agile</field>
+    <field name="model">project.project</field>
+    <field name="inherit_id" ref="project.view_project_project_filter" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&apos;name&apos;]" position="after">
+        <field name="agile_key" />
+      </xpath>
+      <xpath expr="//filter[@name=&apos;my_projects&apos;]" position="after">
+        <filter
+          string="Agile Projects"
+          name="agile_projects"
+          domain="[(&apos;agile_enabled&apos;, &apos;=&apos;, True)]"
+        />
+      </xpath>
+      <xpath expr="//group" position="inside">
+        <filter
+          string="Agile Method"
+          name="group_by_agile_method"
+          context="{&quot;group_by&quot;: &quot;agile_estimation_method&quot;}"
+        />
+      </xpath>
+    </field>
+  </record>
 </odoo>

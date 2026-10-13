@@ -10,7 +10,9 @@ class ProjectAgileItemType(models.Model):
     @api.constrains("can_schedule_in_sprint")
     def _check_scheduled_tasks_remain_eligible(self):
         task_model = self.env["project.task"]
-        for item_type in self.filtered(lambda record: not record.can_schedule_in_sprint):
+        for item_type in self.filtered(
+            lambda record: not record.can_schedule_in_sprint
+        ):
             if task_model.search_count(
                 [("agile_item_type_id", "=", item_type.id), ("sprint_id", "!=", False)]
             ):

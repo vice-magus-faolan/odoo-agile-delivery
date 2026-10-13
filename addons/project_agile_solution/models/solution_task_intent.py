@@ -1,4 +1,5 @@
 """Creator-owned bounded preview and atomic retry-safe deliberate confirmation."""
+
 import hashlib
 import json
 from uuid import uuid4
@@ -9,48 +10,98 @@ from odoo.fields import Domain
 
 from .solution_access import lock_records
 from .solution_content import check_reference_commands
-from .solution_task_access import check_document, check_requirements, check_task, lock_trace_scope
+from .solution_task_access import (
+    check_document,
+    check_requirements,
+    check_task,
+    lock_trace_scope,
+)
 
-INPUT = frozenset({'solution_id', 'operation', 'name', 'description', 'agile_item_type_id',
-                   'task_id', 'document_revision_id', 'requirement_revision_ids'})
+INPUT = frozenset(
+    {
+        "solution_id",
+        "operation",
+        "name",
+        "description",
+        "agile_item_type_id",
+        "task_id",
+        "document_revision_id",
+        "requirement_revision_ids",
+    }
+)
 
 
 class SolutionTaskIntent(models.Model):
-    _name = 'project.agile.solution.task.intent'
-    _inherit = 'project.agile.solution.task.access'
-    _description = 'Deliberate Native Task Preview and Confirmation'
+    _name = "project.agile.solution.task.intent"
+    _inherit = "project.agile.solution.task.access"
+    _description = "Deliberate Native Task Preview and Confirmation"
     _check_company_auto = True
-    _order = 'id desc'
+    _order = "id desc"
 
-    solution_id = fields.Many2one('project.agile.solution', required=True, ondelete='restrict', check_company=True)
-    operation = fields.Selection([('create', 'Create Native Task'), ('link', 'Link Existing Native Task')], required=True, default='link')
+    solution_id = fields.Many2one(
+        "project.agile.solution", required=True, ondelete="restrict", check_company=True
+    )
+    operation = fields.Selection(
+        [("create", "Create Native Task"), ("link", "Link Existing Native Task")],
+        required=True,
+        default="link",
+    )
     name = fields.Char(required=True)
     description = fields.Html()
-    agile_item_type_id = fields.Many2one('project.agile.item.type', ondelete='restrict')
-    task_id = fields.Many2one('project.task', readonly=True, ondelete='restrict', check_company=True)
-    document_revision_id = fields.Many2one('project.agile.solution.revision', ondelete='restrict', check_company=True)
-    requirement_revision_ids = fields.Many2many('project.agile.requirement.revision', 'solution_intent_requirement_rel', 'intent_id', 'requirement_revision_id', readonly=True, check_company=True)
-    creator_id = fields.Many2one('res.users', required=True, readonly=True, ondelete='restrict')
+    agile_item_type_id = fields.Many2one("project.agile.item.type", ondelete="restrict")
+    task_id = fields.Many2one(
+        "project.task", readonly=True, ondelete="restrict", check_company=True
+    )
+    document_revision_id = fields.Many2one(
+        "project.agile.solution.revision", ondelete="restrict", check_company=True
+    )
+    requirement_revision_ids = fields.Many2many(
+        "project.agile.requirement.revision",
+        "solution_intent_requirement_rel",
+        "intent_id",
+        "requirement_revision_id",
+        readonly=True,
+        check_company=True,
+    )
+    creator_id = fields.Many2one(
+        "res.users", required=True, readonly=True, ondelete="restrict"
+    )
     token = fields.Char(required=True, readonly=True, copy=False)
-    state = fields.Selection([('preview', 'Previewed, Unconfirmed'), ('consumed', 'Confirmed')], required=True, default='preview', readonly=True)
+    state = fields.Selection(
+        [("preview", "Previewed, Unconfirmed"), ("consumed", "Confirmed")],
+        required=True,
+        default="preview",
+        readonly=True,
+    )
     consumed_at = fields.Datetime(readonly=True)
-    _source_digest = fields.Char(readonly=True, groups='project_agile_solution.group_snapshot_storage')
-    preview_text = fields.Text(compute='_compute_preview_text', compute_sudo=False)
-    _token_unique = models.Constraint('UNIQUE(token)', 'Preview identity must be unique.')
+    _source_digest = fields.Char(
+        readonly=True, groups="project_agile_solution.group_snapshot_storage"
+    )
+    preview_text = fields.Text(compute="_compute_preview_text", compute_sudo=False)
+    _token_unique = models.Constraint(
+        "UNIQUE(token)", "Preview identity must be unique."
+    )
 
     @api.model
     def default_get(self, names):
-        values = {key: value for key, value in super().default_get([name for name in names if name in INPUT]).items() if key in INPUT}
-        if 'state' in names:
-            values['state'] = 'preview'
-        if 'creator_id' in names:
-            values['creator_id'] = self.env.uid
+        values = {
+            key: value
+            for key, value in super()
+            .default_get([name for name in names if name in INPUT])
+            .items()
+            if key in INPUT
+        }
+        if "state" in names:
+            values["state"] = "preview"
+        if "creator_id" in names:
+            values["creator_id"] = self.env.uid
         return values
 
     @api.model_create_multi
-    def create(self, vals_list):
+    # _create_preview performs authorized delegation, not this public batch loop.
+    def create(self, vals_list):  # pylint: disable=method-required-super
         caller = self.sudo(False)
-        caller.check_access('create')
+        caller.check_access("create")
         records = caller.browse()
         with self.env.cr.savepoint():
             for values in vals_list:
@@ -59,13 +110,21 @@ class SolutionTaskIntent(models.Model):
 
     def _create_preview(self, values):
         if set(values) - INPUT:
-            raise ValidationError(_('Preview identity and consumption are server managed.'))
-        solution = self._checked_relation('project.agile.solution', values.get('solution_id'))
-        solution.check_access('write')
-        solution.project_id.check_access('write')
-        if not self.env.user.active or not self.env.user.has_group('project.group_project_manager'):
-            raise AccessError(_('An active authorized Project Manager must preview work.'))
-        commands = values.get('requirement_revision_ids', [])
+            raise ValidationError(
+                _("Preview identity and consumption are server managed.")
+            )
+        solution = self._checked_relation(
+            "project.agile.solution", values.get("solution_id")
+        )
+        solution.check_access("write")
+        solution.project_id.check_access("write")
+        if not self.env.user.active or not self.env.user.has_group(
+            "project.group_project_manager"
+        ):
+            raise AccessError(
+                _("An active authorized Project Manager must preview work.")
+            )
+        commands = values.get("requirement_revision_ids", [])
         check_reference_commands(commands)
         if len(commands) == 1 and commands[0][0] == Command.SET:
             ids = commands[0][2]
@@ -73,19 +132,30 @@ class SolutionTaskIntent(models.Model):
             # Native many2many Form/web_save emits LINK, RPC commonly emits SET.
             ids = [command[1] for command in commands]
         else:
-            raise ValidationError(_('Preview one explicit bounded set of exact revisions.'))
+            raise ValidationError(
+                _("Preview one explicit bounded set of exact revisions.")
+            )
         if not 1 <= len(ids) <= 20 or len(set(ids)) != len(ids):
-            raise ValidationError(_('Select between one and twenty distinct exact revisions.'))
-        revisions = self.env['project.agile.requirement.revision'].browse(ids)
+            raise ValidationError(
+                _("Select between one and twenty distinct exact revisions.")
+            )
+        revisions = self.env["project.agile.requirement.revision"].browse(ids)
         check_requirements(revisions, solution)
-        if values.get('operation', 'link') == 'link':
-            task = self._checked_relation('project.task', values.get('task_id'))
+        if values.get("operation", "link") == "link":
+            task = self._checked_relation("project.task", values.get("task_id"))
             check_task(task, solution.project_id)
-        values = {**values, 'requirement_revision_ids': [Command.set(ids)]}
-        record = super(SolutionTaskIntent, self).create({**values, 'creator_id': self.env.uid, 'token': str(uuid4()), 'state': 'preview'})
+        values = {**values, "requirement_revision_ids": [Command.set(ids)]}
+        record = super().create(
+            {
+                **values,
+                "creator_id": self.env.uid,
+                "token": str(uuid4()),
+                "state": "preview",
+            }
+        )
         record._validate_proposal()
         digest = record._fingerprint()
-        super(SolutionTaskIntent, record.sudo()).write({'_source_digest': digest})
+        super(SolutionTaskIntent, record.sudo()).write({"_source_digest": digest})
         return record
 
     def _validate_proposal(self):
@@ -93,65 +163,110 @@ class SolutionTaskIntent(models.Model):
         self._trace_authority()
         revisions = check_requirements(self.requirement_revision_ids, self.solution_id)
         if len(revisions.requirement_id) != len(revisions):
-            raise ValidationError(_('Choose one exact revision per requirement identity.'))
-        if not isinstance(self.name, str) or not self.name.strip() or len(self.name) > 200 or len(self.description or '') > 20000:
-            raise ValidationError(_('Use a meaningful bounded Task proposal.'))
+            raise ValidationError(
+                _("Choose one exact revision per requirement identity.")
+            )
+        if (
+            not isinstance(self.name, str)
+            or not self.name.strip()
+            or len(self.name) > 200
+            or len(self.description or "") > 20000
+        ):
+            raise ValidationError(_("Use a meaningful bounded Task proposal."))
         check_document(self.document_revision_id, revisions, self.solution_id)
-        if self.operation == 'link':
+        if self.operation == "link":
             check_task(self.task_id, self.project_id)
         else:
             if self.task_id:
-                raise ValidationError(_('A creation preview cannot select an existing Task.'))
-            self.env['project.task'].check_access('create')
+                raise ValidationError(
+                    _("A creation preview cannot select an existing Task.")
+                )
+            self.env["project.task"].check_access("create")
             item_type = self.agile_item_type_id.sudo(False)
-            item_type.check_access('read')
+            item_type.check_access("read")
             if not item_type or not item_type.active:
-                raise ValidationError(_('Select an active native Agile item type.'))
+                raise ValidationError(_("Select an active native Agile item type."))
         return revisions
 
     def _fingerprint(self):
         self.ensure_one()
         revisions = self.requirement_revision_ids
-        values = {'revisions': [row._snapshot_values() for row in revisions.sorted('id')],
-                  'heads': [identity._complete_revisions()[-1].id for identity in revisions.requirement_id.sorted('id')]}
+        values = {
+            "revisions": [row._snapshot_values() for row in revisions.sorted("id")],
+            "heads": [
+                identity._complete_revisions()[-1].id
+                for identity in revisions.requirement_id.sorted("id")
+            ],
+        }
         if self.document_revision_id:
             document = self.document_revision_id
-            values['document'] = {'id': document.id, 'content': document._snapshot_payload(),
-                'heads': [(row.id, row.number, row.state, str(row.write_date)) for row in document.document_id._complete_revisions()]}
-        return hashlib.sha256(json.dumps(values, sort_keys=True, default=str).encode()).hexdigest()
+            values["document"] = {
+                "id": document.id,
+                "content": document._snapshot_payload(),
+                "heads": [
+                    (row.id, row.number, row.state, str(row.write_date))
+                    for row in document.document_id._complete_revisions()
+                ],
+            }
+        return hashlib.sha256(
+            json.dumps(values, sort_keys=True, default=str).encode()
+        ).hexdigest()
 
     def _check_creator(self):
         caller = self._trace_authority()
         if any(record.creator_id != caller.env.user for record in caller):
-            raise AccessError(_('Only the previewing current user can confirm this intent.'))
+            raise AccessError(
+                _("Only the previewing current user can confirm this intent.")
+            )
         return caller
 
-    @api.depends_context('uid')
+    @api.depends_context("uid")
     def _compute_preview_text(self):
         for record in self:
             if not record._origin.id:
                 record.preview_text = False
                 continue
-            record.sudo(False).check_access('read')
-            revisions = check_requirements(record.requirement_revision_ids, record.solution_id, active=False)
-            record.preview_text = '\n'.join(f'{row.requirement_id.key} v{row.number}: {row.title}' for row in revisions.sorted('id'))
+            record.sudo(False).check_access("read")
+            revisions = check_requirements(
+                record.requirement_revision_ids, record.solution_id, active=False
+            )
+            record.preview_text = "\n".join(
+                f"{row.requirement_id.key} v{row.number}: {row.title}"
+                for row in revisions.sorted("id")
+            )
 
-    def write(self, values):
+    # Preview values cannot change after the user has inspected them.
+    def write(self, values):  # pylint: disable=method-required-super
         self._check_creator()
-        raise ValidationError(_('Preview values are immutable; create a fresh preview for a changed proposal.'))
+        raise ValidationError(
+            _(
+                "Preview values are immutable; "
+                "create a fresh preview for a changed proposal."
+            )
+        )
 
-    def unlink(self):
+    # Retained intent identities provide stable idempotent retries.
+    def unlink(self):  # pylint: disable=method-required-super
         self._check_creator()
-        raise ValidationError(_('Keep preview and consumed retry identities.'))
+        # pylint: disable=no-raise-unlink
+        raise ValidationError(_("Keep preview and consumed retry identities."))
 
-    def copy(self, default=None):
-        raise ValidationError(_('Create a fresh explicit preview, not a copy of a retry identity.'))
+    # A copy cannot substitute for a fresh deliberate preview.
+    def copy(self, default=None):  # pylint: disable=method-required-super
+        raise ValidationError(
+            _("Create a fresh explicit preview, not a copy of a retry identity.")
+        )
 
     def action_request_confirmation(self):
         self.ensure_one()
         self._check_creator()
-        return {'type': 'ir.actions.act_window', 'res_model': 'project.agile.solution.task.confirm.wizard',
-                'view_mode': 'form', 'target': 'new', 'context': {'default_intent_id': self.id}}
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.agile.solution.task.confirm.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_intent_id": self.id},
+        }
 
     def action_confirm(self):
         self.ensure_one()
@@ -159,77 +274,145 @@ class SolutionTaskIntent(models.Model):
         with self.env.cr.savepoint():
             lock_records(caller, serialize=True)
             caller._check_creator()
-            if caller.state == 'consumed':
-                check_task(caller.task_id, caller.project_id, mutation=False, active=False)
+            if caller.state == "consumed":
+                check_task(
+                    caller.task_id, caller.project_id, mutation=False, active=False
+                )
                 return caller._task_action()
             revisions = caller._validate_proposal()
             lock_trace_scope(revisions, caller.task_id)
             caller._validate_proposal()
             if caller._fingerprint() != caller.sudo()._source_digest:
-                raise ValidationError(_('Requirement or specification context changed; preview again before confirming.'))
+                raise ValidationError(
+                    _(
+                        "Requirement or specification context changed; "
+                        "preview again before confirming."
+                    )
+                )
             task = caller.task_id or caller._create_task()
             caller._link_task(task)
-            super(SolutionTaskIntent, caller).write({'state': 'consumed', 'task_id': task.id, 'consumed_at': fields.Datetime.now()})
+            super(SolutionTaskIntent, caller).write(
+                {
+                    "state": "consumed",
+                    "task_id": task.id,
+                    "consumed_at": fields.Datetime.now(),
+                }
+            )
             return caller._task_action()
 
     def _create_task(self):
         # Caller defaults, active IDs and workflow/context switches cannot add
         # hidden criteria, estimates, planning or other side effects to preview.
-        context = {name: self.env.context[name] for name in ('allowed_company_ids', 'lang', 'tz') if name in self.env.context}
-        return self.env['project.task'].with_context(context).create({'name': self.name, 'description': self.description,
-                    'project_id': self.project_id.id, 'agile_item_type_id': self.agile_item_type_id.id})
+        context = {
+            name: self.env.context[name]
+            for name in ("allowed_company_ids", "lang", "tz")
+            if name in self.env.context
+        }
+        return (
+            # pylint: disable-next=context-overridden
+            self.env["project.task"]
+            # Replacement removes caller defaults and side-effect switches.
+            .with_context(context)
+            .create(
+                {
+                    "name": self.name,
+                    "description": self.description,
+                    "project_id": self.project_id.id,
+                    "agile_item_type_id": self.agile_item_type_id.id,
+                }
+            )
+        )
 
     def _link_task(self, task):
-        return self.env['project.agile.requirement.task.link'].create([
-            {'task_id': task.id, 'requirement_revision_id': row.id,
-             'document_revision_id': self.document_revision_id.id or False} for row in self.requirement_revision_ids])
+        return self.env["project.agile.requirement.task.link"].create(
+            [
+                {
+                    "task_id": task.id,
+                    "requirement_revision_id": row.id,
+                    "document_revision_id": self.document_revision_id.id or False,
+                }
+                for row in self.requirement_revision_ids
+            ]
+        )
 
     def _task_action(self):
-        return {'type': 'ir.actions.act_window', 'res_model': 'project.task', 'res_id': self.task_id.id, 'view_mode': 'form'}
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.task",
+            "res_id": self.task_id.id,
+            "view_mode": "form",
+        }
 
 
+# Preserve the existing colocated confirmation boundary; no module moves here.
+# pylint: disable-next=no-wizard-in-models
 class TaskConfirmWizard(models.TransientModel):
-    _name = 'project.agile.solution.task.confirm.wizard'
-    _description = 'Confirm Previewed Native Task Work'
+    _name = "project.agile.solution.task.confirm.wizard"
+    _description = "Confirm Previewed Native Task Work"
 
-    intent_id = fields.Many2one('project.agile.solution.task.intent', required=True, ondelete='restrict')
-    preview_text = fields.Text(related='intent_id.preview_text', readonly=True, compute_sudo=False)
-    name = fields.Char(related='intent_id.name', readonly=True, compute_sudo=False)
-    description = fields.Html(related='intent_id.description', readonly=True, compute_sudo=False)
-    operation = fields.Selection(related='intent_id.operation', readonly=True, compute_sudo=False)
-    task_id = fields.Many2one(related='intent_id.task_id', readonly=True, compute_sudo=False)
-    native_intent_access = fields.Boolean(compute='_compute_native_intent_access', search='_search_native_intent_access')
+    intent_id = fields.Many2one(
+        "project.agile.solution.task.intent", required=True, ondelete="restrict"
+    )
+    preview_text = fields.Text(
+        related="intent_id.preview_text", readonly=True, compute_sudo=False
+    )
+    name = fields.Char(related="intent_id.name", readonly=True, compute_sudo=False)
+    description = fields.Html(
+        related="intent_id.description", readonly=True, compute_sudo=False
+    )
+    operation = fields.Selection(
+        related="intent_id.operation", readonly=True, compute_sudo=False
+    )
+    task_id = fields.Many2one(
+        related="intent_id.task_id", readonly=True, compute_sudo=False
+    )
+    native_intent_access = fields.Boolean(
+        compute="_compute_native_intent_access", search="_search_native_intent_access"
+    )
 
     def _compute_native_intent_access(self):
         for wizard in self:
             wizard.native_intent_access = True
 
     def _search_native_intent_access(self, operator, value):
-        if operator not in ('in', 'not in'):
+        if operator not in ("in", "not in"):
             return NotImplemented
-        intents = self.env['project.agile.solution.task.intent'].sudo(False)
-        accessible = Domain('intent_id', 'in', intents._search([]))
-        positive = Domain.OR(accessible if item is True else ~accessible for item in value if type(item) is bool)
-        return positive if operator == 'in' else ~positive
+        intents = self.env["project.agile.solution.task.intent"].sudo(False)
+        accessible = Domain("intent_id", "in", intents._search([]))
+        positive = Domain.OR(
+            accessible if item is True else ~accessible
+            for item in value
+            if type(item) is bool
+        )
+        return positive if operator == "in" else ~positive
 
     @api.model
     def default_get(self, names):
-        return super().default_get([name for name in names if name == 'intent_id'])
+        return super().default_get([name for name in names if name == "intent_id"])
 
     @api.model_create_multi
     def create(self, vals_list):
         caller = self.sudo(False)
-        caller.check_access('create')
+        caller.check_access("create")
         values = []
-        intents = caller.env['project.agile.solution.task.intent']
+        intents = caller.env["project.agile.solution.task.intent"]
         for proposal in vals_list:
-            if set(proposal) - {'intent_id'}:
-                raise ValidationError(_('Confirmation projects an existing preview; its values are not caller supplied.'))
-            intent_id = proposal.get('intent_id', caller.default_get(['intent_id']).get('intent_id'))
-            intent = intents._checked_relation('project.agile.solution.task.intent', intent_id)
+            if set(proposal) - {"intent_id"}:
+                raise ValidationError(
+                    _(
+                        "Confirmation projects an existing preview; "
+                        "its values are not caller supplied."
+                    )
+                )
+            intent_id = proposal.get(
+                "intent_id", caller.default_get(["intent_id"]).get("intent_id")
+            )
+            intent = intents._checked_relation(
+                "project.agile.solution.task.intent", intent_id
+            )
             intent._check_current_trace_read()
             intent._check_creator()
-            values.append({'intent_id': intent.id})
+            values.append({"intent_id": intent.id})
         return super(TaskConfirmWizard, caller).create(values)
 
     def _check_current_intent(self):
@@ -240,13 +423,13 @@ class TaskConfirmWizard(models.TransientModel):
         an origin, so no transient row or proposal is treated as authority.
         """
         caller = self._origin.sudo(False)
-        caller.check_access('read')
+        caller.check_access("read")
         intents = caller.intent_id.sudo(False)
         intents._check_current_trace_read()
         intents._check_creator()
         return caller
 
-    def read(self, fields=None, load='_classic_read'):
+    def read(self, fields=None, load="_classic_read"):
         self._check_current_intent()
         return super().read(fields, load)
 
@@ -254,11 +437,14 @@ class TaskConfirmWizard(models.TransientModel):
         self._check_current_intent()
         return super().export_data(fields_to_export)
 
-    def write(self, values):
+    # Confirmation is an immutable projection of the inspected intent.
+    def write(self, values):  # pylint: disable=method-required-super
         self._check_current_intent()
-        raise ValidationError(_('Confirmation selection is immutable; open a fresh confirmation.'))
+        raise ValidationError(
+            _("Confirmation selection is immutable; open a fresh confirmation.")
+        )
 
     def action_confirm(self):
         self.ensure_one()
-        self.sudo(False).check_access('write')
+        self.sudo(False).check_access("write")
         return self._check_current_intent().intent_id.sudo(False).action_confirm()

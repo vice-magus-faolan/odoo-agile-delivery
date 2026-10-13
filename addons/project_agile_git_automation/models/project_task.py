@@ -19,14 +19,19 @@ class ProjectTask(models.Model):
         if not self:
             return
         self.flush_recordset(["git_policy_transition_version"])
-        self.env.cr.execute(SQL(
-            "UPDATE project_task SET git_policy_transition_version = git_policy_transition_version + 1 WHERE id IN %s",
-            tuple(self.ids),
-        ))
+        self.env.cr.execute(
+            SQL(
+                "UPDATE project_task "
+                "SET git_policy_transition_version = git_policy_transition_version + 1 "
+                "WHERE id IN %s",
+                tuple(self.ids),
+            )
+        )
         self.invalidate_recordset(["git_policy_transition_version"])
 
     @api.depends("stage_id", "depend_on_ids.state")
-    def _compute_state(self):
+    # Native compute and observer have side effects, not a return-value contract.
+    def _compute_state(self):  # pylint: disable=missing-return
         """Observe native dependency transitions, including propagation and reversal.
 
         Odoo 19 fields.Field.compute_value removes pending recomputation before
@@ -40,10 +45,12 @@ class ProjectTask(models.Model):
         """
         persisted = self.filtered("id")
         if persisted:
-            self.env.cr.execute(SQL(
-                "SELECT id FROM project_task WHERE id IN %s ORDER BY id FOR UPDATE",
-                tuple(persisted.ids),
-            ))
+            self.env.cr.execute(
+                SQL(
+                    "SELECT id FROM project_task WHERE id IN %s ORDER BY id FOR UPDATE",
+                    tuple(persisted.ids),
+                )
+            )
         before = {task.id: task.state for task in persisted}
         super()._compute_state()
         changed = persisted.filtered(lambda task: task.state != before[task.id])
@@ -51,19 +58,31 @@ class ProjectTask(models.Model):
 
     def _git_policy_fence_tasks(self, values):
         """Cover direct mutations and parent-propagated native scope recomputation."""
-        inputs = {"stage_id", "state", "project_id", "company_id", "active", "parent_id", "child_ids"}
+        inputs = {
+            "stage_id",
+            "state",
+            "project_id",
+            "company_id",
+            "active",
+            "parent_id",
+            "child_ids",
+        }
         if not inputs.intersection(values):
             return self.browse()
         tasks = self.sudo().with_context(active_test=False)
         if TASK_SCOPE_FIELDS.intersection(values):
             tasks = tasks.search([("id", "child_of", self.ids)])
-        self._git_policy_lock_scopes(tasks.project_id.ids + self._git_policy_requested_scopes(values))
+        self._git_policy_lock_scopes(
+            tasks.project_id.ids + self._git_policy_requested_scopes(values)
+        )
         lock_records(tasks)
         return tasks
 
     def _git_policy_lock_scopes(self, project_ids):
         """Fence controls before native Task row mutation; never authorize a write."""
-        projects = self.env["project.project"].sudo().browse(sorted(set(project_ids))).exists()
+        projects = (
+            self.env["project.project"].sudo().browse(sorted(set(project_ids))).exists()
+        )
         lock_records(projects)
 
     def _git_policy_requested_scopes(self, values):
@@ -76,8 +95,18 @@ class ProjectTask(models.Model):
         if "child_ids" in values:
             if not _policy_ready(self.env):
                 return []
-            return self.env["project.git.policy.activation"].sudo().search([]).project_id.ids
-        project_id = values.get("project_id", self.env.context.get("default_project_id"))
+            return (
+                # All policy scopes must be fenced, not a truncated subset.
+                # pylint: disable-next=no-search-all
+                self.env["project.git.policy.activation"]
+                .sudo()
+                # All existing policy scopes must be fenced; truncation is unsafe.
+                .search([])
+                .project_id.ids
+            )
+        project_id = values.get(
+            "project_id", self.env.context.get("default_project_id")
+        )
         projects = [project_id] if type(project_id) is int and project_id > 0 else []
         parent_id = values.get("parent_id", self.env.context.get("default_parent_id"))
         if type(parent_id) is int and parent_id > 0:
@@ -101,11 +130,31 @@ class ProjectTask(models.Model):
         self.check_access("create")
         if any("git_policy_transition_version" in values for values in vals_list):
             raise ValidationError(_("Task transition fences are server-owned."))
-        context = {k: v for k, v in self.env.context.items() if k != "default_git_policy_transition_version"}
-        requested = [project for values in vals_list for project in self._git_policy_requested_scopes(values)]
+        context = {
+            k: v
+            for k, v in self.env.context.items()
+            if k != "default_git_policy_transition_version"
+        }
+        requested = [
+            project
+            for values in vals_list
+            for project in self._git_policy_requested_scopes(values)
+        ]
         self._git_policy_lock_scopes(requested)
+        # Replacement removes the caller's transition-version default.
+        # pylint: disable-next=context-overridden
         records = super(ProjectTask, self.with_context(context)).create(vals_list)
-        _revoke(self.env, [("project_id", "in", sorted(set(records._git_policy_affected_projects())))], "authority_changed")
+        _revoke(
+            self.env,
+            [
+                (
+                    "project_id",
+                    "in",
+                    sorted(set(records._git_policy_affected_projects())),
+                )
+            ],
+            "authority_changed",
+        )
         return records
 
     def write(self, values):
@@ -117,7 +166,10 @@ class ProjectTask(models.Model):
         descendants = bool(TASK_SCOPE_FIELDS.intersection(values))
         before = self._git_policy_affected_projects(descendants) if relevant else []
         if relevant:
-            requested = self._git_policy_requested_scopes(values) + self.sudo().parent_id.project_id.ids
+            requested = (
+                self._git_policy_requested_scopes(values)
+                + self.sudo().parent_id.project_id.ids
+            )
             self._git_policy_lock_scopes(before + requested)
         result = super().write(values)
         # Native authorization/constraints succeed first. A counter-only SQL update
@@ -126,7 +178,11 @@ class ProjectTask(models.Model):
         fenced._git_policy_advance_transition()
         if relevant:
             after = self._git_policy_affected_projects(descendants)
-            _revoke(self.env, [("project_id", "in", sorted(set(before) | set(after)))], "authority_changed")
+            _revoke(
+                self.env,
+                [("project_id", "in", sorted(set(before) | set(after)))],
+                "authority_changed",
+            )
         return result
 
     def unlink(self):
@@ -134,5 +190,7 @@ class ProjectTask(models.Model):
         before = self._git_policy_affected_projects(descendants=True)
         self._git_policy_lock_scopes(before)
         result = super().unlink()
-        _revoke(self.env, [("project_id", "in", sorted(set(before)))], "authority_changed")
+        _revoke(
+            self.env, [("project_id", "in", sorted(set(before)))], "authority_changed"
+        )
         return result

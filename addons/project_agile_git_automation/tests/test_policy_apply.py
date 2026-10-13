@@ -1,4 +1,5 @@
 """Apply regressions using the same trusted synthetic ledger as the dry run."""
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -20,7 +21,9 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def _discover(self):
         with patch.object(fields.Datetime, "now", return_value=self.now):
-            return self.attempts.with_user(self.author)._discover_repository(self.repository.with_user(self.author), 0)[0]
+            return self.attempts.with_user(self.author)._discover_repository(
+                self.repository.with_user(self.author), 0
+            )[0]
 
     def _apply(self):
         with patch.object(fields.Datetime, "now", return_value=self.now):
@@ -33,19 +36,25 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         before = self.task.read(["agile_key", "agile_story_points", "parent_id"])
         attempt = self._discover()
         self.assertEqual(attempt.state, "queued")
-        self.assertEqual(attempt.expected_transition_version, self.task.git_policy_transition_version)
+        self.assertEqual(
+            attempt.expected_transition_version, self.task.git_policy_transition_version
+        )
         self.assertEqual(self._apply(), attempt)
         self.assertEqual(attempt.state, "applied", attempt.reason)
         self.assertEqual(self.task.stage_id, self.stages[1])
         self.assertFalse(self.task.is_closed)
-        self.assertEqual(before, self.task.read(["agile_key", "agile_story_points", "parent_id"]))
+        self.assertEqual(
+            before, self.task.read(["agile_key", "agile_story_points", "parent_id"])
+        )
         effect = self.effects.search([])
         self.assertEqual(len(effect), 1)
         self.assertEqual(effect.execution_user_id, self.executor)
         self.assertEqual(effect.before_stage_id, self.stages[0])
         self.assertEqual(effect.after_stage_id, self.stages[1])
         self.assertEqual(self.task.write_uid, self.executor)
-        self.assertEqual(attempt.event_ids.mapped("reason"), ["no_ci_condition", "applied"])
+        self.assertEqual(
+            attempt.event_ids.mapped("reason"), ["no_ci_condition", "applied"]
+        )
         self.task.with_user(self.author).write({"stage_id": self.stages[0].id})
         self._successor()
         self._discover()
@@ -67,12 +76,18 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def _dependency_blocker(self, closed=False):
         self.project.write({"allow_task_dependencies": True})
-        blocker = self.env["project.task"].create({
-            "name": "Dependency blocker", "project_id": self.project.id,
-            "stage_id": self.stages[0].id, "state": "1_done" if closed else "01_in_progress",
-        })
+        blocker = self.env["project.task"].create(
+            {
+                "name": "Dependency blocker",
+                "project_id": self.project.id,
+                "stage_id": self.stages[0].id,
+                "state": "1_done" if closed else "01_in_progress",
+            }
+        )
         if closed:
-            self.task.with_user(self.executor).write({"depend_on_ids": [Command.link(blocker.id)]})
+            self.task.with_user(self.executor).write(
+                {"depend_on_ids": [Command.link(blocker.id)]}
+            )
         self.env.flush_all()
         self._successor()
         return blocker.with_user(self.executor)
@@ -146,28 +161,49 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def test_batched_dependency_recompute_preserves_closed_state(self):
         blocker = self._dependency_blocker(closed=True)
-        tasks = self.env["project.task"].create([
-            {"name": "Batch open", "project_id": self.project.id, "stage_id": self.stages[0].id,
-             "depend_on_ids": [Command.link(blocker.id)]},
-            {"name": "Batch closed", "project_id": self.project.id, "stage_id": self.stages[0].id,
-             "state": "1_done", "depend_on_ids": [Command.link(blocker.id)]},
-        ])
+        tasks = self.env["project.task"].create(
+            [
+                {
+                    "name": "Batch open",
+                    "project_id": self.project.id,
+                    "stage_id": self.stages[0].id,
+                    "depend_on_ids": [Command.link(blocker.id)],
+                },
+                {
+                    "name": "Batch closed",
+                    "project_id": self.project.id,
+                    "stage_id": self.stages[0].id,
+                    "state": "1_done",
+                    "depend_on_ids": [Command.link(blocker.id)],
+                },
+            ]
+        )
         self.env.flush_all()
         versions = {task.id: task.git_policy_transition_version for task in tasks}
         blocker.write({"state": "01_in_progress"})
         self.env.flush_all()
         self.assertEqual(tasks[0].state, "04_waiting_normal")
-        self.assertGreater(tasks[0].git_policy_transition_version, versions[tasks[0].id])
+        self.assertGreater(
+            tasks[0].git_policy_transition_version, versions[tasks[0].id]
+        )
         self.assertEqual(tasks[1].state, "1_done")
         self.assertEqual(tasks[1].git_policy_transition_version, versions[tasks[1].id])
 
     def test_unsaved_dependency_compute_does_not_change_durable_fence(self):
         blocker = self._dependency_blocker()
         version = self.task.git_policy_transition_version
-        unsaved = self.env["project.task"].with_user(self.executor).new({
-            "name": "Unsaved dependent", "project_id": self.project.id,
-            "stage_id": self.stages[0].id, "depend_on_ids": [Command.link(blocker.id)],
-        })
+        unsaved = (
+            self.env["project.task"]
+            .with_user(self.executor)
+            .new(
+                {
+                    "name": "Unsaved dependent",
+                    "project_id": self.project.id,
+                    "stage_id": self.stages[0].id,
+                    "depend_on_ids": [Command.link(blocker.id)],
+                }
+            )
+        )
         self.assertEqual(unsaved.state, "04_waiting_normal")
         self.assertEqual(unsaved.git_policy_transition_version, 0)
         self.assertEqual(self.task.git_policy_transition_version, version)
@@ -200,7 +236,11 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
     def test_partial_batch_failure_rolls_back_task_effect_and_audit(self):
         first = self._discover()
         effect_class = type(self.effects)
-        with patch.object(effect_class, "_append", side_effect=RuntimeError("secret should never be stored")):
+        with patch.object(
+            effect_class,
+            "_append",
+            side_effect=RuntimeError("secret should never be stored"),
+        ):
             self._apply()
         self.assertEqual(first.state, "retryable")
         self.assertEqual(self.task.stage_id, self.stages[0])
@@ -228,18 +268,28 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def test_public_and_forged_context_cannot_schedule_mutate_or_consume(self):
         attempt = self._discover()
-        for model in (self.attempts, self.effects, self.env["project.git.policy.attempt.event"]):
+        for model in (
+            self.attempts,
+            self.effects,
+            self.env["project.git.policy.attempt.event"],
+        ):
             with self.assertRaises(AccessError):
-                model.with_user(self.author).with_context(policy_trusted=True).create({})
+                model.with_user(self.author).with_context(policy_trusted=True).create(
+                    {}
+                )
         for item in (attempt,):
             with self.assertRaises(AccessError):
                 item.with_user(self.author).write({"state": "queued"})
             with self.assertRaises(ValidationError):
                 item.unlink()
         with self.assertRaises(ValidationError):
-            self.task.with_context(policy_trusted=True).write({"git_policy_transition_version": 0})
+            self.task.with_context(policy_trusted=True).write(
+                {"git_policy_transition_version": 0}
+            )
         with self.assertRaises(ValidationError):
-            self.env["project.task"].create({"name": "Forged fence", "git_policy_transition_version": 9})
+            self.env["project.task"].create(
+                {"name": "Forged fence", "git_policy_transition_version": 9}
+            )
 
     def test_current_nonadmin_record_authority_and_multicompany_visibility(self):
         attempt = self._discover()
@@ -247,10 +297,13 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self._apply()
         self.assertEqual(attempt.state, "revoked")
         self.assertFalse(self.effects.search([]))
-        hidden = self.env["ir.rule"].create({
-            "name": "Hide concrete task", "model_id": self.env["ir.model"]._get("project.task").id,
-            "domain_force": "[('name', '=', 'invisible')]",
-        })
+        hidden = self.env["ir.rule"].create(
+            {
+                "name": "Hide concrete task",
+                "model_id": self.env["ir.model"]._get("project.task").id,
+                "domain_force": "[('name', '=', 'invisible')]",
+            }
+        )
         reader = attempt.with_user(self.author)
         self.assertFalse(reader.search([("id", "=", attempt.id)]))
         self.assertEqual(reader.search_count([("id", "=", attempt.id)]), 0)
@@ -274,17 +327,27 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
     def test_scrum_closed_sprint_history_is_unchanged(self):
         if "sprint_id" not in self.task._fields:
             self.skipTest("Optional Scrum is not installed in standalone fixture")
-        item_type = self.env["project.agile.item.type"].search([("can_schedule_in_sprint", "=", True)], limit=1)
+        item_type = self.env["project.agile.item.type"].search(
+            [("can_schedule_in_sprint", "=", True)], limit=1
+        )
         self.task.agile_item_type_id = item_type
-        team = self.env["project.agile.team"].create({"name": "Apply team", "project_id": self.project.id})
-        sprint = self.env["project.sprint"].create({"name": "Apply scope", "project_id": self.project.id, "team_id": team.id})
+        team = self.env["project.agile.team"].create(
+            {"name": "Apply team", "project_id": self.project.id}
+        )
+        sprint = self.env["project.sprint"].create(
+            {"name": "Apply scope", "project_id": self.project.id, "team_id": team.id}
+        )
         self.task.sprint_id = sprint
         sprint.action_start()
         self.task.state = "1_done"
         sprint._close_with_disposition("product_backlog")
         self.task.state = "01_in_progress"
         before = sprint.read()
-        history = self.env["project.sprint.scope.event"].search([("task_id", "=", self.task.id)]).read()
+        history = (
+            self.env["project.sprint.scope.event"]
+            .search([("task_id", "=", self.task.id)])
+            .read()
+        )
         self._discover()
         attempt = self._apply()
         self.assertEqual(attempt.state, "applied", attempt.reason)
@@ -292,7 +355,12 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(self.effects.search_count([]), 1)
         self.assertEqual(self.task.sprint_id, sprint)
         self.assertEqual(before, sprint.read())
-        self.assertEqual(history, self.env["project.sprint.scope.event"].search([("task_id", "=", self.task.id)]).read())
+        self.assertEqual(
+            history,
+            self.env["project.sprint.scope.event"]
+            .search([("task_id", "=", self.task.id)])
+            .read(),
+        )
 
     def test_dry_run_to_apply_uses_new_cutoff_not_the_old_proposal(self):
         self.project.with_user(self.author).action_enable_git_policy(mode="dry_run")
@@ -304,7 +372,9 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.project.with_user(self.author).action_enable_git_policy(mode="apply")
         self.cutoff = self.now
         self._successor()
-        self.assertGreater(self.activation.activated_at, decision.activation_id.activated_at)
+        self.assertGreater(
+            self.activation.activated_at, decision.activation_id.activated_at
+        )
         self.assertFalse(self._discover())
         self.assertFalse(self._apply())
         self.assertFalse(self.effects.search([]))
@@ -314,30 +384,51 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
     def test_native_state_recompute_does_not_create_active_sprint_completion(self):
         if "sprint_id" not in self.task._fields:
             self.skipTest("Optional Scrum is not installed in standalone fixture")
-        item_type = self.env["project.agile.item.type"].search([("can_schedule_in_sprint", "=", True)], limit=1)
+        item_type = self.env["project.agile.item.type"].search(
+            [("can_schedule_in_sprint", "=", True)], limit=1
+        )
         self.task.agile_item_type_id = item_type
-        team = self.env["project.agile.team"].create({"name": "Active apply team", "project_id": self.project.id})
-        sprint = self.env["project.sprint"].create({"name": "Active apply scope", "project_id": self.project.id, "team_id": team.id})
+        team = self.env["project.agile.team"].create(
+            {"name": "Active apply team", "project_id": self.project.id}
+        )
+        sprint = self.env["project.sprint"].create(
+            {
+                "name": "Active apply scope",
+                "project_id": self.project.id,
+                "team_id": team.id,
+            }
+        )
         self.task.sprint_id = sprint
         sprint.action_start()
         self.task.state = "03_approved"
-        history = self.env["project.sprint.scope.event"].search([("task_id", "=", self.task.id)]).read()
+        history = (
+            self.env["project.sprint.scope.event"]
+            .search([("task_id", "=", self.task.id)])
+            .read()
+        )
         self._discover()
         attempt = self._apply()
         self.assertEqual(attempt.state, "applied", attempt.reason)
         self.assertEqual(self.task.stage_id, self.stages[1])
         self.assertEqual(self.task.state, "01_in_progress")
         self.assertEqual(self.task.sprint_id, sprint)
-        self.assertEqual(history, self.env["project.sprint.scope.event"].search([("task_id", "=", self.task.id)]).read())
+        self.assertEqual(
+            history,
+            self.env["project.sprint.scope.event"]
+            .search([("task_id", "=", self.task.id)])
+            .read(),
+        )
 
     def test_applied_event_failure_rolls_back_effect_and_native_stage(self):
         attempt = self._discover()
         event_class = type(self.env["project.git.policy.attempt.event"])
         append = event_class._append
+
         def fail_applied(events, item, state, reason):
             if state == "applied":
                 raise RuntimeError("synthetic private failure")
             return append(events, item, state, reason)
+
         before_version = self.task.git_policy_transition_version
         with patch.object(event_class, "_append", fail_applied):
             self._apply()
@@ -349,23 +440,35 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def test_dead_letter_after_five_failures_is_bounded(self):
         attempt = self._discover()
-        with patch.object(type(self.effects), "_append", side_effect=RuntimeError("synthetic failure")):
+        with patch.object(
+            type(self.effects), "_append", side_effect=RuntimeError("synthetic failure")
+        ):
             for count in range(5):
                 self._apply()
                 self.assertEqual(attempt.attempt_count, count + 1)
                 self.now += timedelta(hours=1)
-        self.assertEqual((attempt.state, attempt.reason), ("failed", "transient_failure"))
+        self.assertEqual(
+            (attempt.state, attempt.reason), ("failed", "transient_failure")
+        )
         self.assertFalse(self._apply())
         self.assertEqual(len(attempt.event_ids), 6)
         self.assertFalse(self.effects.search([]))
 
     def test_partial_batch_keeps_second_task_independent(self):
-        other = self.env["project.task"].create({"name": "Other apply", "project_id": self.project.id, "stage_id": self.stages[0].id})
+        other = self.env["project.task"].create(
+            {
+                "name": "Other apply",
+                "project_id": self.project.id,
+                "stage_id": self.stages[0].id,
+            }
+        )
         self._associate(other, self.pr, self.delivery)
         self._successor()
         attempts = self._discover()
         self.assertEqual(len(attempts), 2)
-        with patch.object(type(self.effects), "_append", side_effect=RuntimeError("one item fails")):
+        with patch.object(
+            type(self.effects), "_append", side_effect=RuntimeError("one item fails")
+        ):
             first = self._apply()
         second = self._apply()
         self.assertEqual((first.state, second.state), ("retryable", "applied"))
@@ -412,9 +515,11 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         attempt = self._discover()
         original = type(self.task).write
         calls = []
+
         def unreviewed(tasks, values):
             calls.append(values)
             return original(tasks, values)
+
         with patch.object(type(self.task), "write", unreviewed):
             self._apply()
         self.assertEqual(attempt.reason, "unsupported_extension")
@@ -432,12 +537,17 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
                 item.unlink()
         company = self.env["res.company"].create({"name": "Apply second company"})
         self.author.company_ids = [Command.link(company.id)]
-        rule = self.env["ir.rule"].create({
-            "name": "Hide Task from all native readers", "model_id": self.env["ir.model"]._get("project.task").id,
-            "domain_force": "[('name', '=', 'not this task')]",
-        })
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Hide Task from all native readers",
+                "model_id": self.env["ir.model"]._get("project.task").id,
+                "domain_force": "[('name', '=', 'not this task')]",
+            }
+        )
         for item in (attempt, effect, attempt.event_ids):
-            scoped = item.with_user(self.author).with_context(allowed_company_ids=[self.env.company.id, company.id])
+            scoped = item.with_user(self.author).with_context(
+                allowed_company_ids=[self.env.company.id, company.id]
+            )
             domain = [("id", "in", item.ids)]
             self.assertFalse(scoped.search(domain))
             self.assertEqual(scoped.search_count(domain), 0)
@@ -453,4 +563,6 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         with self.assertRaises(AccessError):
             scheduler._cron_process_git_policy()
         with self.assertRaises(AccessError):
-            scheduler.with_context(cron_id=1, ir_cron_progress_id=2147483647)._cron_process_git_policy()
+            scheduler.with_context(
+                cron_id=1, ir_cron_progress_id=2147483647
+            )._cron_process_git_policy()

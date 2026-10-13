@@ -1,8 +1,9 @@
 """Runtime coverage for access-controlled standard Git fact visibility."""
 
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectGitVisibility(TransactionCase):
@@ -91,12 +92,17 @@ class TestProjectGitVisibility(TransactionCase):
         )
         repository_action = self.project.action_open_git_repositories()
         self.assertEqual(
-            self.env["project.git.repository"].search(repository_action["domain"]), self.repository
+            self.env["project.git.repository"].search(repository_action["domain"]),
+            self.repository,
         )
         for action_name, model_name, expected in (
             ("action_open_git_branches", "project.git.branch", self.branch),
             ("action_open_git_commits", "project.git.commit", self.commit),
-            ("action_open_git_pull_requests", "project.git.pull.request", self.pull_request),
+            (
+                "action_open_git_pull_requests",
+                "project.git.pull.request",
+                self.pull_request,
+            ),
             ("action_open_git_checks", "project.git.check", self.check),
         ):
             action = getattr(self.task, action_name)()
@@ -214,37 +220,56 @@ class TestProjectGitVisibility(TransactionCase):
                 "name": "hidden",
             }
         )
-        other_company = self.env["res.company"].create({"name": "Other visibility company"})
-        other_project = self.env["project.project"].with_company(other_company).create(
-            {
-                "name": "Other company visibility",
-                "company_id": other_company.id,
-                "privacy_visibility": "employees",
-                "agile_enabled": True,
-                "agile_key": "OTH",
-            }
+        other_company = self.env["res.company"].create(
+            {"name": "Other visibility company"}
         )
-        other_repository = self.env["project.git.repository"].with_company(other_company).create(
-            {
-                "name": "other visibility",
-                "provider": "github",
-                "provider_repository_id": "other-1",
-                "canonical_url": "https://github.com/acme/other",
-                "project_id": other_project.id,
-            }
+        other_project = (
+            self.env["project.project"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "Other company visibility",
+                    "company_id": other_company.id,
+                    "privacy_visibility": "employees",
+                    "agile_enabled": True,
+                    "agile_key": "OTH",
+                }
+            )
         )
-        other_branch = self.env["project.git.branch"].with_company(other_company).create(
-            {
-                "repository_id": other_repository.id,
-                "provider_branch_id": "refs/heads/other",
-                "name": "other",
-            }
+        other_repository = (
+            self.env["project.git.repository"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "other visibility",
+                    "provider": "github",
+                    "provider_repository_id": "other-1",
+                    "canonical_url": "https://github.com/acme/other",
+                    "project_id": other_project.id,
+                }
+            )
+        )
+        other_branch = (
+            self.env["project.git.branch"]
+            .with_company(other_company)
+            .create(
+                {
+                    "repository_id": other_repository.id,
+                    "provider_branch_id": "refs/heads/other",
+                    "name": "other",
+                }
+            )
         )
 
         self.assertEqual(self.task.with_user(reader).git_branch_count, 1)
         visible_action = self.task.with_user(reader).action_open_git_branches()
         self.assertEqual(
-            self.env["project.git.branch"].with_user(reader).search(visible_action["domain"]), self.branch
+            self.env["project.git.branch"]
+            .with_user(reader)
+            .search(visible_action["domain"]),
+            self.branch,
         )
         branches = self.env["project.git.branch"].with_user(reader)
-        self.assertFalse(branches.search([("id", "in", [hidden_branch.id, other_branch.id])]))
+        self.assertFalse(
+            branches.search([("id", "in", [hidden_branch.id, other_branch.id])])
+        )

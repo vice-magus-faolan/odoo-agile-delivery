@@ -5,10 +5,10 @@ import hmac
 import json
 import re
 
-from odoo import http
-from odoo.http import request
 from werkzeug.wrappers import Response
 
+from odoo import http
+from odoo.http import request
 
 MAX_BODY_BYTES = 256 * 1024
 MAX_DELIVERY_ID_LENGTH = 128
@@ -77,7 +77,9 @@ def _github_repository_id(payload):
 
 
 class GitHubWebhookController(http.Controller):
-    """Persist GitHub deliveries after bounded validation and exact-body authentication."""
+    """Persist GitHub deliveries after bounded validation and exact-body
+    authentication.
+    """
 
     @http.route(
         "/project_agile_git_github/webhook",
@@ -87,12 +89,17 @@ class GitHubWebhookController(http.Controller):
         csrf=False,
     )
     def github_webhook(self):
-        """Validate one GitHub delivery and durably record it without processing its facts."""
+        """Validate one GitHub delivery and durably record it without processing
+        its facts.
+        """
 
         httprequest = request.httprequest
         if httprequest.mimetype != "application/json":
             return _response(415)
-        if httprequest.content_length is None or httprequest.content_length > MAX_BODY_BYTES:
+        if (
+            httprequest.content_length is None
+            or httprequest.content_length > MAX_BODY_BYTES
+        ):
             return _response(413)
 
         raw_body = httprequest.get_data(cache=True)
@@ -105,8 +112,10 @@ class GitHubWebhookController(http.Controller):
             httprequest.headers, "X-GitHub-Delivery", MAX_DELIVERY_ID_LENGTH
         )
         provided_signature = httprequest.headers.get("X-Hub-Signature-256")
-        if not event_type or not provider_delivery_id or not _SIGNATURE_PATTERN.fullmatch(
-            provided_signature or ""
+        if (
+            not event_type
+            or not provider_delivery_id
+            or not _SIGNATURE_PATTERN.fullmatch(provided_signature or "")
         ):
             return _response(400)
 
@@ -124,16 +133,21 @@ class GitHubWebhookController(http.Controller):
         ingress = repository_model._github_ingress_configuration(repository_id)
         if not ingress or not ingress["webhook_secret"]:
             return _response(401)
-        expected_signature = "sha256=" + hmac.new(
-            ingress["webhook_secret"].encode(), raw_body, hashlib.sha256
-        ).hexdigest()
+        expected_signature = (
+            "sha256="
+            + hmac.new(
+                ingress["webhook_secret"].encode(), raw_body, hashlib.sha256
+            ).hexdigest()
+        )
         if not hmac.compare_digest(provided_signature, expected_signature):
             return _response(401)
 
         retained_payload = None
         retention_error = None
         if ingress["retention_policy"] == "redacted_excerpt":
-            retained_payload = repository_model._redacted_github_payload_excerpt(payload)
+            retained_payload = repository_model._redacted_github_payload_excerpt(
+                payload
+            )
             if not retained_payload:
                 retention_error = _RETENTION_LIMIT_ERROR
         _delivery, _created, exact_replay = request.env[

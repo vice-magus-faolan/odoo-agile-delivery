@@ -1,7 +1,7 @@
 """Static release-gate contracts for GitHub hardening and recovery."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestGitHubHardeningContract(unittest.TestCase):
@@ -19,7 +19,9 @@ class TestGitHubHardeningContract(unittest.TestCase):
             "TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github",
             verify_script,
         )
-        self.assertIn('run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"', verify_script)
+        self.assertIn(
+            'run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"', verify_script
+        )
         self.assertLess(
             verify_script.index("uninstall_module project_agile_git_github"),
             verify_script.index("\nuninstall_module project_agile_git\n"),
@@ -28,7 +30,9 @@ class TestGitHubHardeningContract(unittest.TestCase):
 
     def test_operator_runbook_keeps_recovery_authenticated_and_database_free(self):
         root = Path(__file__).resolve().parents[1]
-        runbook = (root / "docs" / "runbooks" / "github-git-facts-operations.md").read_text()
+        runbook = (
+            root / "docs" / "runbooks" / "github-git-facts-operations.md"
+        ).read_text()
 
         for heading in (
             "Rotate a repository webhook secret",

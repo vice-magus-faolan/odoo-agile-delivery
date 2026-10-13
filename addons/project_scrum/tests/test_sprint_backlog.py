@@ -1,7 +1,8 @@
 from odoo import Command
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectSprintBacklog(TransactionCase):
@@ -97,7 +98,9 @@ class TestProjectSprintBacklog(TransactionCase):
         sprint = self._create_sprint()
         other_sprint = self._create_sprint("Sprint 2")
         sprint_task = self._create_task("Current Sprint work", sprint_id=sprint.id)
-        other_sprint_task = self._create_task("Other Sprint work", sprint_id=other_sprint.id)
+        other_sprint_task = self._create_task(
+            "Other Sprint work", sprint_id=other_sprint.id
+        )
 
         action = sprint.action_open_sprint_backlog()
         task_ids = self.env["project.task"].search(action["domain"])
@@ -117,9 +120,13 @@ class TestProjectSprintBacklog(TransactionCase):
             .run()
         )
 
-        self.assertEqual(assign_action["res_model"], "project.sprint.task.assignment.wizard")
+        self.assertEqual(
+            assign_action["res_model"], "project.sprint.task.assignment.wizard"
+        )
         self.assertEqual(assign_action["context"]["default_operation"], "assign")
-        self.assertEqual(remove_action["res_model"], "project.sprint.task.assignment.wizard")
+        self.assertEqual(
+            remove_action["res_model"], "project.sprint.task.assignment.wizard"
+        )
         self.assertEqual(remove_action["context"]["default_operation"], "remove")
 
     def test_assign_wizard_adds_active_sprint_scope_event(self):
@@ -140,7 +147,9 @@ class TestProjectSprintBacklog(TransactionCase):
         self._create_wizard(self.task, "remove").action_confirm()
 
         self.assertFalse(self.task.sprint_id)
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added", "removed"])
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["added", "removed"]
+        )
 
     def test_assign_wizard_rejects_an_ineligible_item_type(self):
         sprint = self._create_sprint()
@@ -168,7 +177,9 @@ class TestProjectSprintBacklog(TransactionCase):
         already_scheduled = self._create_task("Scheduled work", sprint_id=sprint.id)
 
         with self.assertRaises(ValidationError):
-            self._create_wizard(self.task | already_scheduled, "assign", sprint).action_confirm()
+            self._create_wizard(
+                self.task | already_scheduled, "assign", sprint
+            ).action_confirm()
 
         self.assertFalse(self.task.sprint_id)
         self.assertEqual(already_scheduled.sprint_id, sprint)
@@ -191,7 +202,9 @@ class TestProjectSprintBacklog(TransactionCase):
         )
 
         with self.assertRaises(ValidationError):
-            self._create_wizard(self.task | foreign_task, "assign", self._create_sprint())
+            self._create_wizard(
+                self.task | foreign_task, "assign", self._create_sprint()
+            )
 
     def test_typeless_agile_task_cannot_bypass_product_backlog_eligibility(self):
         sprint = self._create_sprint()

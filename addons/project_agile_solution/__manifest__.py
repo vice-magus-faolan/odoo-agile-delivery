@@ -1,6 +1,8 @@
 {
     "name": "Agile Solution Definition",
-    "summary": "Optional solution documents, immutable baselines and separate approvals",
+    "summary": (
+        "Optional solution documents, immutable baselines and separate approvals"
+    ),
     "version": "19.0.1.4.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
@@ -19,7 +21,9 @@
     ],
     "installable": True,
     "assets": {
-        "web.assets_tests": ["project_agile_solution/static/tests/tours/solution_render.js"],
+        "web.assets_tests": [
+            "project_agile_solution/static/tests/tours/solution_render.js"
+        ],
     },
     "application": False,
 }

@@ -1,4 +1,5 @@
-FROM odoo:19.0
+# Pinned because `policy_write_profile.py` hashes Odoo source files; remove with #14.
+FROM odoo:19.0@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c
 
 USER root
 

@@ -1,4 +1,5 @@
 """Project-scoped solution lineage, not a Task or an approved specification."""
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.fields import Domain
@@ -15,14 +16,22 @@ class ProjectAgileSolution(models.Model):
     name = fields.Char(required=True)
     active = fields.Boolean(default=True)
     project_id = fields.Many2one(
-        "project.project", required=True, index=True, ondelete="restrict",
-        check_company=True, copy=False,
+        "project.project",
+        required=True,
+        index=True,
+        ondelete="restrict",
+        check_company=True,
+        copy=False,
     )
     company_id = fields.Many2one(
-        related="project_id.company_id", store=True, readonly=True, index=True,
+        related="project_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
     )
     native_project_access = fields.Boolean(
-        compute="_compute_native_project_access", search="_search_native_project_access",
+        compute="_compute_native_project_access",
+        search="_search_native_project_access",
     )
 
     def _compute_native_project_access(self):
@@ -40,11 +49,14 @@ class ProjectAgileSolution(models.Model):
         """
         if operator not in ("in", "not in"):
             return NotImplemented
-        projects = self.env["project.project"].sudo(False).with_context(active_test=False)
+        projects = (
+            self.env["project.project"].sudo(False).with_context(active_test=False)
+        )
         accessible = Domain("project_id", "in", projects._search([]))
         positive = Domain.OR(
             accessible if item is True else ~accessible
-            for item in value if type(item) is bool
+            for item in value
+            if type(item) is bool
         )
         return positive if operator == "in" else ~positive
 
@@ -57,7 +69,9 @@ class ProjectAgileSolution(models.Model):
         for values in vals_list:
             values = dict(values)
             if "company_id" in values:
-                raise ValidationError(_("Solution company is determined by its Project."))
+                raise ValidationError(
+                    _("Solution company is determined by its Project.")
+                )
             project_id = values.get("project_id", defaults.get("project_id"))
             project = self._validated_project(project_id)
             values["project_id"] = project.id
@@ -79,12 +93,16 @@ class ProjectAgileSolution(models.Model):
         """Archive/rename identity; never move it between Projects or companies."""
         self.check_access("write")
         if {"project_id", "company_id"} & values.keys():
-            raise ValidationError(_("A solution lineage cannot change Project or company."))
+            raise ValidationError(
+                _("A solution lineage cannot change Project or company.")
+            )
         self.project_id.check_access("write")
         return super().write(values)
 
     def unlink(self):
-        """Only unused root identities are deletable; later history restricts deletion."""
+        """Only unused root identities are deletable; later history restricts
+        deletion.
+        """
         self.check_access("unlink")
         self.project_id.check_access("write")
         return super().unlink()

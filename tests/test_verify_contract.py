@@ -1,7 +1,7 @@
 """Regression checks for the safe Milestone 3 verification workflow."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestVerifyContract(unittest.TestCase):
@@ -11,7 +11,8 @@ class TestVerifyContract(unittest.TestCase):
         readme = (root / "README.md").read_text()
 
         self.assertIn(
-            "MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui", verify_script
+            "MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui",
+            verify_script,
         )
         self.assertIn(
             "TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui",
@@ -67,7 +68,13 @@ class TestVerifyContract(unittest.TestCase):
     def test_ui_fixture_uses_the_odoo_native_test_asset(self):
         root = Path(__file__).resolve().parents[1] / "addons"
         self.assertTrue(
-            (root / "project_agile_ui" / "static" / "tests" / "planning_board_contract.test.js").is_file()
+            (
+                root
+                / "project_agile_ui"
+                / "static"
+                / "tests"
+                / "planning_board_contract.test.js"
+            ).is_file()
         )
 
     def test_recovery_documentation_matches_the_lifecycle_guard(self):
@@ -76,8 +83,12 @@ class TestVerifyContract(unittest.TestCase):
         analytics_readme = (
             root / "addons" / "project_scrum_analytics" / "README.md"
         ).read_text()
-        analytics_adr = (root / "docs" / "adrs" / "009-scrum-analytics-semantics.md").read_text()
-        scope_adr = (root / "docs" / "adrs" / "003-sprint-scope-history-strategy.md").read_text()
+        analytics_adr = (
+            root / "docs" / "adrs" / "009-scrum-analytics-semantics.md"
+        ).read_text()
+        scope_adr = (
+            root / "docs" / "adrs" / "003-sprint-scope-history-strategy.md"
+        ).read_text()
 
         for document in (readme, analytics_readme, analytics_adr, scope_adr):
             document = " ".join(document.split())

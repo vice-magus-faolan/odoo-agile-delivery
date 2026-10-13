@@ -2,6 +2,8 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
+# Preserve established module layout; moving native wizard files is out of scope.
+# pylint: disable-next=no-wizard-in-models
 class ProjectSprintTaskAssignmentWizard(models.TransientModel):
     _name = "project.sprint.task.assignment.wizard"
     _description = "Assign or Remove Sprint Tasks"
@@ -13,6 +15,8 @@ class ProjectSprintTaskAssignmentWizard(models.TransientModel):
         required=True,
         readonly=True,
     )
+    # Preserve the explicit source label/translation key.
+    # pylint: disable-next=attribute-string-redundant
     sprint_id = fields.Many2one("project.sprint", string="Sprint", ondelete="restrict")
 
     @api.constrains("task_ids", "project_id")
@@ -27,7 +31,9 @@ class ProjectSprintTaskAssignmentWizard(models.TransientModel):
             if wizard.operation == "assign" and not wizard.sprint_id:
                 raise ValidationError(_("Select a Sprint for assignment."))
             if wizard.operation == "remove" and wizard.sprint_id:
-                raise ValidationError(_("Removing tasks must not select a target Sprint."))
+                raise ValidationError(
+                    _("Removing tasks must not select a target Sprint.")
+                )
 
     def action_confirm(self):
         self.ensure_one()

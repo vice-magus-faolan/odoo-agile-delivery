@@ -2,36 +2,53 @@
 
 ## Status
 
-Superseded by [ADR-012: Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md).
+Superseded by
+[ADR-012: Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md).
 
-This is the historical Milestone 1 proposal, not the current runtime contract.
-ADR-011 rejects required queue_job; ADR-012 defines the bounded native-scheduled policy continuation.
+This is the historical Milestone 1 proposal, not the current runtime contract. ADR-011
+rejects required queue_job; ADR-012 defines the bounded native-scheduled policy
+continuation.
 
 ## Context
 
-Provider connectors report facts such as branch creation, commit push, CI result, and pull-request merge. Workflow effects are project policy: `PR merged` must not intrinsically mean `Task Done`. A webhook controller must return promptly after validation and hand durable processing to an asynchronous path.
+Provider connectors report facts such as branch creation, commit push, CI result, and
+pull-request merge. Workflow effects are project policy: `PR merged` must not
+intrinsically mean `Task Done`. A webhook controller must return promptly after
+validation and hand durable processing to an asynchronous path.
 
 ## Decision
 
-Keep provider fact ingestion separate from automation policy. Future processing will: authenticate and persist a delivery; enqueue normalization after persistence; associate tasks using explicit immutable Agile keys before heuristics; record normalized Git facts; then evaluate project-scoped, opt-in automation rules. Delivery idempotency and queue identity are required before a rule can apply. Evaluate `queue_job` before creating custom workers.[9]
+Keep provider fact ingestion separate from automation policy. Future processing will:
+authenticate and persist a delivery; enqueue normalization after persistence; associate
+tasks using explicit immutable Agile keys before heuristics; record normalized Git
+facts; then evaluate project-scoped, opt-in automation rules. Delivery idempotency and
+queue identity are required before a rule can apply. Evaluate `queue_job` before
+creating custom workers.[9]
 
-No webhook route, worker, automation model, provider dependency, or task-state side effect is added in Milestone 1.
+No webhook route, worker, automation model, provider dependency, or task-state side
+effect is added in Milestone 1.
 
 ## Alternatives
 
-- Hardcode `PR merged → Done`: rejected because workflow meaning differs by project and bypasses review/QA policy.
-- Perform normalization and task writes synchronously in the controller: rejected because retries, provider latency, and failure visibility become unsafe.
-- Let provider payloads directly mutate tasks: rejected because facts and policy become coupled and cross-project controls are harder to audit.
+- Hardcode `PR merged → Done`: rejected because workflow meaning differs by project and
+  bypasses review/QA policy.
+- Perform normalization and task writes synchronously in the controller: rejected
+  because retries, provider latency, and failure visibility become unsafe.
+- Let provider payloads directly mutate tasks: rejected because facts and policy become
+  coupled and cross-project controls are harder to audit.
 
 ## Consequences
 
-Future implementation needs explicit rule ownership, permissions, audit records, dry-run/disable controls, retry observability, and tests for duplicate, forged, and out-of-order deliveries. It may initially expose facts without any workflow automation.
+Future implementation needs explicit rule ownership, permissions, audit records,
+dry-run/disable controls, retry observability, and tests for duplicate, forged, and
+out-of-order deliveries. It may initially expose facts without any workflow automation.
 
 ## Open Questions
 
 - What rule conditions and actions are safe for the first release?
 - Which role may create, approve, and disable a rule?
-- How are failed automation attempts surfaced and replayed without duplicate task changes?
+- How are failed automation attempts surfaced and replayed without duplicate task
+  changes?
 
 ## Evidence
 

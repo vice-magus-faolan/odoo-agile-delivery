@@ -2,7 +2,6 @@
 
 from odoo import api, fields, models
 
-
 _TASK_FACT_SPECS = {
     "branch": (
         "git_branch_count",
@@ -36,7 +35,9 @@ class ProjectProject(models.Model):
 
     _inherit = "project.project"
 
-    git_repository_ids = fields.One2many("project.git.repository", "project_id", readonly=True)
+    git_repository_ids = fields.One2many(
+        "project.git.repository", "project_id", readonly=True
+    )
     git_repository_count = fields.Integer(compute="_compute_git_repository_count")
 
     @api.depends("git_repository_ids")
@@ -52,7 +53,9 @@ class ProjectProject(models.Model):
             project.git_repository_count = count
 
     def action_open_git_repositories(self):
-        """Open the current project repositories through the standard list/form action."""
+        """Open the current project repositories through the standard list/form
+        action.
+        """
 
         self.ensure_one()
         self.check_access("read")
@@ -65,7 +68,9 @@ class ProjectProject(models.Model):
 
 
 class ProjectTask(models.Model):
-    """Navigate immutable association facts without trusting client-provided fact IDs."""
+    """Navigate immutable association facts without trusting client-provided
+    fact IDs.
+    """
 
     _inherit = "project.task"
 
@@ -82,7 +87,12 @@ class ProjectTask(models.Model):
         """Count visible associations in one grouped query for all rendered tasks."""
 
         for task in self:
-            for field_name, _model_name, _provider_field, _action_xml_id in _TASK_FACT_SPECS.values():
+            for (
+                field_name,
+                _model_name,
+                _provider_field,
+                _action_xml_id,
+            ) in _TASK_FACT_SPECS.values():
                 task[field_name] = 0
         rows = self.env["project.git.task.association"]._read_group(
             [("task_id", "in", self.ids)], ["task_id", "source_type"], ["__count"]
@@ -91,11 +101,15 @@ class ProjectTask(models.Model):
             task[_TASK_FACT_SPECS[source_type][0]] = count
 
     def _action_open_task_git_facts(self, source_type):
-        """Resolve fact IDs server-side from visible associations before opening a list."""
+        """Resolve fact IDs server-side from visible associations before opening
+        a list.
+        """
 
         self.ensure_one()
         self.check_access("read")
-        _count_field, _model_name, provider_field, action_xml_id = _TASK_FACT_SPECS[source_type]
+        _count_field, _model_name, provider_field, action_xml_id = _TASK_FACT_SPECS[
+            source_type
+        ]
         associations = self.env["project.git.task.association"].search_fetch(
             [("task_id", "=", self.id), ("source_type", "=", source_type)],
             ["repository_id", "source_provider_id"],

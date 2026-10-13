@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 
-
 output_directory = Path("/mnt/planning-concurrency")
 scenario = json.loads((output_directory / "scenario.json").read_text())
 results = {
@@ -15,15 +14,22 @@ assert "deadlock" not in result_errors, results
 assert "locknotavailable" not in result_errors, results
 assert results["return"]["outcome"] == "success", results
 assert results["assign"]["outcome"] == "rejected", results
-assert all(result["outcome"] in {"success", "rejected"} for result in results.values()), results
-assert any(result["outcome"] == "success" for result in (results["reorder_first"], results["reorder_second"])), results
+assert all(
+    result["outcome"] in {"success", "rejected"} for result in results.values()
+), results
+assert any(
+    result["outcome"] == "success"
+    for result in (results["reorder_first"], results["reorder_second"])
+), results
 
 conflict_task = env["project.task"].browse(scenario["conflict_task_id"])
 sprint = env["project.sprint"].browse(scenario["sprint_id"])
 assert not conflict_task.sprint_id, conflict_task.sprint_id
 assert not sprint.scope_event_ids, sprint.scope_event_ids
-reorder_tasks = env["project.task"].browse(scenario["reorder_task_ids"]).sorted(
-    key=lambda task: (task.agile_backlog_sequence, task.id)
+reorder_tasks = (
+    env["project.task"]
+    .browse(scenario["reorder_task_ids"])
+    .sorted(key=lambda task: (task.agile_backlog_sequence, task.id))
 )
 orders = [task.id for task in reorder_tasks]
 first, second, third = scenario["reorder_task_ids"]
@@ -36,7 +42,9 @@ all_backlog = env["project.task"].search(
     order="agile_backlog_sequence, id",
 )
 all_orders = all_backlog.ids
-assert set(all_orders) == {scenario["conflict_task_id"], first, second, third}, all_orders
+assert set(all_orders) == {scenario["conflict_task_id"], first, second, third}, (
+    all_orders
+)
 assert len(set(all_orders)) == len(all_orders)
 assertion = {
     "database": "odoo_agile_planning_concurrency_t_b1f7013f",

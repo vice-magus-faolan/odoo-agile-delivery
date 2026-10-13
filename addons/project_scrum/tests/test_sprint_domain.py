@@ -2,12 +2,12 @@ from unittest.mock import patch
 
 from psycopg2 import IntegrityError
 
-from odoo import SUPERUSER_ID
-from odoo import Command, fields
-from odoo.addons.mail.tests.common import mail_new_test_user
+from odoo import SUPERUSER_ID, Command, fields
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 from odoo.tools.misc import mute_logger
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectScrumDomain(TransactionCase):
@@ -26,7 +26,11 @@ class TestProjectScrumDomain(TransactionCase):
             {"name": "Delivery Team", "project_id": self.project.id}
         )
         self.sprint_item_type = self.env["project.agile.item.type"].create(
-            {"name": "Sprint Story", "code": "test_sprint_story", "can_schedule_in_sprint": True}
+            {
+                "name": "Sprint Story",
+                "code": "test_sprint_story",
+                "can_schedule_in_sprint": True,
+            }
         )
         self.task = self.env["project.task"].create(
             {
@@ -54,7 +58,9 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual(sprint.state, "active")
         self.assertEqual(sprint.committed_task_ids, self.task)
-        events = self.env["project.sprint.scope.event"].search([("sprint_id", "=", sprint.id)])
+        events = self.env["project.sprint.scope.event"].search(
+            [("sprint_id", "=", sprint.id)]
+        )
         self.assertEqual(events.mapped("event_type"), ["committed"])
         self.assertEqual(events.task_id, self.task)
         self.assertEqual(events.story_points, 5)
@@ -78,14 +84,18 @@ class TestProjectScrumDomain(TransactionCase):
     @mute_logger("odoo.sql_db")
     def test_rejected_start_rolls_back_commitment_and_scope_events(self):
         first = self._create_sprint("Active Sprint")
-        second = self._create_sprint("Rejected Sprint", task_ids=[Command.set(self.task.ids)])
+        second = self._create_sprint(
+            "Rejected Sprint", task_ids=[Command.set(self.task.ids)]
+        )
         self.task.write({"state": "1_done"})
         first.action_start()
         manager = mail_new_test_user(
             self.env, "Rejected start manager", groups="project.group_project_manager"
         )
 
-        with self.assertRaisesRegex(ValidationError, "Only one Sprint can be active") as caught:
+        with self.assertRaisesRegex(
+            ValidationError, "Only one Sprint can be active"
+        ) as caught:
             second.with_user(manager).action_start()
 
         # The real native index, not a preflight search, rejected activation.
@@ -111,7 +121,9 @@ class TestProjectScrumDomain(TransactionCase):
         second.action_close()
         third.action_start()
 
-        self.assertEqual((first.state, second.state, third.state), ("closed", "closed", "active"))
+        self.assertEqual(
+            (first.state, second.state, third.state), ("closed", "closed", "active")
+        )
 
     @mute_logger("odoo.sql_db")
     def test_active_team_change_cannot_bypass_native_uniqueness(self):
@@ -127,14 +139,22 @@ class TestProjectScrumDomain(TransactionCase):
             second.write({"team_id": self.team.id})
             second.flush_recordset(["team_id"])
 
-        self.assertEqual(caught.exception.diag.constraint_name, "project_sprint_active_project_team_unique")
-        self.assertIn("Only one Sprint can be active", second._sql_error_to_message(caught.exception))
+        self.assertEqual(
+            caught.exception.diag.constraint_name,
+            "project_sprint_active_project_team_unique",
+        )
+        self.assertIn(
+            "Only one Sprint can be active",
+            second._sql_error_to_message(caught.exception),
+        )
         self.assertEqual(second.team_id, other_team)
         self.assertEqual((first.state, second.state), ("active", "active"))
 
     def test_lifecycle_state_cannot_bypass_start_action(self):
         sprint = self._create_sprint("Sprint 1")
-        manager = mail_new_test_user(self.env, "Sprint manager", groups="project.group_project_manager")
+        manager = mail_new_test_user(
+            self.env, "Sprint manager", groups="project.group_project_manager"
+        )
 
         with self.assertRaises(ValidationError):
             sprint.write({"state": "active"})
@@ -154,9 +174,10 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual(sprint.state, "draft")
 
-
     def test_project_user_cannot_start_sprint(self):
-        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        user = mail_new_test_user(
+            self.env, "Scrum user", groups="project.group_project_user"
+        )
         sprint = self._create_sprint("Sprint 1")
 
         with self.assertRaises(AccessError):
@@ -167,7 +188,9 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertFalse(sprint.scope_event_ids)
 
     def test_project_user_cannot_close_sprint(self):
-        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        user = mail_new_test_user(
+            self.env, "Scrum user", groups="project.group_project_user"
+        )
         sprint = self._create_sprint("Sprint 1")
         sprint.action_start()
 
@@ -176,15 +199,24 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual(sprint.state, "active")
 
-
     def test_active_sprint_records_post_start_adds_and_removals(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
-        added = self.env["project.task"].create({"name": "Added after start", "project_id": self.project.id, "agile_item_type_id": self.sprint_item_type.id, "agile_story_points": 3, "sprint_id": sprint.id})
+        added = self.env["project.task"].create(
+            {
+                "name": "Added after start",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
+                "agile_story_points": 3,
+                "sprint_id": sprint.id,
+            }
+        )
 
         added.write({"sprint_id": False})
 
-        events = self.env["project.sprint.scope.event"].search([("sprint_id", "=", sprint.id)], order="event_at, id")
+        events = self.env["project.sprint.scope.event"].search(
+            [("sprint_id", "=", sprint.id)], order="event_at, id"
+        )
         self.assertEqual(events.mapped("event_type"), ["committed", "added", "removed"])
         self.assertEqual(events.mapped("task_id"), self.task | added | added)
         self.assertEqual(events.mapped("story_points"), [5, 3, 3])
@@ -201,31 +233,46 @@ class TestProjectScrumDomain(TransactionCase):
         events = self.env["project.sprint.scope.event"].search(
             [("sprint_id", "=", sprint.id)], order="event_at, id"
         )
-        self.assertEqual(events.mapped("event_type"), ["committed", "completed", "reopened"])
+        self.assertEqual(
+            events.mapped("event_type"), ["committed", "completed", "reopened"]
+        )
         self.assertEqual(events.mapped("task_id"), self.task | self.task | self.task)
         self.assertEqual(events.mapped("story_points"), [5, 5, 5])
 
     def test_active_sprint_records_bulk_native_done_edges(self):
         second_task = self.env["project.task"].create(
-            {"name": "Second work item", "project_id": self.project.id, "agile_item_type_id": self.sprint_item_type.id, "agile_story_points": 3}
+            {
+                "name": "Second work item",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.sprint_item_type.id,
+                "agile_story_points": 3,
+            }
         )
-        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set((self.task | second_task).ids)])
+        sprint = self._create_sprint(
+            "Sprint 1", task_ids=[Command.set((self.task | second_task).ids)]
+        )
         sprint.action_start()
 
         (self.task | second_task).write({"state": "1_done"})
 
-        completed_events = sprint.scope_event_ids.filtered(lambda event: event.event_type == "completed")
+        completed_events = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "completed"
+        )
         self.assertEqual(completed_events.task_id, self.task | second_task)
         self.assertEqual(completed_events.mapped("story_points"), [5, 3])
 
     def test_project_user_native_done_write_records_the_actual_actor(self):
-        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        user = mail_new_test_user(
+            self.env, "Scrum user", groups="project.group_project_user"
+        )
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
 
         self.task.with_user(user).write({"state": "1_done"})
 
-        completed_event = sprint.scope_event_ids.filtered(lambda event: event.event_type == "completed")
+        completed_event = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "completed"
+        )
         self.assertEqual(completed_event.actor_id, user)
 
     def test_closed_sprint_freezes_completion_history(self):
@@ -240,11 +287,19 @@ class TestProjectScrumDomain(TransactionCase):
             sprint.scope_event_ids.mapped("event_type"), ["committed", "completed"]
         )
 
-
     def test_task_sprint_assignment_rejects_cross_project_assignment(self):
         sprint = self._create_sprint("Sprint 1")
-        foreign_project = self.env["project.project"].create({"name": "Other Scrum Project", "privacy_visibility": "employees", "agile_enabled": True, "agile_key": "OTHER"})
-        foreign_task = self.env["project.task"].create({"name": "Foreign work", "project_id": foreign_project.id})
+        foreign_project = self.env["project.project"].create(
+            {
+                "name": "Other Scrum Project",
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "OTHER",
+            }
+        )
+        foreign_task = self.env["project.task"].create(
+            {"name": "Foreign work", "project_id": foreign_project.id}
+        )
 
         with self.assertRaises(ValidationError):
             foreign_task.write({"sprint_id": sprint.id})
@@ -252,26 +307,41 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertFalse(foreign_task.sprint_id)
 
     def test_ordinary_project_task_keeps_native_behavior_without_a_sprint(self):
-        ordinary_project = self.env["project.project"].create({"name": "Ordinary", "privacy_visibility": "employees"})
-        task = self.env["project.task"].create({"name": "Ordinary task", "project_id": ordinary_project.id})
+        ordinary_project = self.env["project.project"].create(
+            {"name": "Ordinary", "privacy_visibility": "employees"}
+        )
+        task = self.env["project.task"].create(
+            {"name": "Ordinary task", "project_id": ordinary_project.id}
+        )
 
         task.write({"name": "Renamed ordinary task"})
 
         self.assertFalse(task.sprint_id)
         self.assertEqual(task.name, "Renamed ordinary task")
 
-
     def test_project_users_can_read_but_not_administer_scrum_records(self):
-        user = mail_new_test_user(self.env, "Scrum user", groups="project.group_project_user")
+        user = mail_new_test_user(
+            self.env, "Scrum user", groups="project.group_project_user"
+        )
 
         self.team.with_user(user).read(["name"])
         with self.assertRaises(AccessError):
-            self.env["project.agile.team"].with_user(user).create({"name": "Unauthorized", "project_id": self.project.id})
+            self.env["project.agile.team"].with_user(user).create(
+                {"name": "Unauthorized", "project_id": self.project.id}
+            )
         with self.assertRaises(AccessError):
-            self.env["project.sprint"].with_user(user).create({"name": "Unauthorized", "project_id": self.project.id, "team_id": self.team.id})
+            self.env["project.sprint"].with_user(user).create(
+                {
+                    "name": "Unauthorized",
+                    "project_id": self.project.id,
+                    "team_id": self.team.id,
+                }
+            )
 
     def test_scope_events_are_immutable_for_project_managers(self):
-        manager = mail_new_test_user(self.env, "Scrum manager", groups="project.group_project_manager")
+        manager = mail_new_test_user(
+            self.env, "Scrum manager", groups="project.group_project_manager"
+        )
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
         event = sprint.scope_event_ids
@@ -294,7 +364,6 @@ class TestProjectScrumDomain(TransactionCase):
                 }
             )
 
-
     def test_task_sprint_assignment_rejects_cross_company_assignment(self):
         sprint = self._create_sprint("Sprint 1")
         other_company = self.env["res.company"].create({"name": "Other company"})
@@ -304,9 +373,16 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertFalse(self.task.sprint_id)
 
-
     def test_standard_scrum_views_and_actions_are_installed(self):
-        for xml_id in ("project_scrum.view_project_agile_team_form", "project_scrum.view_project_sprint_form", "project_scrum.view_task_form_scrum", "project_scrum.view_task_list_scrum", "project_scrum.view_task_search_scrum", "project_scrum.action_project_sprint", "project_scrum.action_project_agile_team"):
+        for xml_id in (
+            "project_scrum.view_project_agile_team_form",
+            "project_scrum.view_project_sprint_form",
+            "project_scrum.view_task_form_scrum",
+            "project_scrum.view_task_list_scrum",
+            "project_scrum.view_task_search_scrum",
+            "project_scrum.action_project_sprint",
+            "project_scrum.action_project_agile_team",
+        ):
             self.assertTrue(self.env.ref(xml_id))
 
         action = self.env.ref("project_scrum.action_project_sprint")
@@ -331,7 +407,8 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertFalse(self.task.sprint_id)
         self.assertEqual(sprint.committed_task_ids, self.task)
         self.assertEqual(
-            sprint.scope_event_ids.mapped("event_type"), ["committed", "carried_to_backlog"]
+            sprint.scope_event_ids.mapped("event_type"),
+            ["committed", "carried_to_backlog"],
         )
 
     def test_close_with_draft_target_records_linked_carry_over(self):
@@ -388,7 +465,9 @@ class TestProjectScrumDomain(TransactionCase):
         sprint.action_start()
 
         with patch.object(
-            type(sprint), "_move_unfinished_tasks", side_effect=ValidationError("forced failure")
+            type(sprint),
+            "_move_unfinished_tasks",
+            side_effect=ValidationError("forced failure"),
         ):
             with self.assertRaises(ValidationError):
                 self._close_with_wizard(sprint, "product_backlog")
@@ -414,7 +493,6 @@ class TestProjectScrumDomain(TransactionCase):
         sprint.with_user(SUPERUSER_ID).write({"goal": "documented recovery"})
         self.assertEqual(sprint.goal, "documented recovery")
 
-
     def test_active_sprint_records_reestimation_from_immutable_point_values(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
         sprint.action_start()
@@ -433,7 +511,9 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.task.write({"sprint_id": False, "agile_story_points": 8})
 
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed", "removed"])
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["committed", "removed"]
+        )
         self.assertEqual(sprint.scope_event_ids.mapped("story_points"), [5, 5])
 
     def test_adding_already_done_work_records_completion(self):
@@ -451,7 +531,9 @@ class TestProjectScrumDomain(TransactionCase):
 
         done_task.write({"sprint_id": sprint.id})
 
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added", "completed"])
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["added", "completed"]
+        )
         self.assertEqual(sprint.scope_event_ids.mapped("story_points"), [3, 3])
 
     def test_close_records_an_immutable_close_timestamp(self):
@@ -463,7 +545,6 @@ class TestProjectScrumDomain(TransactionCase):
 
         self.assertEqual(sprint.state, "closed")
         self.assertTrue(sprint.closed_at)
-
 
     def test_creating_done_work_in_an_active_sprint_records_completion(self):
         sprint = self._create_sprint("Sprint 1")
@@ -480,9 +561,10 @@ class TestProjectScrumDomain(TransactionCase):
             }
         )
 
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added", "completed"])
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["added", "completed"]
+        )
         self.assertEqual(sprint.scope_event_ids.task_id, done_task | done_task)
-
 
     def test_only_superuser_can_correct_close_timestamp(self):
         manager = mail_new_test_user(
@@ -494,8 +576,12 @@ class TestProjectScrumDomain(TransactionCase):
             sprint.with_user(manager).write({"closed_at": fields.Datetime.now()})
 
     def test_scrum_records_follow_project_company_and_follower_visibility(self):
-        """Direct Scrum searches must not bypass the owning project's access boundary."""
-        other_company = self.env["res.company"].create({"name": "Scrum Security Company"})
+        """Direct Scrum searches must not bypass the owning project's access
+        boundary.
+        """
+        other_company = self.env["res.company"].create(
+            {"name": "Scrum Security Company"}
+        )
         private_project = self.env["project.project"].create(
             {
                 "name": "Private Scrum Security Project",
@@ -526,20 +612,37 @@ class TestProjectScrumDomain(TransactionCase):
         private_sprint.action_start()
         private_event = private_sprint.scope_event_ids
         company_a_manager = mail_new_test_user(
-            self.env, "Cross-company Scrum manager", groups="project.group_project_manager"
+            self.env,
+            "Cross-company Scrum manager",
+            groups="project.group_project_manager",
         )
         company_a_manager.company_ids = [Command.set(self.env.company.ids)]
         private_company_user = mail_new_test_user(
             self.env, "Unfollowed Scrum user", groups="project.group_project_user"
         )
-        private_company_user.write({"company_id": other_company.id, "company_ids": [Command.set(other_company.ids)]})
+        private_company_user.write(
+            {
+                "company_id": other_company.id,
+                "company_ids": [Command.set(other_company.ids)],
+            }
+        )
 
         for model, record in (
             ("project.agile.team", private_team),
             ("project.sprint", private_sprint),
             ("project.sprint.scope.event", private_event),
         ):
-            self.assertFalse(self.env[model].with_user(company_a_manager).search([("id", "=", record.id)]))
-            self.assertFalse(self.env[model].with_user(private_company_user).search([("id", "=", record.id)]))
+            self.assertFalse(
+                self.env[model]
+                .with_user(company_a_manager)
+                .search([("id", "=", record.id)])
+            )
+            self.assertFalse(
+                self.env[model]
+                .with_user(private_company_user)
+                .search([("id", "=", record.id)])
+            )
         with self.assertRaises(AccessError):
-            private_sprint.with_user(company_a_manager).write({"goal": "cross-company write"})
+            private_sprint.with_user(company_a_manager).write(
+                {"goal": "cross-company write"}
+            )

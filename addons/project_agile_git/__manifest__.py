@@ -1,6 +1,8 @@
 {
     "name": "Agile Git Facts",
-    "summary": "Provider-neutral Git facts and delivery-ledger contract for Agile Project",
+    "summary": (
+        "Provider-neutral Git facts and delivery-ledger contract for Agile Project"
+    ),
     "version": "19.0.1.0.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",

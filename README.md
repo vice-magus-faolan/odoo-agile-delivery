@@ -89,6 +89,9 @@ docker compose down --volumes
 
 ## Verification
 
+See [contributor checks](docs/contributing.md) for pinned all-files lint,
+the advisory translation preference and PR CI boundaries.
+
 ```bash
 ./scripts/verify
 ```

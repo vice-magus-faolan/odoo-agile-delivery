@@ -33,7 +33,13 @@ class TestGitHubDeliveryRetention(TransactionCase):
             }
         )
 
-    def _delivery(self, suffix, state, retained_until, retained_payload="{\"repository\":{\"id\":6001}}"):
+    def _delivery(
+        self,
+        suffix,
+        state,
+        retained_until,
+        retained_payload='{"repository":{"id":6001}}',
+    ):
         return self.env["project.git.delivery"].create(
             {
                 "repository_id": self.repository.id,
@@ -90,14 +96,18 @@ class TestGitHubDeliveryRetention(TransactionCase):
         )
         self.assertFalse(excerpt)
 
-        delivery, created = self.env["project.git.delivery"]._record_authenticated_github_delivery(
+        delivery, created = self.env[
+            "project.git.delivery"
+        ]._record_authenticated_github_delivery(
             repository_id=self.repository.id,
             provider_delivery_id="retention-oversized",
             event_type="push",
             payload_sha256="b" * 64,
             payload_size=5000,
             retained_payload=excerpt,
-            retention_error="The signed payload exceeds the safe retained excerpt limit.",
+            retention_error=(
+                "The signed payload exceeds the safe retained excerpt limit."
+            ),
         )
 
         self.assertTrue(created)

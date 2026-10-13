@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <function model="project.scrum.analytics.report" name="_ensure_all_sprints"/>
+  <function model="project.scrum.analytics.report" name="_ensure_all_sprints" />
 </odoo>

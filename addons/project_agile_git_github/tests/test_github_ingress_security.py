@@ -2,9 +2,10 @@
 
 from psycopg2 import IntegrityError
 
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError
 from odoo.tests.common import TransactionCase
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestGitHubIngressSecurity(TransactionCase):
@@ -46,7 +47,9 @@ class TestGitHubIngressSecurity(TransactionCase):
         )
 
         with self.assertRaises(AccessError):
-            self.env["project.git.delivery"].with_user(manager).create(self._delivery_values())
+            self.env["project.git.delivery"].with_user(manager).create(
+                self._delivery_values()
+            )
 
     def test_authenticated_recorder_is_idempotent_against_the_database_constraint(self):
         delivery_model = self.env["project.git.delivery"]

@@ -3,14 +3,16 @@ import re
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
-
 _AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*$")
 
 
 class ProjectProject(models.Model):
     _inherit = "project.project"
 
+    # Keep the explicit source labels/translation keys unchanged during adoption.
+    # pylint: disable-next=attribute-string-redundant
     agile_enabled = fields.Boolean(string="Agile Enabled", copy=False)
+    # pylint: disable-next=attribute-string-redundant
     agile_key = fields.Char(string="Agile Key", copy=False, index=True)
     agile_default_item_type_id = fields.Many2one(
         "project.agile.item.type", string="Default Agile Item Type", ondelete="restrict"
@@ -31,9 +33,14 @@ class ProjectProject(models.Model):
         for project in self:
             if project.agile_enabled and not project.agile_key:
                 raise ValidationError(_("An Agile project requires an Agile key."))
-            if project.agile_key and not _AGILE_KEY_PATTERN.fullmatch(project.agile_key):
+            if project.agile_key and not _AGILE_KEY_PATTERN.fullmatch(
+                project.agile_key
+            ):
                 raise ValidationError(
-                    _("The Agile key must start with an uppercase letter and contain only uppercase letters and digits.")
+                    _(
+                        "The Agile key must start with an uppercase letter and "
+                        "contain only uppercase letters and digits."
+                    )
                 )
 
     def _agile_sequence_code(self):
@@ -65,8 +72,10 @@ class ProjectProject(models.Model):
     def _next_agile_task_key(self):
         self.ensure_one()
         self._ensure_agile_sequence()
-        sequence = self.env["ir.sequence"].sudo().search(
-            [("code", "=", self._agile_sequence_code())], limit=1
+        sequence = (
+            self.env["ir.sequence"]
+            .sudo()
+            .search([("code", "=", self._agile_sequence_code())], limit=1)
         )
         return sequence.next_by_id()
 
@@ -84,7 +93,10 @@ class ProjectProject(models.Model):
                     [("project_id", "=", project.id), ("agile_key", "!=", False)]
                 ):
                     raise ValidationError(
-                        _("The Agile key cannot change after task keys have been assigned.")
+                        _(
+                            "The Agile key cannot change after task keys "
+                            "have been assigned."
+                        )
                     )
         result = super().write(values)
         self._ensure_agile_sequence()

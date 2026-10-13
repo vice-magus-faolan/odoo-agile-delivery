@@ -1,73 +1,143 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <!-- Storage sentinel only: never assign users or imply from a user role. -->
-    <record id="group_snapshot_storage" model="res.groups">
-        <field name="name">Solution snapshot storage (no user assignment)</field>
-        <field name="user_ids" eval="[(5, 0, 0)]"/>
-        <field name="implied_ids" eval="[(5, 0, 0)]"/>
-        <field name="implied_by_ids" eval="[(5, 0, 0)]"/>
-    </record>
-    <!-- Search hook restores caller authority during sudo rule compilation. -->
-    <record id="solution_project_access_rule" model="ir.rule">
-        <field name="name">Solution lineage: current native Project access</field>
-        <field name="model_id" ref="model_project_agile_solution"/>
-        <field name="domain_force">[('native_project_access', '=', True)]</field>
-    </record>
-    <record id="solution_company_rule" model="ir.rule">
-        <field name="name">Solution lineage: allowed companies</field>
-        <field name="model_id" ref="model_project_agile_solution"/>
-        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-    </record>
-    <record id="solution_document_project_rule" model="ir.rule">
-        <field name="name">Solution documents: current Project access</field>
-        <field name="model_id" ref="model_project_agile_solution_document"/>
-        <field name="domain_force">[('native_project_access', '=', True)]</field>
-    </record>
-    <record id="solution_document_company_rule" model="ir.rule">
-        <field name="name">Solution documents: allowed companies</field>
-        <field name="model_id" ref="model_project_agile_solution_document"/>
-        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-    </record>
-    <record id="solution_revision_project_rule" model="ir.rule">
-        <field name="name">Solution revisions: current Project access</field>
-        <field name="model_id" ref="model_project_agile_solution_revision"/>
-        <field name="domain_force">[('native_project_access', '=', True)]</field>
-    </record>
-    <record id="solution_revision_company_rule" model="ir.rule">
-        <field name="name">Solution revisions: allowed companies</field>
-        <field name="model_id" ref="model_project_agile_solution_revision"/>
-        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-    </record>
-    <record id="solution_section_project_rule" model="ir.rule">
-        <field name="name">Solution sections: current Project access</field>
-        <field name="model_id" ref="model_project_agile_solution_section"/>
-        <field name="domain_force">[('native_project_access', '=', True)]</field>
-    </record>
-    <record id="solution_section_company_rule" model="ir.rule">
-        <field name="name">Solution sections: allowed companies</field>
-        <field name="model_id" ref="model_project_agile_solution_section"/>
-        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-    </record>
-    <record id="solution_template_company_rule" model="ir.rule">
-        <field name="name">Solution templates: allowed companies or intentionally shared</field>
-        <field name="model_id" ref="model_project_agile_solution_template"/>
-        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-    </record>
-    <record id="requirement_project_rule" model="ir.rule"><field name="name">Requirements: current Project access</field><field name="model_id" ref="model_project_agile_requirement"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="requirement_company_rule" model="ir.rule"><field name="name">Requirements: allowed companies</field><field name="model_id" ref="model_project_agile_requirement"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="requirement_revision_project_rule" model="ir.rule"><field name="name">Requirement revisions: current Project access</field><field name="model_id" ref="model_project_agile_requirement_revision"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="requirement_revision_company_rule" model="ir.rule"><field name="name">Requirement revisions: allowed companies</field><field name="model_id" ref="model_project_agile_requirement_revision"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="context_project_rule" model="ir.rule"><field name="name">Context: current Project access</field><field name="model_id" ref="model_project_agile_solution_context"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="context_company_rule" model="ir.rule"><field name="name">Context: allowed companies</field><field name="model_id" ref="model_project_agile_solution_context"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="context_revision_project_rule" model="ir.rule"><field name="name">Context revisions: current Project access</field><field name="model_id" ref="model_project_agile_solution_context_revision"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="context_revision_company_rule" model="ir.rule"><field name="name">Context revisions: allowed companies</field><field name="model_id" ref="model_project_agile_solution_context_revision"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="task_link_project_rule" model="ir.rule"><field name="name">Requirement work: current reference closure</field><field name="model_id" ref="model_project_agile_requirement_task_link"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="task_link_company_rule" model="ir.rule"><field name="name">Requirement work: allowed companies</field><field name="model_id" ref="model_project_agile_requirement_task_link"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="task_intent_project_rule" model="ir.rule"><field name="name">Task previews: current reference closure</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="task_intent_company_rule" model="ir.rule"><field name="name">Task previews: allowed companies</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="task_intent_creator_rule" model="ir.rule"><field name="name">Task previews: exact current creator</field><field name="model_id" ref="model_project_agile_solution_task_intent"/><field name="domain_force">[('creator_id', '=', user.id)]</field></record>
-    <record id="task_confirm_intent_rule" model="ir.rule"><field name="name">Task confirmations: current creator and reference closure</field><field name="model_id" ref="model_project_agile_solution_task_confirm_wizard"/><field name="domain_force">[('native_intent_access', '=', True)]</field></record>
-    <record id="acceptance_project_rule" model="ir.rule"><field name="name">Acceptance: exact current reference access</field><field name="model_id" ref="model_project_agile_requirement_acceptance"/><field name="domain_force">[('native_project_access', '=', True)]</field></record>
-    <record id="acceptance_company_rule" model="ir.rule"><field name="name">Acceptance: allowed companies</field><field name="model_id" ref="model_project_agile_requirement_acceptance"/><field name="domain_force">[('company_id', 'in', company_ids + [False])]</field></record>
-    <record id="preview_revision_rule" model="ir.rule"><field name="name">Preview: exact current revision access</field><field name="model_id" ref="model_project_agile_solution_preview_wizard"/><field name="domain_force">[('native_revision_access', '=', True)]</field></record>
+  <!-- Storage sentinel only: never assign users or imply from a user role. -->
+  <record id="group_snapshot_storage" model="res.groups">
+    <field name="name">Solution snapshot storage (no user assignment)</field>
+    <field name="user_ids" eval="[(5, 0, 0)]" />
+    <field name="implied_ids" eval="[(5, 0, 0)]" />
+    <field name="implied_by_ids" eval="[(5, 0, 0)]" />
+  </record>
+  <!-- Search hook restores caller authority during sudo rule compilation. -->
+  <record id="solution_project_access_rule" model="ir.rule">
+    <field name="name">Solution lineage: current native Project access</field>
+    <field name="model_id" ref="model_project_agile_solution" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="solution_company_rule" model="ir.rule">
+    <field name="name">Solution lineage: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="solution_document_project_rule" model="ir.rule">
+    <field name="name">Solution documents: current Project access</field>
+    <field name="model_id" ref="model_project_agile_solution_document" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="solution_document_company_rule" model="ir.rule">
+    <field name="name">Solution documents: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_document" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="solution_revision_project_rule" model="ir.rule">
+    <field name="name">Solution revisions: current Project access</field>
+    <field name="model_id" ref="model_project_agile_solution_revision" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="solution_revision_company_rule" model="ir.rule">
+    <field name="name">Solution revisions: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_revision" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="solution_section_project_rule" model="ir.rule">
+    <field name="name">Solution sections: current Project access</field>
+    <field name="model_id" ref="model_project_agile_solution_section" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="solution_section_company_rule" model="ir.rule">
+    <field name="name">Solution sections: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_section" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="solution_template_company_rule" model="ir.rule">
+    <field
+      name="name"
+    >Solution templates: allowed companies or intentionally shared</field>
+    <field name="model_id" ref="model_project_agile_solution_template" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="requirement_project_rule" model="ir.rule">
+    <field name="name">Requirements: current Project access</field>
+    <field name="model_id" ref="model_project_agile_requirement" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="requirement_company_rule" model="ir.rule">
+    <field name="name">Requirements: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_requirement" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="requirement_revision_project_rule" model="ir.rule">
+    <field name="name">Requirement revisions: current Project access</field>
+    <field name="model_id" ref="model_project_agile_requirement_revision" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="requirement_revision_company_rule" model="ir.rule">
+    <field name="name">Requirement revisions: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_requirement_revision" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="context_project_rule" model="ir.rule">
+    <field name="name">Context: current Project access</field>
+    <field name="model_id" ref="model_project_agile_solution_context" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="context_company_rule" model="ir.rule">
+    <field name="name">Context: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_context" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="context_revision_project_rule" model="ir.rule">
+    <field name="name">Context revisions: current Project access</field>
+    <field name="model_id" ref="model_project_agile_solution_context_revision" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="context_revision_company_rule" model="ir.rule">
+    <field name="name">Context revisions: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_context_revision" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="task_link_project_rule" model="ir.rule">
+    <field name="name">Requirement work: current reference closure</field>
+    <field name="model_id" ref="model_project_agile_requirement_task_link" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="task_link_company_rule" model="ir.rule">
+    <field name="name">Requirement work: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_requirement_task_link" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="task_intent_project_rule" model="ir.rule">
+    <field name="name">Task previews: current reference closure</field>
+    <field name="model_id" ref="model_project_agile_solution_task_intent" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="task_intent_company_rule" model="ir.rule">
+    <field name="name">Task previews: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_solution_task_intent" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="task_intent_creator_rule" model="ir.rule">
+    <field name="name">Task previews: exact current creator</field>
+    <field name="model_id" ref="model_project_agile_solution_task_intent" />
+    <field name="domain_force">[('creator_id', '=', user.id)]</field>
+  </record>
+  <record id="task_confirm_intent_rule" model="ir.rule">
+    <field name="name">Task confirmations: current creator and reference closure</field>
+    <field name="model_id" ref="model_project_agile_solution_task_confirm_wizard" />
+    <field name="domain_force">[('native_intent_access', '=', True)]</field>
+  </record>
+  <record id="acceptance_project_rule" model="ir.rule">
+    <field name="name">Acceptance: exact current reference access</field>
+    <field name="model_id" ref="model_project_agile_requirement_acceptance" />
+    <field name="domain_force">[('native_project_access', '=', True)]</field>
+  </record>
+  <record id="acceptance_company_rule" model="ir.rule">
+    <field name="name">Acceptance: allowed companies</field>
+    <field name="model_id" ref="model_project_agile_requirement_acceptance" />
+    <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+  </record>
+  <record id="preview_revision_rule" model="ir.rule">
+    <field name="name">Preview: exact current revision access</field>
+    <field name="model_id" ref="model_project_agile_solution_preview_wizard" />
+    <field name="domain_force">[('native_revision_access', '=', True)]</field>
+  </record>
 </odoo>

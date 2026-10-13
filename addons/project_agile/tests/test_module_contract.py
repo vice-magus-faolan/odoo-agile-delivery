@@ -1,8 +1,8 @@
 """Structural contract tests for the installable project_agile skeleton."""
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestProjectAgileModuleContract(unittest.TestCase):

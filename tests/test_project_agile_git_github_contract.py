@@ -1,14 +1,15 @@
 """Static contracts for the isolated GitHub delivery ingress adapter."""
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestProjectAgileGitHubContract(unittest.TestCase):
     """Keep provider ingress narrow, authenticated, and outside the core addon."""
 
-    def setUp(self):
+    # Plain unittest.TestCase has no Odoo transaction setup to chain.
+    def setUp(self):  # pylint: disable=method-required-super
         self.root = Path(__file__).resolve().parents[1]
         self.adapter_root = self.root / "addons" / "project_agile_git_github"
 

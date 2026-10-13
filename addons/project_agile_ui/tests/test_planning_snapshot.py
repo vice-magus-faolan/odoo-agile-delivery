@@ -1,9 +1,10 @@
 """Regression coverage for the read-only Agile planning snapshot boundary."""
 
 from odoo import Command
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase, warmup
+
+from odoo.addons.mail.tests.common import mail_new_test_user
 
 
 class TestProjectAgilePlanningSnapshot(TransactionCase):
@@ -38,7 +39,9 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
                 "can_schedule_in_sprint": False,
             }
         )
-        self.backlog_task = self._create_task("Product Backlog work", agile_story_points=5)
+        self.backlog_task = self._create_task(
+            "Product Backlog work", agile_story_points=5
+        )
 
     def _create_task(self, name, **values):
         task_values = {
@@ -90,7 +93,9 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.assertNotIn(ineligible_task.id, backlog_ids)
         self.assertNotIn(inactive_task.id, backlog_ids)
         backlog_item = next(
-            item for item in snapshot["backlog"]["items"] if item["id"] == self.backlog_task.id
+            item
+            for item in snapshot["backlog"]["items"]
+            if item["id"] == self.backlog_task.id
         )
         self.assertEqual(backlog_item["agile_key"], self.backlog_task.agile_key)
         self.assertEqual(backlog_item["story_points"], 5)
@@ -128,8 +133,12 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
             self._snapshot()
 
     def test_snapshot_honors_current_company_scope(self):
-        other_company = self.env["res.company"].create({"name": "Other Planning Company"})
-        user = mail_new_test_user(self.env, "Multi-company planner", groups="project.group_project_user")
+        other_company = self.env["res.company"].create(
+            {"name": "Other Planning Company"}
+        )
+        user = mail_new_test_user(
+            self.env, "Multi-company planner", groups="project.group_project_user"
+        )
         user.company_ids = [Command.set((self.env.company | other_company).ids)]
 
         with self.assertRaises(AccessError):
@@ -153,7 +162,9 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
 
     def test_snapshot_rejects_a_cursor_after_a_planning_reorder(self):
         for index in range(51):
-            self._create_task(f"Cursor backlog item {index}", agile_backlog_sequence=(index + 2) * 10)
+            self._create_task(
+                f"Cursor backlog item {index}", agile_backlog_sequence=(index + 2) * 10
+            )
         first_page = self._snapshot()
         moved = first_page["backlog"]["items"][0]
 
@@ -173,7 +184,9 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
 
     @warmup
     def test_snapshot_keeps_the_documented_query_and_payload_budget(self):
-        """Bound representative reads so larger boards cannot become card-by-card queries."""
+        """Bound representative reads so larger boards cannot become
+        card-by-card queries.
+        """
         for index in range(3):
             sprint = self._create_sprint(f"Budget Sprint {index}")
             self._create_task(f"Sprint budget item {index}", sprint_id=sprint.id)

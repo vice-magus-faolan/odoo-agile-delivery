@@ -59,7 +59,9 @@ assert not page.exists()
 assert not history_model.browse(history_ids).exists()
 
 project = project_model.create({"name": "Fixture project"})
-project_page = page_model.create({"name": "Fixture project page", "project_id": project.id})
+project_page = page_model.create(
+    {"name": "Fixture project page", "project_id": project.id}
+)
 assert project_page in project.document_page_ids
 assert project.document_page_count == 1
 
@@ -112,7 +114,8 @@ contract = {
             ),
         ),
         "document.page.history": field_contract(
-            "document.page.history", ("page_id", "name", "summary", "content", "company_id")
+            "document.page.history",
+            ("page_id", "name", "summary", "content", "company_id"),
         ),
         "project.project": field_contract(
             "project.project", ("document_page_ids", "document_page_count")
@@ -132,4 +135,7 @@ contract = {
         "rules": rules,
     },
 }
-print("OCA_DOCUMENT_PAGE_RUNTIME_CONTRACT=" + json.dumps(contract, sort_keys=True))
+# Stdout is this disposable probe's machine-readable result ABI.
+print(  # pylint: disable=print-used
+    "OCA_DOCUMENT_PAGE_RUNTIME_CONTRACT=" + json.dumps(contract, sort_keys=True)
+)

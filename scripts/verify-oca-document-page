@@ -4,7 +4,11 @@ set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-COMPOSE=(docker compose -p odoo_agile_oca_document_page -f compose.oca-document-page.yaml)
+WORKTREE_NAMESPACE=$(printf '%s' "$(basename "$ROOT")" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-')
+# Always own a fresh disposable project; never adopt a development stack.
+COMPOSE_PROJECT_NAME="odoo-agile-oca-verify-${WORKTREE_NAMESPACE%-}-$(date +%s%N)-$$"
+export COMPOSE_PROJECT_NAME
+COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.oca-document-page.yaml)
 DATABASE_INSTALL=odoo_agile_oca_document_page_install
 DATABASE_UPGRADE=odoo_agile_oca_document_page_upgrade
 DATABASE_REINSTALL=odoo_agile_oca_document_page_reinstall
@@ -12,20 +16,14 @@ MODULES=document_knowledge,document_page,document_page_project,project_agile,pro
 TEST_TAGS=/document_knowledge,/document_page,/document_page_project,/project_agile,/project_scrum,/project_agile_document_page,/project_scrum_document_page
 ADDONS_PATH=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons,/opt/oca-knowledge
 
+source "$ROOT/scripts/lib/compose-teardown.sh"
+
 chmod a+r "$ROOT/config/odoo.conf"
 chmod -R a+rX "$ROOT/addons"
 python3 -m compileall -q addons scripts
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" build odoo
-"${COMPOSE[@]}" up -d db
-
-wait_for_database() {
-    for _ in $(seq 1 30); do
-        "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1 && return 0
-        sleep 1
-    done
-    "${COMPOSE[@]}" exec -T db pg_isready -U odoo -d postgres
-}
+"${COMPOSE[@]}" up -d --wait db
 
 reset_verification_database() {
     "${COMPOSE[@]}" exec -T db dropdb -U odoo --if-exists "$1"
@@ -62,7 +60,6 @@ run_runtime_probe() {
             --no-http
 }
 
-wait_for_database
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 run_runtime_probe

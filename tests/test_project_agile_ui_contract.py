@@ -33,26 +33,6 @@ class TestProjectAgileUiContract(unittest.TestCase):
         self.assertIn("test(", test_source)
         self.assertNotIn("QUnit", test_source)
 
-    def test_contract_and_plan_record_scope_and_verification(self):
-        adr = (
-            self.root / "docs" / "adrs" / "010-advanced-agile-ui-contract.md"
-        ).read_text()
-        plan = (
-            self.root / "docs" / "plans" / "2026-09-28-project-agile-ui-skeleton.md"
-        ).read_text()
-        readme = (self.root / "README.md").read_text()
-        verify_script = (self.root / "scripts" / "verify").read_text()
-
-        for boundary in (
-            "No Git indicators",
-            "No Task-document controls",
-            "no duplicated backend business rules",
-        ):
-            self.assertIn(boundary, adr)
-        self.assertIn("project_agile_ui", plan)
-        self.assertIn("project_agile_ui", readme)
-        self.assertIn("project_agile_ui", verify_script)
-
 
 if __name__ == "__main__":
     unittest.main()

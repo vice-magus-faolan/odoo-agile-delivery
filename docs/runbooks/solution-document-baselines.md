@@ -1,10 +1,8 @@
-# M8 document baseline slice — operation and downstream boundary
+# Solution document baselines
 
-This implements the baseline phase, not all of Milestone 8. Target is Odoo 19 Community,
-ordinary native ORM/views/actions, LGPL-3, and Odoo-compatible rather than an
-OCA-conformity claim. Dependencies remain exactly `project_agile` and its existing
-Community dependency graph. No new third-party dependency or license change is
-introduced.
+The optional `project_agile_solution` addon provides SOW and specification baselines for
+Odoo 19 Community. It depends on `project_agile` and uses native ORM, views and actions.
+Its license is LGPL-3.
 
 ## Records and normal operation
 
@@ -47,21 +45,23 @@ or tamper-proof proof against trusted server code/DB administrators.
 
 `action_read_snapshot()` is the explicit exact read/RPC API. Native `read` and exports
 invalidate cached projection fields and recheck current Project/document/lineage,
-section and referenced SOW closure before exposing sealed text/digest. Template
-provenance follows the same current narrative-access boundary. Internal storage is
-field-group restricted; a narrow elevation fetches already stored payload only after
-parent authority and cannot approve, mutate or supply reference authority. The three raw
-fields (`_snapshot_content`, `_snapshot_digest`, `_template_content`) use the
-unassigned, non-implied `project_agile_solution.group_snapshot_storage` sentinel. Never
-assign it to users or imply it from a user role. Technical Features
-(`base.group_no_one`) is not deny-all: native browser debug mode enables it for internal
-users. Debug mode must not grant raw read/export access. The checked public projections
-still serve intact closure and refuse newly inaccessible closure in both normal and
-debug sessions. Trusted administrators changing group policy or arbitrary server/DB code
-remain the trust root, not an application immutability guarantee. Inaccessible closure
-fails, never silently renders incomplete content as a complete baseline. Downstream
-QWeb/report code must call this checked API, not privileged raw storage. No customer
-projection, public route, report attachment cache or portal grant is added.
+section, exact requirement/context and referenced SOW closure before exposing sealed
+text/digest. Template provenance follows the same current narrative-access boundary.
+Internal storage is field-group restricted; a narrow elevation fetches already stored
+payload only after parent authority and cannot approve, mutate or supply reference
+authority. The three raw fields (`_snapshot_content`, `_snapshot_digest`,
+`_template_content`) use the unassigned, non-implied
+`project_agile_solution.group_snapshot_storage` sentinel. Never assign it to users or
+imply it from a user role. Technical Features (`base.group_no_one`) is not deny-all:
+native browser debug mode enables it for internal users. Debug mode must not grant raw
+read/export access. The checked public projections still serve intact closure and refuse
+newly inaccessible closure in both normal and debug sessions. Trusted administrators
+changing group policy or arbitrary server/DB code remain the trust root, not an
+application immutability guarantee. Inaccessible closure fails, never silently renders
+incomplete content as a complete baseline. Native QWeb reports use the checked
+projection API and revalidate the complete reference closure. See
+[rendering, coverage and acceptance](solution-rendering-and-acceptance.md) for internal
+and redacted customer output.
 
 Global Project/company rules additionally resolve each parent through an unevaluated
 current-user query. Custom/native parent rules therefore constrain descendants rather
@@ -71,12 +71,12 @@ private exact-version `_search` seam remains upgrade-sensitive.
 ## Concurrency and atomicity
 
 Scope writers serialize lineage -> native Project -> document -> revision. The extra
-Project row coordinates native company/deletion guards; requirement/context writers must
-retain this order before adding their own child-identity locks. Fixed-table
-parameterized SQL is used only for row locking and an `id=id` MVCC identity write. The
-latter is intentional: PostgreSQL repeatable-read cannot refresh a stale snapshot just
-by acquiring an unchanged parent lock. Contenders must receive a serialization failure
-and retry the entire transaction through native Odoo request retry (or an explicit owned
+Project row coordinates native company/deletion guards; requirement/context writers
+retain this order before taking their child-identity locks. Fixed-table parameterized
+SQL is used only for row locking and an `id=id` MVCC identity write. The latter is
+intentional: PostgreSQL repeatable-read cannot refresh a stale snapshot just by
+acquiring an unchanged parent lock. Contenders must receive a serialization failure and
+retry the entire transaction through native Odoo request retry (or an explicit owned
 test transaction), never refresh half a transaction or commit business code. Unique
 `(document_id, number)` is a final database invariant.
 
@@ -104,33 +104,12 @@ through return/successor events; normal sudo is not a recovery bypass. Back up
 DB/filestore before production migration/uninstall. Odoo addon uninstall drops its
 tables; disposable uninstall/reinstall proves lifecycle health, not retention across
 uninstall. Controlled restore must validate immutable content/reference identities
-before enabling creation. No production restoration, deployment, publication or shared
-service restart is authorized by this slice.
+before enabling creation.
 
-## Next seeded phase (not delivered here)
+## Verification
 
-`t_913965f7` supplies requirement/context stable identities, exact actual revision
-membership, typed questions/decisions/actors/domains, the default SOW skeleton and
-expanded synthetic fixtures. Extend `_validate_content`, `_snapshot_payload` and
-`_check_snapshot_closure` with complete exact-reference validation, sealing and actual
-content; extend successor copying deliberately. Do not put current mutable text behind a
-pointer and call it a baseline. The already-defined section/template boundary is usable;
-do not create a competing wiki or template model. Preserve hidden-closure fail-closed
-behavior and native Project/company tests. Later cards own Task links, Scrum context,
-native audience rendering, coverage and evidence-bound acceptance.
-
-## Verification commands and evidence meaning
-
-Focused native install:
-`python3 /home/molty/.hermes/scripts/odoo_m8_verify.py t_19c877cb odoo --database odoo_agile_m8_test --init project_agile_solution --test-enable --test-tags /project_agile_solution --stop-after-init --without-demo=True --log-level test`
-
-Canonical lifecycle/browser/existing process races plus new allocation/approval races:
-`python3 /home/molty/.hermes/scripts/odoo_m8_verify.py t_19c877cb verify`
-
-Canonical `run_odoo` retains pipefail/native exit status and a streaming test-discovery
-check rejects missing/zero baseline-method discovery. Static parser unit fixtures test
-only that gate, not Odoo functionality. The source probe asserts actual installation,
-all baseline models/actions and absence of optional core dependencies. All receipts must
-report exact candidate HEAD, test exit zero and verified bounded cleanup. Failed logs
-remain evidence. Local compilation/static tests alone are never runtime proof. All
-fixture data is explicitly synthetic, not customer validation or legal sufficiency.
+From the repository root, run `./scripts/verify` in a disposable Docker environment. It
+exercises native baseline tests, persisted-data upgrade/uninstall/reinstall,
+separate-process allocation and approval races, and browser journeys, then removes its
+owned resources automatically. The log records the actual Odoo build and per-phase
+native test results.

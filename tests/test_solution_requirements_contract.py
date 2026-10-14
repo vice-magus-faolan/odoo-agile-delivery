@@ -1,7 +1,6 @@
 """Static discovery/metadata checks complement, never substitute, native proof."""
 
 import ast
-import hashlib
 import json
 import unittest
 import xml.etree.ElementTree as ET
@@ -12,29 +11,6 @@ ADDON = ROOT / "addons/project_agile_solution"
 
 
 class TestRequirementContextContract(unittest.TestCase):
-    def test_optional_task_guard_has_exact_git_policy_compatibility_pin(self):
-        profile = (
-            ROOT / "addons/project_agile_git_automation/models/policy_write_profile.py"
-        )
-        tree = ast.parse(profile.read_text())
-        sources = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "SOURCES"
-                for target in node.targets
-            )
-        )
-        relative = "addons/project_agile_solution/models/solution_revision_content.py"
-        self.assertIn(
-            relative, sources, "Optional Task inheritance must not disable M7 apply"
-        )
-        self.assertEqual(
-            sources[relative],
-            hashlib.sha256((ROOT / relative).read_bytes()).hexdigest(),
-        )
-
     def test_concrete_models_are_imported_and_scope_rules_are_global(self):
         imports = (ADDON / "models/__init__.py").read_text()
         rules = ET.parse(ADDON / "security/project_agile_solution_rules.xml")

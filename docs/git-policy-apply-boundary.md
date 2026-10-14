@@ -57,29 +57,35 @@ This follows inspected runtime `addons/project/models/project_task.py:385-399` a
 `orm/fields.py:1898-1921`: `Field.compute_value` removes the pending stored recompute
 before calling the method, making the old-state read safe just as in native
 `_compute_state`. The latter file SHA-256 is
-`a21483829a42fe958faff5a8ee6118f0a2946a031604ec4df055c0a74174ed14` in the pinned image.
-Do not replace this hook with a dependency-input-only fence: changes on another blocking
-Task would escape that boundary.
+`a21483829a42fe958faff5a8ee6118f0a2946a031604ec4df055c0a74174ed14` in the originally
+inspected image (historical source evidence, not a runtime pin). Do not replace this
+hook with a dependency-input-only fence: changes on another blocking Task would escape
+that boundary.
 
-Apply fails closed unless installed Task inheritance sources and native write methods
-match `models/policy_write_profile.py`. The inspected image is Odoo 19.0-20260908, with
-reviewed optional Scrum and native project/mail/SMS/rating mixins. Fingerprints are a
-compatibility gate, not tamper protection against trusted server/database
-administrators. Another Odoo patch, Enterprise/addon extension or monkeypatch requires
-source review and updated regression evidence; context cannot bypass it. No live Odoo.sh
-installation has been exercised.
+Apply uses ordinary Odoo ORM inheritance, including installed Task addons; it does not
+inspect or hash their source files. The approved non-superuser identity, current record
+access, approved stage configuration and atomic postconditions remain the execution
+boundary. Target stages with rating, mail or SMS templates remain excluded because
+irreversible sends cannot be rolled back. Additional extensions with external effects
+need behavioral assessment; a stage/field postcondition cannot undo an external send. No
+live Odoo.sh or Enterprise installation has been exercised.
 
 Canonical `env -u COMPOSE_PROJECT_NAME ./scripts/verify` covers standalone optional
 install (no Scrum/GitHub), aggregate install/upgrade/uninstall-reinstall and discovered
-apply tests with Scrum. It also runs `scripts/git_policy_concurrency_probe.py` through
-disposable Odoo shell: native cron progress, independent OS processes/PostgreSQL
-backends claiming concurrently, disable/revoke/revision/manual/identity/fact/stage and
-native dependency-link/blocker-state races, effect-before-disable settlement and process
-death between claim/write/audit with rollback and recovery. TransactionCase tests cover
-native dependency away-and-back/no-change recomputes, expired/replaced leases, CI
-waiting, five-failure dead letter, partial batches, non-admin
-visibility/count/group/export and immutable audits. Test scripts commit only in their
-declared disposable database, never production model code.
+apply tests with Scrum and the real native `hr_timesheet` addon. The timesheet
+regression requires the installed module and native fields, applies through the approved
+actor and preserves allocation/timesheet data. `hr_timesheet` is a verifier scenario
+only, not a production dependency. Verification builds from current `odoo:19.0`; check
+the verify log for the Odoo build (for example, `Odoo version 19.0-20260926`). It also
+runs `scripts/git_policy_concurrency_probe.py` through disposable Odoo shell: native
+cron progress, independent OS processes/PostgreSQL backends claiming concurrently,
+disable/revoke/revision/manual/identity/fact/stage and native
+dependency-link/blocker-state races, effect-before-disable settlement and process death
+between claim/write/audit with rollback and recovery. TransactionCase tests cover native
+dependency away-and-back/no-change recomputes, expired/replaced leases, CI waiting,
+five-failure dead letter, partial batches, non-admin visibility/count/group/export and
+immutable audits. Test scripts commit only in their declared disposable database, never
+production model code.
 
 The canonical verification overlay additionally constrains Odoo's filesystem/addon mount
 to read-only and networking to internal DB-only access, runs native

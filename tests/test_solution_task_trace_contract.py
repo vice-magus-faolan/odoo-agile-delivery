@@ -1,7 +1,6 @@
 """Static boundary/discovery checks supplement, never replace native execution."""
 
 import ast
-import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -35,30 +34,6 @@ class TestTaskTraceContract(unittest.TestCase):
         self.assertIn("super()._append_scope_events", capture)
         self.assertNotIn("def action_start", capture)
         self.assertNotIn("def action_close", capture)
-
-    def test_m7_finite_task_source_pins_match_optional_extensions(self):
-        tree = ast.parse(
-            self._text(
-                "addons/project_agile_git_automation/models/policy_write_profile.py"
-            )
-        )
-        sources = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "SOURCES"
-                for target in node.targets
-            )
-        )
-        for name in (
-            "addons/project_agile_solution/models/project_task_trace.py",
-            "addons/project_agile_solution_scrum/models/project_task.py",
-        ):
-            self.assertEqual(
-                sources[name], hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
-            )
-        self.assertNotIn("*", "".join(sources))
 
     def test_core_and_bridge_have_real_imported_test_packages(self):
         for addon, test in (

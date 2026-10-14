@@ -89,7 +89,7 @@ class TestGitAutomationContract(unittest.TestCase):
             (self.addon / "tests" / "__init__.py").read_text(),
         )
 
-    def test_native_state_observer_preserves_compute_and_pins_source(self):
+    def test_native_state_observer_preserves_compute(self):
         hook = self.addon / "models" / "project_task.py"
         tree = ast.parse(hook.read_text())
         cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
@@ -107,22 +107,6 @@ class TestGitAutomationContract(unittest.TestCase):
         self.assertFalse(mutations, "Observer must not assign native business fields")
         self.assertIn("super()._compute_state()", ast.unparse(compute))
         self.assertIn("depend_on_ids.state", ast.unparse(compute))
-        profile = ast.parse(
-            (self.addon / "models" / "policy_write_profile.py").read_text()
-        )
-        sources = next(
-            ast.literal_eval(node.value)
-            for node in profile.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "SOURCES"
-                for target in node.targets
-            )
-        )
-        self.assertEqual(
-            sources["addons/project_agile_git_automation/models/project_task.py"],
-            hashlib.sha256(hook.read_bytes()).hexdigest(),
-        )
 
     def test_contract_excludes_template_driven_nontransactional_effects(self):
         contract = (

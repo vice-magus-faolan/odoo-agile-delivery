@@ -182,10 +182,9 @@ payload purge does not delete the policy consumed identity.
 ## Odoo.sh portability and staging limits
 
 Primary expected target is Odoo.sh, not the sole supported host. Runtime requires native
-`ir.cron`, PostgreSQL/ORM and readable installed Python source only; no queue_job,
-external daemon, writable addon tree, provider SDK/API, shell executable, or outbound
-provider connection. Tests/builds may use Docker/Chrome/subprocesses; those are test
-tools, not addon runtime dependencies.
+`ir.cron` and PostgreSQL/ORM; no queue_job, external daemon, writable addon tree,
+provider SDK/API, shell executable, or outbound provider connection. Tests/builds may
+use Docker/Chrome/subprocesses; those are test tools, not addon runtime dependencies.
 
 Canonical verification uses a read-only Odoo root filesystem and addon mount, writable
 Odoo data and temporary storage, and an internal DB-only Docker network without provider
@@ -196,14 +195,14 @@ call the real separate-cursor scheduler and real progress commit, then exhaust r
 time at settled boundaries; crashes are real OS process termination in disposable
 fixtures, not simulated transaction success.
 
-This is NOT a live Odoo.sh, Enterprise or arbitrary-extension test. Current exact
-runtime source is Odoo 19.0-20260908/image
-`odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`. Apply
-checks reviewed installed Task inheritance/write/compute fingerprints; a platform
-patch/Enterprise addon or different extension requires explicit source review and
-regression evidence. See [apply boundary](../git-policy-apply-boundary.md) and ADR-012
-for hashes and native behavior. Do not edit fingerprints merely to make a changed
-deployment pass.
+This is NOT a live Odoo.sh, Enterprise or arbitrary-extension test. Verification builds
+from current official `odoo:19.0` and includes the installed native `hr_timesheet` addon
+in aggregate apply/lifecycle coverage. It does not use a source-file compatibility
+allowlist. Check the verify log for the Odoo build (for example,
+`Odoo version 19.0-20260926`). Other Task extensions continue through ordinary ORM
+inheritance; assess their behavior, particularly irreversible external effects, before
+enabling live apply. See [apply boundary](../git-policy-apply-boundary.md) and ADR-012
+for current identity, stage and transactional safeguards.
 
 Official
 [Odoo.sh technical FAQ](https://www.odoo.com/documentation/19.0/administration/odoo_sh/advanced/frequent_technical_questions.html)

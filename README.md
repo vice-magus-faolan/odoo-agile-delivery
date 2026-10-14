@@ -1,71 +1,99 @@
 # Odoo Agile Delivery
 
-An Odoo 19-native suite that adds software-delivery semantics to Project and Knowledge without replacing Odoo's core models or behavior.
+Optional software-delivery addons for Odoo Project: Agile work items, Scrum planning,
+Git visibility, and solution-definition traceability. Work stays on native
+`project.task`, with native hierarchy and dependencies; Agile is opt-in per Project.
+Install only the capabilities you need. Ordinary Project behavior remains available.
 
-## Current scope
+## Supported target
 
-Delivered modules are:
+The tested edition is **Odoo 19 Community**. The architecture is **Odoo.sh-first but
+portable to self-hosted Odoo**: ordinary ORM, views, QWeb and native `ir.cron`, without
+a required external queue runner. This is a design target, not proof of a live Odoo.sh
+or Enterprise deployment. Validate the actual installed extensions, permissions and
+scheduler behavior in staging before production use.
 
-- `project_agile`: opt-in Agile configuration, configurable work-item types,
-  stable project-scoped task keys, story points, acceptance criteria, explicit
-  backlog ordering, and native hierarchy validation.
-- `project_scrum`: explicit Agile teams, draft/active/closed Sprint lifecycle,
-  team-scoped active-Sprint enforcement, native task-to-Sprint assignment,
-  immutable commitment snapshots, append-only scope events, and explicit
-  unfinished-work disposition to the Product Backlog or a compatible draft Sprint.
-- `project_scrum_analytics`: additive Sprint Velocity, Burndown, Burnup, Scope
-  Change, and Commitment vs Completion projections replayed from immutable
-  scope facts, with native list, pivot, graph, export, and authorized drill-down
-  reporting surfaces.
-- `project_agile_git`: provider-neutral repository, delivery-ledger, branch,
-  commit, pull-request, check, immutable Agile-key association, and read-only
-  Project/Task visibility.
-- `project_agile_git_github`: signed, bounded GitHub webhook persistence, native
-  scheduled normalization, replay/idempotency, leases/retries, terminal recovery,
-  and bounded redacted-payload retention. It remains observation-only.
+This repository is Odoo-compatible and uses OCA-aligned contributor tooling; it does
+not claim full OCA conformity. Licenses are per addon, not a blanket suite license.
 
-Delivered optional Milestone 4 modules are `project_agile_document_page` and
-`project_scrum_document_page`; they use the separately verified OCA Document Page
-fixture and do not become dependencies of the Community core. Milestone 5 additionally
-delivers the optional `project_agile_ui` planning board: a bounded Odoo client action
-with current-user, server-authoritative draft-Sprint assignment, Product Backlog return,
-and deterministic backlog reordering. Pointer drag/drop is an interaction layer;
-ordinary Odoo views and keyboard-accessible actions remain available. Git integration
-now delivers its Milestone 6 facts-and-visibility capability, including the optional
-GitHub adapter. Milestone 7's optional `project_agile_git_automation` now supplies
-typed revisions, two-person activation, terminal revocation, deterministic dry-run
-previews, bounded native scheduling and stage-only execution with durable attempts,
-consumed effects, ordinary operator controls and recovery views/runbook.
-No production policy, provider setup or deployment is activated by this delivery.
-Jira migration, release/version
-management, other providers, richer Git UI, and the Task-document connector remain
-later work; ordinary Project behavior is unchanged.
+## Addons and direct dependencies
 
-See [the mission brief](docs/mission-brief.md) for the full direction and non-goals.
+All addons below are installable, non-application modules. Dependencies are the direct
+`depends` entries in their manifests; Odoo resolves their transitive dependencies.
+`project` is native Community Project. Everything beyond `project_agile` is optional
+for the Agile core; some optional addons require other optional modules as listed.
 
-## Milestone 8 first slice (not full milestone delivery)
+| Addon | Capability | Direct dependencies | License |
+| --- | --- | --- | --- |
+| `project_agile` | Opt-in Agile configuration, configurable work-item types, immutable project-scoped task keys, story points, acceptance criteria and backlog ordering | `project` | LGPL-3 |
+| `project_scrum` | Agile teams, Sprint lifecycle, commitment snapshots, scope history and explicit unfinished-work disposition | `project_agile` | LGPL-3 |
+| `project_scrum_analytics` | Velocity, Burndown, Burnup, Scope Change and Commitment vs Completion in native reporting views | `project_scrum` | LGPL-3 |
+| `project_agile_ui` | Optional planning board for draft-Sprint assignment, Product Backlog return and backlog ordering, with keyboard-accessible actions | `project_scrum` | LGPL-3 |
+| `project_agile_document_page` | Explicit Agile Project documentation root on OCA Document Page | `project_agile`, `document_page_project` | AGPL-3 |
+| `project_scrum_document_page` | Explicit Sprint retrospective pages on OCA Document Page | `project_scrum`, `document_page_project` | AGPL-3 |
+| `project_agile_git` | Provider-neutral repository, delivery ledger, branch, commit, pull-request and check facts with immutable Agile-key associations and read-only Project/Task visibility | `project_agile` | LGPL-3 |
+| `project_agile_git_github` | Signed GitHub webhook persistence, scheduled normalization, bounded retries, retention and authorized terminal reprocessing | `project_agile_git` | LGPL-3 |
+| `project_agile_git_automation` | Opt-in approved stage-only policy, dry-run previews, bounded scheduling, audit and recovery controls | `project_agile_git` | LGPL-3 |
+| `project_agile_solution` | Solution/document lineage, immutable SOW/spec baselines, exact requirement/context revisions, explicit Task links and retry-safe creation intents, audience-safe native reports, coverage and recorded acceptance | `project_agile` | LGPL-3 |
+| `project_agile_solution_scrum` | Frozen exact requirement context at native Sprint scope events, without backfilling history | `project_agile_solution`, `project_scrum` | LGPL-3 |
 
-`project_agile_solution` is an optional LGPL-3 solution addon depending only on
-`project_agile`: Project-scoped lineage/document identity, ordered actual narrative,
-immutable review/approved baselines, separate designated SOW/spec approvals, explicit
-working successors/template copies, native forms and least-privilege Project/company
-access. See [baseline operations and downstream boundary](docs/m8-document-baselines.md).
-Requirements/context revision membership, Task links, acceptance, audience QWeb
-rendering and frozen Scrum context remain downstream. No customer portal is introduced.
+The Document Page bridges need separately supplied OCA `knowledge` 19.0 modules:
+`document_page_project` depends on `project` and `document_page`; `document_page`
+depends on `mail`, `document_knowledge` and `html_editor`; `document_knowledge`
+depends on `base`. The selected OCA modules are AGPL-3. See the
+[pinned fixture and licensing considerations](docs/research/odoo-19-oca-document-page-fixture.md)
+before choosing this optional backend. It is not Enterprise Knowledge, and no
+Task-document-page connector is delivered. Solution documents do not require either
+Document Page or Enterprise Knowledge.
 
-Read [ADR-013](docs/adrs/013-solution-definition-contract.md), the unchanged
-[approved scope](docs/milestone-8-approved-scope.md), the
-[gap map and serial plan](docs/plans/2026-10-05-milestone-8-solution-definition.md),
-[native/OCA research](docs/research/m8-solution-alternatives.md) and
-[synthetic acceptance contract](docs/research/m8-synthetic-fixtures.md).
-All three JSON scenarios are explicitly synthetic prospective acceptance inputs;
-root tests actually seed only native Projects/Tasks and lineage, not future approvals.
-Independent same-card exact-SHA review remains required. Publication, deployment,
-customer validation and live activation are separate effects.
+Git facts are observations, not proof of Task completion. GitHub ingress itself never
+writes Tasks. The separate policy addon can write only an explicitly approved eligible
+Task stage under its approved non-superuser executor; native ORM side effects remain.
+It can install without GitHub or Scrum, seeds no enabled policy, and defaults to disabled
+and dry-run. **No production policy, provider setup or deployment is activated by
+installation or successful verification.** Consult the operator guides before enablement.
 
-## Development environment
+Solution approval and recorded exact-revision acceptance are explicit actions, not
+inferences from Task Done or PR merge. Customer output is an internally generated
+redacted projection, not a customer portal or legal signature. Jira migration,
+release/version management and additional provider adapters are not delivered addons.
 
-Prerequisites: Docker with Compose v2.
+## Installation
+
+1. Use an Odoo 19 environment with native Project and its dependencies available.
+   Back up the database and filestore before updating or removing existing addons;
+   uninstall removes addon-owned data and is not archival.
+2. Add this repository's `addons/` directory to the server's `addons_path`, retaining
+   the native Odoo paths. On Odoo.sh, include the repository in the build's addon sources
+   and confirm module discovery in a staging build. On self-hosted Odoo, ensure the Odoo
+   process can read the addon directories and use your normal server restart procedure
+   after adding code. No external Python SDK or `queue_job` is required by these addons.
+3. For Document Page bridges only, also supply the selected compatible OCA `knowledge`
+   source and add its addon directory to `addons_path`. The normal development Compose
+   setup below does not supply OCA modules.
+4. As an authorized administrator, enable developer mode and update the Apps list.
+   Remove the default **Apps** filter: these addons have `application=False`.
+   Search by technical module name, then install the desired subset. Odoo installs its
+   dependencies automatically. For example, choose `project_agile` for Agile alone,
+   `project_scrum` for Sprints, or `project_agile_solution` for solution documents without
+   Scrum/Git/document backends.
+5. Enable Agile explicitly on the intended Project and configure its work-item types
+   and stable key prefix. Add teams/Sprints only if Scrum is installed. Apply least-
+   privilege Project/company access; installing a connector or policy addon is not
+   permission to configure live provider secrets or enable production automation.
+
+Use the [GitHub operations runbook](docs/runbooks/github-git-facts-operations.md) for
+repository mapping, signed ingress, retention and recovery, and the
+[policy configuration guide](docs/git-policy-configuration.md) plus
+[policy operations runbook](docs/runbooks/git-policy-operations.md) for explicit
+approval, dry-run-before-enable and shutdown. Assess deployment-specific native stage
+side effects and source compatibility before enabling apply mode.
+
+## Local Docker development
+
+Prerequisites: Docker with Compose v2 and access to the declared images. Run from the
+repository root. For a new setup only, copy the example settings; do not overwrite an
+existing `.env`, commit it, or treat the development defaults as production credentials.
 
 ```bash
 cp .env.example .env
@@ -73,200 +101,83 @@ docker compose up -d db odoo
 docker compose ps
 ```
 
-Odoo binds to `127.0.0.1:8079` by default. Override `ODOO_HTTP_PORT` in `.env` if needed. The database is not published to the host network.
+Open `http://127.0.0.1:8079` and create a disposable development database, then follow
+the Apps installation steps above. The stack mounts `addons/` at `/mnt/extra-addons`;
+`config/odoo.conf` includes that path alongside native addons. It does not automatically
+install the suite. `ODOO_HTTP_PORT` in `.env` changes the default host port. Odoo binds
+only to loopback, PostgreSQL has no published host port, and database/filestore data
+use named volumes. This configuration is for local development, not public hosting.
 
-Stop the environment without deleting data:
+Stop the stack while retaining data:
 
 ```bash
 docker compose down
 ```
 
-Delete development data only when explicitly intended:
+Only for a disposable development stack whose data you deliberately intend to delete:
 
 ```bash
 docker compose down --volumes
 ```
 
-## Verification
+Use the exact intended Compose project. Never use global Docker prune as test cleanup
+or remove another stack's resources. Production backups, public networking and service
+configuration need a deployment-specific plan.
 
-See [contributor checks](docs/contributing.md) for pinned all-files lint,
-the advisory translation preference and PR CI boundaries.
+## Developer verification
+
+See [contributor checks](docs/contributing.md) for Python 3.12 setup, pinned tooling
+and the advisory translation rule. From the repository root, with that environment:
 
 ```bash
+pre-commit run --all-files --show-diff-on-failure
+python -m unittest discover -s tests -p 'test_*.py' -v
 ./scripts/verify
 ```
 
-This runs static/syntax checks, an independent optional policy install without
-GitHub or Scrum, an independent solution-core install without Scrum/Git/Sales/docs,
-and eight-module install, targeted upgrade, and dependency-safe uninstall/reinstall
-with discovered Odoo tests against three declared disposable databases.
+The canonical `./scripts/verify` runs compilation and root tests, builds the dedicated
+browser-capable verification image, and exercises native Odoo test discovery. It covers
+independent Git-policy and solution-core installs, optional solution/Scrum bridge
+checks, persisted-data solution lifecycles, and combined install, targeted upgrade and
+dependency-safe uninstall/reinstall. The combined set is the nine local non-Document-
+Page addons above plus native `hr_timesheet`; it includes Hoot/browser and Git/solution
+concurrency checks. Inspect the actual Odoo version/build and per-phase discovery/results
+in the verification log; a syntax pass alone is not native runtime evidence.
 
-## Repository layout
+The verifier generates a fresh worktree/process-scoped Compose project, ignores an
+inherited development project name, uses only its declared disposable databases, and
+removes owned containers, volumes and networks on exit. It checks resource absence and
+reports teardown errors separately. It is not a live Odoo.sh validation.
 
-```text
-addons/          Odoo modules
-config/          local container configuration
-scripts/         reproducible verification helpers
-docs/adrs/       concise architecture decisions
-docs/research/   ecosystem and dependency research
-```
-
-## Delivery constraints
-
-- `project.task` remains the work-item model.
-- Native task hierarchy and dependencies remain authoritative.
-- Agile behavior is opt-in per project.
-- Scrum remains a separate module.
-- No custom OWL planning UI in Milestone 1.
-- Git connectors record facts; configurable automation decides workflow effects.
-
-
-## Milestone 5 planning-board verification boundary
-
-`./scripts/verify` is the canonical release-candidate gate for
-`project_agile`, `project_scrum`, `project_scrum_analytics`, and the optional
-`project_agile_ui` planning board, plus `project_agile_git`,
-`project_agile_git_github`, and the optional `project_agile_git_automation` addon.
-It fails fast on syntax, static-contract, Compose,
-or Odoo-test failures and exercises all three supported lifecycles against
-disposable Odoo 19 databases:
-
-- clean install of all seven modules with their focused test tags;
-- install followed by `--update project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation`;
-- install, dependency-safe ORM uninstall in reverse order, then reinstall with
-  focused tests.
-
-The verifier always generates its own worktree-scoped Compose namespace
-(`odoo-agile-verify-<worktree>-<pid>`) and ignores inherited `COMPOSE_PROJECT_NAME`,
-so it never adopts a development stack. All owned disposable containers, volumes
-and networks are removed on exit, including failure and INT/TERM interruption.
-Project-label queries confirm resource absence; failed queries or leftovers
-are reported as teardown failures. No debug retention is enabled.
-Teardown failures are reported separately and make a successful run fail, while
-an original verification failure keeps its exit status. The database healthcheck
-uses TCP so the temporary PostgreSQL initialization server is not considered ready.
-The check starts only the Compose `db` service and uses transient
-`docker compose run --rm` Odoo containers from a committed test-only verification image
-(`Dockerfile.verify` plus `compose.verify.yaml`). That image adds a pinned
-Google Chrome package and the pinned `websocket-client` package so the native Odoo HttpCase runs the
-`project_agile_ui` Hoot suite; it does not alter the normal development image or
-module dependencies. The Docker build context excludes `.env` and Git metadata.
-Only the verification overlay uses a read-only Odoo filesystem/addon mount and
-an internal DB-only network; writable data/temp storage remains available. Native
-M7 form tours cover approval, safe preview text, disable and confirmed retry;
-separate native-cursor/progress and independent-process fixtures cover interruption,
-revocation/manual-write races and crash recovery. No live Odoo.sh test is claimed.
-
-Before each lifecycle, the verifier touches only its three declared disposable databases
-(`odoo_agile_verify_install`, `odoo_agile_verify_upgrade`, and
-`odoo_agile_verify_reinstall`), terminates their resident sessions, and refuses
-any other database name. Cleanup removes only its fresh disposable namespace;
-it never touches unrelated services, databases or volumes.
-
-Run `./scripts/test_planning_concurrency.py` for the separate real-connection
-regression. It creates, tests, and removes only the task-named
-`odoo_agile_planning_concurrency_t_b1f7013f` database. Two independent Odoo
-shell processes race assign/return and backlog-reorder intents with lock,
-statement, and wall-clock timeouts; the harness requires one serialized success
-and one actionable stale rejection per race, then checks complete contiguous
-backlog order and the absence of partial Sprint/history state.
-
-`project_agile` depends only on the Odoo Community `project` module.
-`project_scrum` remains isolated from ordinary Project behavior, while
-`project_scrum_analytics` depends only on `project_scrum`. The optional
-`project_agile_ui` depends only on `project_scrum` and contributes an optional
-Odoo-native planning board plus its `web.assets_unit_tests` Hoot coverage. Its
-current-user server boundary preserves Scrum assignment, return-history, ordering,
-and lifecycle rules; it adds no Git indicators or Task-document controls.
-Reporting uses
-ordinary Odoo list, pivot, graph, filter, export, and drill-down views; it adds
-no custom JavaScript or OWL assets. Superuser recovery may correct `closed_at`;
-its report and timeline rebuild synchronously, while lifecycle state remains action-only,
-including for superuser.
-
-## Milestone 4 OCA Document Page fixture
-
-Milestone 4's Community documentation backend is OCA Document Page at the
-immutable OCA `knowledge` 19.0 commit recorded in
-[`docs/research/odoo-19-oca-document-page-fixture.md`](docs/research/odoo-19-oca-document-page-fixture.md).
-The selected `document_knowledge`, `document_page`, and
-`document_page_project` modules are AGPL-3 and are deliberately not dependencies
-of the existing Community modules.
-
-Run the bounded, disposable OCA fixture separately:
+The optional OCA backend uses a **separate** pinned fixture, not the canonical gate:
 
 ```bash
 ./scripts/verify-oca-document-page
 ```
 
-It pins Odoo/PostgreSQL image digests and the OCA source commit, exposes no host
-port, and uses no persistent Docker volume. `./scripts/verify` remains the
-canonical Community regression gate. Enterprise Knowledge is only a deferred
-alternative backend; it is not API-compatible with OCA Document Page.
+Read the [fixture record](docs/research/odoo-19-oca-document-page-fixture.md) first.
+This existing helper uses the fixed project `odoo_agile_oca_document_page`, publishes no
+host port and stores PostgreSQL data on tmpfs. Unlike the canonical verifier it has no
+automatic teardown trap; use it only in a dedicated disposable environment, never
+concurrently or against an existing stack. On success or failure, remove only its
+owned fixture resources and verify absence:
 
+```bash
+docker compose -p odoo_agile_oca_document_page -f compose.oca-document-page.yaml down --volumes --remove-orphans
+```
 
-## Milestone 6 Git facts and visibility boundary
+## Guides and architecture
 
-`project_agile_git` is a small, LGPL-3, Odoo-compatible private-suite module. It
-depends only on `project_agile`; it keeps its provider-neutral boundary; the separately installable GitHub adapter exposes
-a bounded signed webhook route, while the core has no queue runtime dependency. It defines repository-scoped,
-multi-company Git fact and durable-delivery records so future provider adapters can
-persist authenticated deliveries before separate processing. Explicit immutable Agile
-keys are the only task-association input. Git facts are visibility, not workflow
-automation: with the optional policy addon absent, disabled or in dry-run, a
-pull-request merge or successful check cannot change a task stage. Ingress itself
-never performs a Task write, even when separately approved apply policy is enabled.
+- [Solution baseline operations](docs/m8-document-baselines.md) and
+  [rendering, coverage and acceptance](docs/runbooks/solution-rendering-and-acceptance.md)
+- [Git dry-run behavior](docs/git-policy-dry-run.md) and
+  [apply boundary](docs/git-policy-apply-boundary.md)
+- [Contributor setup and checks](docs/contributing.md)
+- [Architecture decision index](docs/adrs/README.md), especially the current
+  [Git facts contract](docs/adrs/011-git-facts-and-visibility-contract.md) and
+  [opt-in workflow policy contract](docs/adrs/012-git-workflow-policy-contract.md)
 
-The canonical `./scripts/verify` gate includes clean install, targeted upgrade, and
-dependency-safe uninstall/reinstall of both Git addons. The delivered GitHub
-processor uses Odoo 19's supported `ir.cron` scheduler: up to 20 leased deliveries,
-savepoint-atomic normalization, bounded retries/dead letters, sanitized diagnostics,
-and progress commits. Signed ingress returns after persistence, never Task writes.
-Retention and explicit authorized terminal reprocess controls are delivered.
-See [ADR-011](docs/adrs/011-git-facts-and-visibility-contract.md) and the
-[operations runbook](docs/runbooks/github-git-facts-operations.md). Live webhook
-registration/secrets/configuration and deployment are separate operator effects.
-
-## Milestone 7 policy, controls and recovery
-
-[ADR-012](docs/adrs/012-git-workflow-policy-contract.md) supersedes historical
-ADR-008 and fixes the bounded opt-in merged-PR policy contract; the
-[M7 plan](docs/plans/2026-09-30-milestone-7-git-policy.md) sequences the serial
-reviewed implementation. `project_agile_git_automation` depends only on
-`project_agile_git` and is independently installable without GitHub or Scrum.
-The configuration slice adds repository/project-scoped finite rules, editable
-drafts and immutable approved revisions, distinct author/approver activation,
-approved non-superuser execution identities, and append-only revocation history.
-Installation seeds no rules or capability members; Projects default disabled and
-dry-run. Current native/custom Project visibility, concrete Task permissions and
-company membership are authority, not provider payloads or context. Ownership,
-scope, security, stage settings and follower removal invalidate approval;
-restoration never resurrects a used epoch. See the
-[configuration guide](docs/git-policy-configuration.md).
-
-The [bounded authority profile](docs/git-policy-authority-profiles.md) implements
-Jimmy's approved revoke-only Task observer and explicit native-profile allowlist.
-Only literal direct Task name/active custom access rules are supported initially;
-unknown authority dependencies refuse activation. Both stage-relation directions,
-native authority-input edits and inverse membership changes require fresh approval.
-The bounded synthetic audit fixture remains distinct from sealed normalized
-observations and consumed effects. The [dry-run evaluator](docs/git-policy-dry-run.md)
-now records versioned exact-head/check/provenance decisions, waits, skips and
-fail-closed conflicts through ordinary immutable views. It never writes Tasks,
-facts, Sprints/history, followers/chatter, or real effect markers. A separate bounded
-native cron discovers and revalidates apply candidates and writes only the approved
-eligible stage under the persisted non-superuser executor. Durable claims, five-claim
-retry limits, a monotonic Task fence and retained consumed markers protect recovery.
-Native side effects are preserved, not suppressed. Disable halts future work and
-does not undo committed stage changes.
-
-Project configuration exposes finite rule status/revisions/approval cutoffs, dry-run
-decisions, attempts with sanitized events and consumed before/after/actor effects.
-Retry accepts only an existing eligible transient failure without resetting its
-identity, evidence, Task fence or budget; it cannot revive terminal/applied work.
-See the [operator runbook](docs/runbooks/git-policy-operations.md) for dry-run-before-
-enable, approval, retention, backups, shutdown, restore/rollback limits and Odoo.sh
-staging/best-effort cron limitations. The exact installed-source profile is a
-conservative compatibility gate, not proof of all Odoo.sh/Enterprise extensions.
-No production policy is activated by local fixture success; publication/deployment/
-live activation and customer-outcome observation remain separately gated.
+`addons/` contains modules, `config/` the development server configuration, `scripts/`
+the existing verification entrypoints, and `docs/` architecture and operating guides.
+Historical plans describe their original phases; use the current source inventory above
+and applicable operating guides to distinguish installed capabilities from proposals.

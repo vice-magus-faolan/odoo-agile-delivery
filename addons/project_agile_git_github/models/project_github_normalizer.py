@@ -11,7 +11,6 @@ from psycopg2.errors import SerializationFailure
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tools import SQL
 
 BATCH_SIZE = 20
 LEASE_SECONDS = 300
@@ -134,54 +133,57 @@ class ProjectGitDelivery(models.Model):
     def _claim_github_delivery(self):
         """Atomically lease one eligible ledger row without trusting caller context."""
 
-        self.flush_model(
-            ["provider", "state", "next_retry_at", "lease_expires_at", "received_at"]
-        )
+        now = fields.Datetime.now()
+        domain = [
+            ("provider", "=", "github"),
+            "|",
+            "&",
+            ("state", "in", ("queued", "retryable")),
+            "|",
+            ("next_retry_at", "=", False),
+            ("next_retry_at", "<=", now),
+            "&",
+            ("state", "=", "processing"),
+            ("lease_expires_at", "<=", now),
+        ]
+        # Only this private background boundary leases across companies. Public
+        # replay remains subject to manager authorization and record access.
+        queue = self.sudo()
         lease_token = secrets.token_urlsafe(24)
+        after = []
         try:
             with self.env.cr.savepoint():
-                self.env.cr.execute(
-                    SQL(
-                        """
-                        WITH candidate AS (
-                            SELECT id
-                              FROM project_git_delivery
-                             WHERE provider = 'github'
-                               AND (
-                                    (state IN ('queued', 'retryable')
-                                     AND (next_retry_at IS NULL
-                                          OR next_retry_at <= NOW()))
-                                     OR (state = 'processing'
-                                        AND lease_expires_at <= NOW())
-                               )
-                             ORDER BY received_at, id
-                             LIMIT 1
-                             FOR UPDATE SKIP LOCKED
+                while candidates := queue.search(
+                    domain + after, order="received_at, id", limit=BATCH_SIZE
+                ):
+                    delivery = candidates.try_lock_for_update(limit=1)
+                    if delivery:
+                        delivery.invalidate_recordset(["attempt_count"])
+                        delivery.write(
+                            {
+                                "state": "processing",
+                                "lease_token": lease_token,
+                                "lease_expires_at": fields.Datetime.add(
+                                    now, seconds=LEASE_SECONDS
+                                ),
+                                "attempt_count": delivery.attempt_count + 1,
+                                "next_retry_at": False,
+                            }
                         )
-                        UPDATE project_git_delivery AS delivery
-                           SET state = 'processing',
-                               lease_token = %s,
-                               lease_expires_at = NOW() + (%s * INTERVAL '1 second'),
-                               attempt_count = delivery.attempt_count + 1,
-                               next_retry_at = NULL
-                          FROM candidate
-                         WHERE delivery.id = candidate.id
-                        RETURNING delivery.id
-                        """,
-                        lease_token,
-                        LEASE_SECONDS,
-                    )
-                )
-                row = self.env.cr.fetchone()
+                        return delivery.with_context(git_delivery_lease=lease_token)
+                    # An entirely locked window must not hide later work. Use a
+                    # FIFO keyset, not offsets into a changing eligible queue.
+                    last = candidates[-1]
+                    after = [
+                        "|",
+                        ("received_at", ">", last.received_at),
+                        "&",
+                        ("received_at", "=", last.received_at),
+                        ("id", ">", last.id),
+                    ]
         except SerializationFailure:
             return self.browse()
-        if not row:
-            return self.browse()
-        delivery = self.sudo().browse(row[0])
-        delivery.invalidate_recordset(
-            ["state", "lease_token", "lease_expires_at", "attempt_count"]
-        )
-        return delivery.with_context(git_delivery_lease=lease_token)
+        return self.browse()
 
     @api.model
     def _cron_normalize_github_deliveries(self):

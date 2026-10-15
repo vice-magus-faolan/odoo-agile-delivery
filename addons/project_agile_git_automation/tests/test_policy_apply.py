@@ -32,6 +32,18 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
                 attempt._process_claim()
             return attempt
 
+    def test_processed_delivery_lease_change_rejects_a_pending_policy_effect(self):
+        attempt = self._discover()
+        version = self.repository.git_policy_evidence_version
+        self.delivery.write({"lease_token": "unsettled-again"})
+        self.assertGreater(self.repository.git_policy_evidence_version, version)
+
+        self._apply()
+
+        self.assertNotEqual(attempt.state, "applied")
+        self.assertEqual(self.task.stage_id, self.stages[0])
+        self.assertFalse(self.effects.search([]))
+
     def test_apply_exact_stage_only_and_semantic_replay(self):
         before = self.task.read(["agile_key", "agile_story_points", "parent_id"])
         attempt = self._discover()

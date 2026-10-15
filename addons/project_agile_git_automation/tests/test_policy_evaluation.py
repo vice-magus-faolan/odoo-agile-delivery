@@ -285,6 +285,70 @@ class TestGitPolicyEvaluation(TransactionCase):
         self.delivery.write({"lease_token": False, "event_type": "push"})
         self.assertEqual(self._evaluate().reason, "invalid_provenance")
 
+    def test_unprocessed_lease_bookkeeping_cannot_mint_policy_evidence(self):
+        self.delivery.write({"state": "queued", "processed_at": False})
+        version = self.repository.git_policy_evidence_version
+        for state in ("queued", "retryable", "processing"):
+            with self.subTest(state=state):
+                self.delivery.with_context(authenticated=True, processed=True).write(
+                    {
+                        "state": state,
+                        "lease_token": False,
+                        "lease_expires_at": False,
+                        "attempt_count": 1,
+                        "next_retry_at": False,
+                    }
+                )
+                self.assertEqual(self.repository.git_policy_evidence_version, version)
+                self.assertEqual(self._evaluate().reason, "invalid_provenance")
+                self.assertFalse(self.env["project.git.policy.observation"].search([]))
+
+    def test_unprocessed_bookkeeping_preserves_native_write_authority(self):
+        self.delivery.write({"state": "queued", "processed_at": False})
+        version = self.repository.git_policy_evidence_version
+        before = self.delivery.read(["state", "lease_token", "attempt_count"])
+        for user in (self.author, self.executor):
+            with self.subTest(user=user.id), self.assertRaises(AccessError):
+                self.delivery.with_user(user).with_context(
+                    authenticated=True, processed=True, git_delivery_lease="forged"
+                ).write({"state": "processing", "lease_token": "forged"})
+        self.assertEqual(
+            before, self.delivery.read(["state", "lease_token", "attempt_count"])
+        )
+        self.assertEqual(self.repository.git_policy_evidence_version, version)
+
+    def test_protected_delivery_writes_still_invalidate_policy_evidence(self):
+        for index, values in enumerate(
+            (
+                {"state": "processed"},
+                {"state": "failed"},
+                {"state": "discarded"},
+                {"state": "received"},
+                {"attempt_count": 2, "processed_at": False},
+                {"attempt_count": 2, "processed_at": self.now},
+                {"attempt_count": 2, "payload_sha256": "d" * 64},
+                {"attempt_count": 2, "event_type": "check_run"},
+                {"attempt_count": 2, "error_summary": "extra field"},
+            )
+        ):
+            with self.subTest(values=values):
+                delivery = self._delivery("protected-" + str(index), "pull_request")
+                delivery.write({"state": "queued", "processed_at": False})
+                version = self.repository.git_policy_evidence_version
+                delivery.write(values)
+                self.assertGreater(self.repository.git_policy_evidence_version, version)
+
+        # Neither a processed row nor a mixed recordset may clear/change leases
+        # without invalidating decisions, even when the field set is lease-only.
+        for records in (self.delivery, self.delivery | delivery):
+            version = self.repository.git_policy_evidence_version
+            records.write({"lease_token": "protected-lease"})
+            self.assertGreater(self.repository.git_policy_evidence_version, version)
+        delivery.write({"state": "queued", "processed_at": self.now})
+        version = self.repository.git_policy_evidence_version
+        delivery.write({"attempt_count": 3})
+        self.assertGreater(self.repository.git_policy_evidence_version, version)
+
     def test_old_association_is_not_current_pr_evidence(self):
         newer = self._delivery("pr-new", "pull_request")
         self.pr.write({"provenance_delivery_id": newer.id})

@@ -42,13 +42,22 @@ remains one row by database constraint only when the event type, body digest, an
 size exactly match. A mismatched replay is rejected and increments a bounded
 manager-visible diagnostic without retaining the conflicting body.
 
-The native scheduled processor claims at most 20 eligible GitHub deliveries with
-parameterized `SQL`, `FOR UPDATE SKIP LOCKED`, a random five-minute lease token, and an
-expiring processing lease. Each delivery settles in a savepoint: facts and the processed
-state commit together, while malformed payloads roll back facts and dead-letter the
-ledger row. Transient failures retry with bounded exponential backoff and become failed
-after five attempts. Expired leases are eligible again. `ir.cron._commit_progress`
-commits one settled item at a time and leaves remaining work for a later run.
+The native scheduled processor claims at most 20 eligible GitHub deliveries per run. It
+searches FIFO windows ordered by receipt time and ID, uses Odoo 19
+`try_lock_for_update(limit=1)` to skip locked rows, and writes lease state through the
+ORM. A fully locked window advances by its last FIFO key rather than hiding later
+eligible work. With optional Git policy installed, only lease/attempt/retry bookkeeping
+on queued, retryable or processing deliveries without a settlement time can avoid the
+shared provenance fence. This does not make them trusted evidence: settlement,
+identity/payload changes, extra fields and processed or mixed recordsets remain fenced,
+and every write retains native ACLs and the ORM override chain.
+
+Each claim receives an expiring processing lease with a random five-minute token. Each
+delivery settles in a savepoint: facts and the processed state commit together, while
+malformed payloads roll back facts and dead-letter the ledger row. Transient failures
+retry with bounded exponential backoff and become failed after five attempts. Expired
+leases are eligible again. `ir.cron._commit_progress` commits one settled item at a time
+and leaves remaining work for a later run.
 
 The supported GitHub subset is `push`, `pull_request`, and `check_run`. Missing optional
 push `head_commit`/`commits` and check-run `output` are treated as absent source

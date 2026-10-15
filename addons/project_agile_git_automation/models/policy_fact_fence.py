@@ -58,9 +58,14 @@ class PolicyEvidenceFence(models.AbstractModel):
         fence_inputs(self, vals_list)
         return super().create(vals_list)
 
+    def _policy_requires_evidence_fence(self, values):
+        """Serialize provenance writes unless a model proves they cannot be evidence."""
+        return True
+
     def write(self, values):
         self.check_access("write")
-        fence_inputs(self, [values])
+        if self._policy_requires_evidence_fence(values):
+            fence_inputs(self, [values])
         return super().write(values)
 
     def unlink(self):
@@ -82,6 +87,31 @@ class ProjectGitCheck(models.Model):
 class ProjectGitDelivery(models.Model):
     _name = "project.git.delivery"
     _inherit = ["project.git.delivery", "project.git.policy.evidence.fence"]
+
+    def _policy_requires_evidence_fence(self, values):
+        """Lease bookkeeping cannot qualify an unprocessed delivery as evidence."""
+        unsettled_states = {"queued", "retryable", "processing"}
+        lease_fields = {
+            "state",
+            "lease_token",
+            "lease_expires_at",
+            "attempt_count",
+            "next_retry_at",
+        }
+        # Keep the complete recordset fenced for mixed/protected input. A later
+        # settlement or provenance edit still conflicts with policy application;
+        # leasing distinct queued rows must not acquire their shared parent lock.
+        if (
+            values
+            and set(values) <= lease_fields
+            and ("state" not in values or values["state"] in unsettled_states)
+            and all(
+                delivery.state in unsettled_states and not delivery.processed_at
+                for delivery in self
+            )
+        ):
+            return False
+        return super()._policy_requires_evidence_fence(values)
 
 
 class ProjectGitAssociationAudit(models.Model):

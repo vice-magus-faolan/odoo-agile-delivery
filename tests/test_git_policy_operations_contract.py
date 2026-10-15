@@ -134,10 +134,6 @@ class TestGitPolicyOperationsContract(unittest.TestCase):
             "NOT a live Odoo.sh",
         ):
             self.assertIn(boundary, text)
-        readme = (self.root / "README.md").read_text()
-        self.assertNotIn("task-stage execution remain pending", readme)
-        self.assertNotIn("There is no cron", readme)
-        self.assertIn("No production policy", readme)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed — no Git connector is added in Milestone 1.
+Superseded by [ADR-011](011-git-facts-and-visibility-contract.md) and
+[ADR-012](012-git-workflow-policy-contract.md). The suite ships its own Git addons
+instead of adopting the OCA connector, and schedules work with `ir.cron`, not
+`queue_job`.
 
 ## Context
 

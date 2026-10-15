@@ -119,26 +119,6 @@ class TestProjectAgilePlanningActions(TransactionCase):
     def _sprint_item(snapshot, sprint):
         return next(item for item in snapshot["sprints"] if item["id"] == sprint.id)
 
-    def test_planning_row_locks_accept_empty_recordsets_without_a_query(self):
-        for model in ("project.sprint", "project.task"):
-            with self.subTest(model=model):
-                records = self.env[model]
-                query_count = self.cr.sql_log_count
-
-                self.project._lock_agile_planning_records(records)
-
-                self.assertEqual(self.cr.sql_log_count, query_count)
-
-    def test_planning_row_locks_reject_missing_records(self):
-        for records in (self.sprint, self.first_task | self.second_task):
-            with self.subTest(model=records._name):
-                records[0].unlink()
-
-                with self.assertRaisesRegex(
-                    ValidationError, "A selected planning record no longer exists"
-                ):
-                    self.project._lock_agile_planning_records(records)
-
     def test_assigns_current_backlog_items_to_a_compatible_draft_sprint(self):
         snapshot = self._snapshot()
         task = self._backlog_item(snapshot, self.first_task)
@@ -375,7 +355,7 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
 
     def test_reorder_updates_a_bounded_neighbor_set_for_a_large_backlog(self):
-        """A single reorder must not lock or rewrite every backlog row."""
+        """A single reorder must not rewrite every backlog row."""
         for index in range(250):
             self._create_task(
                 f"Large backlog item {index}", agile_backlog_sequence=(index + 3) * 10

@@ -4,6 +4,7 @@ from psycopg2.errors import SerializationFailure
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, ValidationError
+from odoo.tools import SQL
 
 _BACKLOG_PAGE_SIZE = 50
 _MAX_MUTATION_TASKS = 20
@@ -428,14 +429,18 @@ class ProjectProject(models.Model):
         project.invalidate_recordset(["agile_planning_backlog_revision"])
 
     @api.model
-    def _lock_agile_planning_records(self, table, record_ids):
-        if not record_ids:
+    def _lock_agile_planning_records(self, records):
+        """Lock existing records in ID order using their model-owned table."""
+        if not records:
             return
         self.env.cr.execute(
-            f"SELECT id FROM {table} WHERE id IN %s ORDER BY id FOR UPDATE",
-            [tuple(sorted(record_ids))],
+            SQL(
+                "SELECT id FROM %s WHERE id IN %s ORDER BY id FOR UPDATE",
+                SQL.identifier(records._table),
+                tuple(sorted(records.ids)),
+            )
         )
-        if len(self.env.cr.fetchall()) != len(record_ids):
+        if len(self.env.cr.fetchall()) != len(records):
             raise ValidationError(
                 self.env._("A selected planning record no longer exists.")
             )
@@ -498,8 +503,8 @@ class ProjectProject(models.Model):
         locks. A changed source relation is a stale intent, never a reason to lock
         another Sprint after a task lock.
         """
-        self._lock_agile_planning_records("project_sprint", sprint_ids)
-        self._lock_agile_planning_records("project_task", task_ids)
+        self._lock_agile_planning_records(self.env["project.sprint"].browse(sprint_ids))
+        self._lock_agile_planning_records(self.env["project.task"].browse(task_ids))
 
     @api.model
     def _apply_agile_planning_return(self, project, tasks, expected_versions):
@@ -579,9 +584,7 @@ class ProjectProject(models.Model):
             previous_task = self.env["project.task"].search(
                 domain, order="agile_backlog_sequence desc, id desc", limit=1
             )
-        self._lock_agile_planning_records(
-            "project_task", (task | before_task | previous_task).ids
-        )
+        self._lock_agile_planning_records(task | before_task | previous_task)
         (task | before_task | previous_task).invalidate_recordset(
             ["agile_backlog_sequence", "sprint_id", "write_date"]
         )

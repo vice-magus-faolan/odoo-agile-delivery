@@ -301,8 +301,9 @@ class ProjectProject(models.Model):
         """Apply one current-user planning intent then return a reconciled snapshot.
 
         The client supplies only record identities and read versions.
-        The server resolves
-        current access, eligibility, lifecycle, and ordering state under row locks.
+        The server resolves current access, eligibility, lifecycle, and ordering.
+        A shared project revision write rejects concurrent planning changes when
+        the savepoint flushes, rolling back the losing intent before returning.
         """
         project = self._get_available_agile_planning_project(project_id)
         if operation not in {"assign", "return", "reorder"}:
@@ -419,26 +420,15 @@ class ProjectProject(models.Model):
 
     @api.model
     def _increment_agile_planning_backlog_revision(self, project):
-        """Atomically invalidate cursors after an authorized planning mutation."""
-        self.env.cr.execute(
-            "UPDATE project_project SET agile_planning_backlog_revision = "
-            "agile_planning_backlog_revision + 1 WHERE id = %s",
-            [project.id],
+        """Invalidate cursors and serialize authorized planning changes via the ORM."""
+        # Only this internal field is elevated; task mutations use the caller.
+        project.sudo().write(
+            {
+                "agile_planning_backlog_revision": (
+                    project.agile_planning_backlog_revision + 1
+                )
+            }
         )
-        project.invalidate_recordset(["agile_planning_backlog_revision"])
-
-    @api.model
-    def _lock_agile_planning_records(self, table, record_ids):
-        if not record_ids:
-            return
-        self.env.cr.execute(
-            f"SELECT id FROM {table} WHERE id IN %s ORDER BY id FOR UPDATE",
-            [tuple(sorted(record_ids))],
-        )
-        if len(self.env.cr.fetchall()) != len(record_ids):
-            raise ValidationError(
-                self.env._("A selected planning record no longer exists.")
-            )
 
     @api.model
     def _require_agile_planning_backlog_tasks(self, project, tasks):
@@ -466,19 +456,6 @@ class ProjectProject(models.Model):
         if not sprint:
             raise AccessError(self.env._("The target Sprint is unavailable."))
         sprint.check_access("read")
-        self._lock_agile_planning_sprints_then_tasks(sprint.ids, tasks.ids)
-        sprint.invalidate_recordset(
-            ["state", "project_id", "company_id", "team_id", "write_date"]
-        )
-        tasks.invalidate_recordset(
-            [
-                "sprint_id",
-                "project_id",
-                "company_id",
-                "agile_item_type_id",
-                "write_date",
-            ]
-        )
         self._check_agile_planning_versions(tasks, expected_versions, "tasks")
         self._check_agile_planning_versions(sprint, expected_versions, "sprints")
         self._require_agile_planning_backlog_tasks(project, tasks)
@@ -490,32 +467,11 @@ class ProjectProject(models.Model):
         self._increment_agile_planning_backlog_revision(project)
 
     @api.model
-    def _lock_agile_planning_sprints_then_tasks(self, sprint_ids, task_ids):
-        """Lock every planning mutation in the same Sprint-before-task order.
-
-        Assignment already knows its target Sprint. Return first reads the current
-        source Sprints, then verifies that relation again after obtaining the task
-        locks. A changed source relation is a stale intent, never a reason to lock
-        another Sprint after a task lock.
-        """
-        self._lock_agile_planning_records("project_sprint", sprint_ids)
-        self._lock_agile_planning_records("project_task", task_ids)
-
-    @api.model
     def _apply_agile_planning_return(self, project, tasks, expected_versions):
-        candidate_sprint_ids = tasks.mapped("sprint_id").ids
-        if not candidate_sprint_ids:
+        sprints = tasks.mapped("sprint_id")
+        if not sprints:
             raise ValidationError(
                 self.env._("Only this project's Sprint Backlog items can be returned.")
-            )
-        self._lock_agile_planning_sprints_then_tasks(candidate_sprint_ids, tasks.ids)
-        tasks.invalidate_recordset(
-            ["sprint_id", "project_id", "company_id", "write_date"]
-        )
-        sprints = tasks.mapped("sprint_id")
-        if set(sprints.ids) != set(candidate_sprint_ids):
-            raise ValidationError(
-                self.env._("Sprint Planning changed. Refresh and retry your action.")
             )
         if any(
             sprint.project_id != project or sprint.company_id != project.company_id
@@ -524,9 +480,6 @@ class ProjectProject(models.Model):
             raise ValidationError(
                 self.env._("Only this project's Sprint Backlog items can be returned.")
             )
-        sprints.invalidate_recordset(
-            ["state", "project_id", "company_id", "write_date"]
-        )
         self._check_agile_planning_versions(tasks, expected_versions, "tasks")
         self._check_agile_planning_versions(sprints, expected_versions, "sprints")
         if any(sprint.state == "closed" for sprint in sprints):
@@ -579,12 +532,6 @@ class ProjectProject(models.Model):
             previous_task = self.env["project.task"].search(
                 domain, order="agile_backlog_sequence desc, id desc", limit=1
             )
-        self._lock_agile_planning_records(
-            "project_task", (task | before_task | previous_task).ids
-        )
-        (task | before_task | previous_task).invalidate_recordset(
-            ["agile_backlog_sequence", "sprint_id", "write_date"]
-        )
         self._require_agile_planning_backlog_tasks(project, task)
         self._check_agile_planning_versions(
             task | before_task, expected_versions, "tasks"

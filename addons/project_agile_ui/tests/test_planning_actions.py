@@ -355,7 +355,7 @@ class TestProjectAgilePlanningActions(TransactionCase):
         )
 
     def test_reorder_updates_a_bounded_neighbor_set_for_a_large_backlog(self):
-        """A single reorder must not lock or rewrite every backlog row."""
+        """A single reorder must not rewrite every backlog row."""
         for index in range(250):
             self._create_task(
                 f"Large backlog item {index}", agile_backlog_sequence=(index + 3) * 10

@@ -25,7 +25,11 @@ class ProjectGitRepository(models.Model):
         copy=False,
         ondelete="restrict",
         groups="base.group_system",
-        help="Latest approved repository policy epoch, even if revoked.",
+        help=(
+            "Private approval publication marker creating an ORM shared-row conflict "
+            "with competing repository authority/evidence changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
     )
     git_policy_last_effect_id = fields.Many2one(
         "project.git.policy.effect",
@@ -33,7 +37,11 @@ class ProjectGitRepository(models.Model):
         copy=False,
         ondelete="restrict",
         groups="base.group_system",
-        help="Most recently committed policy Task effect in this repository.",
+        help=(
+            "Private effect publication marker creating an ORM shared-row conflict "
+            "with competing repository authority/evidence changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
     )
 
     @api.model_create_multi
@@ -78,7 +86,7 @@ class ProjectGitRepository(models.Model):
         return True
 
     def _git_policy_record_activation(self, activation):
-        """Record the actual approval, sharing the repository row with input edits."""
+        """Publish approval to conflict with repository authority/evidence edits."""
         self.ensure_one()
         if activation.repository_id != self:
             raise ValidationError(_("Policy approval must retain its repository."))
@@ -89,7 +97,7 @@ class ProjectGitRepository(models.Model):
         )
 
     def _git_policy_record_effect(self, effect):
-        """Publish the last committed effect atomically with its evidence and Task."""
+        """Publish effect for an ORM conflict with repository authority/input edits."""
         self.ensure_one()
         if effect.repository_id != self:
             raise ValidationError(_("Policy effect must retain its repository."))

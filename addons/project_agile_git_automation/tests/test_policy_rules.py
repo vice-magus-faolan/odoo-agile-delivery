@@ -1062,7 +1062,6 @@ class TestGitPolicyRules(TransactionCase):
         self.assertFalse(project.git_policy_enabled)
         self.assertEqual(project.git_policy_mode, "dry_run")
         self.assertFalse(project.git_policy_last_activation_id)
-        self.assertFalse(project.git_policy_last_effect_id)
         self.assertFalse(rule.sudo().last_effect_id)
         values = self.repository.read(
             [
@@ -1129,7 +1128,6 @@ class TestGitPolicyRules(TransactionCase):
             {"git_policy_mode": "apply"},
             {"git_policy_authority_epoch": 2},
             {"git_policy_last_activation_id": 1},
-            {"git_policy_last_effect_id": 1},
         ):
             with self.assertRaises(ValidationError):
                 self.project.with_user(self.author).write(values)

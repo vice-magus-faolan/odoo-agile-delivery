@@ -60,16 +60,19 @@ Execution identity is persisted in the approved revision, never
 provider/context-selected. Activation checks every current concrete Project Task under
 that execution identity; apply repeats actual-record access checks before mutation.
 
-Native ORM writes persist actual approvals, terminal revocations and effects on their
-shared Project/repository/rule rows; authority reads do not take blocking locks.
-Server-owned last-approval/effect references identify real persisted history, not new
-authority. Concurrent changes require fresh-transaction retry. Approval validity is
-rechecked against current identities, scope, mode, epochs, stages and Task permissions.
-Native Project/Task unfollow and follower reassignment revoke through an authorized
-revoke-only follower hook; restoring access before the next validation cannot resurrect
-an epoch. Revocation is transaction-local and durable only when the owning transaction
-commits. Direct database administration remains the trust root. The separate apply
-worker implements ADR-012 shared-write conflicts, provenance, bounded evaluation,
+Native ORM approval publication shares Project/repository rows; effect publication
+shares repository/rule rows with competing authority/evidence mutations. The private
+server-owned last-approval/effect markers exist to create ORM shared-row write
+conflicts, not authorization, lease counters or recovery/navigation features. First
+approval needs the Project row when no current activation exists to revoke; later
+Project revocation already writes the rules used by effect publication. Authority reads
+do not take blocking locks. Concurrent changes require fresh-transaction retry. Approval
+validity is rechecked against current identities, scope, mode, epochs, stages and Task
+permissions. Native Project/Task unfollow and follower reassignment revoke through an
+authorized revoke-only follower hook; restoring access before the next validation cannot
+resurrect an epoch. Revocation is transaction-local and durable only when the owning
+transaction commits. Direct database administration remains the trust root. The separate
+apply worker implements ADR-012 shared-write conflicts, provenance, bounded evaluation,
 retries and actual Task checks; this delivery does not authorize live apply.
 
 ## Native effects and recovery

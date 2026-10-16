@@ -66,12 +66,16 @@ that boundary. Native
 [field compute protection and assignment](https://github.com/odoo/odoo/blob/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/orm/fields.py)
 keep the token update inside the compute, without manufacturing Task metadata.
 
-Actual approvals and effects publish their latest immutable record on Project and
-repository; effects also publish on the rule. These server-owned recovery references
-share the rows changed by Project controls, repository evidence inputs and rule
-revocation. They are not authority, lease counters or approval-epoch bumps. Concurrent
-changes conflict with that ORM publication and roll back the complete effect; retry
-starts a fresh transaction. Leasing independent attempts never writes a shared parent.
+Actual approvals publish on Project and repository; effects publish only on repository
+and rule. These private, server-owned publication markers create ORM shared-row write
+conflicts with competing authority/evidence mutations, not recovery/navigation features,
+authorization, lease counters or approval-epoch bumps. First approval shares the Project
+row because there may be no current activation to revoke. Authority-relevant Project
+changes revoke current activations through their rules, already conflicting with rule
+effect publication; unrelated Project edits need no additional effect conflict.
+Repository evidence inputs share the repository row with approval/effect publication.
+Competing mutations roll back the complete stale effect; retry starts a fresh
+transaction. Leasing independent attempts never writes a shared parent.
 
 Apply uses ordinary Odoo ORM inheritance, including installed Task addons; it does not
 inspect or hash their source files. The approved non-superuser identity, current record

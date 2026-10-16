@@ -396,8 +396,9 @@ class ProjectGitPolicyEvaluation(models.Model):
 
     @api.model
     def _evaluate_repository(self, repository, after_id):
-        """Serialize append-only dedupe on scoped control rows, never reserve
-        an effect.
+        """Append proposals with database uniqueness for concurrent deduplication.
+
+        No blocking scoped control locks or effect reservations are taken.
         """
         batch = self._load_batch(repository, after_id)
         prs, rules, associations, audits, checks, tasks, history, overflow = batch

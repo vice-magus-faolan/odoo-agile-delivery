@@ -162,9 +162,8 @@ conservatively revoke affected old/new/descendant Project epochs; both stage-rel
 directions and inverse membership edits are observed. Restoration never clears a
 tombstone; a fresh successor approval/cutoff is required. Denied/rolled-back operations
 commit no partial revocation. Shared native ORM writes couple actual approvals/effects
-to the rows whose authority and evidence they consume; independent-process races
-exercise this boundary. No trusted-write/context bypass or live/publication effect is
-approved.
+to the rows whose authority and evidence they consume. No trusted-write/context bypass
+or live/publication effect is approved.
 
 A new explicit `group_git_policy_manager` capability implies Project Manager but has no
 installation-time members. The rule owner must be an active internal user with that
@@ -194,21 +193,25 @@ it cannot imply activation authority.
 Immediately before execution, claim the Attempt with native `try_lock_for_update`,
 validate its private lease, and revalidate identities, concrete access, enable/mode,
 revocation, Task transition token and evidence. There are no blocking authority-read
-locks. An actual approval records `git_policy_last_activation_id` on its Project and
-repository; an actual effect records `git_policy_last_effect_id` there and
-`last_effect_id` on its rule. These server-owned, non-authorizing references identify
-the most recently recorded immutable approval/effect for recovery, even after
-revocation. They change only when that event is persisted, never on leasing, retries or
-dry runs.
+locks. An actual approval publishes `git_policy_last_activation_id` on its Project and
+repository; an actual effect publishes `git_policy_last_effect_id` on its repository and
+`last_effect_id` on its rule. These private, server-owned publication markers create ORM
+shared-row write conflicts with competing authority/evidence mutations. They are not
+authorization, lease counters or implemented recovery/navigation features. They change
+only when the actual event is persisted, never on leasing, retries or dry runs.
 
-Their ORM writes are also shared-row conflict points: Project controls write Project,
-provenance inputs advance the repository evidence version, and terminal revocation or
-revision changes write the rule. Task mutation writes the Task transition token itself.
-A concurrent mutation therefore cannot commit alongside an effect using its stale
-snapshot; PostgreSQL serialization failure rolls the effect back and requires a fresh
-transaction. Updating activity does not advance an unrelated approval epoch. After
-disable commits, no later stale effect may settle. An effect settled before disable is
-historical, not a partial effect; its immutable marker and activity reference survive.
+First approval must share the Project row with Project controls because there may be no
+current activation to revoke. Effects need no additional Project write:
+authority-relevant Project changes revoke current activations and write their rules,
+conflicting with rule effect publication. Repository evidence inputs advance the same
+repository row used by approval/effect publication; terminal revocation and revision
+changes write the rule. Task mutation writes the Task transition token itself. A
+competing mutation therefore cannot commit alongside an effect using its stale snapshot;
+PostgreSQL serialization failure rolls the effect back and requires a fresh transaction.
+Publication does not advance an unrelated approval epoch or make unrelated Project edits
+conflict with an effect. After disable commits, no later stale effect may settle. An
+effect settled before disable is historical, not a partial effect; its immutable
+consumed marker survives.
 
 ## Observation, provenance, freshness, and exact CI evidence
 

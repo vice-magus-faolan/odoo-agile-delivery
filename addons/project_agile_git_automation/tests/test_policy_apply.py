@@ -63,7 +63,6 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(effect.execution_user_id, self.executor)
         self.assertEqual(effect.before_stage_id, self.stages[0])
         self.assertEqual(effect.after_stage_id, self.stages[1])
-        self.assertEqual(self.project.git_policy_last_effect_id, effect)
         self.assertEqual(self.repository.git_policy_last_effect_id, effect)
         self.assertEqual(self.rule.sudo().last_effect_id, effect)
         self.assertEqual(self.project.git_policy_last_activation_id, self.activation)
@@ -277,7 +276,6 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
             [
                 "git_policy_authority_epoch",
                 "git_policy_last_activation_id",
-                "git_policy_last_effect_id",
             ]
         )
         repository_activity = self.repository.read(
@@ -476,7 +474,6 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(self.task.stage_id, self.stages[0])
         self.assertEqual(self.task.git_policy_transition_version, before_version)
         self.assertFalse(self.effects.search([]))
-        self.assertFalse(self.project.git_policy_last_effect_id)
         self.assertFalse(self.repository.git_policy_last_effect_id)
         self.assertFalse(self.rule.sudo().last_effect_id)
         self.assertNotIn("applied", attempt.event_ids.mapped("state"))

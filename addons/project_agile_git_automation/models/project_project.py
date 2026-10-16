@@ -11,7 +11,6 @@ CONTROLS = {
     "git_policy_mode",
     "git_policy_authority_epoch",
     "git_policy_last_activation_id",
-    "git_policy_last_effect_id",
 }
 PROJECT_AUTHORITY_FIELDS = {
     "active",
@@ -41,36 +40,21 @@ class ProjectProject(models.Model):
         copy=False,
         ondelete="restrict",
         groups="base.group_system",
-        help="Most recently approved policy epoch for this Project, even if revoked.",
-    )
-    git_policy_last_effect_id = fields.Many2one(
-        "project.git.policy.effect",
-        readonly=True,
-        copy=False,
-        ondelete="restrict",
-        groups="base.group_system",
-        help="Most recently committed policy Task effect in this Project.",
+        help=(
+            "Private approval publication marker creating an ORM shared-row conflict "
+            "with competing Project authority changes, including first approval. "
+            "Not authorization, a lease counter or a recovery/navigation feature."
+        ),
     )
 
     def _git_policy_record_activation(self, activation):
-        """Record a real approval, conflicting with concurrent Project control edits."""
+        """Publish approval to conflict with competing Project authority edits."""
         self.ensure_one()
         if activation.project_id != self:
             raise ValidationError(_("Policy approval must retain its Project."))
         return super(ProjectProject, self.sudo()).write(
             {
                 "git_policy_last_activation_id": activation.id,
-            }
-        )
-
-    def _git_policy_record_effect(self, effect):
-        """Record the committed effect without changing approval authority epochs."""
-        self.ensure_one()
-        if effect.project_id != self:
-            raise ValidationError(_("Policy effect must retain its Project."))
-        return super(ProjectProject, self.sudo()).write(
-            {
-                "git_policy_last_effect_id": effect.id,
             }
         )
 

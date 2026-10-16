@@ -53,11 +53,15 @@ class ProjectGitPolicyRule(models.Model):
         copy=False,
         ondelete="restrict",
         groups="base.group_system",
-        help="Most recently committed Task effect under this rule, across revisions.",
+        help=(
+            "Private effect publication marker creating an ORM shared-row conflict "
+            "with competing rule authority/revocation changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
     )
 
     def _record_effect(self, effect):
-        """Bind the actual effect to the same row changed by terminal revocation."""
+        """Publish effect for an ORM conflict with rule authority/revocation changes."""
         self.ensure_one()
         if effect.revision_id.rule_id != self:
             raise ValidationError(_("Policy effect must retain its rule."))

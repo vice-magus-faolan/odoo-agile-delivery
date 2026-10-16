@@ -140,7 +140,6 @@ class ProjectGitPolicyEffect(models.Model):
             }
         )
 
-        effect.project_id._git_policy_record_effect(effect)
         effect.repository_id._git_policy_record_effect(effect)
         effect.revision_id.rule_id._record_effect(effect)
         return effect

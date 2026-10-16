@@ -6,6 +6,8 @@ import json
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .project_agile_solution import check_history_defaults
+
 LIFECYCLE_FIELDS = frozenset(
     {
         "state",
@@ -197,6 +199,7 @@ class SolutionRevision(models.Model):
             predecessor_id=predecessor.id or False,
             state="draft",
         )
+        check_history_defaults(self.env)
         revision = super().create(values)
         revision._validate_content()
         document._record_revision(revision)

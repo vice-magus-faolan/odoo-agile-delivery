@@ -3,6 +3,8 @@
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .project_agile_solution import check_history_defaults
+
 SCOPE = frozenset({"solution_id", "project_id", "company_id", "native_project_access"})
 AUDIT = frozenset(
     {
@@ -109,6 +111,7 @@ class ContentIdentity(models.AbstractModel):
         self.sudo(False).check_access("create")
         with self.env.cr.savepoint():
             prepared = [self._prepare_identity(values) for values in vals_list]
+            check_history_defaults(self.env)
             records = super().create(prepared)
             records._check_authority()
             for record in records:
@@ -296,6 +299,7 @@ class ContentRevision(models.AbstractModel):
             predecessor_id=predecessor.id or False,
         )
         self._check_input(values)
+        check_history_defaults(self.env)
         record = super().create(values)
         record._validate_content()
         identity._record_revision(record)

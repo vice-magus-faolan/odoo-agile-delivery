@@ -4,6 +4,27 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.fields import Domain
 
+HISTORY_FIELDS = frozenset(
+    {
+        "solution_last_history_ref",
+        "solution_last_reference",
+        "_last_document_id",
+        "_last_approved_revision_id",
+        "_last_revision_id",
+        "_latest_revision_ref",
+        "_narrative_version",
+        "_last_acceptance_id",
+    }
+)
+
+
+def check_history_defaults(env):
+    """Reject caller defaults for server-owned Solution publications."""
+    if any("default_" + field in env.context for field in HISTORY_FIELDS):
+        raise ValidationError(
+            _("Solution history publication defaults are server managed.")
+        )
+
 
 class ProjectAgileSolution(models.Model):
     """Keep solution identity separate from later immutable document revisions."""
@@ -131,6 +152,7 @@ class ProjectAgileSolution(models.Model):
             project = self._validated_project(project_id)
             values["project_id"] = project.id
             prepared.append(values)
+        check_history_defaults(self.env)
         return super().create(prepared)
 
     def _validated_project(self, project_id):

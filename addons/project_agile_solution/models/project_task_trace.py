@@ -3,6 +3,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from .project_agile_solution import check_history_defaults
+
 
 class ProjectTaskTrace(models.Model):
     _inherit = "project.task"
@@ -39,6 +41,7 @@ class ProjectTaskTrace(models.Model):
     def create(self, vals_list):
         if any("solution_last_reference" in values for values in vals_list):
             raise ValidationError(_("Solution trace publication is server managed."))
+        check_history_defaults(self.env)
         return super().create(vals_list)
 
     def _record_solution_reference(self, reference):

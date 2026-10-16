@@ -79,19 +79,94 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
         ):
             with self.assertRaises(ValidationError):
                 record.write({field: False})
-        forged = task.with_context(
-            default_solution_last_reference="project.agile.requirement.task.link,1"
-        )
-        created = forged.create(
+        fresh_document = document.document_id.create(
             {
-                "name": "SYNTHETIC ordinary creation",
-                "project_id": self.project.id,
-                "agile_item_type_id": task.agile_item_type_id.id,
+                "name": "SYNTHETIC default isolation",
+                "solution_id": self.solution.id,
             }
         )
-        self.assertFalse(created.sudo().solution_last_reference)
-        self.assertTrue(self._link(revision, created))
-        self.assertEqual(created.sudo().solution_last_reference.task_id, created)
+        fresh_identity = revision.requirement_id.create(
+            {
+                "name": "SYNTHETIC default isolation",
+                "solution_id": self.solution.id,
+            }
+        )
+        for model, field, values in (
+            (
+                self.project.with_user(self.manager),
+                "solution_last_history_ref",
+                {"name": "SYNTHETIC ordinary Project"},
+            ),
+            (
+                self.solution.with_user(self.manager),
+                "_last_document_id",
+                {"name": "SYNTHETIC ordinary solution", "project_id": self.project.id},
+            ),
+            (
+                self.solution.with_user(self.manager),
+                "_last_approved_revision_id",
+                {"name": "SYNTHETIC ordinary solution", "project_id": self.project.id},
+            ),
+            (
+                document.document_id,
+                "_last_revision_id",
+                {
+                    "name": "SYNTHETIC ordinary document",
+                    "solution_id": self.solution.id,
+                },
+            ),
+            (
+                revision.requirement_id,
+                "_latest_revision_ref",
+                {
+                    "name": "SYNTHETIC ordinary requirement",
+                    "solution_id": self.solution.id,
+                },
+            ),
+            (
+                revision,
+                "_last_acceptance_id",
+                {
+                    **revision._copy_content_values(),
+                    "requirement_id": fresh_identity.id,
+                },
+            ),
+            (
+                document,
+                "_narrative_version",
+                {
+                    "title": "SYNTHETIC ordinary revision",
+                    "document_id": fresh_document.id,
+                },
+            ),
+            (
+                task,
+                "solution_last_reference",
+                {
+                    "name": "SYNTHETIC ordinary Task",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": task.agile_item_type_id.id,
+                },
+            ),
+        ):
+            with self.assertRaises(ValidationError):
+                model.create({**values, field: False})
+            forged = model.with_context(
+                **{
+                    "default_" + field: "project.agile.requirement.task.link,1"
+                    if field.endswith(("ref", "reference"))
+                    else 5000
+                }
+            )
+            with self.assertRaises(ValidationError):
+                forged.create(values)
+            created = model.create(values)
+            self.assertFalse(created.sudo()[field])
+            if model._name == "project.task":
+                self.assertTrue(self._link(revision, created))
+                self.assertEqual(
+                    created.sudo().solution_last_reference.task_id, created
+                )
 
     def test_many_to_many_exact_edges_seal_without_changing_work(self):
         first, second = self._requirement(), self._requirement(requirement_type="nfr")

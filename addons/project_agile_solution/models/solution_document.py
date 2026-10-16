@@ -3,6 +3,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .project_agile_solution import check_history_defaults
+
 
 class SolutionDocument(models.Model):
     _name = "project.agile.solution.document"
@@ -94,6 +96,7 @@ class SolutionDocument(models.Model):
                 raise ValidationError(_("Select an active Agile solution."))
             prepared.append(values)
         with self.env.cr.savepoint():
+            check_history_defaults(self.env)
             records = super().create(prepared)
             records._check_authority()
             for record in records:

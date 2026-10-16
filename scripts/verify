@@ -116,6 +116,10 @@ printf "%s\n" "Native Git policy scheduling, budget interruption, independent-pr
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/github_association_concurrency_probe.py"
 printf "%s\n" "Current-delivery association proof and independent-process duplicate recovery passed."
+"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/github_ingress_replay_concurrency_probe.py"
+printf "%s\n" "Competing GitHub ingress replays preserve diagnostics through native transaction retry."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES" --test-enable --test-tags "$TEST_TAGS"

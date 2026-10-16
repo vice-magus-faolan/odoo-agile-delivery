@@ -45,7 +45,10 @@ configuration lookup uses a context-independent, narrowly elevated ORM search fo
 active provider identity; elevation does not authenticate the webhook. Mismatch
 accounting uses ordinary ORM writes, including optional provenance fencing. Competing
 updates conflict under repeatable read and escape to the native whole-request retry; a
-savepoint alone does not refresh a stale snapshot.
+savepoint alone does not refresh a stale snapshot. The canonical verifier exercises
+competing replay sessions through an Odoo-shell probe after registry preload returns, so
+the native test runner does not hold the registry lock needed by transaction reset.
+Ordinary ingress security and rollback coverage remains in the native addon tests.
 
 The native scheduled processor claims at most 20 eligible GitHub deliveries per run. It
 searches one bounded FIFO window ordered by receipt time and ID, uses Odoo 19

@@ -1,15 +1,11 @@
 """Security and database-invariant coverage for GitHub delivery ingress."""
 
-import threading
 from unittest.mock import patch
-from uuid import uuid4
 
 from psycopg2 import IntegrityError
 
-from odoo import SUPERUSER_ID, api
 from odoo.exceptions import AccessError
-from odoo.service.model import get_public_method, retrying
-from odoo.tests import tagged
+from odoo.service.model import get_public_method
 from odoo.tests.common import TransactionCase
 
 from odoo.addons.mail.tests.common import mail_new_test_user
@@ -191,111 +187,3 @@ class TestGitHubIngressSecurity(TransactionCase):
             self.assertEqual(
                 self.repository.git_policy_evidence_version, evidence_version
             )
-
-
-@tagged("post_install", "-at_install")
-class TestGitHubIngressReplayConcurrency(TransactionCase):
-    """Exercise native transaction retries after registry installation completes."""
-
-    def _remove_committed_replay(self, project_id, repository_id):
-        with self.registry._db.cursor() as cursor:
-            environment = api.Environment(cursor, SUPERUSER_ID, {})
-            repository = environment["project.git.repository"].browse(repository_id)
-            repository.git_delivery_ids.unlink()
-            repository.unlink()
-            environment["project.project"].browse(project_id).unlink()
-            cursor.commit()
-
-    def test_competing_authenticated_replays_do_not_lose_mismatch_increments(self):
-        """Real sessions retry stale snapshots through the native request contract."""
-        unique_key = uuid4().hex[:8].upper()
-        with self.registry._db.cursor() as cursor:
-            environment = api.Environment(cursor, SUPERUSER_ID, {})
-            project = environment["project.project"].create(
-                {
-                    "name": "Concurrent replay " + unique_key,
-                    "privacy_visibility": "employees",
-                    "agile_enabled": True,
-                    "agile_key": "CR" + unique_key,
-                }
-            )
-            repository = environment["project.git.repository"].create(
-                {
-                    "name": "Concurrent replay",
-                    "provider": "github",
-                    "provider_repository_id": "replay-" + unique_key,
-                    "canonical_url": "https://github.com/acme/replay",
-                    "project_id": project.id,
-                }
-            )
-            values = {
-                "repository_id": repository.id,
-                "provider_delivery_id": "concurrent-delivery",
-                "event_type": "push",
-                "payload_sha256": "a" * 64,
-                "payload_size": 2,
-            }
-            delivery, _created = environment[
-                "project.git.delivery"
-            ]._record_authenticated_github_delivery(**values)
-            delivery_id = delivery.id
-            cursor.commit()
-        self.addCleanup(self._remove_committed_replay, project.id, repository.id)
-        ready = threading.Barrier(2)
-        results, failures = [], []
-
-        def record_replay(environment):
-            try:
-                cursor = environment.cr
-                # Both transactions start from the same pre-increment snapshot.
-                self.assertEqual(
-                    environment["project.git.delivery"]
-                    .browse(delivery_id)
-                    .replay_mismatch_count,
-                    0,
-                )
-                ready.wait(timeout=5)
-
-                def record():
-                    cursor.execute("SET LOCAL lock_timeout = %s", ("3s",))
-                    cursor.execute("SET LOCAL statement_timeout = %s", ("10s",))
-                    replay, created, exact = environment[
-                        "project.git.delivery"
-                    ]._record_authenticated_github_delivery(
-                        **{**values, "payload_sha256": "b" * 64},
-                        return_replay_status=True,
-                    )
-                    return replay.id, created, exact
-
-                results.append(retrying(record, environment))
-            except BaseException as error:  # pragma: no cover - asserted below
-                failures.append(error)
-
-        with (
-            self.registry._db.cursor() as first_cursor,
-            self.registry._db.cursor() as second_cursor,
-        ):
-            environments = [
-                api.Environment(cursor, SUPERUSER_ID, {})
-                for cursor in (first_cursor, second_cursor)
-            ]
-            threads = [
-                threading.Thread(target=record_replay, args=(environment,))
-                for environment in environments
-            ]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join(60)
-            self.assertFalse(any(thread.is_alive() for thread in threads))
-            self.assertFalse(failures, failures)
-            self.assertEqual(results, [(delivery_id, False, False)] * 2)
-        with self.registry._db.cursor() as cursor:
-            environment = api.Environment(cursor, SUPERUSER_ID, {})
-            deliveries = environment["project.git.delivery"].search(
-                [("repository_id", "=", repository.id)]
-            )
-            self.assertEqual(deliveries.ids, [delivery_id])
-            self.assertEqual(deliveries.replay_mismatch_count, 2)
-            self.assertTrue(deliveries.last_replay_mismatch_at)
-            self.assertEqual(deliveries.payload_sha256, values["payload_sha256"])

@@ -1,41 +1,10 @@
-"""Shared current-caller authority and serialized scope locking."""
+"""Shared current-caller authority and native Project authority."""
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
-from odoo.tools import SQL
 
 from .project_agile_solution import ProjectAgileSolution
-
-
-def lock_records(records, serialize=False):
-    """Serialize immutable-history operations, never commit an owned transaction.
-
-    ORM has no row-lock primitive. The fixed model table and parameterized IDs
-    are the sole SQL boundary; flush before lock and invalidate after waiting.
-    Identity serialization performs an id=id MVCC write. An unchanged FOR UPDATE
-    lock cannot refresh a repeatable-read snapshot after a wait; the no-op write
-    forces stale contenders through native transaction retry without changing
-    business fields, approved content or write_date.
-    """
-    if records:
-        records.flush_recordset()
-        records.env.cr.execute(
-            SQL(
-                "SELECT id FROM %s WHERE id IN %s ORDER BY id FOR UPDATE",
-                SQL.identifier(records._table),
-                tuple(records.ids),
-            )
-        )
-        if serialize:
-            records.env.cr.execute(
-                SQL(
-                    "UPDATE %s SET id = id WHERE id IN %s",
-                    SQL.identifier(records._table),
-                    tuple(records.ids),
-                )
-            )
-        records.invalidate_recordset()
 
 
 class SolutionAccess(models.AbstractModel):
@@ -138,16 +107,3 @@ class SolutionAccess(models.AbstractModel):
         if not record:
             raise ValidationError(_("Select an available record in this solution."))
         return record
-
-    def _lock_scope(self):
-        """All revision writers share lineage -> document -> revision order."""
-        lock_records(self.solution_id, serialize=True)
-        lock_records(self.project_id)
-        documents = (
-            self
-            if self._name == "project.agile.solution.document"
-            else self.document_id
-        )
-        lock_records(documents)
-        if self._name == "project.agile.solution.revision":
-            lock_records(self)

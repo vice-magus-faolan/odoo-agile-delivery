@@ -3,7 +3,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .solution_access import lock_records
 from .solution_content import check_reference_commands, reference_command_ids
 
 COMMON_CONTENT = frozenset(
@@ -171,7 +170,9 @@ class SolutionContextRevision(models.Model):
         prepared = dict(values)
         if context.kind == "question":
             prepared["resolution_status"] = "open"
-        return super()._create_content(prepared)
+        record = super()._create_content(prepared)
+        record.spike_task_ids._record_solution_reference(record)
+        return record
 
     def read(self, fields=None, load="_classic_read"):
         self.sudo(False).check_access("read")
@@ -202,7 +203,7 @@ class SolutionContextRevision(models.Model):
                 .browse(task_ids)
             )
             tasks.check_access("read")
-            lock_records(tasks, serialize=True)
+            tasks.lock_for_update()
         for record in self:
             foreign = (
                 set(values)
@@ -221,7 +222,12 @@ class SolutionContextRevision(models.Model):
                     "a changed answer needs a successor."
                 )
             )
-        return super().write(values)
+        with self.env.cr.savepoint():
+            result = super().write(values)
+            if "spike_task_ids" in values:
+                for record in self:
+                    record.spike_task_ids._record_solution_reference(record)
+            return result
 
     # Validation is side-effect/error-only; super's value is not its API.
     def _validate_content(self):  # pylint: disable=missing-return
@@ -360,7 +366,7 @@ class SolutionContextRevision(models.Model):
     def _seal(self):
         tasks = self.spike_task_ids.sudo(False).with_context(active_test=False)
         tasks.check_access("read")
-        lock_records(tasks, serialize=True)
+        tasks.lock_for_update()
         self.affected_requirement_revision_ids._seal()
         return super()._seal()
 

@@ -9,7 +9,6 @@ from odoo.fields import Domain
 from odoo.addons.project_agile_solution.models.solution_task_access import (
     check_document,
     check_task,
-    lock_trace_scope,
 )
 
 
@@ -299,8 +298,7 @@ class SprintTrace(models.Model):
         for task in tasks:
             check_task(task, caller.project_id, active=False)
         links_model = self.env["project.agile.requirement.task.link"].sudo(False)
-        links = links_model.search([("task_id", "in", tasks.ids)])
-        lock_trace_scope(links.requirement_revision_id, tasks)
+        tasks.lock_for_update()
         # Re-read under shared Task locks. Private boolean completeness only;
         # inaccessible links cannot be silently omitted and labelled empty.
         links = links_model.search([("task_id", "in", tasks.ids)])

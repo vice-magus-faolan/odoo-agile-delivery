@@ -3,8 +3,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .solution_access import lock_records
-
 
 class SolutionDocument(models.Model):
     _name = "project.agile.solution.document"
@@ -40,23 +38,54 @@ class SolutionDocument(models.Model):
         "project.agile.solution.revision", "document_id", readonly=True, copy=False
     )
 
+    _last_revision_id = fields.Many2one(
+        "project.agile.solution.revision",
+        readonly=True,
+        copy=False,
+        ondelete="set null",
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Published by revision allocation to conflict with concurrent "
+            "allocation and document changes."
+        ),
+    )
+
+    @api.model
+    def default_get(self, names):
+        return super().default_get(
+            [name for name in names if name != "_last_revision_id"]
+        )
+
+    def _record_revision(self, revision):
+        self.ensure_one()
+        if revision.document_id != self:
+            raise ValidationError(_("Revision must retain its document."))
+        return super(SolutionDocument, self.sudo()).write(
+            {"_last_revision_id": revision.id}
+        )
+
     @api.model_create_multi
     def create(self, vals_list):
         self.sudo(False).check_access("create")
         prepared = []
         for values in vals_list:
             values = dict(values)
-            if {"project_id", "company_id", "revision_ids"} & values.keys():
+            if {
+                "project_id",
+                "company_id",
+                "revision_ids",
+                "_last_revision_id",
+            } & values.keys():
                 raise ValidationError(
                     _("Document scope and revisions are server managed.")
                 )
             solution = self._checked_relation(
                 "project.agile.solution", values.get("solution_id")
             )
-            lock_records(solution, serialize=True)
-            lock_records(solution.project_id)
             solution.sudo(False).check_access("write")
             solution.project_id.sudo(False).check_access("write")
+            solution.project_id.lock_for_update()
+            solution.lock_for_update()
             if (
                 not solution.active
                 or not solution.project_id.active
@@ -67,6 +96,9 @@ class SolutionDocument(models.Model):
         with self.env.cr.savepoint():
             records = super().create(prepared)
             records._check_authority()
+            for record in records:
+                record.solution_id._record_document(record)
+                record.project_id._record_solution_history(record)
         return records
 
     @api.constrains("approver_id", "company_id")
@@ -88,13 +120,14 @@ class SolutionDocument(models.Model):
 
     def write(self, values):
         self._check_authority()
-        self._lock_scope()
+        self.lock_for_update()
         if {
             "solution_id",
             "project_id",
             "company_id",
             "kind",
             "revision_ids",
+            "_last_revision_id",
         } & values.keys():
             raise ValidationError(
                 _(
@@ -107,7 +140,7 @@ class SolutionDocument(models.Model):
 
     def unlink(self):
         self._check_authority("unlink")
-        self._lock_scope()
+        self.lock_for_update()
         if self.with_context(active_test=False).revision_ids:
             # Retention rejects deleting a document with historical revisions.
             raise ValidationError(  # pylint: disable=no-raise-unlink
@@ -121,7 +154,7 @@ class SolutionDocument(models.Model):
     def action_new_revision(self):
         self.ensure_one()
         self._check_authority()
-        self._lock_scope()
+        self.lock_for_update()
         revisions = self._complete_revisions()
         if revisions:
             if revisions[-1].state in ("draft", "review"):

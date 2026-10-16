@@ -14,7 +14,7 @@ from pathlib import Path
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ConcurrencyError, LockError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -48,6 +48,12 @@ def worker(env):
         try:
             if data["action"] == "successor":
                 revision.action_new_revision()
+            elif data["action"] == "edit_section":
+                revision.section_ids.write(
+                    {"body": "<p>SYNTHETIC concurrent narrative</p>"}
+                )
+            elif data["action"] == "submit":
+                revision.action_submit()
             else:
                 revision.action_approve()
             outcome = "applied"
@@ -56,7 +62,7 @@ def worker(env):
                 _wait(directory / "winner.commit")
             env.cr.commit()
             break
-        except SerializationFailure:
+        except (SerializationFailure, ConcurrencyError, LockError):
             env.cr.rollback()
             env.invalidate_all()
             revision = (
@@ -65,6 +71,7 @@ def worker(env):
                 .browse(data["revision_id"])
             )
             retries += 1
+            time.sleep(0.1)
         except ValidationError:
             env.cr.rollback()
             outcome = "stale_rejected"
@@ -123,7 +130,12 @@ def _race(env, revision, uid, action):
         directory, processes = Path(temporary), []
         try:
             for name in ("winner", "loser"):
-                processes.append(_launch(env, directory, name, revision, uid, action))
+                selected = (
+                    action[0 if name == "winner" else 1]
+                    if isinstance(action, tuple)
+                    else action
+                )
+                processes.append(_launch(env, directory, name, revision, uid, selected))
             for name in ("winner", "loser"):
                 _wait(directory / (name + ".ready"))
             (directory / "winner.go").touch()
@@ -141,8 +153,10 @@ def _race(env, revision, uid, action):
             assert results[0]["pid"] != results[1]["pid"]
             assert results[0]["backend"] != results[1]["backend"]
             assert results[0]["outcome"] == "applied"
-            assert results[1]["outcome"] == "stale_rejected"
-            assert results[1]["retries"] == 1
+            assert results[1]["outcome"] == (
+                "applied" if isinstance(action, tuple) else "stale_rejected"
+            )
+            assert results[1]["retries"] >= 1
             return {"action": action, "workers": results}
         finally:
             for process in processes:
@@ -223,6 +237,17 @@ def run_probe(env):
     env.invalidate_all()
     assert revisions[0].state == "superseded" and revisions[1].state == "approved"
     assert revisions[0].action_read_snapshot()["snapshot_json"] == frozen
+    working = revisions[1].browse(revisions[1].action_new_revision()["res_id"])
+    env.cr.commit()
+    narrative = _race(env, working, manager.id, ("edit_section", "submit"))
+    env.cr.rollback()
+    env.invalidate_all()
+    assert working.state == "review"
+    assert (
+        "SYNTHETIC concurrent narrative"
+        in working.action_read_snapshot()["snapshot_json"]
+    )
+    assert revisions[0].action_read_snapshot()["snapshot_json"] == frozen
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_BASELINE_CONCURRENCY_OK "
@@ -230,7 +255,8 @@ def run_probe(env):
             {
                 "allocation": allocation,
                 "approval": approval,
-                "revision_count": 2,
+                "narrative_submission": narrative,
+                "revision_count": len(document._complete_revisions()),
                 "v1_content_unchanged": True,
             },
             sort_keys=True,

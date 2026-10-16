@@ -46,8 +46,10 @@ New identity creation checks caller Manager/Project/company/active Agile lineage
 a narrow native sequence allocation. The Project row serializes first-use sequence
 creation even across different lineages. Standard native sequences allow harmless
 rollback gaps, never reuse an allocated key. Database unique constraints cover
-`(project_id, key)` and `(identity_id, number)`. Native locks use the existing
-parameterized fixed-table helper; no business method commits/rolls back a cursor.
+`(project_id, key)` and `(identity_id, number)`. Nonblocking native ORM claims and
+publication of each allocated revision on its identity order competing writers. New
+identities publish retained history on Project; no business method commits/rolls back a
+cursor.
 
 Content stays editable until used in submitted review. Submission atomically seals all
 selected requirement/context rows and all affected requirements, including rows

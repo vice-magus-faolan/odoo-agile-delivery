@@ -49,7 +49,9 @@ class SolutionSection(models.Model):
             )
             revision._check_editable()
         with self.env.cr.savepoint():
-            return super().create(vals_list)
+            records = super().create(vals_list)
+            records.revision_id._record_narrative_change()
+            return records
 
     def write(self, values):
         self._check_authority()
@@ -64,12 +66,19 @@ class SolutionSection(models.Model):
             raise ValidationError(
                 _("Sections cannot be moved; copy content to a new draft.")
             )
-        return super().write(values)
+        with self.env.cr.savepoint():
+            result = super().write(values)
+            self.revision_id._record_narrative_change()
+            return result
 
     def unlink(self):
         self._check_authority("unlink")
         self.revision_id._check_editable()
-        return super().unlink()
+        revisions = self.revision_id
+        with self.env.cr.savepoint():
+            result = super().unlink()
+            revisions._record_narrative_change()
+            return result
 
     def _copy_values(self):
         self.ensure_one()

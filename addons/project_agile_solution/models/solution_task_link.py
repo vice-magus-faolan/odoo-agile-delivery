@@ -7,7 +7,6 @@ from .solution_task_access import (
     check_document,
     check_requirements,
     check_task,
-    lock_trace_scope,
 )
 
 INPUT = frozenset({"task_id", "requirement_revision_id", "document_revision_id"})
@@ -85,7 +84,11 @@ class RequirementTaskLink(models.Model):
         revision._check_authority()
         task = self._checked_relation("project.task", values.get("task_id"))
         check_task(task, revision.project_id)
-        lock_trace_scope(revision, task)
+        task.lock_for_update()
+        revision.project_id.lock_for_update()
+        revision.solution_id.lock_for_update()
+        revision.requirement_id.lock_for_update()
+        revision.lock_for_update()
         check_task(task, revision.project_id)
         check_requirements(revision, revision.solution_id)
         document = (
@@ -95,6 +98,8 @@ class RequirementTaskLink(models.Model):
             if values.get("document_revision_id")
             else self.env["project.agile.solution.revision"]
         )
+        document.document_id.lock_for_update()
+        document.lock_for_update()
         check_document(document, revision, revision.solution_id)
         existing = self.with_context(active_test=False).search(
             [("task_id", "=", task.id), ("requirement_revision_id", "=", revision.id)]
@@ -109,7 +114,7 @@ class RequirementTaskLink(models.Model):
                 )
             return existing
         revision._seal()
-        return super().create(
+        link = super().create(
             {
                 **values,
                 "active": True,
@@ -117,6 +122,9 @@ class RequirementTaskLink(models.Model):
                 "linked_at": fields.Datetime.now(),
             }
         )
+
+        task._record_solution_reference(link)
+        return link
 
     # Coverage identity is immutable; retirement uses its dedicated action.
     def write(self, values):  # pylint: disable=method-required-super
@@ -155,7 +163,8 @@ class RequirementTaskLink(models.Model):
         if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
             raise ValidationError(_("Give a bounded reason for retiring coverage."))
         with self.env.cr.savepoint():
-            lock_trace_scope(caller.requirement_revision_id, caller.task_id)
+            caller.task_id.lock_for_update()
+            caller.lock_for_update()
             for link in caller:
                 check_task(link.task_id, link.project_id, active=False)
                 if link.active:
@@ -167,6 +176,7 @@ class RequirementTaskLink(models.Model):
                             "retirement_reason": reason.strip(),
                         }
                     )
+                    link.task_id._record_solution_reference(link)
         return True
 
 

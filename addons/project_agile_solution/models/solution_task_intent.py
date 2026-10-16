@@ -5,16 +5,14 @@ import json
 from uuid import uuid4
 
 from odoo import Command, _, api, fields, models
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
 from odoo.fields import Domain
 
-from .solution_access import lock_records
 from .solution_content import check_reference_commands
 from .solution_task_access import (
     check_document,
     check_requirements,
     check_task,
-    lock_trace_scope,
 )
 
 INPUT = frozenset(
@@ -272,7 +270,8 @@ class SolutionTaskIntent(models.Model):
         self.ensure_one()
         caller = self._check_creator()
         with self.env.cr.savepoint():
-            lock_records(caller, serialize=True)
+            if caller.try_lock_for_update() != caller:
+                raise ConcurrencyError("Task confirmation is already in progress.")
             caller._check_creator()
             if caller.state == "consumed":
                 check_task(
@@ -280,7 +279,13 @@ class SolutionTaskIntent(models.Model):
                 )
                 return caller._task_action()
             revisions = caller._validate_proposal()
-            lock_trace_scope(revisions, caller.task_id)
+            caller.task_id.lock_for_update()
+            caller.project_id.lock_for_update()
+            caller.solution_id.lock_for_update()
+            revisions.requirement_id.lock_for_update()
+            revisions.lock_for_update()
+            caller.document_revision_id.document_id.lock_for_update()
+            caller.document_revision_id.lock_for_update()
             caller._validate_proposal()
             if caller._fingerprint() != caller.sudo()._source_digest:
                 raise ValidationError(

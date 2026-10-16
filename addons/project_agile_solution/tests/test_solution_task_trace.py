@@ -64,6 +64,35 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             )
         )
 
+    def test_history_publication_fields_are_server_owned(self):
+        revision, task = self._requirement(), self._task()
+        document = self._revision()
+        for record, field in (
+            (self.project.with_user(self.manager), "solution_last_history_ref"),
+            (self.solution.with_user(self.manager), "_last_document_id"),
+            (self.solution.with_user(self.manager), "_last_approved_revision_id"),
+            (document.document_id, "_last_revision_id"),
+            (document, "_narrative_version"),
+            (revision.requirement_id, "_latest_revision_ref"),
+            (revision, "_last_acceptance_id"),
+            (task, "solution_last_reference"),
+        ):
+            with self.assertRaises(ValidationError):
+                record.write({field: False})
+        forged = task.with_context(
+            default_solution_last_reference="project.agile.requirement.task.link,1"
+        )
+        created = forged.create(
+            {
+                "name": "SYNTHETIC ordinary creation",
+                "project_id": self.project.id,
+                "agile_item_type_id": task.agile_item_type_id.id,
+            }
+        )
+        self.assertFalse(created.sudo().solution_last_reference)
+        self.assertTrue(self._link(revision, created))
+        self.assertEqual(created.sudo().solution_last_reference.task_id, created)
+
     def test_many_to_many_exact_edges_seal_without_changing_work(self):
         first, second = self._requirement(), self._requirement(requirement_type="nfr")
         task, another = self._task(), self._task()

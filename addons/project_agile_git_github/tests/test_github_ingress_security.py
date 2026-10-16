@@ -9,6 +9,7 @@ from psycopg2 import IntegrityError
 from odoo import SUPERUSER_ID, api
 from odoo.exceptions import AccessError
 from odoo.service.model import get_public_method, retrying
+from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 
 from odoo.addons.mail.tests.common import mail_new_test_user
@@ -191,6 +192,11 @@ class TestGitHubIngressSecurity(TransactionCase):
                 self.repository.git_policy_evidence_version, evidence_version
             )
 
+
+@tagged("post_install", "-at_install")
+class TestGitHubIngressReplayConcurrency(TransactionCase):
+    """Exercise native transaction retries after registry installation completes."""
+
     def _remove_committed_replay(self, project_id, repository_id):
         with self.registry._db.cursor() as cursor:
             environment = api.Environment(cursor, SUPERUSER_ID, {})
@@ -222,7 +228,13 @@ class TestGitHubIngressSecurity(TransactionCase):
                     "project_id": project.id,
                 }
             )
-            values = {**self._delivery_values(), "repository_id": repository.id}
+            values = {
+                "repository_id": repository.id,
+                "provider_delivery_id": "concurrent-delivery",
+                "event_type": "push",
+                "payload_sha256": "a" * 64,
+                "payload_size": 2,
+            }
             delivery, _created = environment[
                 "project.git.delivery"
             ]._record_authenticated_github_delivery(**values)
@@ -263,9 +275,6 @@ class TestGitHubIngressSecurity(TransactionCase):
             self.registry._db.cursor() as first_cursor,
             self.registry._db.cursor() as second_cursor,
         ):
-            # Initial environment construction resolves Registry under its lock.
-            # The installer holds that lock in this thread during at-install
-            # tests, so bind each independent transaction before starting workers.
             environments = [
                 api.Environment(cursor, SUPERUSER_ID, {})
                 for cursor in (first_cursor, second_cursor)

@@ -5,7 +5,6 @@ from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tools import SQL
 
 from .policy_evidence import MAX_BATCH, REASONS
 
@@ -149,7 +148,7 @@ class ProjectGitPolicyAttempt(models.Model):
 
     @api.model
     def _enqueue(self, activation, pr, task, observation, result):
-        """Producer already locked/revalidated scope and sealed current evidence."""
+        """Producer already validated scope and sealed current evidence."""
         domain = [
             ("activation_id", "=", activation.id),
             ("repository_id", "=", pr.repository_id.id),
@@ -208,27 +207,8 @@ class ProjectGitPolicyAttempt(models.Model):
         self._append_event(state, reason)
 
     @api.model
-    def _try_lock(self, records):
-        """Fixed internal control models, nonblocking and ordered before
-        attempt locks.
-        """
-        if not records:
-            return False
-        records.flush_recordset()
-        self.env.cr.execute(
-            SQL(
-                "SELECT id FROM %s WHERE id IN %s ORDER BY id FOR UPDATE SKIP LOCKED",
-                SQL.identifier(records._table),
-                tuple(records.ids),
-            )
-        )
-        rows = self.env.cr.fetchall()
-        records.invalidate_recordset()
-        return len(rows) == len(records)
-
-    @api.model
     def _claim_attempt(self):
-        """Claims serialize on control rows before attempts; lease is not permission."""
+        """Claim only bounded eligible work; a lease is not execution authority."""
         now = fields.Datetime.now()
         # Claiming must discard caller defaults rather than merge them.
         service = self.sudo().with_context({})  # pylint: disable=context-overridden
@@ -248,14 +228,8 @@ class ProjectGitPolicyAttempt(models.Model):
             limit=MAX_BATCH,
         )
         for candidate in candidates:
-            controls = (
-                candidate.project_id,
-                candidate.repository_id,
-                candidate.rule_id,
-                candidate.activation_id,
-                candidate,
-            )
-            if not all(service._try_lock(rows) for rows in controls):
+            candidate = candidate.try_lock_for_update()
+            if not candidate:
                 continue
             if not candidate._eligible(now):
                 continue

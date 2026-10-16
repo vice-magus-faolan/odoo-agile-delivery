@@ -3,7 +3,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
-from .policy_authority import clean_context, exact_name, lock_records, reject_keys
+from .policy_authority import clean_context, exact_name, reject_keys
 
 
 class ProjectGitPolicyRequiredCheck(models.Model):
@@ -37,9 +37,6 @@ class ProjectGitPolicyRequiredCheck(models.Model):
                 values.get("revision_id")
             )
             revision._check_editable()
-            revision.rule_id._lock_control()
-            lock_records(revision)
-            revision._check_editable()
             exact_name(values.get("name"), "Required check")
             identity = (revision.id, values["name"])
             if identity in seen or self.search_count(
@@ -62,9 +59,6 @@ class ProjectGitPolicyRequiredCheck(models.Model):
         self.check_access("write")
         reject_keys(values, {"name"})
         self.revision_id._check_editable()
-        self.revision_id.rule_id._lock_control()
-        lock_records(self.revision_id)
-        self.revision_id._check_editable()
         exact_name(values.get("name"), "Required check")
         for record in self:
             if self.search_count(
@@ -82,9 +76,6 @@ class ProjectGitPolicyRequiredCheck(models.Model):
 
     def unlink(self):
         self.check_access("unlink")
-        self.revision_id._check_editable()
-        self.revision_id.rule_id._lock_control()
-        lock_records(self.revision_id)
         self.revision_id._check_editable()
         self.revision_id.rule_id._revoke("revision_changed")
         return super().unlink()

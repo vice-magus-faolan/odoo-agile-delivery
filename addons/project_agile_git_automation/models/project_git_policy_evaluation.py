@@ -3,7 +3,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .policy_authority import clean_context, lock_records, require_capability
+from .policy_authority import clean_context, require_capability
 from .policy_evidence import (
     MAX_BATCH,
     MAX_EVIDENCE,
@@ -399,8 +399,6 @@ class ProjectGitPolicyEvaluation(models.Model):
         """Serialize append-only dedupe on scoped control rows, never reserve
         an effect.
         """
-        lock_records(repository.project_id)
-        lock_records(repository)
         batch = self._load_batch(repository, after_id)
         prs, rules, associations, audits, checks, tasks, history, overflow = batch
         authorized = self._authority_map(rules, tasks)

@@ -4,7 +4,7 @@ from odoo import _, api, models
 from odoo.exceptions import ValidationError
 from odoo.tools import SQL
 
-from .policy_authority import STAGE_SETTINGS, lock_records
+from .policy_authority import STAGE_SETTINGS
 
 
 def _policy_ready(env):
@@ -74,9 +74,6 @@ class ProjectGitRepository(models.Model):
             "retention_policy",
             "webhook_secret",
         }.intersection(values)
-        if relevant:
-            lock_records(self.project_id)
-            lock_records(self)
         result = super().write(values)
         if relevant:
             _revoke(self.env, [("repository_id", "in", self.ids)], "repository_changed")

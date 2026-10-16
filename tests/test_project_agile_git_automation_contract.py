@@ -45,8 +45,6 @@ class TestGitAutomationContract(unittest.TestCase):
                 "write",
                 "unlink",
                 "_git_policy_affected_projects",
-                "_git_policy_lock_scopes",
-                "_git_policy_requested_scopes",
                 "_git_policy_fence_tasks",
                 "_compute_state",
                 "_git_policy_advance_transition",
@@ -104,7 +102,10 @@ class TestGitAutomationContract(unittest.TestCase):
             if isinstance(node, ast.Assign)
             and any(isinstance(target, ast.Attribute) for target in node.targets)
         ]
-        self.assertFalse(mutations, "Observer must not assign native business fields")
+        for mutation in mutations:
+            for target in mutation.targets:
+                if isinstance(target, ast.Attribute):
+                    self.assertEqual(target.attr, "git_policy_transition_version")
         self.assertIn("super()._compute_state()", ast.unparse(compute))
         self.assertIn("depend_on_ids.state", ast.unparse(compute))
 

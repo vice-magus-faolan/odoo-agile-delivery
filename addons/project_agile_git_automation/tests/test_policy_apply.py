@@ -63,6 +63,11 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(effect.execution_user_id, self.executor)
         self.assertEqual(effect.before_stage_id, self.stages[0])
         self.assertEqual(effect.after_stage_id, self.stages[1])
+        self.assertEqual(self.project.git_policy_last_effect_id, effect)
+        self.assertEqual(self.repository.git_policy_last_effect_id, effect)
+        self.assertEqual(self.rule.last_effect_id, effect)
+        self.assertEqual(self.project.git_policy_last_activation_id, self.activation)
+        self.assertEqual(self.repository.git_policy_last_activation_id, self.activation)
         self.assertEqual(self.task.write_uid, self.executor)
         self.assertEqual(
             attempt.event_ids.mapped("reason"), ["no_ci_condition", "applied"]
@@ -132,10 +137,12 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         blocker = self._dependency_blocker(closed=True)
         attempt = self._discover()
         version = self.task.git_policy_transition_version
+        native_metadata = self.task.read(["write_uid", "write_date"])
         blocker.write({"state": "01_in_progress"})
         self.env.flush_all()
         self.assertEqual(self.task.state, "04_waiting_normal")
         self.assertGreater(self.task.git_policy_transition_version, version)
+        self.assertEqual(self.task.read(["write_uid", "write_date"]), native_metadata)
         intermediate = self.task.git_policy_transition_version
         blocker.write({"state": "1_done"})
         self.env.flush_all()
@@ -266,8 +273,29 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
 
     def test_expired_lease_and_bounded_dead_letter(self):
         attempt = self._discover()
+        project_activity = self.project.read(
+            [
+                "git_policy_authority_epoch",
+                "git_policy_last_activation_id",
+                "git_policy_last_effect_id",
+            ]
+        )
+        repository_activity = self.repository.read(
+            [
+                "git_policy_evidence_version",
+                "git_policy_last_activation_id",
+                "git_policy_last_effect_id",
+            ]
+        )
         claimed = self.attempts._claim_attempt()
         self.assertEqual(claimed, attempt)
+        self.assertEqual(
+            self.project.read(list(project_activity[0].keys())), project_activity
+        )
+        self.assertEqual(
+            self.repository.read(list(repository_activity[0].keys())),
+            repository_activity,
+        )
         token = claimed.lease_token
         self.assertFalse(self.attempts._claim_attempt())
         self.now += timedelta(minutes=6)
@@ -448,6 +476,9 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(self.task.stage_id, self.stages[0])
         self.assertEqual(self.task.git_policy_transition_version, before_version)
         self.assertFalse(self.effects.search([]))
+        self.assertFalse(self.project.git_policy_last_effect_id)
+        self.assertFalse(self.repository.git_policy_last_effect_id)
+        self.assertFalse(self.rule.last_effect_id)
         self.assertNotIn("applied", attempt.event_ids.mapped("state"))
 
     def test_dead_letter_after_five_failures_is_bounded(self):

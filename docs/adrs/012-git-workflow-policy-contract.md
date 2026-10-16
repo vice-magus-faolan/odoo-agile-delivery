@@ -131,9 +131,9 @@ notes, not claims that later runtime tables are absent.
   fixture has only repository/delivery scope, server timestamp, `mode='dry_run'`, and
   `reason='contract_fixture'`; it is not a seal, attempt, or effect marker. Later finite
   reason/outcome extensions must not repurpose these fixture rows.
-- Task concurrency fence: `git_policy_transition_version`, incremented under the Task
-  row lock for every stage/state/project/company/active change, including manual
-  away-and-back changes. It is a concurrency token, never authorization. No Task
+- Task concurrency fence: `git_policy_transition_version`, advanced through native
+  stored compute/ORM writes for stage/state/project/company/active changes, including
+  manual away-and-back changes. It is a concurrency token, never authorization. No Task
   override or field is added in this root slice.
 
 Rule bounds are server-validated on ORM create/write/actions as well as views. Unknown
@@ -161,9 +161,10 @@ native Task read/write access. Successful native input edits/create/delete
 conservatively revoke affected old/new/descendant Project epochs; both stage-relation
 directions and inverse membership edits are observed. Restoration never clears a
 tombstone; a fresh successor approval/cutoff is required. Denied/rolled-back operations
-commit no partial revocation. Private control locks are deterministic; apply/fence races
-remain the later phase's independent-connection verification obligation. No
-trusted-write/context bypass or live/publication effect is approved.
+commit no partial revocation. Shared native ORM writes couple actual approvals/effects
+to the rows whose authority and evidence they consume; independent-process races
+exercise this boundary. No trusted-write/context bypass or live/publication effect is
+approved.
 
 A new explicit `group_git_policy_manager` capability implies Project Manager but has no
 installation-time members. The rule owner must be an active internal user with that
@@ -190,12 +191,24 @@ Re-enable/revision changes require fresh explicit approval and cutoff. Emergency
 is available to visible authorized capability holders and native System Administrators;
 it cannot imply activation authority.
 
-Immediately before execution, lock Project/repository/activation/attempt/Task in that
-stable order, then re-read authority and facts without stale cache, revalidate all
-identities and their current access, and recheck enable/mode/revocation. Disable and
-worker execution serialize on the same control locks: after disable commits, no later
-effect may settle. A transaction already settled before disable is historical, not a
-partial effect. Already applied markers survive revocation.
+Immediately before execution, claim the Attempt with native `try_lock_for_update`,
+validate its private lease, and revalidate identities, concrete access, enable/mode,
+revocation, Task transition token and evidence. There are no blocking authority-read
+locks. An actual approval records `git_policy_last_activation_id` on its Project and
+repository; an actual effect records `git_policy_last_effect_id` there and
+`last_effect_id` on its rule. These server-owned, non-authorizing references identify
+the most recently recorded immutable approval/effect for recovery, even after
+revocation. They change only when that event is persisted, never on leasing, retries or
+dry runs.
+
+Their ORM writes are also shared-row conflict points: Project controls write Project,
+provenance inputs advance the repository evidence version, and terminal revocation or
+revision changes write the rule. Task mutation writes the Task transition token itself.
+A concurrent mutation therefore cannot commit alongside an effect using its stale
+snapshot; PostgreSQL serialization failure rolls the effect back and requires a fresh
+transaction. Updating activity does not advance an unrelated approval epoch. After
+disable commits, no later stale effect may settle. An effect settled before disable is
+historical, not a partial effect; its immutable marker and activity reference survive.
 
 ## Observation, provenance, freshness, and exact CI evidence
 
@@ -276,13 +289,13 @@ Project/company reassignment revokes pending epochs and preserves historical sco
 snapshots. Never use cascading repository deletion as audit retention.
 
 Evaluation captures Task stage and monotonic transition version. Apply requires both to
-match under lock plus source eligibility; otherwise terminal `stale_task`. A target
-already reached manually is a no-op, not permission to consume an applied marker. New
-evaluation cannot silently revive a stale attempt; explicit authorized retry still
-requires unchanged cutoff, task fence, facts, and unconsumed identity. A new PR is the
-normal future trigger. Dry-run appends a bounded proposal only; it never creates a
-consumed effect, increments the Task fence, or mutates Task. Switching to apply discards
-dry-run execution eligibility and creates a fresh epoch.
+match before the native Task write plus source eligibility; otherwise terminal
+`stale_task`. A target already reached manually is a no-op, not permission to consume an
+applied marker. New evaluation cannot silently revive a stale attempt; explicit
+authorized retry still requires unchanged cutoff, task fence, facts, and unconsumed
+identity. A new PR is the normal future trigger. Dry-run appends a bounded proposal
+only; it never creates a consumed effect, increments the Task fence, or mutates Task.
+Switching to apply discards dry-run execution eligibility and creates a fresh epoch.
 
 Worker states: queued, waiting, processing, retryable, failed, rejected, dry_run,
 applied, no_op, revoked, expired. Bound each batch to 20 attempts; random private
@@ -293,7 +306,7 @@ complete settled item savepoint. No model/controller cr.commit/rollback, no webh
 writes, no required queue_job. Expired leases are reclaimable, not authority. Retry
 serialization failures from a fresh transaction, not a stale cache.
 
-In one savepoint: lock/revalidate, verify no consumed identity, normal Task write,
+In one savepoint: claim/revalidate, verify no consumed identity, normal Task write,
 flush/re-read native effects, insert unique immutable effect and audit, settle attempt.
 An audit insert or postcondition failure rolls back Task and effect; only a sanitized
 failure event outside that rolled-back savepoint may persist. A uniqueness collision

@@ -1021,6 +1021,10 @@ class TestGitPolicyRules(TransactionCase):
             "default_activation_id": 1,
             "default_git_policy_enabled": True,
             "default_git_policy_mode": "apply",
+            "default_git_policy_last_activation_id": 1,
+            "default_git_policy_last_effect_id": 1,
+            "default_git_policy_evidence_version": 99,
+            "default_last_effect_id": 1,
             "policy_trusted": True,
             "policy_execution_user_id": 1,
         }
@@ -1057,6 +1061,27 @@ class TestGitPolicyRules(TransactionCase):
         )
         self.assertFalse(project.git_policy_enabled)
         self.assertEqual(project.git_policy_mode, "dry_run")
+        self.assertFalse(project.git_policy_last_activation_id)
+        self.assertFalse(project.git_policy_last_effect_id)
+        self.assertFalse(rule.last_effect_id)
+        values = self.repository.read(
+            [
+                "name",
+                "provider",
+                "provider_repository_id",
+                "canonical_url",
+                "project_id",
+            ]
+        )[0]
+        values.pop("id")
+        values["provider_repository_id"] += "-defaults"
+        values["project_id"] = values["project_id"][0]
+        repository = self.repository.with_context(context).create(values)
+        self.assertEqual(repository.git_policy_evidence_version, 0)
+        self.assertFalse(repository.git_policy_last_activation_id)
+        self.assertFalse(repository.git_policy_last_effect_id)
+        with self.assertRaises(ValidationError):
+            self.repository.create({**values, "git_policy_evidence_version": 99})
 
     def test_policy_relations_cannot_edit_native_stages(self):
         for command in (
@@ -1103,16 +1128,26 @@ class TestGitPolicyRules(TransactionCase):
             {"git_policy_enabled": True},
             {"git_policy_mode": "apply"},
             {"git_policy_authority_epoch": 2},
+            {"git_policy_last_activation_id": 1},
+            {"git_policy_last_effect_id": 1},
         ):
             with self.assertRaises(ValidationError):
                 self.project.with_user(self.author).write(values)
         for values in (
             {"owner_id": self.approver.id},
             {"activation_id": 1},
+            {"last_effect_id": 1},
             {"repository_id": self.repository.id},
         ):
             with self.assertRaises(ValidationError):
                 self.rule.write(values)
+        for field in (
+            "git_policy_evidence_version",
+            "git_policy_last_activation_id",
+            "git_policy_last_effect_id",
+        ):
+            with self.assertRaises(ValidationError):
+                self.repository.with_context(policy_trusted=True).write({field: 1})
         for model in ("project.git.policy.activation", "project.git.policy.revocation"):
             with self.assertRaises(AccessError):
                 self.env[model].with_user(self.approver).with_context(
@@ -1144,26 +1179,6 @@ class TestGitPolicyRules(TransactionCase):
                 record.write({"execution_user_id": self.author.id})
             with self.assertRaises(ValidationError):
                 record.unlink()
-
-    def test_activation_rechecks_rule_archival_after_control_lock(self):
-        self.project.with_user(self.author).action_enable_git_policy()
-        original_lock = type(self.rule)._lock_control
-        archived = False
-
-        def lock_then_archive(rule):
-            nonlocal archived
-            original_lock(rule)
-            if not archived:
-                archived = True
-                rule.with_user(self.author).write({"active": False})
-
-        # Exercise the public boundary with a control change at the fence, not a
-        # claimed independent-connection race (covered by the later worker lane).
-        with patch.object(type(self.rule), "_lock_control", lock_then_archive):
-            with self.assertRaises(ValidationError):
-                self._approve(self.revision)
-        self.assertFalse(self.rule.activation_id)
-        self.assertFalse(self.revision.approved_at)
 
     def test_executor_uid_one_portal_inactive_and_foreign_company_denied(self):
         portal = mail_new_test_user(

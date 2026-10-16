@@ -5,7 +5,6 @@ import json
 
 from odoo import _
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tools import SQL
 
 CAPABILITY = "project_agile_git_automation.group_git_policy_manager"
 MODES = [
@@ -69,23 +68,6 @@ def exact_name(value, label, branch=False):
         raise ValidationError(_("Target branch must be an exact branch name."))
 
 
-def lock_records(records):
-    """Private fixed-model row fence; callers authorize before locking,
-    never SQL writes.
-    """
-    if not records:
-        return
-    records.flush_recordset()
-    records.env.cr.execute(
-        SQL(
-            "SELECT id FROM %s WHERE id IN %s ORDER BY id FOR UPDATE",
-            SQL.identifier(records._table),
-            tuple(records.ids),
-        )
-    )
-    records.invalidate_recordset()
-
-
 def check_scope(repository, project=None, company=None, operation="write"):
     """Check actual current-user repository and Project records,
     including custom rules.
@@ -147,7 +129,7 @@ def check_task_authority(user, repository, task=None):
     After the approver has repository/Project authority, a narrow Project/company
     ID-only enumeration includes records hidden from the proposed executor. IDs
     are never returned to callers; denial is generic. Empty projects fail closed.
-    Future apply must repeat a concrete Task check under its row lock.
+    Apply repeats concrete Task checks before native writes and effect publication.
     """
     scoped = check_identity(user, repository)
     if task is None:

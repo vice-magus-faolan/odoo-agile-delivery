@@ -5,7 +5,6 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .policy_authority import lock_records
 from .policy_evidence import MAX_BATCH
 
 
@@ -74,9 +73,6 @@ class ProjectGitPolicySchedule(models.Model):
     # Side-effect-only cursor update; the native write result is not its API.
     def _discover_page(self):  # pylint: disable=missing-return
         self.ensure_one()
-        lock_records(self.project_id)
-        lock_records(self.repository_id)
-        lock_records(self)
         now = fields.Datetime.now()
         cursor, reason = self.after_pr_id, "inactive_policy"
         active = (
@@ -153,6 +149,7 @@ class ProjectGitPolicySchedule(models.Model):
             order="next_run_at, id",
             limit=1,
         )
+        pages = pages.try_lock_for_update(limit=1)
         if pages:
             with self.env.cr.savepoint():
                 pages._discover_page()

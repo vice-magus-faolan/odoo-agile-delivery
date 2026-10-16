@@ -20,10 +20,10 @@ attempt, without resetting its budget/fence or replacing evidence/identity. Term
 exhausted, stale, expired and consumed candidates remain nonretryable. See the
 [operations runbook](runbooks/git-policy-operations.md).
 
-Immediately before mutation the worker locks and revalidates persisted controls, current
-native identity/record access, Task fence, exact evidence/checks and target-stage
-eligibility. Only `stage_id` reaches native Task write, under the approved non-superuser
-identity with clean context. Normal native tracking is not suppressed.
+Immediately before mutation the worker claims the Attempt and revalidates persisted
+controls, current native identity/record access, Task fence, exact evidence/checks and
+target-stage eligibility. Only `stage_id` reaches native Task write, under the approved
+non-superuser identity with clean context. Normal native tracking is not suppressed.
 Completion/reopen, Sprint, estimates, hierarchy, followers and messages are not action
 targets. Postconditions roll back unsupported native effects. Closed Sprint history
 stays unchanged.
@@ -45,11 +45,13 @@ owns progress commits. Ordinary RPC/model context cannot invoke that commit path
 The Task fence also observes native `_compute_state` dependency transitions, not just
 named `write` inputs: linking/unlinking an open blocker and blocker-state propagation
 both advance it on each actual state change, including away-and-back. A no-change
-recompute does not increment it. The observer calls native `super`, locks existing Task
-rows in ID order without recursively flushing the computing field, and updates only the
-server-owned token in the same transaction. It does not change native computed state,
-tracking, write actor/timestamp, completion or Scrum history, and excludes
-unsaved/onchange records. A direct stage/state write and its native recompute can both
+recompute does not increment it. The token is a stored field sharing native
+`_compute_state`: the observer calls `super`, then assigns only its token within native
+field protection. This avoids recursive Task writes, a second business-state mutation,
+and changes to dependency-computed tracking, actor/timestamps or Scrum history. Direct
+stage/scope/active writes advance the token through a private `super` write under the
+same actor, preserving the remaining native addon chain. Unsaved/onchange records do not
+advance durable tokens. A direct stage/state write and its native recompute can both
 advance the monotonic token; it is not an event count. No actor authority is gained from
 native `compute_sudo`.
 
@@ -60,7 +62,20 @@ before calling the method, making the old-state read safe just as in native
 `a21483829a42fe958faff5a8ee6118f0a2946a031604ec4df055c0a74174ed14` in the originally
 inspected image (historical source evidence, not a runtime pin). Do not replace this
 hook with a dependency-input-only fence: changes on another blocking Task would escape
-that boundary.
+that boundary. Native
+[field compute protection and assignment](https://github.com/odoo/odoo/blob/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/orm/fields.py)
+keep the token update inside the compute, without manufacturing Task metadata.
+
+Actual approvals publish on Project and repository; effects publish only on repository
+and rule. These private, server-owned publication markers create ORM shared-row write
+conflicts with competing authority/evidence mutations, not recovery/navigation features,
+authorization, lease counters or approval-epoch bumps. First approval shares the Project
+row because there may be no current activation to revoke. Authority-relevant Project
+changes revoke current activations through their rules, already conflicting with rule
+effect publication; unrelated Project edits need no additional effect conflict.
+Repository evidence inputs share the repository row with approval/effect publication.
+Competing mutations roll back the complete stale effect; retry starts a fresh
+transaction. Leasing independent attempts never writes a shared parent.
 
 Apply uses ordinary Odoo ORM inheritance, including installed Task addons; it does not
 inspect or hash their source files. The approved non-superuser identity, current record

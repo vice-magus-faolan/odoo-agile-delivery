@@ -8,7 +8,6 @@ from .policy_authority import (
     check_identity,
     check_scope,
     check_task_authority,
-    lock_records,
     stage_fingerprint,
 )
 from .policy_authority_profile import check_supported_profile
@@ -123,18 +122,19 @@ class ProjectGitPolicyActivation(models.Model):
             "native_side_effects_acknowledged": True,
         }
         # Remove all caller defaults before the authorized snapshot write.
-        # pylint: disable-next=context-overridden
-        return super(ProjectGitPolicyActivation, self.sudo().with_context({})).create(
-            values
-        )
+        activation = super(
+            ProjectGitPolicyActivation,
+            self.sudo().with_context({}),  # pylint: disable=context-overridden
+        ).create(values)
+        activation.project_id._git_policy_record_activation(activation)
+        activation.repository_id._git_policy_record_activation(activation)
+        return activation
 
     def _revoke(self, reason):
         """Terminal idempotent revocation.
 
         No activation can be resurrected by restoring access.
         """
-        self.rule_id._lock_control()
-        lock_records(self)
         for activation in self:
             if not activation.revocation_ids:
                 self.env["project.git.policy.revocation"]._append(activation, reason)
@@ -174,12 +174,10 @@ class ProjectGitPolicyActivation(models.Model):
         Never a Task write.
 
         Revocation persists only if the enclosing caller commits its transaction.
-        Future workers must lock in ADR-012 order and re-read before using this.
+        Apply must couple validation with its shared-row effect publication.
         An explicit concrete Task repeats record-level checks at the apply boundary.
         """
         self.ensure_one()
-        self.rule_id._lock_control()
-        lock_records(self)
         try:
             self._check_current_authority(task)
         except (AccessError, ValidationError):

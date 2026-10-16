@@ -138,6 +138,8 @@ for restart in range(3):  # noqa: B007
                 wait(name + ".release")
         else:
             mutate()
+            # ORM writes can be deferred; rendezvous after acquiring actual writes.
+            env.flush_all()
             signal("ready")
             wait(name + ".release")
         env.cr.commit()

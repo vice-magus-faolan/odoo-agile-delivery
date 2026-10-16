@@ -116,7 +116,7 @@ class ProjectGitPolicyEffect(models.Model):
             raise ValidationError(_("A settled approved stage transition is required."))
         # Exclude caller defaults from the authorized effect receipt.
         # pylint: disable-next=context-overridden
-        return super(ProjectGitPolicyEffect, self.sudo().with_context({})).create(
+        effect = super(ProjectGitPolicyEffect, self.sudo().with_context({})).create(
             {
                 "repository_id": attempt.repository_id.id,
                 "project_id": attempt.project_id.id,
@@ -139,3 +139,7 @@ class ProjectGitPolicyEffect(models.Model):
                 "applied_at": fields.Datetime.now(),
             }
         )
+
+        effect.repository_id._git_policy_record_effect(effect)
+        effect.revision_id.rule_id._record_effect(effect)
+        return effect

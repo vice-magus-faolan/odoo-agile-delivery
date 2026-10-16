@@ -7,7 +7,6 @@ from .policy_authority import (
     check_identity,
     check_scope,
     clean_context,
-    lock_records,
     reject_keys,
     require_capability,
 )
@@ -48,6 +47,28 @@ class ProjectGitPolicyRule(models.Model):
     revision_ids = fields.One2many(
         "project.git.policy.revision", "rule_id", readonly=True
     )
+    last_effect_id = fields.Many2one(
+        "project.git.policy.effect",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="base.group_system",
+        help=(
+            "Private effect publication marker creating an ORM shared-row conflict "
+            "with competing rule authority/revocation changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
+    )
+
+    def _record_effect(self, effect):
+        """Publish effect for an ORM conflict with rule authority/revocation changes."""
+        self.ensure_one()
+        if effect.revision_id.rule_id != self:
+            raise ValidationError(_("Policy effect must retain its rule."))
+        return super(ProjectGitPolicyRule, self.sudo()).write(
+            {"last_effect_id": effect.id}
+        )
+
     policy_status = fields.Selection(
         [("disabled", "Disabled"), ("dry_run", "Dry Run"), ("active", "Active")],
         compute="_compute_policy_status",
@@ -132,17 +153,11 @@ class ProjectGitPolicyRule(models.Model):
                         _("Only the current policy owner can edit its drafts.")
                     )
 
-    def _lock_control(self):
-        lock_records(self.project_id)
-        lock_records(self.repository_id)
-        lock_records(self)
-
     # Terminal update is side-effect-only, not an inherited write return API.
     def _revoke(self, reason):  # pylint: disable=missing-return
         """Private terminal epoch update; callers authorize or revoke-only
         native hooks.
         """
-        self._lock_control()
         for rule in self:
             if rule.activation_id:
                 rule.activation_id._revoke(reason)
@@ -163,8 +178,6 @@ class ProjectGitPolicyRule(models.Model):
     def write(self, values):
         self._check_control(owner=True)
         reject_keys(values, {"name", "active"})
-        self._lock_control()
-        self._check_control(owner=True)
         if values.get("active"):
             raise ValidationError(
                 _("Policy identities cannot be recycled through unarchive.")
@@ -184,8 +197,6 @@ class ProjectGitPolicyRule(models.Model):
 
     def action_disable(self):
         """Emergency revoke, including visible System Administrators; never enables."""
-        self._check_control(emergency=True)
-        self._lock_control()
         self._check_control(emergency=True)
         self._revoke("disabled")
         return True
@@ -208,9 +219,6 @@ class ProjectGitPolicyRule(models.Model):
         if type(new_owner_id) is not int or new_owner_id <= 0:
             raise ValidationError(_("An explicit policy owner is required."))
         owner = self.env["res.users"].browse(new_owner_id).exists()
-        check_identity(owner, self.repository_id, manager=True)
-        self._lock_control()
-        self._check_control(owner=True)
         check_identity(owner, self.repository_id, manager=True)
         self._revoke("owner_changed")
         super(ProjectGitPolicyRule, self.sudo()).write({"owner_id": owner.id})

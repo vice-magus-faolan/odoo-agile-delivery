@@ -104,13 +104,13 @@ apply/manual-edit/disable races protect the separate apply boundary, not this dr
 snapshot. Proposals do not use that fence to prove an identical manual away-and-back
 change; they are deliberately never executable.
 
-Control row locks serialize scoped append producers; database uniqueness is a second
-dedupe guard. Serialization/uniqueness races require a fresh transaction, not an
-in-transaction privilege bypass or stale-cache retry. No business write can be partially
-applied here. If evidence or authority is uncertain, disable/revoke through existing
-authorized controls, retain the immutable diagnostic, correct the source/configuration
-and obtain fresh approval where required. No purge, backfill, production activation,
-publication or deployment is authorized.
+Database uniqueness deduplicates concurrent append producers; proposals remain
+informational snapshots, not execution authority. Serialization/uniqueness races require
+a fresh transaction, not an in-transaction privilege bypass or stale-cache retry. No
+business write can be partially applied here. If evidence or authority is uncertain,
+disable/revoke through existing authorized controls, retain the immutable diagnostic,
+correct the source/configuration and obtain fresh approval where required. No purge,
+backfill, production activation, publication or deployment is authorized.
 
 Canonical verification discovers the ORM matrix independently without GitHub or Scrum,
 then in aggregate clean install, upgrade and dependency-safe uninstall / reinstall.

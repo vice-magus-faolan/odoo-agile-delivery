@@ -8,7 +8,7 @@ from psycopg2.errors import DeadlockDetected, SerializationFailure
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .policy_authority import clean_context, lock_records, require_capability
+from .policy_authority import clean_context, require_capability
 from .policy_evidence import MAX_BATCH, MAX_EVIDENCE
 from .project_git_policy_attempt import MAX_ATTEMPTS
 
@@ -42,9 +42,9 @@ class ProjectGitPolicyAttempt(models.Model):
         attempt = self.with_context(clean_context(self.env))
         attempt.check_access("read")
         attempt.rule_id._check_control()
-        attempt.rule_id._lock_control()
-        for records in (attempt.activation_id, attempt, attempt.task_id):
-            lock_records(records)
+        attempt = attempt.try_lock_for_update()
+        if not attempt:
+            raise ValidationError(_("This attempt is currently being processed."))
         require_capability(attempt.env)
         attempt.check_access("read")
         attempt.rule_id._check_control()
@@ -62,7 +62,7 @@ class ProjectGitPolicyAttempt(models.Model):
         return True
 
     def _check_retry_candidate(self):
-        """Read-only eligibility under the same controls and Task locks as apply."""
+        """Read-only eligibility; apply independently revalidates before publication."""
         if (
             self.state != "retryable"
             or self.reason != "transient_failure"
@@ -107,7 +107,6 @@ class ProjectGitPolicyAttempt(models.Model):
         local_tasks = tasks.filtered(lambda t: t.id in associated.task_id.ids)
         overflow = overflow or len(local_tasks) > MAX_EVIDENCE
         for task in local_tasks.sorted("id")[:MAX_EVIDENCE]:
-            lock_records(task)
             choices = []
             for rule in rules:
                 result, observation = evaluator._candidate(
@@ -141,8 +140,6 @@ class ProjectGitPolicyAttempt(models.Model):
         """
         repository.check_access("read")
         repository.project_id.check_access("read")
-        lock_records(repository.project_id)
-        lock_records(repository)
         candidates, cursor, overflow = self._candidate_page(repository, after_id)
         attempts = self.browse()
         if overflow:
@@ -156,7 +153,7 @@ class ProjectGitPolicyAttempt(models.Model):
         return attempts, cursor, "no_ci_condition"
 
     def _current_candidate(self, repository, task):
-        """Fresh native access/evidence queries within already locked control scope."""
+        """Query native access/evidence before shared-row effect publication."""
         activation = self.activation_id.with_env(repository.env)
         activation._check_current_authority(task)
         if activation.mode != "apply":
@@ -229,7 +226,7 @@ class ProjectGitPolicyAttempt(models.Model):
         return result, observation
 
     def _has_current_lease(self, expected_token):
-        """Check private claim ownership only after the control/attempt locks."""
+        """Check private claim ownership only after the native attempt lock."""
         return bool(
             expected_token
             and self.state == "processing"
@@ -242,15 +239,10 @@ class ProjectGitPolicyAttempt(models.Model):
         self.ensure_one()
         # Private lease processing must discard caller context completely.
         service = self.sudo().with_context({})  # pylint: disable=context-overridden
+        service = service.try_lock_for_update()
+        if not service:
+            return
         activation = service.activation_id
-        for records in (
-            service.project_id,
-            service.repository_id,
-            service.rule_id,
-            activation,
-            service,
-        ):
-            lock_records(records)
         if not service._has_current_lease(expected_token):
             return
         if service.env["project.git.policy.effect"]._consumed(
@@ -272,7 +264,6 @@ class ProjectGitPolicyAttempt(models.Model):
             .with_user(activation.execution_user_id)
             .browse(service.task_id.id)
         )
-        lock_records(task)
         try:
             result, observation = service._current_candidate(repository, task)
         except (AccessError, ValidationError):
@@ -286,7 +277,7 @@ class ProjectGitPolicyAttempt(models.Model):
         service._write_stage_effect(task, observation)
 
     def _write_stage_effect(self, task, observation):
-        """Already revalidated and locked; preserve native effects then seal
+        """Already revalidated; preserve native effects then publish shared activity
         atomically.
         """
         service = self

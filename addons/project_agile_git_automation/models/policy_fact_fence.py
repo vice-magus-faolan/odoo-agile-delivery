@@ -1,15 +1,14 @@
 """Optional observation fencing, never policy evaluation or workflow mutation.
 
-A repository evidence counter supplies an MVCC write conflict as well as a mutex.
-Row locks alone cannot refresh Odoo's repeatable-read snapshot after a waiter wakes.
-Every ORM provenance input serializes with apply; rolled-back native operations
-also roll back the counter. Core facts remain independently installable.
+Provenance mutations advance a repository input version through the ORM. Actual
+approvals and effects publish their latest immutable record on that same row, so
+a concurrent input edit cannot commit alongside stale policy authority/evidence.
+Rolled-back operations roll back both writes. Core facts remain independent.
 """
 
-from odoo import api, fields, models
-from odoo.tools import SQL
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
-from .policy_authority import lock_records
 from .policy_revocation_hooks import _policy_ready
 
 
@@ -19,6 +18,94 @@ class ProjectGitRepository(models.Model):
     git_policy_evidence_version = fields.Integer(
         default=0, readonly=True, copy=False, groups="base.group_system"
     )
+
+    git_policy_last_activation_id = fields.Many2one(
+        "project.git.policy.activation",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="base.group_system",
+        help=(
+            "Private approval publication marker creating an ORM shared-row conflict "
+            "with competing repository authority/evidence changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
+    )
+    git_policy_last_effect_id = fields.Many2one(
+        "project.git.policy.effect",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="base.group_system",
+        help=(
+            "Private effect publication marker creating an ORM shared-row conflict "
+            "with competing repository authority/evidence changes. Not authorization, "
+            "a lease counter or a recovery/navigation feature."
+        ),
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        protected = {
+            "git_policy_evidence_version",
+            "git_policy_last_activation_id",
+            "git_policy_last_effect_id",
+        }
+        if any(protected.intersection(values) for values in vals_list):
+            raise ValidationError(
+                _("Repository policy evidence and activity are server-owned.")
+            )
+        context = {
+            key: value
+            for key, value in self.env.context.items()
+            if key.removeprefix("default_") not in protected
+        }
+        # Replace context to remove only defaults for server-owned policy fields.
+        scoped = self.with_env(self.env(context=context))
+        return super(ProjectGitRepository, scoped).create(vals_list)
+
+    def write(self, values):
+        if {
+            "git_policy_evidence_version",
+            "git_policy_last_activation_id",
+            "git_policy_last_effect_id",
+        }.intersection(values):
+            raise ValidationError(
+                _("Repository policy evidence and activity are server-owned.")
+            )
+        return super().write(values)
+
+    def _git_policy_advance_evidence(self):
+        """Called only after input ACL checks; rollback includes the input mutation."""
+        for repository in self:
+            version = repository.git_policy_evidence_version + 1
+            super(ProjectGitRepository, repository.sudo()).write(
+                {"git_policy_evidence_version": version}
+            )
+
+        return True
+
+    def _git_policy_record_activation(self, activation):
+        """Publish approval to conflict with repository authority/evidence edits."""
+        self.ensure_one()
+        if activation.repository_id != self:
+            raise ValidationError(_("Policy approval must retain its repository."))
+        return super(ProjectGitRepository, self.sudo()).write(
+            {
+                "git_policy_last_activation_id": activation.id,
+            }
+        )
+
+    def _git_policy_record_effect(self, effect):
+        """Publish effect for an ORM conflict with repository authority/input edits."""
+        self.ensure_one()
+        if effect.repository_id != self:
+            raise ValidationError(_("Policy effect must retain its repository."))
+        return super(ProjectGitRepository, self.sudo()).write(
+            {
+                "git_policy_last_effect_id": effect.id,
+            }
+        )
 
 
 def fence_inputs(records, vals_list=()):
@@ -34,18 +121,7 @@ def fence_inputs(records, vals_list=()):
     repositories = (
         records.env["project.git.repository"].sudo().browse(sorted(set(ids))).exists()
     )
-    lock_records(repositories.project_id)
-    lock_records(repositories)
-    if repositories:
-        records.env.cr.execute(
-            SQL(
-                "UPDATE project_git_repository "
-                "SET git_policy_evidence_version = git_policy_evidence_version + 1 "
-                "WHERE id IN %s",
-                tuple(repositories.ids),
-            )
-        )
-        repositories.invalidate_recordset(["git_policy_evidence_version"])
+    repositories._git_policy_advance_evidence()
 
 
 class PolicyEvidenceFence(models.AbstractModel):

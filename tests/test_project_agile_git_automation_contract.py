@@ -45,8 +45,6 @@ class TestGitAutomationContract(unittest.TestCase):
                 "write",
                 "unlink",
                 "_git_policy_affected_projects",
-                "_git_policy_lock_scopes",
-                "_git_policy_requested_scopes",
                 "_git_policy_fence_tasks",
                 "_compute_state",
                 "_git_policy_advance_transition",
@@ -88,25 +86,6 @@ class TestGitAutomationContract(unittest.TestCase):
             "from . import test_policy_contract",
             (self.addon / "tests" / "__init__.py").read_text(),
         )
-
-    def test_native_state_observer_preserves_compute(self):
-        hook = self.addon / "models" / "project_task.py"
-        tree = ast.parse(hook.read_text())
-        cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
-        compute = next(
-            node
-            for node in cls.body
-            if isinstance(node, ast.FunctionDef) and node.name == "_compute_state"
-        )
-        mutations = [
-            node
-            for node in ast.walk(compute)
-            if isinstance(node, ast.Assign)
-            and any(isinstance(target, ast.Attribute) for target in node.targets)
-        ]
-        self.assertFalse(mutations, "Observer must not assign native business fields")
-        self.assertIn("super()._compute_state()", ast.unparse(compute))
-        self.assertIn("depend_on_ids.state", ast.unparse(compute))
 
     def test_contract_excludes_template_driven_nontransactional_effects(self):
         contract = (

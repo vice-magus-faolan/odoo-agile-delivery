@@ -3,10 +3,15 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .policy_authority import MODES, clean_context, lock_records, require_capability
+from .policy_authority import MODES, clean_context, require_capability
 from .policy_revocation_hooks import _revoke
 
-CONTROLS = {"git_policy_enabled", "git_policy_mode", "git_policy_authority_epoch"}
+CONTROLS = {
+    "git_policy_enabled",
+    "git_policy_mode",
+    "git_policy_authority_epoch",
+    "git_policy_last_activation_id",
+}
 PROJECT_AUTHORITY_FIELDS = {
     "active",
     "company_id",
@@ -28,6 +33,30 @@ class ProjectProject(models.Model):
         MODES, required=True, default="dry_run", readonly=True, copy=False
     )
     git_policy_authority_epoch = fields.Integer(default=0, readonly=True, copy=False)
+
+    git_policy_last_activation_id = fields.Many2one(
+        "project.git.policy.activation",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="base.group_system",
+        help=(
+            "Private approval publication marker creating an ORM shared-row conflict "
+            "with competing Project authority changes, including first approval. "
+            "Not authorization, a lease counter or a recovery/navigation feature."
+        ),
+    )
+
+    def _git_policy_record_activation(self, activation):
+        """Publish approval to conflict with competing Project authority edits."""
+        self.ensure_one()
+        if activation.project_id != self:
+            raise ValidationError(_("Policy approval must retain its Project."))
+        return super(ProjectProject, self.sudo()).write(
+            {
+                "git_policy_last_activation_id": activation.id,
+            }
+        )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -88,9 +117,6 @@ class ProjectProject(models.Model):
             ]
             stages |= self.env["project.task.type"].sudo().browse(stage_ids).exists()
             shared_stage_projects = stages.project_ids
-            lock_records(self | shared_stage_projects)
-        if PROJECT_AUTHORITY_FIELDS.intersection(values):
-            lock_records(self)
         result = super().write(values)
         if PROJECT_AUTHORITY_FIELDS.intersection(values):
             self._git_policy_invalidate("project_changed")
@@ -102,7 +128,6 @@ class ProjectProject(models.Model):
 
     # Revocation/epoch update is a side-effect-only internal operation.
     def _git_policy_invalidate(self, reason):  # pylint: disable=missing-return
-        lock_records(self)
         self.env["project.git.policy.activation"]._revoke_matching(
             [("project_id", "in", self.ids)], reason
         )
@@ -114,8 +139,6 @@ class ProjectProject(models.Model):
     def action_enable_git_policy(self, mode="dry_run"):
         self.ensure_one()
         require_capability(self.env)
-        self.check_access("write")
-        lock_records(self)
         self.check_access("write")
         if not isinstance(mode, str) or mode not in dict(MODES):
             raise ValidationError(_("Only finite dry-run/apply modes are supported."))
@@ -132,9 +155,6 @@ class ProjectProject(models.Model):
         return True
 
     def action_disable_git_policy(self):
-        require_capability(self.env, emergency=True)
-        self.check_access("read")
-        lock_records(self)
         require_capability(self.env, emergency=True)
         self.check_access("read")
         self._git_policy_invalidate("disabled")

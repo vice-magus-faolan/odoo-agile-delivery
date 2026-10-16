@@ -8,7 +8,6 @@ from .policy_authority import (
     check_task_authority,
     clean_context,
     exact_name,
-    lock_records,
     reject_keys,
     require_capability,
     stage_fingerprint,
@@ -112,8 +111,6 @@ class ProjectGitPolicyRevision(models.Model):
             _check_stage_commands(values)
             rule = self.env["project.git.policy.rule"].browse(values.get("rule_id"))
             rule._check_control(owner=True)
-            rule._lock_control()
-            rule._check_control(owner=True)
             if rule.id not in numbers:
                 previous = self.search(
                     [("rule_id", "=", rule.id)], order="revision desc", limit=1
@@ -177,9 +174,6 @@ class ProjectGitPolicyRevision(models.Model):
         self._check_editable()
         reject_keys(values, SELECTORS)
         _check_stage_commands(values)
-        self.rule_id._lock_control()
-        lock_records(self)
-        self._check_editable()
         self.rule_id._revoke("revision_changed")
         return super().write(values)
 
@@ -221,10 +215,6 @@ class ProjectGitPolicyRevision(models.Model):
 
     def _check_activation(self, acknowledgment):
         require_capability(self.env)
-        self.check_access("write")
-        self.rule_id._check_control()
-        self.rule_id._lock_control()
-        lock_records(self)
         self.check_access("write")
         self.rule_id._check_control()
         if self.approved_at:

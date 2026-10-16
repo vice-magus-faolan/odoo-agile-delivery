@@ -7,7 +7,6 @@ import re
 from psycopg2 import IntegrityError
 
 from odoo import api, fields, models
-from odoo.tools import SQL
 
 MAX_RETAINED_PAYLOAD_CHARS = 4096
 MAX_RETAINED_COLLECTION_ITEMS = 100
@@ -75,33 +74,29 @@ class ProjectGitRepository(models.Model):
 
     @api.model
     def _github_ingress_configuration(self, provider_repository_id):
-        """Return active GitHub ingress configuration without exposing it through
-        the ORM.
+        """Return only the server-side configuration for an active GitHub identity.
 
-        A public webhook has no Project ACL. This parameterized internal lookup is
-        deliberately limited to a globally unique provider identity and returns no
-        data to the HTTP caller. It does not use caller-selected company/project
-        context or elevate an Odoo user to make an authorization decision.
+        The public webhook has no Project ACL. This private lookup elevates only
+        to read the globally unique provider configuration, ignoring caller
+        context. Nothing is returned to the HTTP caller; the controller must
+        still authenticate the exact body with this repository-specific secret
+        before recording a delivery. ORM privilege is not webhook authentication.
         """
 
-        self.env.cr.execute(
-            """
-            SELECT id, webhook_secret, retention_policy
-              FROM project_git_repository
-             WHERE provider = %s
-               AND provider_repository_id = %s
-               AND active
-             LIMIT 1
-            """,
-            ("github", provider_repository_id),
+        repository = self.sudo().search(
+            [
+                ("provider", "=", "github"),
+                ("provider_repository_id", "=", provider_repository_id),
+                ("active", "=", True),
+            ],
+            limit=1,
         )
-        row = self.env.cr.fetchone()
-        if not row:
+        if not repository:
             return None
         return {
-            "id": row[0],
-            "webhook_secret": row[1],
-            "retention_policy": row[2],
+            "id": repository.id,
+            "webhook_secret": repository.webhook_secret,
+            "retention_policy": repository.retention_policy,
         }
 
     @api.model
@@ -185,20 +180,16 @@ class ProjectGitDelivery(models.Model):
                 and hmac.compare_digest(delivery.payload_sha256, payload_sha256)
             )
             if not exact_replay:
-                self.env.cr.execute(
-                    SQL(
-                        """
-                        UPDATE project_git_delivery
-                           SET replay_mismatch_count =
-                               LEAST(replay_mismatch_count + 1, %s),
-                               last_replay_mismatch_at = NOW()
-                         WHERE id = %s
-                        """,
-                        MAX_REPLAY_MISMATCH_COUNT,
-                        delivery.id,
-                    )
-                )
-                delivery.invalidate_recordset(
-                    ["replay_mismatch_count", "last_replay_mismatch_at"]
+                # A competing ORM write conflicts under repeatable read; let
+                # the native request retry restart the entire transaction rather
+                # than accepting a lost increment from an old snapshot.
+                delivery.write(
+                    {
+                        "replay_mismatch_count": min(
+                            delivery.replay_mismatch_count + 1,
+                            MAX_REPLAY_MISMATCH_COUNT,
+                        ),
+                        "last_replay_mismatch_at": fields.Datetime.now(),
+                    }
                 )
             return result(delivery, False, exact_replay)

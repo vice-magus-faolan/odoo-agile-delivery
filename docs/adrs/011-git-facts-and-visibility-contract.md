@@ -43,14 +43,14 @@ size exactly match. A mismatched replay is rejected and increments a bounded
 manager-visible diagnostic without retaining the conflicting body.
 
 The native scheduled processor claims at most 20 eligible GitHub deliveries per run. It
-searches FIFO windows ordered by receipt time and ID, uses Odoo 19
+searches one bounded FIFO window ordered by receipt time and ID, uses Odoo 19
 `try_lock_for_update(limit=1)` to skip locked rows, and writes lease state through the
-ORM. A fully locked window advances by its last FIFO key rather than hiding later
-eligible work. With optional Git policy installed, only lease/attempt/retry bookkeeping
-on queued, retryable or processing deliveries without a settlement time can avoid the
-shared provenance fence. This does not make them trusted evidence: settlement,
-identity/payload changes, extra fields and processed or mixed recordsets remain fenced,
-and every write retains native ACLs and the ORM override chain.
+ORM. If the entire window is locked, claiming stops and defers work to a later run. With
+optional Git policy installed, only lease/attempt/retry bookkeeping on queued, retryable
+or processing deliveries without a settlement time can avoid the shared provenance
+fence. This does not make them trusted evidence: settlement, identity/payload changes,
+extra fields and processed or mixed recordsets remain fenced, and every write retains
+native ACLs and the ORM override chain.
 
 Each claim receives an expiring processing lease with a random five-minute token. Each
 delivery settles in a savepoint: facts and the processed state commit together, while

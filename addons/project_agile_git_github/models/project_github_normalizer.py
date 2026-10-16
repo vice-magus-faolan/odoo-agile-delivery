@@ -150,37 +150,25 @@ class ProjectGitDelivery(models.Model):
         # replay remains subject to manager authorization and record access.
         queue = self.sudo()
         lease_token = secrets.token_urlsafe(24)
-        after = []
         try:
             with self.env.cr.savepoint():
-                while candidates := queue.search(
-                    domain + after, order="received_at, id", limit=BATCH_SIZE
-                ):
-                    delivery = candidates.try_lock_for_update(limit=1)
-                    if delivery:
-                        delivery.invalidate_recordset(["attempt_count"])
-                        delivery.write(
-                            {
-                                "state": "processing",
-                                "lease_token": lease_token,
-                                "lease_expires_at": fields.Datetime.add(
-                                    now, seconds=LEASE_SECONDS
-                                ),
-                                "attempt_count": delivery.attempt_count + 1,
-                                "next_retry_at": False,
-                            }
-                        )
-                        return delivery.with_context(git_delivery_lease=lease_token)
-                    # An entirely locked window must not hide later work. Use a
-                    # FIFO keyset, not offsets into a changing eligible queue.
-                    last = candidates[-1]
-                    after = [
-                        "|",
-                        ("received_at", ">", last.received_at),
-                        "&",
-                        ("received_at", "=", last.received_at),
-                        ("id", ">", last.id),
-                    ]
+                candidates = queue.search(
+                    domain, order="received_at, id", limit=BATCH_SIZE
+                )
+                delivery = candidates.try_lock_for_update(limit=1)
+                if delivery:
+                    delivery.write(
+                        {
+                            "state": "processing",
+                            "lease_token": lease_token,
+                            "lease_expires_at": fields.Datetime.add(
+                                now, seconds=LEASE_SECONDS
+                            ),
+                            "attempt_count": delivery.attempt_count + 1,
+                            "next_retry_at": False,
+                        }
+                    )
+                    return delivery.with_context(git_delivery_lease=lease_token)
         except SerializationFailure:
             return self.browse()
         return self.browse()

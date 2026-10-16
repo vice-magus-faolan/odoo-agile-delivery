@@ -11,8 +11,6 @@ from odoo import SUPERUSER_ID, api
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 
-from ..models.project_github_normalizer import BATCH_SIZE
-
 
 class TestGitHubDeliveryNormalization(TransactionCase):
     """Exercise fact idempotency, ordering, associations, and failure visibility."""
@@ -663,61 +661,6 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 (first_claim.state, first_claim.attempt_count), ("processing", 1)
             )
             self.assertTrue(first_claim.lease_token)
-
-    def test_normalizer_skips_a_locked_fifo_window(self):
-        """Independent workers reach later work even when a full window is locked."""
-
-        fixture = self._create_committed_delivery()
-        with self.registry._db.cursor() as cursor:
-            environment = api.Environment(cursor, SUPERUSER_ID, {})
-            first = environment["project.git.delivery"].browse(fixture["delivery_id"])
-            first.received_at = "2000-01-01 00:00:00"
-            deliveries = first
-            for index in range(BATCH_SIZE):
-                deliveries |= first.copy(
-                    {
-                        "provider_delivery_id": first.provider_delivery_id
-                        + "-"
-                        + str(index),
-                        "state": "queued",
-                        "received_at": first.received_at,
-                        "payload_sha256": first.payload_sha256,
-                        "payload_size": first.payload_size,
-                    }
-                )
-            delivery_ids = deliveries.ids
-            cursor.commit()
-
-        with (
-            self.registry._db.cursor() as first_cursor,
-            self.registry._db.cursor() as second_cursor,
-        ):
-            # A broader inherited write lock must fail this test promptly.
-            for cursor in (first_cursor, second_cursor):
-                cursor.execute("SET LOCAL lock_timeout = %s", ("3s",))
-                cursor.execute("SET LOCAL statement_timeout = %s", ("10s",))
-            first_environment = api.Environment(first_cursor, SUPERUSER_ID, {})
-            second_environment = api.Environment(second_cursor, SUPERUSER_ID, {})
-            first_claim = first_environment[
-                "project.git.delivery"
-            ]._claim_github_delivery()
-            self.assertEqual(first_claim.id, delivery_ids[0])
-            first_environment["project.git.delivery"].browse(
-                delivery_ids[1:-1]
-            ).lock_for_update()
-
-            second_claim = second_environment[
-                "project.git.delivery"
-            ]._claim_github_delivery()
-
-            self.assertEqual(second_claim.id, delivery_ids[-1])
-            self.assertEqual(
-                (second_claim.state, second_claim.attempt_count), ("processing", 1)
-            )
-            self.assertNotEqual(first_claim.lease_token, second_claim.lease_token)
-            self.assertFalse(
-                second_environment["project.git.delivery"]._claim_github_delivery()
-            )
 
     def test_policy_evidence_writes_still_serialize_with_repository(self):
         """The lease exemption never removes settlement/payload parent fencing."""

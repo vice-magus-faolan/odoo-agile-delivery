@@ -232,42 +232,55 @@ class TestGitHubIngressSecurity(TransactionCase):
         ready = threading.Barrier(2)
         results, failures = [], []
 
-        def record_replay():
+        def record_replay(environment):
             try:
-                with self.registry._db.cursor() as cursor:
-                    environment = api.Environment(cursor, SUPERUSER_ID, {})
-                    # Both transactions start from the same pre-increment snapshot.
-                    self.assertEqual(
-                        environment["project.git.delivery"]
-                        .browse(delivery_id)
-                        .replay_mismatch_count,
-                        0,
+                cursor = environment.cr
+                # Both transactions start from the same pre-increment snapshot.
+                self.assertEqual(
+                    environment["project.git.delivery"]
+                    .browse(delivery_id)
+                    .replay_mismatch_count,
+                    0,
+                )
+                ready.wait(timeout=5)
+
+                def record():
+                    cursor.execute("SET LOCAL lock_timeout = %s", ("3s",))
+                    cursor.execute("SET LOCAL statement_timeout = %s", ("10s",))
+                    replay, created, exact = environment[
+                        "project.git.delivery"
+                    ]._record_authenticated_github_delivery(
+                        **{**values, "payload_sha256": "b" * 64},
+                        return_replay_status=True,
                     )
-                    ready.wait(timeout=5)
+                    return replay.id, created, exact
 
-                    def record():
-                        cursor.execute("SET LOCAL lock_timeout = %s", ("3s",))
-                        cursor.execute("SET LOCAL statement_timeout = %s", ("10s",))
-                        replay, created, exact = environment[
-                            "project.git.delivery"
-                        ]._record_authenticated_github_delivery(
-                            **{**values, "payload_sha256": "b" * 64},
-                            return_replay_status=True,
-                        )
-                        return replay.id, created, exact
-
-                    results.append(retrying(record, environment))
+                results.append(retrying(record, environment))
             except BaseException as error:  # pragma: no cover - asserted below
                 failures.append(error)
 
-        threads = [threading.Thread(target=record_replay) for _ in range(2)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join(60)
-        self.assertFalse(any(thread.is_alive() for thread in threads))
-        self.assertFalse(failures, failures)
-        self.assertEqual(results, [(delivery_id, False, False)] * 2)
+        with (
+            self.registry._db.cursor() as first_cursor,
+            self.registry._db.cursor() as second_cursor,
+        ):
+            # Initial environment construction resolves Registry under its lock.
+            # The installer holds that lock in this thread during at-install
+            # tests, so bind each independent transaction before starting workers.
+            environments = [
+                api.Environment(cursor, SUPERUSER_ID, {})
+                for cursor in (first_cursor, second_cursor)
+            ]
+            threads = [
+                threading.Thread(target=record_replay, args=(environment,))
+                for environment in environments
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(60)
+            self.assertFalse(any(thread.is_alive() for thread in threads))
+            self.assertFalse(failures, failures)
+            self.assertEqual(results, [(delivery_id, False, False)] * 2)
         with self.registry._db.cursor() as cursor:
             environment = api.Environment(cursor, SUPERUSER_ID, {})
             deliveries = environment["project.git.delivery"].search(

@@ -7,6 +7,10 @@ from odoo import fields
 from odoo.exceptions import ValidationError
 from odoo.tests.common import TransactionCase
 
+from odoo.addons.project_agile_git_github.models.project_github_retention import (
+    RETENTION_CLEANUP_BATCH_SIZE,
+)
+
 
 class TestGitHubDeliveryRetention(TransactionCase):
     """Keep terminal cleanup bounded without silently losing actionable evidence."""
@@ -58,9 +62,12 @@ class TestGitHubDeliveryRetention(TransactionCase):
         processed = self._delivery("processed", "processed", now - timedelta(days=1))
         discarded = self._delivery("discarded", "discarded", now - timedelta(days=1))
         queued = self._delivery("queued", "queued", now - timedelta(days=1))
+        processing = self._delivery("processing", "processing", now - timedelta(days=1))
         failed = self._delivery("failed", "failed", now - timedelta(days=1))
         future = self._delivery("future", "processed", now + timedelta(days=1))
 
+        fenced = "git_policy_evidence_version" in self.repository._fields
+        evidence_version = self.repository.git_policy_evidence_version if fenced else 0
         purged = self.env["project.git.delivery"]._purge_expired_github_payloads()
         self.env.invalidate_all()
 
@@ -71,24 +78,21 @@ class TestGitHubDeliveryRetention(TransactionCase):
         self.assertFalse(discarded.retained_payload)
         self.assertTrue(processed.retained_payload_purged_at)
         self.assertTrue(discarded.retained_payload_purged_at)
+        self.assertTrue(processing.retained_payload)
         self.assertTrue(queued.retained_payload)
         self.assertTrue(failed.retained_payload)
         self.assertTrue(future.retained_payload)
         self.assertFalse(queued.retained_payload_purged_at)
         self.assertFalse(failed.retained_payload_purged_at)
-
-    def test_cleanup_rechecks_state_before_purging_a_stale_candidate(self):
-        now = fields.Datetime.now()
-        delivery = self._delivery("raced", "processed", now - timedelta(days=1))
-        delivery.state = "queued"
-        model = self.env["project.git.delivery"]
-
-        with patch.object(type(model), "search", return_value=delivery):
-            purged = model._purge_expired_github_payloads(now)
-
-        self.assertEqual(purged, 0)
-        self.assertTrue(delivery.retained_payload)
-        self.assertFalse(delivery.retained_payload_purged_at)
+        if fenced:
+            self.assertGreater(
+                self.repository.git_policy_evidence_version, evidence_version
+            )
+        purged_at = processed.retained_payload_purged_at
+        self.assertEqual(
+            self.env["project.git.delivery"]._purge_expired_github_payloads(), 0
+        )
+        self.assertEqual(processed.retained_payload_purged_at, purged_at)
 
     def test_oversized_redacted_excerpt_is_terminal_and_cannot_be_reprocessed(self):
         excerpt = self.repository._redacted_github_payload_excerpt(
@@ -119,3 +123,20 @@ class TestGitHubDeliveryRetention(TransactionCase):
         )
         with self.assertRaises(ValidationError):
             delivery.action_reprocess_github_delivery()
+
+    def test_cleanup_is_bounded_and_cron_reports_progress(self):
+        now = fields.Datetime.now()
+        for index in range(RETENTION_CLEANUP_BATCH_SIZE + 1):
+            self._delivery(str(index), "processed", now - timedelta(days=1))
+        model = self.env["project.git.delivery"]
+        cron = self.env["ir.cron"]
+        with patch.object(type(cron), "_commit_progress") as progress:
+            self.assertEqual(
+                model._cron_purge_expired_github_payloads(),
+                RETENTION_CLEANUP_BATCH_SIZE,
+            )
+            progress.assert_called_once_with(
+                remaining=1, processed=RETENTION_CLEANUP_BATCH_SIZE
+            )
+        self.assertEqual(model._purge_expired_github_payloads(now), 1)
+        self.assertEqual(model._purge_expired_github_payloads(now), 0)

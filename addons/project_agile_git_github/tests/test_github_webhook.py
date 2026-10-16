@@ -71,6 +71,7 @@ class TestGitHubWebhook(HttpCase):
         response = self._post(self._payload(), delivery_id="delivery-valid")
 
         self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.content, b"")
         delivery = self.env["project.git.delivery"].search(
             [
                 ("repository_id", "=", self.repository.id),
@@ -212,6 +213,9 @@ class TestGitHubWebhook(HttpCase):
             (invalid.status_code, unknown.status_code, inactive.status_code),
             (401, 401, 401),
         )
+        self.assertTrue(
+            all(not response.content for response in (invalid, unknown, inactive))
+        )
         self.assertEqual(self._delivery_count(), 0)
 
     def test_cross_company_repository_requires_its_own_configured_secret(self):
@@ -247,10 +251,25 @@ class TestGitHubWebhook(HttpCase):
         )
 
         self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.content, b"")
         self.assertFalse(
             self.env["project.git.delivery"].search(
                 [("repository_id", "=", other_repository.id)]
             )
+        )
+
+        accepted = self._post(
+            self._payload("4243"),
+            delivery_id="delivery-cross-company-valid",
+            secret="other-company-secret",
+        )
+        self.assertEqual(accepted.status_code, 202)
+        self.assertEqual(accepted.content, b"")
+        self.assertEqual(
+            self.env["project.git.delivery"].search_count(
+                [("repository_id", "=", other_repository.id)]
+            ),
+            1,
         )
 
     def test_malformed_oversized_and_unsupported_requests_are_rejected(self):
@@ -279,6 +298,11 @@ class TestGitHubWebhook(HttpCase):
         self.assertEqual(
             (malformed.status_code, unsupported.status_code, oversized.status_code),
             (400, 415, 413),
+        )
+        self.assertTrue(
+            all(
+                not response.content for response in (malformed, unsupported, oversized)
+            )
         )
         self.assertEqual(self._delivery_count(), 0)
 

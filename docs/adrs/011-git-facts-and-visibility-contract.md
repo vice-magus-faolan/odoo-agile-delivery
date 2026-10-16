@@ -15,9 +15,9 @@ provider/generic split is useful evidence, but mutable task-name/database-id mat
 not acceptable here.
 
 Odoo 19 at `c2957158eb2f7a341a874c3c58884c8a162ef59a` supplies the supported `ir.cron`
-scheduler and `SQL` wrapper. Its scheduled work is a portable Odoo.sh-compatible runtime
-boundary; it must not be replaced by request-thread processing or a mandatory external
-runner.
+scheduler and ORM persistence APIs. Its scheduled work is a portable Odoo.sh-compatible
+runtime boundary; it must not be replaced by request-thread processing or a mandatory
+external runner.
 
 ## Decision
 
@@ -40,7 +40,12 @@ persistence-only: it enqueues the ledger state but does not normalize facts, ass
 tasks, mutate workflow, call GitHub, or decide caller authority. Duplicate reception
 remains one row by database constraint only when the event type, body digest, and body
 size exactly match. A mismatched replay is rejected and increments a bounded
-manager-visible diagnostic without retaining the conflicting body.
+manager-visible diagnostic without retaining the conflicting body. The private
+configuration lookup uses a context-independent, narrowly elevated ORM search for the
+active provider identity; elevation does not authenticate the webhook. Mismatch
+accounting uses ordinary ORM writes, including optional provenance fencing. Competing
+updates conflict under repeatable read and escape to the native whole-request retry; a
+savepoint alone does not refresh a stale snapshot.
 
 The native scheduled processor claims at most 20 eligible GitHub deliveries per run. It
 searches one bounded FIFO window ordered by receipt time and ID, uses Odoo 19
@@ -75,7 +80,12 @@ including authorization bearer values and common GitHub/GitLab token forms. This
 defense in depth, not permission to store arbitrary secrets: unmatched credential
 formats remain residual risk and redacted excerpts stay System Administrator-only. Raw
 payloads and webhook secrets are never exposed through ordinary reads, logs, errors,
-exports, or chatter.
+exports, or chatter. Bounded retention cleanup selects expired processed/discarded
+excerpts by provider, terminal state, payload presence and expiry, then clears the
+selected batch with one ORM write, preserving the ledger and recording the purge
+timestamp. These writes retain native access checks, inherited hooks and conservative
+policy evidence fencing. A concurrent state change causes the write to fail under
+repeatable read; the next scheduled run selects eligible work in a fresh transaction.
 
 Task association accepts only explicit immutable keys matching `ENG-142`-style uppercase
 project keys with a positive decimal suffix. Tokens must be delimited from every Unicode
@@ -126,5 +136,7 @@ requires clean install, update, and dependency-safe uninstall/reinstall verifica
 - OCA Project PR #1792: https://api.github.com/repos/OCA/project/pulls/1792
 - Odoo 19 scheduled actions:
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/addons/base/models/ir_cron.py
-- Odoo 19 SQL wrapper:
-  https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/tools/sql.py
+- Odoo 19 native transaction retry:
+  https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/service/model.py
+- Odoo 19 repeatable-read cursor and savepoints:
+  https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/sql_db.py

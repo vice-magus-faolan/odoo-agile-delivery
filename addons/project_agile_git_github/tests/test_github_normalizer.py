@@ -5,6 +5,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from psycopg2 import IntegrityError
+from psycopg2.errors import LockNotAvailable, SerializationFailure
 
 from odoo import SUPERUSER_ID, api
 from odoo.exceptions import AccessError, ValidationError
@@ -179,7 +180,19 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 }
             )
             cursor.commit()
+        self.addCleanup(self._remove_committed_delivery, project.id, repository.id)
         return {"delivery_id": delivery.id, "repository_id": repository.id}
+
+    def _remove_committed_delivery(self, project_id, repository_id):
+        """Retire only this fixture, including copies visible to later native tests."""
+
+        with self.registry._db.cursor() as cursor:
+            environment = api.Environment(cursor, SUPERUSER_ID, {})
+            repository = environment["project.git.repository"].browse(repository_id)
+            repository.git_delivery_ids.unlink()
+            repository.unlink()
+            environment["project.project"].browse(project_id).unlink()
+            cursor.commit()
 
     def test_push_creates_facts_and_exact_key_associations_without_task_mutation(self):
         before = self.first_task.read(["stage_id", "message_partner_ids"])[0]
@@ -629,6 +642,10 @@ class TestGitHubDeliveryNormalization(TransactionCase):
             self.registry._db.cursor() as first_cursor,
             self.registry._db.cursor() as second_cursor,
         ):
+            # A broader inherited write lock must fail this test promptly.
+            for cursor in (first_cursor, second_cursor):
+                cursor.execute("SET LOCAL lock_timeout = %s", ("3s",))
+                cursor.execute("SET LOCAL statement_timeout = %s", ("10s",))
             first_environment = api.Environment(first_cursor, SUPERUSER_ID, {})
             second_environment = api.Environment(second_cursor, SUPERUSER_ID, {})
             first_claim = first_environment[
@@ -644,6 +661,123 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                 (first_claim.state, first_claim.attempt_count), ("processing", 1)
             )
             self.assertTrue(first_claim.lease_token)
+
+    def test_policy_evidence_writes_still_serialize_with_repository(self):
+        """The lease exemption never removes settlement/payload parent fencing."""
+
+        if (
+            "git_policy_evidence_version"
+            not in self.env["project.git.repository"]._fields
+        ):
+            self.skipTest("Optional Git policy is not installed.")
+        fixture = self._create_committed_delivery()
+        with (
+            self.registry._db.cursor() as first_cursor,
+            self.registry._db.cursor() as second_cursor,
+        ):
+            first_environment = api.Environment(first_cursor, SUPERUSER_ID, {})
+            second_environment = api.Environment(second_cursor, SUPERUSER_ID, {})
+            second_cursor.execute("SET LOCAL lock_timeout = %s", ("1s",))
+            second_cursor.execute("SET LOCAL statement_timeout = %s", ("5s",))
+            first_environment["project.git.repository"].browse(
+                fixture["repository_id"]
+            ).lock_for_update()
+            delivery = second_environment["project.git.delivery"].browse(
+                fixture["delivery_id"]
+            )
+            before = delivery.read(["state", "payload_sha256", "attempt_count"])
+            for values in (
+                {"state": "processed", "attempt_count": 1},
+                {"payload_sha256": "e" * 64, "attempt_count": 1},
+            ):
+                with (
+                    self.subTest(values=values),
+                    self.assertRaises(LockNotAvailable),
+                    second_cursor.savepoint(),
+                ):
+                    delivery.write(values)
+                delivery.invalidate_recordset()
+                self.assertEqual(
+                    delivery.read(["state", "payload_sha256", "attempt_count"]), before
+                )
+
+    def test_normalizer_respects_retry_timing_and_active_leases(self):
+        """Future retries and live leases are ineligible regardless of FIFO age."""
+
+        for index, values in enumerate(
+            (
+                {"state": "queued", "next_retry_at": "2999-01-01 00:00:00"},
+                {"state": "retryable", "next_retry_at": "2999-01-01 00:00:00"},
+                {
+                    "state": "processing",
+                    "lease_token": "live-lease",
+                    "lease_expires_at": "2999-01-01 00:00:00",
+                },
+                {"state": "received"},
+                {"state": "failed"},
+            )
+        ):
+            delivery = self._delivery("push", {}, "ineligible-" + str(index))
+            delivery.write(values)
+        due = self._delivery("push", {}, "due-retry")
+        due.write({"state": "retryable", "next_retry_at": "2000-01-01 00:00:00"})
+
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+
+        self.assertEqual(claimed, due)
+        self.assertEqual((claimed.state, claimed.attempt_count), ("processing", 1))
+        self.assertFalse(claimed.next_retry_at)
+        self.assertFalse(self.env["project.git.delivery"]._claim_github_delivery())
+
+    def test_stale_worker_cannot_settle_a_replacement_lease(self):
+        """An expired token cannot normalize facts or clear its replacement."""
+
+        delivery = self._delivery(
+            "push",
+            self._push("s" * 40, "2026-01-03T03:04:05Z", "NRM-1 replacement"),
+            "replacement-lease",
+        )
+        stale = self.env["project.git.delivery"]._claim_github_delivery()
+        stale_token = stale.lease_token
+        stale.lease_expires_at = "2000-01-01 00:00:00"
+        replacement = self.env["project.git.delivery"]._claim_github_delivery()
+
+        self.assertEqual(replacement, delivery)
+        self.assertNotEqual(replacement.lease_token, stale_token)
+        self.assertFalse(stale._settle_github_delivery())
+        self.assertEqual(
+            (replacement.state, replacement.attempt_count), ("processing", 2)
+        )
+        self.assertEqual(
+            replacement.lease_token, replacement.env.context["git_delivery_lease"]
+        )
+        self.assertFalse(
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        replacement._settle_github_delivery()
+        self.assertEqual(replacement.state, "processed")
+
+    def test_claim_serialization_failure_rolls_back_lease_writes(self):
+        """A losing claim leaves no partial lease or consumed attempt."""
+
+        delivery = self._delivery("push", {}, "claim-serialization")
+        original_write = type(delivery).write
+
+        def conflicting_write(records, values):
+            original_write(records, values)
+            records.flush_recordset()
+            raise SerializationFailure("concurrent claim")
+
+        with patch.object(type(delivery), "write", conflicting_write):
+            self.assertFalse(delivery._claim_github_delivery())
+
+        delivery.invalidate_recordset()
+        self.assertEqual((delivery.state, delivery.attempt_count), ("queued", 0))
+        self.assertFalse(delivery.lease_token)
+        self.assertFalse(delivery.lease_expires_at)
+        self.assertEqual(delivery._claim_github_delivery(), delivery)
 
     def test_expired_normalizer_lease_is_recovered_and_settled(self):
         delivery = self._delivery(

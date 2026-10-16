@@ -45,10 +45,7 @@ configuration lookup uses a context-independent, narrowly elevated ORM search fo
 active provider identity; elevation does not authenticate the webhook. Mismatch
 accounting uses ordinary ORM writes, including optional provenance fencing. Competing
 updates conflict under repeatable read and escape to the native whole-request retry; a
-savepoint alone does not refresh a stale snapshot. The canonical verifier exercises
-competing replay sessions through an Odoo-shell probe after registry preload returns, so
-the native test runner does not hold the registry lock needed by transaction reset.
-Ordinary ingress security and rollback coverage remains in the native addon tests.
+savepoint alone does not refresh a stale snapshot.
 
 The native scheduled processor claims at most 20 eligible GitHub deliveries per run. It
 searches one bounded FIFO window ordered by receipt time and ID, uses Odoo 19
@@ -83,11 +80,12 @@ including authorization bearer values and common GitHub/GitLab token forms. This
 defense in depth, not permission to store arbitrary secrets: unmatched credential
 formats remain residual risk and redacted excerpts stay System Administrator-only. Raw
 payloads and webhook secrets are never exposed through ordinary reads, logs, errors,
-exports, or chatter. Bounded retention cleanup rechecks provider, terminal state,
-payload presence and expiry immediately before its ORM write. It clears only expired
-processed/discarded excerpts, preserving the ledger and purge timestamp. These writes
-retain native access checks, inherited hooks and conservative policy evidence fencing;
-concurrent state changes require a fresh transaction rather than purging stale work.
+exports, or chatter. Bounded retention cleanup selects expired processed/discarded
+excerpts by provider, terminal state, payload presence and expiry, then clears the
+selected batch with one ORM write, preserving the ledger and recording the purge
+timestamp. These writes retain native access checks, inherited hooks and conservative
+policy evidence fencing. A concurrent state change causes the write to fail under
+repeatable read; the next scheduled run selects eligible work in a fresh transaction.
 
 Task association accepts only explicit immutable keys matching `ENG-142`-style uppercase
 project keys with a positive decimal suffix. Tokens must be delimited from every Unicode
@@ -139,6 +137,6 @@ requires clean install, update, and dependency-safe uninstall/reinstall verifica
 - Odoo 19 scheduled actions:
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/addons/base/models/ir_cron.py
 - Odoo 19 native transaction retry:
-  https://raw.githubusercontent.com/odoo/odoo/19.0/odoo/service/model.py
+  https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/service/model.py
 - Odoo 19 repeatable-read cursor and savepoints:
-  https://raw.githubusercontent.com/odoo/odoo/19.0/odoo/sql_db.py
+  https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/sql_db.py

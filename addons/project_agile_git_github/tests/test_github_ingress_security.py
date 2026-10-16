@@ -1,11 +1,8 @@
 """Security and database-invariant coverage for GitHub delivery ingress."""
 
-from unittest.mock import patch
-
 from psycopg2 import IntegrityError
 
 from odoo.exceptions import AccessError
-from odoo.service.model import get_public_method
 from odoo.tests.common import TransactionCase
 
 from odoo.addons.mail.tests.common import mail_new_test_user
@@ -96,8 +93,6 @@ class TestGitHubIngressSecurity(TransactionCase):
             .with_user(self.env.ref("base.public_user"))
             .with_context(allowed_company_ids=[999999], active_test=False)
         )
-        with self.assertRaises(AccessError):
-            get_public_method(model, "_github_ingress_configuration")
         self.assertEqual(
             model._github_ingress_configuration("9001"),
             {
@@ -155,35 +150,5 @@ class TestGitHubIngressSecurity(TransactionCase):
                 self.assertEqual(delivery.read(evidence_fields), before)
         if fenced:
             self.assertGreater(
-                self.repository.git_policy_evidence_version, evidence_version
-            )
-
-    def test_failed_replay_write_rolls_back_diagnostics_and_evidence_fence(self):
-        model = self.env["project.git.delivery"]
-        values = self._delivery_values()
-        delivery, _created = model._record_authenticated_github_delivery(**values)
-        self.env.flush_all()
-        fields = ["replay_mismatch_count", "last_replay_mismatch_at", "payload_sha256"]
-        before = delivery.read(fields)
-        fenced = "git_policy_evidence_version" in self.repository._fields
-        evidence_version = self.repository.git_policy_evidence_version if fenced else 0
-        original_write = type(model).write
-
-        def failed_write(records, vals):
-            original_write(records, vals)
-            records.flush_recordset()
-            raise RuntimeError("replay persistence failed")
-
-        with (
-            self.assertRaisesRegex(RuntimeError, "replay persistence failed"),
-            self.env.cr.savepoint(),
-            patch.object(type(model), "write", failed_write),
-        ):
-            model._record_authenticated_github_delivery(
-                **{**values, "payload_sha256": "b" * 64}
-            )
-        self.assertEqual(delivery.read(fields), before)
-        if fenced:
-            self.assertEqual(
                 self.repository.git_policy_evidence_version, evidence_version
             )

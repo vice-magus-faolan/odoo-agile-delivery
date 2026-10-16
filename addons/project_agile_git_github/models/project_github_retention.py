@@ -31,7 +31,7 @@ class ProjectGitDelivery(models.Model):
 
     @api.model
     def _purge_expired_github_payloads(self, now=None):
-        """Purge a bounded batch with a state recheck at the write boundary."""
+        """Purge one bounded, domain-selected batch through the ORM."""
 
         now = now or fields.Datetime.now()
         domain = self._expired_github_payload_domain(now)
@@ -41,21 +41,16 @@ class ProjectGitDelivery(models.Model):
             order="retained_until, id",
             limit=RETENTION_CLEANUP_BATCH_SIZE,
         )
-        purged = 0
-        for delivery in deliveries:
-            # Recheck even a stale candidate before writing. A concurrent state
-            # change conflicts with the ORM update under repeatable read, leaving
-            # the scheduled action to retry with a fresh transaction.
-            if delivery.filtered_domain(domain):
-                delivery.write(
-                    {
-                        "retained_payload": False,
-                        "retained_until": False,
-                        "retained_payload_purged_at": now,
-                    }
-                )
-                purged += 1
-        return purged
+        # A concurrent state change conflicts with this ORM write under
+        # repeatable read; the next scheduled run uses a fresh transaction.
+        deliveries.write(
+            {
+                "retained_payload": False,
+                "retained_until": False,
+                "retained_payload_purged_at": now,
+            }
+        )
+        return len(deliveries)
 
     @api.model
     def _cron_purge_expired_github_payloads(self):

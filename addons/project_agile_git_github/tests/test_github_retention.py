@@ -94,19 +94,6 @@ class TestGitHubDeliveryRetention(TransactionCase):
         )
         self.assertEqual(processed.retained_payload_purged_at, purged_at)
 
-    def test_cleanup_rechecks_state_before_purging_a_stale_candidate(self):
-        now = fields.Datetime.now()
-        delivery = self._delivery("raced", "processed", now - timedelta(days=1))
-        delivery.state = "queued"
-        model = self.env["project.git.delivery"]
-
-        with patch.object(type(model), "search", return_value=delivery):
-            purged = model._purge_expired_github_payloads(now)
-
-        self.assertEqual(purged, 0)
-        self.assertTrue(delivery.retained_payload)
-        self.assertFalse(delivery.retained_payload_purged_at)
-
     def test_oversized_redacted_excerpt_is_terminal_and_cannot_be_reprocessed(self):
         excerpt = self.repository._redacted_github_payload_excerpt(
             {"repository": {"id": 6001}, "description": "x" * 5000}
@@ -136,21 +123,6 @@ class TestGitHubDeliveryRetention(TransactionCase):
         )
         with self.assertRaises(ValidationError):
             delivery.action_reprocess_github_delivery()
-
-    def test_cleanup_rechecks_deadline_and_payload_of_stale_candidates(self):
-        now = fields.Datetime.now()
-        model = self.env["project.git.delivery"]
-        for suffix, deadline, payload in (
-            ("future-stale", now + timedelta(days=1), "{}"),
-            ("no-deadline", False, "{}"),
-            ("already-purged", now - timedelta(days=1), False),
-        ):
-            with self.subTest(suffix=suffix):
-                delivery = self._delivery(suffix, "processed", deadline, payload)
-                with patch.object(type(model), "search", return_value=delivery):
-                    self.assertEqual(model._purge_expired_github_payloads(now), 0)
-                self.assertEqual(delivery.retained_payload, payload)
-                self.assertFalse(delivery.retained_payload_purged_at)
 
     def test_cleanup_is_bounded_and_cron_reports_progress(self):
         now = fields.Datetime.now()

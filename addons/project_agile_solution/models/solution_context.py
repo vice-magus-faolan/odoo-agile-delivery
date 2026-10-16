@@ -203,7 +203,7 @@ class SolutionContextRevision(models.Model):
                 .browse(task_ids)
             )
             tasks.check_access("read")
-            tasks.lock_for_update()
+            tasks.lock_for_update(allow_referencing=True)
         for record in self:
             foreign = (
                 set(values)
@@ -366,7 +366,7 @@ class SolutionContextRevision(models.Model):
     def _seal(self):
         tasks = self.spike_task_ids.sudo(False).with_context(active_test=False)
         tasks.check_access("read")
-        tasks.lock_for_update()
+        tasks.lock_for_update(allow_referencing=True)
         self.affected_requirement_revision_ids._seal()
         return super()._seal()
 

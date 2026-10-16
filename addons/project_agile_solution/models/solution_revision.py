@@ -184,8 +184,8 @@ class SolutionRevision(models.Model):
             "project.agile.solution.document", values.get("document_id")
         )
         document._check_authority()
-        document.solution_id.lock_for_update()
-        document.lock_for_update()
+        document.solution_id.lock_for_update(allow_referencing=True)
+        document.lock_for_update(allow_referencing=True)
         self._check_active_document(document)
         revisions = document._complete_revisions()
         if revisions and revisions[-1].state in ("draft", "review"):
@@ -206,8 +206,8 @@ class SolutionRevision(models.Model):
         return revision
 
     def _check_active_document(self, document):
-        document.project_id.lock_for_update()
-        document.solution_id.lock_for_update()
+        document.project_id.lock_for_update(allow_referencing=True)
+        document.solution_id.lock_for_update(allow_referencing=True)
         if (
             not document.active
             or not document.solution_id.active
@@ -220,8 +220,8 @@ class SolutionRevision(models.Model):
 
     def _check_editable(self):
         self._check_authority()
-        self.document_id.lock_for_update()
-        self.lock_for_update()
+        self.document_id.lock_for_update(allow_referencing=True)
+        self.lock_for_update(allow_referencing=True)
         if any(record.state != "draft" for record in self):
             raise ValidationError(
                 _(
@@ -404,8 +404,8 @@ class SolutionRevision(models.Model):
     def _transition_caller(self, expected):
         self.ensure_one()
         caller = self._check_authority()
-        self.document_id.lock_for_update()
-        self.lock_for_update()
+        self.document_id.lock_for_update(allow_referencing=True)
+        self.lock_for_update(allow_referencing=True)
         caller._check_active_document(caller.document_id)
         if self.state != expected:
             raise ValidationError(
@@ -537,8 +537,8 @@ class SolutionRevision(models.Model):
     def action_new_revision(self):
         caller = self._check_authority()
         self.ensure_one()
-        self.document_id.lock_for_update()
-        self.lock_for_update()
+        self.document_id.lock_for_update(allow_referencing=True)
+        self.lock_for_update(allow_referencing=True)
         if self.state not in ("approved", "superseded"):
             raise ValidationError(
                 _("A working successor starts from an approved baseline.")

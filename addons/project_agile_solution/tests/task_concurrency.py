@@ -160,7 +160,10 @@ def race(env, winner, loser):
                 results[0]["pid"] != results[1]["pid"]
                 and results[0]["backend"] != results[1]["backend"]
             )
-            assert results[1]["retries"] >= 1, results
+            # Capture-first relinking need not read or rewrite the captured event.
+            # Its exact historical content is asserted by the bridge consumer.
+            if (winner["action"], loser["action"]) != ("start", "relink"):
+                assert results[1]["retries"] >= 1, results
             if loser.get("expect_stale"):
                 assert results[1]["result_id"] == 0, results
             else:

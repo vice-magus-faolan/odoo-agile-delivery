@@ -80,7 +80,7 @@ class ProjectTaskTrace(models.Model):
             raise ValidationError(_("Solution trace publication is server managed."))
         if "project_id" in values or "company_id" in values:
             self.sudo(False).check_access("write")
-            self.lock_for_update()
+            self.lock_for_update(allow_referencing=True)
             if self._trace_retained() and any(
                 ("project_id" in values and values["project_id"] != task.project_id.id)
                 or (

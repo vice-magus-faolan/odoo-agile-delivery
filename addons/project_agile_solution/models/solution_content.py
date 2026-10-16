@@ -132,8 +132,8 @@ class ContentIdentity(models.AbstractModel):
         solution.sudo(False).check_access("write")
         solution.project_id.sudo(False).check_access("write")
         self._check_active_solution(solution)
-        solution.project_id.lock_for_update()
-        solution.lock_for_update()
+        solution.project_id.lock_for_update(allow_referencing=True)
+        solution.lock_for_update(allow_referencing=True)
         # Authorized Project lock serializes first-use sequence creation even
         # across different lineages; standard sequences never reuse consumed keys.
         code = f"{self._name}.{solution.project_id.id}"
@@ -163,7 +163,7 @@ class ContentIdentity(models.AbstractModel):
 
     def write(self, values):
         self._check_authority()
-        self.lock_for_update()
+        self.lock_for_update(allow_referencing=True)
         if (
             SCOPE | {"key", "revision_ids", "kind", "_latest_revision_ref"}
         ) & values.keys():
@@ -205,7 +205,7 @@ class ContentIdentity(models.AbstractModel):
     def action_new_revision(self):
         self.ensure_one()
         self._check_authority()
-        self.lock_for_update()
+        self.lock_for_update(allow_referencing=True)
         self._check_active_solution(self.solution_id)
         revisions = self._complete_revisions()
         if not revisions:
@@ -283,8 +283,8 @@ class ContentRevision(models.AbstractModel):
             self._identity_model, values.get(self._identity_field)
         )
         identity._check_authority()
-        identity.solution_id.lock_for_update()
-        identity.lock_for_update()
+        identity.solution_id.lock_for_update(allow_referencing=True)
+        identity.lock_for_update(allow_referencing=True)
         identity._check_active_solution(identity.solution_id)
         if not identity.active:
             raise ValidationError(
@@ -307,8 +307,8 @@ class ContentRevision(models.AbstractModel):
 
     def _check_editable(self):
         self._check_authority()
-        self[self._identity_field].lock_for_update()
-        self.lock_for_update()
+        self[self._identity_field].lock_for_update(allow_referencing=True)
+        self.lock_for_update(allow_referencing=True)
         if any(record.sealed for record in self):
             raise ValidationError(
                 _("Referenced content is immutable; create a numbered successor.")
@@ -366,8 +366,8 @@ class ContentRevision(models.AbstractModel):
     def _seal(self):  # pylint: disable=missing-return
         """Private extension seam for already-authorized baseline/link/Sprint use."""
         self._check_authority()
-        self[self._identity_field].lock_for_update()
-        self.lock_for_update()
+        self[self._identity_field].lock_for_update(allow_referencing=True)
+        self.lock_for_update(allow_referencing=True)
         self._validate_content()
         for record in self.filtered(lambda row: not row.sealed):
             super(ContentRevision, record.sudo()).write(

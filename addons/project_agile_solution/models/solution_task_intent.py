@@ -270,7 +270,7 @@ class SolutionTaskIntent(models.Model):
         self.ensure_one()
         caller = self._check_creator()
         with self.env.cr.savepoint():
-            if caller.try_lock_for_update() != caller:
+            if caller.try_lock_for_update(allow_referencing=True) != caller:
                 raise ConcurrencyError("Task confirmation is already in progress.")
             caller._check_creator()
             if caller.state == "consumed":
@@ -279,13 +279,15 @@ class SolutionTaskIntent(models.Model):
                 )
                 return caller._task_action()
             revisions = caller._validate_proposal()
-            caller.task_id.lock_for_update()
-            caller.project_id.lock_for_update()
-            caller.solution_id.lock_for_update()
-            revisions.requirement_id.lock_for_update()
-            revisions.lock_for_update()
-            caller.document_revision_id.document_id.lock_for_update()
-            caller.document_revision_id.lock_for_update()
+            caller.task_id.lock_for_update(allow_referencing=True)
+            caller.project_id.lock_for_update(allow_referencing=True)
+            caller.solution_id.lock_for_update(allow_referencing=True)
+            revisions.requirement_id.lock_for_update(allow_referencing=True)
+            revisions.lock_for_update(allow_referencing=True)
+            caller.document_revision_id.document_id.lock_for_update(
+                allow_referencing=True
+            )
+            caller.document_revision_id.lock_for_update(allow_referencing=True)
             caller._validate_proposal()
             if caller._fingerprint() != caller.sudo()._source_digest:
                 raise ValidationError(

@@ -46,7 +46,7 @@ class SolutionTemplate(models.Model):
 
     def write(self, values):
         self._check_manager("write")
-        self.lock_for_update()
+        self.lock_for_update(allow_referencing=True)
         if {"version", "company_id"} & values.keys():
             raise ValidationError(_("Template version/company cannot be reassigned."))
         for record in self:

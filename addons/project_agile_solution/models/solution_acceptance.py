@@ -144,9 +144,9 @@ class RequirementAcceptance(models.Model):
             "project.agile.solution.revision", values.get("document_revision_id")
         )
         baseline._check_authority()
-        baseline.document_id.lock_for_update()
-        baseline.lock_for_update()
-        requirement.lock_for_update()
+        baseline.document_id.lock_for_update(allow_referencing=True)
+        baseline.lock_for_update(allow_referencing=True)
+        requirement.lock_for_update(allow_referencing=True)
         self._check_decision_scope(requirement, baseline, values["decision"])
         previous = self.search(
             [

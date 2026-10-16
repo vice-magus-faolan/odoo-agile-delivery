@@ -42,8 +42,9 @@ same Task before reading links. Capture needs no Solution-wide write: requiremen
 content is already sealed. Revision allocation publishes on its stable identity, so
 pending confirmations cannot miss a concurrent new head. Exact specification claims also
 protect a preview from concurrent specification edits and approval. Other native claim
-contention is a retryable user-visible conflict; no operation blocks or commits business
-code. Independent fixtures retry whole transactions, never cached fragments.
+contention is a retryable user-visible conflict; claims do not wait and business code
+never commits. Non-identifier claims allow unrelated foreign-key references. Independent
+fixtures retry whole transactions, never cached fragments.
 
 Bridge captures all exact active links at every native event, including empty coverage.
 Existing producer delegates via super; native event return is extended to return its

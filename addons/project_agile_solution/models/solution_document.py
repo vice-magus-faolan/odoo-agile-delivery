@@ -86,8 +86,8 @@ class SolutionDocument(models.Model):
             )
             solution.sudo(False).check_access("write")
             solution.project_id.sudo(False).check_access("write")
-            solution.project_id.lock_for_update()
-            solution.lock_for_update()
+            solution.project_id.lock_for_update(allow_referencing=True)
+            solution.lock_for_update(allow_referencing=True)
             if (
                 not solution.active
                 or not solution.project_id.active
@@ -123,7 +123,7 @@ class SolutionDocument(models.Model):
 
     def write(self, values):
         self._check_authority()
-        self.lock_for_update()
+        self.lock_for_update(allow_referencing=True)
         if {
             "solution_id",
             "project_id",
@@ -157,7 +157,7 @@ class SolutionDocument(models.Model):
     def action_new_revision(self):
         self.ensure_one()
         self._check_authority()
-        self.lock_for_update()
+        self.lock_for_update(allow_referencing=True)
         revisions = self._complete_revisions()
         if revisions:
             if revisions[-1].state in ("draft", "review"):

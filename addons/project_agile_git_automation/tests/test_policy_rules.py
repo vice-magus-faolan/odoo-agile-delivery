@@ -1063,7 +1063,7 @@ class TestGitPolicyRules(TransactionCase):
         self.assertEqual(project.git_policy_mode, "dry_run")
         self.assertFalse(project.git_policy_last_activation_id)
         self.assertFalse(project.git_policy_last_effect_id)
-        self.assertFalse(rule.last_effect_id)
+        self.assertFalse(rule.sudo().last_effect_id)
         values = self.repository.read(
             [
                 "name",

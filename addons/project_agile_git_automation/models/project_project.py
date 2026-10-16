@@ -88,8 +88,6 @@ class ProjectProject(models.Model):
                     "git_policy_enabled": False,
                     "git_policy_mode": "dry_run",
                     "git_policy_authority_epoch": 0,
-                    "git_policy_last_activation_id": False,
-                    "git_policy_last_effect_id": False,
                 }
             )
         context = {

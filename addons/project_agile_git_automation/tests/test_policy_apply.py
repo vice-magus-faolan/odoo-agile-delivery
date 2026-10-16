@@ -65,7 +65,7 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertEqual(effect.after_stage_id, self.stages[1])
         self.assertEqual(self.project.git_policy_last_effect_id, effect)
         self.assertEqual(self.repository.git_policy_last_effect_id, effect)
-        self.assertEqual(self.rule.last_effect_id, effect)
+        self.assertEqual(self.rule.sudo().last_effect_id, effect)
         self.assertEqual(self.project.git_policy_last_activation_id, self.activation)
         self.assertEqual(self.repository.git_policy_last_activation_id, self.activation)
         self.assertEqual(self.task.write_uid, self.executor)
@@ -478,7 +478,7 @@ class TestGitPolicyApply(TestGitPolicyEvaluation):
         self.assertFalse(self.effects.search([]))
         self.assertFalse(self.project.git_policy_last_effect_id)
         self.assertFalse(self.repository.git_policy_last_effect_id)
-        self.assertFalse(self.rule.last_effect_id)
+        self.assertFalse(self.rule.sudo().last_effect_id)
         self.assertNotIn("applied", attempt.event_ids.mapped("state"))
 
     def test_dead_letter_after_five_failures_is_bounded(self):

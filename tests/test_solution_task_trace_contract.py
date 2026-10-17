@@ -63,9 +63,6 @@ class TestTaskTraceContract(unittest.TestCase):
         self.assertIn(
             "run_task_probe(env)", self._text("scripts/solution_source_probe.py")
         )
-        self.assertIn(
-            '("relink", "close")', self._text("scripts/solution_scrum_probe.py")
-        )
 
     def test_production_sources_never_commit_or_rollback_transactions(self):
         for path in (

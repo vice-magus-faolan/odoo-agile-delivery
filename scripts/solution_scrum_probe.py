@@ -13,8 +13,14 @@ for name in ("project_agile_git", "project_scrum_analytics", "sale", "document_p
 # Canonical discovery and race receipts are intentionally written to stdout.
 print("M8_ISOLATED_SOLUTION_SCRUM_INSTALL_OK", flush=True)  # pylint: disable=print-used
 results = []
-for index, (winner_action, loser_action) in enumerate(
-    (("relink", "start"), ("start", "relink"), ("relink", "add"), ("relink", "close"))
+for index, (winner_action, loser_action, ordering) in enumerate(
+    (
+        ("relink", "start", "committed"),
+        ("start", "relink", "committed"),
+        ("start", "relink", "contended"),
+        ("relink", "add", "committed"),
+        ("relink", "close", "committed"),
+    )
 ):
     manager, project, solution, revision = seed(env, "M8SCOPERACE" + str(index))
     task = (
@@ -59,6 +65,14 @@ for index, (winner_action, loser_action) in enumerate(
         task.write({"sprint_id": sprint.id})
     if loser_action == "close":
         sprint.action_start()
+    expected = revision if winner_action == "start" else successor
+    frozen_payload = json.loads(
+        json.dumps(
+            {"requirement": expected._snapshot_values(), "specification": None},
+            sort_keys=True,
+            default=str,
+        )
+    )
     env.cr.commit()
     common = {
         "uid": manager.id,
@@ -67,7 +81,10 @@ for index, (winner_action, loser_action) in enumerate(
         "successor_id": successor.id,
     }
     workers = race(
-        env, {**common, "action": winner_action}, {**common, "action": loser_action}
+        env,
+        {**common, "action": winner_action},
+        {**common, "action": loser_action},
+        ordering=ordering,
     )
     event_type = {"start": "committed", "add": "added", "close": "carried_to_backlog"}[
         loser_action if loser_action != "relink" else winner_action
@@ -83,20 +100,27 @@ for index, (winner_action, loser_action) in enumerate(
         .search([("scope_event_id", "=", event.id)])
     )
     assert len(event) == 1 and event.solution_capture_status == "captured"
-    expected = revision if winner_action == "start" else successor
+    assert len(contexts) == 1
     assert contexts.requirement_revision_id == expected, (
         winner_action,
         loser_action,
         contexts.requirement_revision_id.ids,
     )
+    assert json.loads(contexts.payload_json) == frozen_payload
+    assert not link.active
+    current_links = link.search([("task_id", "=", task.id)])
+    assert len(current_links) == 1
+    assert current_links.requirement_revision_id == successor
     assert (
-        json.loads(contexts.payload_json)["requirement"]["revision_id"] == expected.id
+        link.with_context(active_test=False).search_count([("task_id", "=", task.id)])
+        == 2
     )
     results.append(
         {
             "winner": winner_action,
             "loser": loser_action,
             "captured_revision": expected.number,
+            "ordering": ordering,
             "workers": workers,
         }
     )

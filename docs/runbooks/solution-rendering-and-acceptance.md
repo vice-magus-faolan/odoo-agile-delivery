@@ -108,11 +108,10 @@ the approved local entrypoint is:
 
 Focused native checks use the same task's capability, declared disposable DB,
 `--init project_agile_solution --test-enable --test-tags /project_agile_solution` and
-stop-after-init. The discovery gate requires every declared rendering test and every
-browser/RPC test method in addition to all imported lineage/baseline/
-requirement/trace/hardening/bridge methods. Canonical install, targeted upgrade, reverse
-uninstall/reinstall and M1–M7 browser/concurrency/Hoot coverage remain intact. No
-source/archive substitute.
+stop-after-init. Inspect native Odoo results in the verification log for rendering and
+browser/RPC execution alongside lineage/baseline/requirement/trace/hardening/bridge
+suites. Canonical install, targeted upgrade, reverse uninstall/reinstall and M1–M7
+browser/concurrency/Hoot coverage remain intact. No source/archive substitute.
 
 Tests materialize all three explicitly synthetic public-informed narratives: portal
 intent/SOW → exact existing Task → recorded synthetic evidence/acceptance; unknown API

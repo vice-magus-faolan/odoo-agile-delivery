@@ -107,8 +107,8 @@ boundaries, typed input, server-managed fields, inverse edits, atomic batch fail
 seal/return/successor behavior, archive readability, full snapshot closure and template
 reuse. `requirement_concurrency.run_probe` adds independent-process key/revision races
 for both vocabularies to the canonical isolated source probe; prior baseline and M1-M7
-lifecycle/browser/concurrency checks remain untouched. Native discovery gates reject
-missing baseline or requirements tests instead of accepting zero discovery.
+lifecycle/browser/concurrency checks remain untouched. Inspect the native Odoo results
+in the verification log to confirm baseline and requirements tests executed.
 
 Commands use only the approved local task-scoped capability:
 

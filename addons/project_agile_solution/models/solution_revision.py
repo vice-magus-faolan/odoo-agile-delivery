@@ -6,7 +6,7 @@ import json
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .project_agile_solution import check_history_defaults
+from .project_agile_solution import claim_records
 
 LIFECYCLE_FIELDS = frozenset(
     {
@@ -26,7 +26,6 @@ LIFECYCLE_FIELDS = frozenset(
         "return_reason",
         "template_snapshot",
         "_template_content",
-        "_narrative_version",
     }
 )
 SCOPE_FIELDS = frozenset({"document_id", "solution_id", "project_id", "company_id"})
@@ -184,8 +183,8 @@ class SolutionRevision(models.Model):
             "project.agile.solution.document", values.get("document_id")
         )
         document._check_authority()
-        document.solution_id.lock_for_update(allow_referencing=True)
-        document.lock_for_update(allow_referencing=True)
+        claim_records(document.solution_id, allow_referencing=True)
+        claim_records(document, allow_referencing=True)
         self._check_active_document(document)
         revisions = document._complete_revisions()
         if revisions and revisions[-1].state in ("draft", "review"):
@@ -199,15 +198,14 @@ class SolutionRevision(models.Model):
             predecessor_id=predecessor.id or False,
             state="draft",
         )
-        check_history_defaults(self.env)
         revision = super().create(values)
         revision._validate_content()
         document._record_revision(revision)
         return revision
 
     def _check_active_document(self, document):
-        document.project_id.lock_for_update(allow_referencing=True)
-        document.solution_id.lock_for_update(allow_referencing=True)
+        claim_records(document.project_id, allow_referencing=True)
+        claim_records(document.solution_id, allow_referencing=True)
         if (
             not document.active
             or not document.solution_id.active
@@ -220,8 +218,8 @@ class SolutionRevision(models.Model):
 
     def _check_editable(self):
         self._check_authority()
-        self.document_id.lock_for_update(allow_referencing=True)
-        self.lock_for_update(allow_referencing=True)
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if any(record.state != "draft" for record in self):
             raise ValidationError(
                 _(
@@ -404,8 +402,8 @@ class SolutionRevision(models.Model):
     def _transition_caller(self, expected):
         self.ensure_one()
         caller = self._check_authority()
-        self.document_id.lock_for_update(allow_referencing=True)
-        self.lock_for_update(allow_referencing=True)
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         caller._check_active_document(caller.document_id)
         if self.state != expected:
             raise ValidationError(
@@ -537,8 +535,8 @@ class SolutionRevision(models.Model):
     def action_new_revision(self):
         caller = self._check_authority()
         self.ensure_one()
-        self.document_id.lock_for_update(allow_referencing=True)
-        self.lock_for_update(allow_referencing=True)
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if self.state not in ("approved", "superseded"):
             raise ValidationError(
                 _("A working successor starts from an approved baseline.")

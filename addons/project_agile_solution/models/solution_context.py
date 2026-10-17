@@ -3,6 +3,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .project_agile_solution import claim_records
 from .solution_content import check_reference_commands, reference_command_ids
 
 COMMON_CONTENT = frozenset(
@@ -203,7 +204,7 @@ class SolutionContextRevision(models.Model):
                 .browse(task_ids)
             )
             tasks.check_access("read")
-            tasks.lock_for_update(allow_referencing=True)
+            claim_records(tasks, allow_referencing=True)
         for record in self:
             foreign = (
                 set(values)
@@ -366,7 +367,7 @@ class SolutionContextRevision(models.Model):
     def _seal(self):
         tasks = self.spike_task_ids.sudo(False).with_context(active_test=False)
         tasks.check_access("read")
-        tasks.lock_for_update(allow_referencing=True)
+        claim_records(tasks, allow_referencing=True)
         self.affected_requirement_revision_ids._seal()
         return super()._seal()
 

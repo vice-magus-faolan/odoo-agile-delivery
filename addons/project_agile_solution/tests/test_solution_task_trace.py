@@ -77,7 +77,8 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             (revision, "_last_acceptance_id"),
             (task, "solution_last_reference"),
         ):
-            with self.assertRaises(ValidationError):
+            record = record.with_user(self.manager)
+            with self.assertRaises(AccessError):
                 record.write({field: False})
         fresh_document = document.document_id.create(
             {
@@ -149,7 +150,8 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
                 },
             ),
         ):
-            with self.assertRaises(ValidationError):
+            model = model.with_user(self.manager)
+            with self.assertRaises(AccessError):
                 model.create({**values, field: False})
             forged = model.with_context(
                 **{
@@ -158,7 +160,7 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
                     else 5000
                 }
             )
-            with self.assertRaises(ValidationError):
+            with self.assertRaises(AccessError):
                 forged.create(values)
             created = model.create(values)
             self.assertFalse(created.sudo()[field])

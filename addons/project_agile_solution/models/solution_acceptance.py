@@ -4,6 +4,8 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 
+from .project_agile_solution import claim_records
+
 INPUT = frozenset(
     {
         "requirement_revision_id",
@@ -144,9 +146,9 @@ class RequirementAcceptance(models.Model):
             "project.agile.solution.revision", values.get("document_revision_id")
         )
         baseline._check_authority()
-        baseline.document_id.lock_for_update(allow_referencing=True)
-        baseline.lock_for_update(allow_referencing=True)
-        requirement.lock_for_update(allow_referencing=True)
+        claim_records(baseline.document_id, allow_referencing=True)
+        claim_records(baseline, allow_referencing=True)
+        claim_records(requirement, allow_referencing=True)
         self._check_decision_scope(requirement, baseline, values["decision"])
         previous = self.search(
             [

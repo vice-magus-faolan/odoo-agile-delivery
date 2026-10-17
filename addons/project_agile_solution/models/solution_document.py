@@ -3,7 +3,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .project_agile_solution import check_history_defaults
+from .project_agile_solution import claim_records
 
 
 class SolutionDocument(models.Model):
@@ -52,12 +52,6 @@ class SolutionDocument(models.Model):
         ),
     )
 
-    @api.model
-    def default_get(self, names):
-        return super().default_get(
-            [name for name in names if name != "_last_revision_id"]
-        )
-
     def _record_revision(self, revision):
         self.ensure_one()
         if revision.document_id != self:
@@ -76,7 +70,6 @@ class SolutionDocument(models.Model):
                 "project_id",
                 "company_id",
                 "revision_ids",
-                "_last_revision_id",
             } & values.keys():
                 raise ValidationError(
                     _("Document scope and revisions are server managed.")
@@ -86,8 +79,8 @@ class SolutionDocument(models.Model):
             )
             solution.sudo(False).check_access("write")
             solution.project_id.sudo(False).check_access("write")
-            solution.project_id.lock_for_update(allow_referencing=True)
-            solution.lock_for_update(allow_referencing=True)
+            claim_records(solution.project_id, allow_referencing=True)
+            claim_records(solution, allow_referencing=True)
             if (
                 not solution.active
                 or not solution.project_id.active
@@ -96,7 +89,6 @@ class SolutionDocument(models.Model):
                 raise ValidationError(_("Select an active Agile solution."))
             prepared.append(values)
         with self.env.cr.savepoint():
-            check_history_defaults(self.env)
             records = super().create(prepared)
             records._check_authority()
             for record in records:
@@ -123,14 +115,13 @@ class SolutionDocument(models.Model):
 
     def write(self, values):
         self._check_authority()
-        self.lock_for_update(allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if {
             "solution_id",
             "project_id",
             "company_id",
             "kind",
             "revision_ids",
-            "_last_revision_id",
         } & values.keys():
             raise ValidationError(
                 _(
@@ -143,7 +134,7 @@ class SolutionDocument(models.Model):
 
     def unlink(self):
         self._check_authority("unlink")
-        self.lock_for_update()
+        claim_records(self)
         if self.with_context(active_test=False).revision_ids:
             # Retention rejects deleting a document with historical revisions.
             raise ValidationError(  # pylint: disable=no-raise-unlink
@@ -157,7 +148,7 @@ class SolutionDocument(models.Model):
     def action_new_revision(self):
         self.ensure_one()
         self._check_authority()
-        self.lock_for_update(allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         revisions = self._complete_revisions()
         if revisions:
             if revisions[-1].state in ("draft", "review"):

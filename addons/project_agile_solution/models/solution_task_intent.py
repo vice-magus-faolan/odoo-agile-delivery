@@ -5,9 +5,10 @@ import json
 from uuid import uuid4
 
 from odoo import Command, _, api, fields, models
-from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
+from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 
+from .project_agile_solution import claim_records
 from .solution_content import check_reference_commands
 from .solution_task_access import (
     check_document,
@@ -270,8 +271,7 @@ class SolutionTaskIntent(models.Model):
         self.ensure_one()
         caller = self._check_creator()
         with self.env.cr.savepoint():
-            if caller.try_lock_for_update(allow_referencing=True) != caller:
-                raise ConcurrencyError("Task confirmation is already in progress.")
+            claim_records(caller, allow_referencing=True)
             caller._check_creator()
             if caller.state == "consumed":
                 check_task(
@@ -279,15 +279,15 @@ class SolutionTaskIntent(models.Model):
                 )
                 return caller._task_action()
             revisions = caller._validate_proposal()
-            caller.task_id.lock_for_update(allow_referencing=True)
-            caller.project_id.lock_for_update(allow_referencing=True)
-            caller.solution_id.lock_for_update(allow_referencing=True)
-            revisions.requirement_id.lock_for_update(allow_referencing=True)
-            revisions.lock_for_update(allow_referencing=True)
-            caller.document_revision_id.document_id.lock_for_update(
-                allow_referencing=True
+            claim_records(caller.task_id, allow_referencing=True)
+            claim_records(caller.project_id, allow_referencing=True)
+            claim_records(caller.solution_id, allow_referencing=True)
+            claim_records(revisions.requirement_id, allow_referencing=True)
+            claim_records(revisions, allow_referencing=True)
+            claim_records(
+                caller.document_revision_id.document_id, allow_referencing=True
             )
-            caller.document_revision_id.lock_for_update(allow_referencing=True)
+            claim_records(caller.document_revision_id, allow_referencing=True)
             caller._validate_proposal()
             if caller._fingerprint() != caller.sudo()._source_digest:
                 raise ValidationError(

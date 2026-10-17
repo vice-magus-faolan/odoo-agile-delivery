@@ -1,9 +1,9 @@
 """Retention guards on native Project and solution identities with history."""
 
-from odoo import _, api, fields, models
+from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
-from .project_agile_solution import check_history_defaults
+from .project_agile_solution import claim_records
 
 
 class SolutionRetention(models.Model):
@@ -12,7 +12,7 @@ class SolutionRetention(models.Model):
     def unlink(self):
         self.sudo(False).check_access("unlink")
         self.project_id.sudo(False).check_access("write")
-        self.lock_for_update()
+        claim_records(self)
         # Retention-only elevation emits no metadata, names, IDs or counts.
         if (
             self.env["project.agile.solution.document"]
@@ -45,19 +45,6 @@ class ProjectSolutionRetention(models.Model):
         ),
     )
 
-    @api.model
-    def default_get(self, names):
-        return super().default_get(
-            [name for name in names if name != "solution_last_history_ref"]
-        )
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        if any("solution_last_history_ref" in values for values in vals_list):
-            raise ValidationError(_("Solution history publication is server managed."))
-        check_history_defaults(self.env)
-        return super().create(vals_list)
-
     def _record_solution_history(self, record):
         self.ensure_one()
         if record.project_id != self or record._name not in {
@@ -81,7 +68,7 @@ class ProjectSolutionRetention(models.Model):
             .with_context(active_test=False)
             .search([("project_id", "in", self.ids)])
         )
-        self.lock_for_update()
+        claim_records(self)
         if (
             self.env["project.agile.solution.document"]
             .sudo()
@@ -109,8 +96,6 @@ class ProjectSolutionRetention(models.Model):
                 )
 
     def write(self, values):
-        if "solution_last_history_ref" in values:
-            raise ValidationError(_("Solution history publication is server managed."))
         if "company_id" in values and any(
             record.company_id.id != (values["company_id"] or False) for record in self
         ):

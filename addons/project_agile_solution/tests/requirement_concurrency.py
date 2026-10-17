@@ -14,7 +14,7 @@ from pathlib import Path
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
-from odoo.exceptions import ConcurrencyError, LockError, ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -61,7 +61,7 @@ def worker(env):
                 _wait(directory / "winner.commit")
             env.cr.commit()
             break
-        except (SerializationFailure, ConcurrencyError, LockError):
+        except (SerializationFailure, ConcurrencyError):
             env.cr.rollback()
             env.invalidate_all()
             identities = env[IDENTITIES[data["kind"]]].with_user(data["uid"])

@@ -1,9 +1,9 @@
 """Native work remains authoritative; traceability does not regenerate or move it."""
 
-from odoo import _, api, fields, models
+from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
-from .project_agile_solution import check_history_defaults
+from .project_agile_solution import claim_records
 
 
 class ProjectTaskTrace(models.Model):
@@ -30,19 +30,6 @@ class ProjectTaskTrace(models.Model):
             "capture."
         ),
     )
-
-    @api.model
-    def default_get(self, names):
-        return super().default_get(
-            [name for name in names if name != "solution_last_reference"]
-        )
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        if any("solution_last_reference" in values for values in vals_list):
-            raise ValidationError(_("Solution trace publication is server managed."))
-        check_history_defaults(self.env)
-        return super().create(vals_list)
 
     def _record_solution_reference(self, reference):
         if reference._name == "project.agile.requirement.task.link":
@@ -76,11 +63,9 @@ class ProjectTaskTrace(models.Model):
         )
 
     def write(self, values):
-        if "solution_last_reference" in values:
-            raise ValidationError(_("Solution trace publication is server managed."))
         if "project_id" in values or "company_id" in values:
             self.sudo(False).check_access("write")
-            self.lock_for_update(allow_referencing=True)
+            claim_records(self, allow_referencing=True)
             if self._trace_retained() and any(
                 ("project_id" in values and values["project_id"] != task.project_id.id)
                 or (
@@ -99,7 +84,7 @@ class ProjectTaskTrace(models.Model):
 
     def unlink(self):
         self.sudo(False).check_access("unlink")
-        self.lock_for_update()
+        claim_records(self)
         if self._trace_retained():
             # Trace/retry evidence must survive Task deletion requests.
             raise ValidationError(  # pylint: disable=no-raise-unlink

@@ -3,6 +3,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from .project_agile_solution import claim_records
 from .solution_task_access import (
     check_document,
     check_requirements,
@@ -84,11 +85,11 @@ class RequirementTaskLink(models.Model):
         revision._check_authority()
         task = self._checked_relation("project.task", values.get("task_id"))
         check_task(task, revision.project_id)
-        task.lock_for_update(allow_referencing=True)
-        revision.project_id.lock_for_update(allow_referencing=True)
-        revision.solution_id.lock_for_update(allow_referencing=True)
-        revision.requirement_id.lock_for_update(allow_referencing=True)
-        revision.lock_for_update(allow_referencing=True)
+        claim_records(task, allow_referencing=True)
+        claim_records(revision.project_id, allow_referencing=True)
+        claim_records(revision.solution_id, allow_referencing=True)
+        claim_records(revision.requirement_id, allow_referencing=True)
+        claim_records(revision, allow_referencing=True)
         check_task(task, revision.project_id)
         check_requirements(revision, revision.solution_id)
         document = (
@@ -98,8 +99,8 @@ class RequirementTaskLink(models.Model):
             if values.get("document_revision_id")
             else self.env["project.agile.solution.revision"]
         )
-        document.document_id.lock_for_update(allow_referencing=True)
-        document.lock_for_update(allow_referencing=True)
+        claim_records(document.document_id, allow_referencing=True)
+        claim_records(document, allow_referencing=True)
         check_document(document, revision, revision.solution_id)
         existing = self.with_context(active_test=False).search(
             [("task_id", "=", task.id), ("requirement_revision_id", "=", revision.id)]
@@ -163,8 +164,8 @@ class RequirementTaskLink(models.Model):
         if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
             raise ValidationError(_("Give a bounded reason for retiring coverage."))
         with self.env.cr.savepoint():
-            caller.task_id.lock_for_update(allow_referencing=True)
-            caller.lock_for_update(allow_referencing=True)
+            claim_records(caller.task_id, allow_referencing=True)
+            claim_records(caller, allow_referencing=True)
             for link in caller:
                 check_task(link.task_id, link.project_id, active=False)
                 if link.active:

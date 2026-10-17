@@ -13,7 +13,7 @@ from pathlib import Path
 
 from psycopg2.errors import SerializationFailure
 
-from odoo.exceptions import ConcurrencyError, LockError, ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 
 from .baseline_concurrency import _wait
 
@@ -60,7 +60,7 @@ def worker(env):
                 )
             )
             return
-        except (SerializationFailure, ConcurrencyError, LockError):
+        except (SerializationFailure, ConcurrencyError):
             env.cr.rollback()
             env.invalidate_all()
             retries += 1
@@ -162,7 +162,9 @@ def race(env, winner, loser):
             )
             # Capture-first relinking need not read or rewrite the captured event.
             # Its exact historical content is asserted by the bridge consumer.
-            if (winner["action"], loser["action"]) != ("start", "relink"):
+            if (winner["action"], loser["action"]) == ("start", "relink"):
+                assert results[1]["retries"] == 0, results
+            else:
                 assert results[1]["retries"] >= 1, results
             if loser.get("expect_stale"):
                 assert results[1]["result_id"] == 0, results

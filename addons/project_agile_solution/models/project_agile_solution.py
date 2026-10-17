@@ -1,29 +1,14 @@
 """Project-scoped solution lineage, not a Task or an approved specification."""
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 from odoo.fields import Domain
 
-HISTORY_FIELDS = frozenset(
-    {
-        "solution_last_history_ref",
-        "solution_last_reference",
-        "_last_document_id",
-        "_last_approved_revision_id",
-        "_last_revision_id",
-        "_latest_revision_ref",
-        "_narrative_version",
-        "_last_acceptance_id",
-    }
-)
 
-
-def check_history_defaults(env):
-    """Reject caller defaults for server-owned Solution publications."""
-    if any("default_" + field in env.context for field in HISTORY_FIELDS):
-        raise ValidationError(
-            _("Solution history publication defaults are server managed.")
-        )
+def claim_records(records, *, allow_referencing=False):
+    """Claim every row or restart the transaction through native request retry."""
+    if records.try_lock_for_update(allow_referencing=allow_referencing) != records:
+        raise ConcurrencyError("Solution records are being changed concurrently.")
 
 
 class ProjectAgileSolution(models.Model):
@@ -78,20 +63,6 @@ class ProjectAgileSolution(models.Model):
         ),
     )
 
-    @api.model
-    def default_get(self, names):
-        return super().default_get(
-            [
-                name
-                for name in names
-                if name
-                not in {
-                    "_last_document_id",
-                    "_last_approved_revision_id",
-                }
-            ]
-        )
-
     def _record_document(self, document):
         self.ensure_one()
         if document.solution_id != self:
@@ -142,8 +113,6 @@ class ProjectAgileSolution(models.Model):
         prepared = []
         for values in vals_list:
             values = dict(values)
-            if {"_last_document_id", "_last_approved_revision_id"} & values.keys():
-                raise ValidationError(_("History publication is server managed."))
             if "company_id" in values:
                 raise ValidationError(
                     _("Solution company is determined by its Project.")
@@ -152,7 +121,6 @@ class ProjectAgileSolution(models.Model):
             project = self._validated_project(project_id)
             values["project_id"] = project.id
             prepared.append(values)
-        check_history_defaults(self.env)
         return super().create(prepared)
 
     def _validated_project(self, project_id):
@@ -172,8 +140,6 @@ class ProjectAgileSolution(models.Model):
         if {
             "project_id",
             "company_id",
-            "_last_document_id",
-            "_last_approved_revision_id",
         } & values.keys():
             raise ValidationError(
                 _("A solution lineage cannot change Project or company.")

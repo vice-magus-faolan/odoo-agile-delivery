@@ -41,10 +41,14 @@ their actual question revision. Task scope/deletion guards and Sprint capture cl
 same Task before reading links. Capture needs no Solution-wide write: requirement
 content is already sealed. Revision allocation publishes on its stable identity, so
 pending confirmations cannot miss a concurrent new head. Exact specification claims also
-protect a preview from concurrent specification edits and approval. Other native claim
-contention is a retryable user-visible conflict; claims do not wait and business code
-never commits. Non-identifier claims allow unrelated foreign-key references. Independent
-fixtures retry whole transactions, never cached fragments.
+protect a preview from concurrent specification edits and approval. One shared helper
+requires a complete native `try_lock_for_update` claim, raising `ConcurrencyError` on
+contention. Odoo automatically rolls back and retries the complete request in a fresh
+transaction, up to five total attempts; exhaustion still fails the request. Claims do
+not wait and business code never commits or runs a retry loop. Non-identifier claims
+allow unrelated foreign-key references; deletion/identifier guards retain stronger
+claims. Independent fixtures mirror production-retryable exceptions, never `LockError`
+or cached fragments.
 
 Bridge captures all exact active links at every native event, including empty coverage.
 Existing producer delegates via super; native event return is extended to return its

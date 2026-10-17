@@ -3,7 +3,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .project_agile_solution import claim_records
+from odoo.addons.project_agile.utils import claim_records
+
 from .solution_content import check_reference_commands, reference_command_ids
 
 COMMON_CONTENT = frozenset(

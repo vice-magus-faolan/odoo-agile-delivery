@@ -3,7 +3,7 @@ from unittest.mock import patch
 from psycopg2 import IntegrityError
 
 from odoo import SUPERUSER_ID, Command, fields
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
 from odoo.tests.common import TransactionCase
 from odoo.tools.misc import mute_logger
 
@@ -398,18 +398,26 @@ class TestProjectScrumDomain(TransactionCase):
         return self.env["project.sprint.close.wizard"].create(values).action_confirm()
 
     def test_close_with_backlog_disposition_records_distinct_fact(self):
-        sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
+        done = self.task.copy({"name": "Already completed", "state": "1_done"})
+        sprint = self._create_sprint(
+            "Sprint 1", task_ids=[Command.set((self.task | done).ids)]
+        )
         sprint.action_start()
 
         self.assertTrue(self._close_with_wizard(sprint, "product_backlog"))
 
         self.assertEqual(sprint.state, "closed")
         self.assertFalse(self.task.sprint_id)
-        self.assertEqual(sprint.committed_task_ids, self.task)
+        self.assertEqual(done.sprint_id, sprint)
+        self.assertEqual(sprint.committed_task_ids, self.task | done)
         self.assertEqual(
             sprint.scope_event_ids.mapped("event_type"),
-            ["committed", "carried_to_backlog"],
+            ["committed", "committed", "completed", "carried_to_backlog"],
         )
+        carry = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "carried_to_backlog"
+        )
+        self.assertEqual(carry.task_id, self.task)
 
     def test_close_with_draft_target_records_linked_carry_over(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])
@@ -426,6 +434,89 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(carry_over.task_id, self.task)
         self.assertEqual(carry_over.carryover_target_sprint_id, target)
         self.assertFalse(target.committed_task_ids)
+
+    def test_close_includes_archived_unfinished_work_as_the_manager(self):
+        manager = mail_new_test_user(
+            self.env, "Archived work manager", groups="project.group_project_manager"
+        )
+        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        target = self._create_sprint("Target")
+        sprint.action_start()
+        self.task.active = False
+
+        sprint.with_user(manager)._close_with_disposition("draft_sprint", target)
+
+        self.assertFalse(self.task.active)
+        self.assertEqual(self.task.sprint_id, target)
+        self.assertEqual(sprint.state, "closed")
+        self.assertEqual(
+            sprint.with_context(active_test=False).committed_task_ids, self.task
+        )
+        carry = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "carried_to_sprint"
+        )
+        self.assertEqual(carry.task_id, self.task)
+        self.assertEqual(carry.carryover_target_sprint_id, target)
+
+    def test_close_rejects_hidden_unfinished_work_without_partial_changes(self):
+        manager = mail_new_test_user(
+            self.env, "Restricted close manager", groups="project.group_project_manager"
+        )
+        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        sprint.action_start()
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide unfinished close work",
+                "model_id": self.env["ir.model"]._get_id("project.task"),
+                "domain_force": repr([("id", "!=", self.task.id)]),
+            }
+        )
+        caller_tasks = self.env["project.task"].with_user(manager)
+        self.assertFalse(caller_tasks.search([("id", "=", self.task.id)]))
+        sprint.with_user(manager).check_access("write")
+
+        with self.assertRaises(AccessError):
+            sprint.with_user(manager)._close_with_disposition("product_backlog")
+
+        self.assertEqual(sprint.state, "active")
+        self.assertFalse(sprint.closed_at)
+        self.assertEqual(self.task.sprint_id, sprint)
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+
+    def test_close_requires_complete_sprint_and_task_claims(self):
+        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        target = self._create_sprint("Target")
+        sprint.action_start()
+        for records, incomplete in (
+            (sprint, sprint),
+            (self.task, self.env["project.task"]),
+        ):
+            with (
+                self.subTest(model=records._name),
+                patch.object(
+                    type(records), "try_lock_for_update", return_value=incomplete
+                ),
+            ):
+                with self.assertRaises(ConcurrencyError):
+                    sprint._close_with_disposition("draft_sprint", target)
+            self.assertEqual(sprint.state, "active")
+            self.assertFalse(sprint.closed_at)
+            self.assertEqual(self.task.sprint_id, sprint)
+            self.assertFalse(target.task_ids)
+            self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+
+    def test_close_rejects_a_deleted_target(self):
+        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        target = self._create_sprint("Deleted target")
+        target.unlink()
+        sprint.action_start()
+
+        with self.assertRaises(ValidationError):
+            sprint._close_with_disposition("draft_sprint", target)
+
+        self.assertEqual(sprint.state, "active")
+        self.assertEqual(self.task.sprint_id, sprint)
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
 
     def test_close_rejects_incompatible_targets_without_partial_changes(self):
         sprint = self._create_sprint("Sprint 1", task_ids=[Command.set(self.task.ids)])

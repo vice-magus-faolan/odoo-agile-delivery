@@ -70,15 +70,15 @@ private exact-version `_search` seam remains upgrade-sensitive.
 
 ## Concurrency and atomicity
 
-Operations use Odoo 19 nonblocking ORM claims on their actual document, revision,
-identity and authority records. A shared helper requires a complete native
-`try_lock_for_update` claim and raises `ConcurrencyError` if any row is unavailable.
-Odoo automatically rolls back and retries the complete request in a fresh transaction,
-up to five total attempts, as it does for supported PostgreSQL concurrency failures.
-Exhaustion still fails the request; there is no indefinite retry or business-code retry
-loop. Never refresh half a transaction or commit business code. Non-identifier claims
-allow unrelated foreign-key references; destructive/identifier guards keep stronger
-claims. Unique `(document_id, number)` remains the final database invariant.
+Operations use Odoo 19 nonwaiting ORM claims on their actual document, revision,
+identity and authority records. If any required row is unavailable, Odoo rolls back and
+retries the complete request in a fresh transaction, up to five total attempts, as it
+does for supported PostgreSQL concurrency failures. Persistent contention can exhaust
+those attempts and fail the request. Direct Python callers outside the native request
+boundary own their transaction retry. There is no business-code retry loop or
+partial-transaction refresh. Unlink claims exclude concurrent foreign-key references to
+records being deleted. Unique `(document_id, number)` remains the final database
+invariant.
 
 New retained history publishes its reference on Project to conflict with company
 changes/deletion and concurrent first-use key allocation. Document creation publishes on

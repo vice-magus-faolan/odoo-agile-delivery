@@ -3,6 +3,8 @@ from psycopg2 import IntegrityError
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from odoo.addons.project_agile.utils import claim_records
+
 
 class ProjectSprint(models.Model):
     """A team time-box with an immutable original commitment."""
@@ -182,13 +184,12 @@ class ProjectSprint(models.Model):
 
     def _lock_close_records(self, target_sprint=False):
         sprints = self | target_sprint
-        self.env.cr.execute(
-            "SELECT id FROM project_sprint WHERE id IN %s ORDER BY id FOR UPDATE",
-            [tuple(sorted(sprints.ids))],
-        )
-        if len(self.env.cr.fetchall()) != len(sprints):
+        if sprints.exists() != sprints:
             raise ValidationError(_("A selected Sprint no longer exists."))
-        sprints.invalidate_recordset(["state", "project_id", "company_id", "team_id"])
+        sprints.check_access("read")
+        # Strong claims also exclude new Task/event foreign-key references while
+        # close selects and moves work. No same-snapshot cache refresh is needed.
+        claim_records(sprints)
 
     def _validate_close_target(self, disposition, target_sprint):
         if disposition not in {"product_backlog", "draft_sprint"}:
@@ -201,7 +202,6 @@ class ProjectSprint(models.Model):
             return
         if not target_sprint:
             raise ValidationError(_("Select a draft Sprint for carry-over."))
-        target_sprint.check_access("read")
         if (
             target_sprint == self
             or target_sprint.state != "draft"
@@ -217,7 +217,6 @@ class ProjectSprint(models.Model):
             )
 
     def _move_unfinished_tasks(self, tasks, disposition, target_sprint=False):
-        tasks.check_access("write")
         tasks._write_sprint_close_assignment(target_sprint)
         event_type = "carried_to_sprint" if target_sprint else "carried_to_backlog"
         self._append_scope_events(
@@ -235,14 +234,16 @@ class ProjectSprint(models.Model):
             if self.state != "active":
                 raise ValidationError(_("Only an active Sprint can be closed."))
             self._validate_close_target(disposition, target_sprint)
-            self.env.cr.execute(
-                "SELECT id FROM project_task "
-                "WHERE sprint_id = %s AND state != %s FOR UPDATE",
-                [self.id, "1_done"],
+            tasks = self.env["project.task"].with_context(active_test=False)
+            # Hidden or archived Tasks cannot be skipped; require caller write
+            # access for the whole selection.
+            unfinished_tasks = (
+                tasks.sudo()
+                .search([("sprint_id", "=", self.id), ("state", "!=", "1_done")])
+                .with_env(tasks.env)
             )
-            unfinished_tasks = self.env["project.task"].browse(
-                [row[0] for row in self.env.cr.fetchall()]
-            )
+            unfinished_tasks.check_access("write")
+            claim_records(unfinished_tasks)
             if unfinished_tasks:
                 self._move_unfinished_tasks(
                     unfinished_tasks, disposition, target_sprint

@@ -3,7 +3,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
-from .project_agile_solution import claim_records
+from odoo.addons.project_agile.utils import claim_records
+
 from .solution_task_access import (
     check_document,
     check_requirements,

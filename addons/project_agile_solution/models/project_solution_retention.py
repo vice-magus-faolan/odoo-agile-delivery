@@ -3,7 +3,7 @@
 from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
-from .project_agile_solution import claim_records
+from odoo.addons.project_agile.utils import claim_records
 
 
 class SolutionRetention(models.Model):

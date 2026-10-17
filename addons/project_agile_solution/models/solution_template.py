@@ -6,7 +6,7 @@ from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import html_sanitize
 
-from .project_agile_solution import claim_records
+from odoo.addons.project_agile.utils import claim_records
 
 
 class SolutionTemplate(models.Model):

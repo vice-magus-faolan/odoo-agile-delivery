@@ -1,14 +1,8 @@
 """Project-scoped solution lineage, not a Task or an approved specification."""
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ConcurrencyError, ValidationError
+from odoo.exceptions import ValidationError
 from odoo.fields import Domain
-
-
-def claim_records(records, *, allow_referencing=False):
-    """Claim every row or restart the transaction through native request retry."""
-    if records.try_lock_for_update(allow_referencing=allow_referencing) != records:
-        raise ConcurrencyError("Solution records are being changed concurrently.")
 
 
 class ProjectAgileSolution(models.Model):

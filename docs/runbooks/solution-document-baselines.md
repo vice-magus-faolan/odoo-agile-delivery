@@ -74,11 +74,11 @@ Operations use Odoo 19 nonwaiting ORM claims on their actual document, revision,
 identity and authority records. If any required row is unavailable, Odoo rolls back and
 retries the complete request in a fresh transaction, up to five total attempts, as it
 does for supported PostgreSQL concurrency failures. Persistent contention can exhaust
-those attempts and fail the request; automatic retry is not an eventual-success promise.
-Direct Python callers outside the native request boundary own their transaction retry.
-There is no business-code retry loop or partial-transaction refresh. Unlink claims
-exclude concurrent foreign-key references to records being deleted. Unique
-`(document_id, number)` remains the final database invariant.
+those attempts and fail the request. Direct Python callers outside the native request
+boundary own their transaction retry. There is no business-code retry loop or
+partial-transaction refresh. Unlink claims exclude concurrent foreign-key references to
+records being deleted. Unique `(document_id, number)` remains the final database
+invariant.
 
 New retained history publishes its reference on Project to conflict with company
 changes/deletion and concurrent first-use key allocation. Document creation publishes on

@@ -6,9 +6,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 
-from odoo.addons.project_agile_solution.models.project_agile_solution import (
-    claim_records,
-)
+from odoo.addons.project_agile.utils import claim_records
 from odoo.addons.project_agile_solution.models.solution_task_access import (
     check_document,
     check_task,

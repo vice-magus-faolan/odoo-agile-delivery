@@ -3,7 +3,7 @@
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .project_agile_solution import claim_records
+from odoo.addons.project_agile.utils import claim_records
 
 SCOPE = frozenset({"solution_id", "project_id", "company_id", "native_project_access"})
 AUDIT = frozenset(

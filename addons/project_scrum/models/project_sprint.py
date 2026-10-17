@@ -1,7 +1,9 @@
 from psycopg2 import IntegrityError
 
 from odoo import SUPERUSER_ID, _, api, fields, models
-from odoo.exceptions import ConcurrencyError, ValidationError
+from odoo.exceptions import ValidationError
+
+from odoo.addons.project_agile.utils import claim_records
 
 
 class ProjectSprint(models.Model):
@@ -180,14 +182,6 @@ class ProjectSprint(models.Model):
                 sprint._activate()
         return True
 
-    def _claim_close_records(self, records):
-        """Require the complete close selection under native transaction retry."""
-        records = records.sorted("id")
-        if records.try_lock_for_update() != records:
-            raise ConcurrencyError(
-                "Sprint close records are being changed concurrently."
-            )
-
     def _lock_close_records(self, target_sprint=False):
         sprints = self | target_sprint
         if sprints.exists() != sprints:
@@ -195,7 +189,7 @@ class ProjectSprint(models.Model):
         sprints.check_access("read")
         # Strong claims also exclude new Task/event foreign-key references while
         # close selects and moves work. No same-snapshot cache refresh is needed.
-        self._claim_close_records(sprints)
+        claim_records(sprints)
 
     def _validate_close_target(self, disposition, target_sprint):
         if disposition not in {"product_backlog", "draft_sprint"}:
@@ -208,7 +202,6 @@ class ProjectSprint(models.Model):
             return
         if not target_sprint:
             raise ValidationError(_("Select a draft Sprint for carry-over."))
-        target_sprint.check_access("read")
         if (
             target_sprint == self
             or target_sprint.state != "draft"
@@ -224,7 +217,6 @@ class ProjectSprint(models.Model):
             )
 
     def _move_unfinished_tasks(self, tasks, disposition, target_sprint=False):
-        tasks.check_access("write")
         tasks._write_sprint_close_assignment(target_sprint)
         event_type = "carried_to_sprint" if target_sprint else "carried_to_backlog"
         self._append_scope_events(
@@ -243,19 +235,15 @@ class ProjectSprint(models.Model):
                 raise ValidationError(_("Only an active Sprint can be closed."))
             self._validate_close_target(disposition, target_sprint)
             tasks = self.env["project.task"].with_context(active_test=False)
-            # After Sprint authorization, discover the complete bounded selection,
-            # not just visible/active work. Restore caller rights before any use;
-            # inaccessible unfinished work must reject close, never disappear.
+            # Hidden or archived Tasks cannot be skipped; require caller write
+            # access for the whole selection.
             unfinished_tasks = (
                 tasks.sudo()
-                .search(
-                    [("sprint_id", "=", self.id), ("state", "!=", "1_done")],
-                    order="id",
-                )
+                .search([("sprint_id", "=", self.id), ("state", "!=", "1_done")])
                 .with_env(tasks.env)
             )
             unfinished_tasks.check_access("write")
-            self._claim_close_records(unfinished_tasks)
+            claim_records(unfinished_tasks)
             if unfinished_tasks:
                 self._move_unfinished_tasks(
                     unfinished_tasks, disposition, target_sprint

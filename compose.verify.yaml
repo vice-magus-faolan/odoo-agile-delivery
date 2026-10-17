@@ -3,7 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.verify
-    image: odoo-agile-delivery-verify:local
+    image:
+      odoo-agile-delivery-verify:${VERIFY_IMAGE_TAG:?Run scripts/verify to set the
+      checkout image tag}
     read_only: true
     tmpfs:
       - /tmp

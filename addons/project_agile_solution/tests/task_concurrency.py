@@ -8,9 +8,12 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from psycopg2.errors import SerializationFailure
+
+from odoo.exceptions import ConcurrencyError, ValidationError
 
 from .baseline_concurrency import _wait
 
@@ -35,7 +38,13 @@ def worker(env):
     while retries < 4:
         (directory / (name + ".attempt")).touch()
         try:
-            result_id = _apply(env, data)
+            try:
+                result_id = _apply(env, data)
+            except ValidationError:
+                if not data.get("expect_stale"):
+                    raise
+                env.cr.rollback()
+                result_id = 0
             if name == "winner":
                 (directory / "winner.mutated").touch()
                 _wait(directory / "winner.commit")
@@ -51,15 +60,26 @@ def worker(env):
                 )
             )
             return
-        except SerializationFailure:
+        except (SerializationFailure, ConcurrencyError):
             env.cr.rollback()
             env.invalidate_all()
             retries += 1
+            time.sleep(0.1)
     raise AssertionError("Task trace race exhausted bounded retry")
 
 
 def _apply(env, data):
     uid, action = data["uid"], data["action"]
+    if action == "edit_requirement":
+        intent = (
+            env["project.agile.solution.task.intent"]
+            .with_user(uid)
+            .browse(data["intent_id"])
+        )
+        intent.requirement_revision_ids.write(
+            {"rationale": "SYNTHETIC concurrent source change"}
+        )
+        return intent.id
     if action == "confirm":
         return (
             env["project.agile.solution.task.intent"]
@@ -140,8 +160,16 @@ def race(env, winner, loser):
                 results[0]["pid"] != results[1]["pid"]
                 and results[0]["backend"] != results[1]["backend"]
             )
-            assert results[1]["retries"] >= 1, results
-            assert results[0]["result_id"] == results[1]["result_id"], results
+            # Capture-first relinking need not read or rewrite the captured event.
+            # Its exact historical content is asserted by the bridge consumer.
+            if (winner["action"], loser["action"]) == ("start", "relink"):
+                assert results[1]["retries"] == 0, results
+            else:
+                assert results[1]["retries"] >= 1, results
+            if loser.get("expect_stale"):
+                assert results[1]["result_id"] == 0, results
+            else:
+                assert results[0]["result_id"] == results[1]["result_id"], results
             env.cr.rollback()
             env.invalidate_all()
             return results
@@ -246,6 +274,40 @@ def run_probe(env):
             1 if operation == "create" else 0
         )
         results.append({"operation": operation, "workers": result})
+    working = revision.browse(revision.requirement_id.action_new_revision()["res_id"])
+    pending = (
+        env["project.agile.solution.task.intent"]
+        .with_user(manager)
+        .create(
+            {
+                **values,
+                "operation": "create",
+                "task_id": False,
+                "name": "SYNTHETIC stale concurrent preview",
+                "requirement_revision_ids": [Command.set(working.ids)],
+            }
+        )
+    )
+    count = env["project.task"].search_count([])
+    env.cr.commit()
+    common = {"uid": manager.id, "intent_id": pending.id}
+    stale = race(
+        env,
+        {**common, "action": "edit_requirement"},
+        {
+            **common,
+            "action": "confirm",
+            "expect_stale": True,
+        },
+    )
+    assert pending.state == "preview" and not pending.task_id and not working.sealed
+    assert env["project.task"].search_count([]) == count
+    assert not env["project.agile.requirement.task.link"].search_count(
+        [
+            ("requirement_revision_id", "=", working.id),
+        ]
+    )
+    results.append({"operation": "stale_source", "workers": stale})
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_TASK_INTENT_CONCURRENCY_OK "

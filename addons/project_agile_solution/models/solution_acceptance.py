@@ -4,7 +4,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 
-from .solution_access import lock_records
+from .project_agile_solution import claim_records
 
 INPUT = frozenset(
     {
@@ -146,9 +146,9 @@ class RequirementAcceptance(models.Model):
             "project.agile.solution.revision", values.get("document_revision_id")
         )
         baseline._check_authority()
-        baseline._lock_scope()
-        requirement.requirement_id._lock_identity()
-        lock_records(requirement)
+        claim_records(baseline.document_id, allow_referencing=True)
+        claim_records(baseline, allow_referencing=True)
+        claim_records(requirement, allow_referencing=True)
         self._check_decision_scope(requirement, baseline, values["decision"])
         previous = self.search(
             [
@@ -188,7 +188,9 @@ class RequirementAcceptance(models.Model):
             "recorded_at": fields.Datetime.now(),
             "supersedes_id": previous.id or False,
         }
-        return super().create(prepared)
+        event = super().create(prepared)
+        requirement._record_acceptance(event)
+        return event
 
     def _validate_evidence(self, values):
         if values.get("decision") not in ("accepted", "rejected", "withdrawn"):

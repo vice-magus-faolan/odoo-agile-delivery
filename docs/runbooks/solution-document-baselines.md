@@ -70,15 +70,24 @@ private exact-version `_search` seam remains upgrade-sensitive.
 
 ## Concurrency and atomicity
 
-Scope writers serialize lineage -> native Project -> document -> revision. The extra
-Project row coordinates native company/deletion guards; requirement/context writers
-retain this order before taking their child-identity locks. Fixed-table parameterized
-SQL is used only for row locking and an `id=id` MVCC identity write. The latter is
-intentional: PostgreSQL repeatable-read cannot refresh a stale snapshot just by
-acquiring an unchanged parent lock. Contenders must receive a serialization failure and
-retry the entire transaction through native Odoo request retry (or an explicit owned
-test transaction), never refresh half a transaction or commit business code. Unique
-`(document_id, number)` is a final database invariant.
+Operations use Odoo 19 nonblocking ORM claims on their actual document, revision,
+identity and authority records. A shared helper requires a complete native
+`try_lock_for_update` claim and raises `ConcurrencyError` if any row is unavailable.
+Odoo automatically rolls back and retries the complete request in a fresh transaction,
+up to five total attempts, as it does for supported PostgreSQL concurrency failures.
+Exhaustion still fails the request; there is no indefinite retry or business-code retry
+loop. Never refresh half a transaction or commit business code. Non-identifier claims
+allow unrelated foreign-key references; destructive/identifier guards keep stronger
+claims. Unique `(document_id, number)` remains the final database invariant.
+
+New retained history publishes its reference on Project to conflict with company
+changes/deletion and concurrent first-use key allocation. Document creation publishes on
+its solution, approval publishes the approved revision there, and revision allocation
+publishes on its document. These shared ORM writes preserve SOW/spec ordering and force
+stale allocation contenders to restart. Actual lifecycle writes conflict with concurrent
+revision edits. Narrative section changes also advance their parent revision content
+version so a concurrent submission or pending preview cannot miss a child-only edit.
+Publication fields are server-owned, group-restricted and carry no approval authority.
 
 The canonical isolated source probe runs actual separate Odoo shell processes and
 PostgreSQL backends for successor-allocation and approval races. Both contenders

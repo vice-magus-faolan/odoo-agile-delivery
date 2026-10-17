@@ -11,12 +11,12 @@ Community dependencies).
 A durable edge names Task + exact requirement revision + optional exact spec. Creation
 seals actual requirement content. One NFR may span many Tasks and one Task many
 requirements. Explicit retirement retains the old edge/reason/actor; reactivation is
-intentionally not offered. Link edits do not write native work. Existing task selection
-and every confirmation resolve current caller Project, company, Task, requirement and
-exact specification access. Context is never permission. Search/read/group/export use
-current-reference closure, not today's privileged metadata. Archive preserves history;
-new links reject archives and templates. Maintenance reason is explanatory text, not
-inferred acceptance.
+intentionally not offered. Link edits publish a private reference on the Task without
+changing its business fields. Existing task selection and every confirmation resolve
+current caller Project, company, Task, requirement and exact specification access.
+Context is never permission. Search/read/group/export use current-reference closure, not
+today's privileged metadata. Archive preserves history; new links reject archives and
+templates. Maintenance reason is explanatory text, not inferred acceptance.
 
 Preview is a durable creator-owned intent, not a Task. It records a bounded finite
 proposal and exact source fingerprint; confirmation is a separate native wizard/action.
@@ -33,13 +33,22 @@ before creation. Its related projections run without sudo; a current-intent rule
 search/name lookup/counts, and read/export re-query reference closure after rule
 changes. Confirmation selection and projected fields cannot be rewritten by RPC.
 
-Concurrency: intent locks serialize confirmations with an id=id MVCC write; Task rows
-serialize working link mutation and event capture. Scrum retains its Sprint -> Task
-close order. Existing context editors use Solution -> Task; Task owners therefore
-acquire Solution/Project/requirement locks with NOWAIT under a savepoint and translate
-contention to native SerializationFailure, not a lock bypass or commit. Retry the
-complete transaction. This explicit non-waiting seam prevents a Solution/Task deadlock
-while preserving atomic content sealing.
+Concurrency: a nonblocking native ORM claim orders confirmations on their durable
+intent; contention asks Odoo to retry the complete transaction. Consumption itself
+writes the intent, making old snapshots fail rather than create duplicate work. Link
+creation/retirement publishes the actual edge on the Task; discovery references publish
+their actual question revision. Task scope/deletion guards and Sprint capture claim that
+same Task before reading links. Capture needs no Solution-wide write: requirement
+content is already sealed. Revision allocation publishes on its stable identity, so
+pending confirmations cannot miss a concurrent new head. Exact specification claims also
+protect a preview from concurrent specification edits and approval. One shared helper
+requires a complete native `try_lock_for_update` claim, raising `ConcurrencyError` on
+contention. Odoo automatically rolls back and retries the complete request in a fresh
+transaction, up to five total attempts; exhaustion still fails the request. Claims do
+not wait and business code never commits or runs a retry loop. Non-identifier claims
+allow unrelated foreign-key references; deletion/identifier guards retain stronger
+claims. Independent fixtures mirror production-retryable exceptions, never `LockError`
+or cached fragments.
 
 Bridge captures all exact active links at every native event, including empty coverage.
 Existing producer delegates via super; native event return is extended to return its

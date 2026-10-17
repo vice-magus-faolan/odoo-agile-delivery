@@ -1,55 +1,7 @@
-"""Finite Task authority and deadlock-safe traceability locking."""
-
-from psycopg2.errors import LockNotAvailable, SerializationFailure
+"""Finite Task authority and exact traceability scope."""
 
 from odoo import _, fields, models
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tools import SQL
-
-from .solution_access import lock_records
-
-
-def lock_trace_scope(requirements, tasks=None):
-    """Task first, then non-waiting content scope; native retry resolves contention.
-
-    Scrum close owns Sprint -> Task locks; existing context editors own Solution
-    -> Task locks. Waiting on Solution while owning a Task would deadlock with
-    those editors. NOWAIT under a savepoint converts only lock contention into a
-    native serialization retry. No lock is bypassed; no business transaction commits.
-    """
-    if tasks:
-        lock_records(tasks, serialize=True)
-    for records in (
-        requirements.solution_id,
-        requirements.project_id,
-        requirements.requirement_id,
-    ):
-        if not records:
-            continue
-        records.flush_recordset()
-        try:
-            with records.env.cr.savepoint():
-                records.env.cr.execute(
-                    SQL(
-                        "SELECT id FROM %s WHERE id IN %s "
-                        "ORDER BY id FOR UPDATE NOWAIT",
-                        SQL.identifier(records._table),
-                        tuple(sorted(records.ids)),
-                    )
-                )
-                records.env.cr.execute(
-                    SQL(
-                        "UPDATE %s SET id = id WHERE id IN %s",
-                        SQL.identifier(records._table),
-                        tuple(records.ids),
-                    )
-                )
-        except LockNotAvailable as error:
-            raise SerializationFailure(
-                "Solution trace scope changed; retry the complete transaction."
-            ) from error
-        records.invalidate_recordset()
-    lock_records(requirements)
 
 
 def check_task(task, project, mutation=True, active=True):

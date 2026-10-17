@@ -3,6 +3,8 @@
 from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
+from .solution_content import ContentRevision
+
 
 class Requirement(models.Model):
     _name = "project.agile.requirement"
@@ -84,6 +86,26 @@ class RequirementRevision(models.Model):
     _number_unique = models.Constraint(
         "UNIQUE(requirement_id, number)", "Requirement revision number must be unique."
     )
+
+    _last_acceptance_id = fields.Many2one(
+        "project.agile.requirement.acceptance",
+        readonly=True,
+        copy=False,
+        ondelete="set null",
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Published by acceptance append to order concurrent exact-revision "
+            "decision history."
+        ),
+    )
+
+    def _record_acceptance(self, event):
+        self.ensure_one()
+        if event.requirement_revision_id != self:
+            raise ValidationError(_("Acceptance must retain its exact revision."))
+        return super(ContentRevision, self.sudo()).write(
+            {"_last_acceptance_id": event.id}
+        )
 
     # Native validation is side-effect/error-only, not a write-result API.
     def _validate_content(self):  # pylint: disable=missing-return

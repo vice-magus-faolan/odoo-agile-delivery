@@ -6,7 +6,7 @@ from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools import html_sanitize
 
-from .solution_access import lock_records
+from .project_agile_solution import claim_records
 
 
 class SolutionTemplate(models.Model):
@@ -48,7 +48,7 @@ class SolutionTemplate(models.Model):
 
     def write(self, values):
         self._check_manager("write")
-        lock_records(self)
+        claim_records(self, allow_referencing=True)
         if {"version", "company_id"} & values.keys():
             raise ValidationError(_("Template version/company cannot be reassigned."))
         for record in self:

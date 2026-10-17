@@ -6,6 +6,8 @@ import json
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .project_agile_solution import claim_records
+
 LIFECYCLE_FIELDS = frozenset(
     {
         "state",
@@ -36,6 +38,26 @@ class SolutionRevision(models.Model):
     _check_company_auto = True
     _order = "document_id, number desc, id desc"
     _rec_name = "title"
+
+    _narrative_version = fields.Integer(
+        readonly=True,
+        copy=False,
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Advanced by narrative section changes to conflict with concurrent "
+            "submission and stale previews."
+        ),
+    )
+
+    def _record_narrative_change(self):
+        for record in self:
+            super(SolutionRevision, record.sudo()).write(
+                {
+                    "_narrative_version": record.sudo()._narrative_version + 1,
+                }
+            )
+
+        return True
 
     document_id = fields.Many2one(
         "project.agile.solution.document",
@@ -161,7 +183,8 @@ class SolutionRevision(models.Model):
             "project.agile.solution.document", values.get("document_id")
         )
         document._check_authority()
-        document._lock_scope()
+        claim_records(document.solution_id, allow_referencing=True)
+        claim_records(document, allow_referencing=True)
         self._check_active_document(document)
         revisions = document._complete_revisions()
         if revisions and revisions[-1].state in ("draft", "review"):
@@ -177,9 +200,12 @@ class SolutionRevision(models.Model):
         )
         revision = super().create(values)
         revision._validate_content()
+        document._record_revision(revision)
         return revision
 
     def _check_active_document(self, document):
+        claim_records(document.project_id, allow_referencing=True)
+        claim_records(document.solution_id, allow_referencing=True)
         if (
             not document.active
             or not document.solution_id.active
@@ -192,7 +218,8 @@ class SolutionRevision(models.Model):
 
     def _check_editable(self):
         self._check_authority()
-        self._lock_scope()
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if any(record.state != "draft" for record in self):
             raise ValidationError(
                 _(
@@ -375,7 +402,8 @@ class SolutionRevision(models.Model):
     def _transition_caller(self, expected):
         self.ensure_one()
         caller = self._check_authority()
-        self._lock_scope()
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         caller._check_active_document(caller.document_id)
         if self.state != expected:
             raise ValidationError(
@@ -489,6 +517,7 @@ class SolutionRevision(models.Model):
                 _("The predecessor baseline is stale; reopen the current document.")
             )
         with self.env.cr.savepoint():
+            caller.solution_id._record_approval(caller)
             if predecessor:
                 super(SolutionRevision, predecessor).write(
                     {"state": "superseded", "superseded_by_id": self.id}
@@ -506,7 +535,8 @@ class SolutionRevision(models.Model):
     def action_new_revision(self):
         caller = self._check_authority()
         self.ensure_one()
-        self._lock_scope()
+        claim_records(self.document_id, allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if self.state not in ("approved", "superseded"):
             raise ValidationError(
                 _("A working successor starts from an approved baseline.")

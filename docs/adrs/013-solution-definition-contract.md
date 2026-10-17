@@ -81,24 +81,31 @@ validation.
 ## Revision and approval semantics
 
 Documents use `draft -> review -> approved -> superseded`. An authorized author may
-return review to draft with a reason; approval checks the exact content/version under
-lock. Content is frozen in review so concurrent editors cannot change the item being
-approved. Rejection returns it to draft explicitly. Numbered successors are distinct
-working rows; approved/superseded content, membership, ordering, audience, references
-and author/time cannot be rewritten by ORM/import/RPC/x2many, context flags or normal
-sudo flows. Direct state writes are rejected, including for superuser. A narrow private
-transition may update lifecycle metadata only after current caller authorization.
-Superseding a baseline does not delete it or make its acceptance disappear.
+return review to draft with a reason; approval checks the exact content/version under a
+nonblocking native ORM claim. Content is frozen in review so concurrent editors cannot
+change the item being approved. Rejection returns it to draft explicitly. Numbered
+successors are distinct working rows; approved/superseded content, membership, ordering,
+audience, references and author/time cannot be rewritten by ORM/import/RPC/x2many,
+context flags or normal sudo flows. Direct state writes are rejected, including for
+superuser. A narrow private transition may update lifecycle metadata only after current
+caller authorization. Superseding a baseline does not delete it or make its acceptance
+disappear.
 
 Requirement/context content becomes sealed when included in a submitted document review,
 confirmed Task intent/link, Sprint context or acceptance. Editing sealed content creates
 a successor row; an abandoned review never unseals reused history. Draft-only content
 can be edited, but a shared draft reference cannot mutate another document's
 review/baseline. Document membership binds exact content. New document revisions may
-reuse unchanged sealed rows. Unique revision numbers plus serialized identity locks
-prevent concurrent allocation/approval; two submitted successors cannot silently become
-current. Serialize lineage -> document -> revision -> child identities (IDs sorted).
-Revalidate after locks; a stale proposal fails actionably. No manual cursor commit.
+reuse unchanged sealed rows. Unique revision numbers and server-owned publication of
+newly allocated revisions on their identities prevent concurrent allocation; two
+submitted successors cannot silently become current. Document creation and approval
+publish their actual references on the solution to order SOW/spec scope decisions.
+Native ORM claims are nonblocking. A small shared helper requires the complete
+`try_lock_for_update` recordset and raises `ConcurrencyError` on contention, allowing
+native Odoo request retry to roll back and restart the whole transaction (up to five
+total attempts, then failure). Fresh-state validation rejects stale proposals. Claim
+strength is preserved for destructive/identifier guards. No manual cursor commit or
+business-code retry loop.
 
 SOW is optional. SOW approval never approves a spec, its working successor, or later
 scope expansion. A spec records `based_sow_revision_id` only when a SOW exists, plus an
@@ -172,8 +179,9 @@ revisions, proposed name/description/type and creator, no Task. A native confirm
 wizard shows source revision keys and permitted values. Confirm re-resolves caller,
 Project, type eligibility, exact source freshness and access. A changed draft or current
 baseline invalidates the old intent; user must preview again. A consumed intent returns
-the same still-authorized Task, never creates another. Database-unique intent identity
-and row lock serialize two confirmations; mismatching payload reuse is rejected.
+the same still-authorized Task, never creates another. Database-unique intent identity,
+a native nonblocking claim and the actual consumed result order two confirmations;
+mismatching payload reuse is rejected.
 
 Confirm atomically creates a native Task using only `name`, `description`, `project_id`,
 and explicitly selected `agile_item_type_id`, links exact requirement revisions and
@@ -206,11 +214,11 @@ edits or v2 links do not change an event's v1 context. Removed/completed/reopene
 carry-over events retain their observed references, and reports can navigate original
 commitment separately from current coverage. When historical full references are
 inaccessible, fail closed without elevated metadata. Do not change native Sprint
-assignment, state, points, committed-task lists or analytics formulas. Serialize link
-mutations and scope capture on the same Task rows in compatible order; preserve existing
-Sprint close/Task locking order, test concurrent relink/start/add plus rollback.
-Installing or uninstalling the bridge cannot fabricate historical proof. Native core
-works without it.
+assignment, state, points, committed-task lists or analytics formulas. Publish each
+created/retired link reference on its Task and claim that same Task for scope capture.
+Preserve existing Sprint close/Task ordering and atomic rollback; sealed requirements
+need no Solution-wide capture write. Installing or uninstalling the bridge cannot
+fabricate historical proof. Native core works without it.
 
 ## Rendering and templates
 

@@ -3,10 +3,18 @@
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .solution_access import lock_records
+from .project_agile_solution import claim_records
 
 SCOPE = frozenset({"solution_id", "project_id", "company_id", "native_project_access"})
-AUDIT = frozenset({"number", "predecessor_id", "sealed", "sealed_at", "sealed_by_id"})
+AUDIT = frozenset(
+    {
+        "number",
+        "predecessor_id",
+        "sealed",
+        "sealed_at",
+        "sealed_by_id",
+    }
+)
 
 
 def check_reference_commands(commands):
@@ -60,6 +68,30 @@ class ContentIdentity(models.AbstractModel):
         index=True,
     )
 
+    _latest_revision_ref = fields.Reference(
+        selection=[
+            ("project.agile.requirement.revision", "Requirement Revision"),
+            ("project.agile.solution.context.revision", "Context Revision"),
+        ],
+        readonly=True,
+        copy=False,
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Published by numbered revision allocation to conflict with "
+            "concurrent allocation and stale Task previews."
+        ),
+    )
+
+    def _record_revision(self, revision):
+        self.ensure_one()
+        if revision[self._identity_field] != self:
+            raise ValidationError(_("Revision must retain its identity."))
+        return super(ContentIdentity, self.sudo()).write(
+            {
+                "_latest_revision_ref": f"{revision._name},{revision.id}",
+            }
+        )
+
     @api.model
     def default_get(self, names):
         values = super().default_get(
@@ -76,6 +108,8 @@ class ContentIdentity(models.AbstractModel):
             prepared = [self._prepare_identity(values) for values in vals_list]
             records = super().create(prepared)
             records._check_authority()
+            for record in records:
+                record.project_id._record_solution_history(record)
             return records
 
     def _prepare_identity(self, values):
@@ -90,8 +124,8 @@ class ContentIdentity(models.AbstractModel):
         solution.sudo(False).check_access("write")
         solution.project_id.sudo(False).check_access("write")
         self._check_active_solution(solution)
-        lock_records(solution, serialize=True)
-        lock_records(solution.project_id, serialize=True)
+        claim_records(solution.project_id, allow_referencing=True)
+        claim_records(solution, allow_referencing=True)
         # Authorized Project lock serializes first-use sequence creation even
         # across different lineages; standard sequences never reuse consumed keys.
         code = f"{self._name}.{solution.project_id.id}"
@@ -119,14 +153,9 @@ class ContentIdentity(models.AbstractModel):
         ):
             raise ValidationError(_("Select an active Agile solution."))
 
-    def _lock_identity(self):
-        lock_records(self.solution_id, serialize=True)
-        lock_records(self.project_id)
-        lock_records(self, serialize=True)
-
     def write(self, values):
         self._check_authority()
-        self._lock_identity()
+        claim_records(self, allow_referencing=True)
         if (SCOPE | {"key", "revision_ids", "kind"}) & values.keys():
             raise ValidationError(
                 _(
@@ -166,7 +195,7 @@ class ContentIdentity(models.AbstractModel):
     def action_new_revision(self):
         self.ensure_one()
         self._check_authority()
-        self._lock_identity()
+        claim_records(self, allow_referencing=True)
         self._check_active_solution(self.solution_id)
         revisions = self._complete_revisions()
         if not revisions:
@@ -244,7 +273,8 @@ class ContentRevision(models.AbstractModel):
             self._identity_model, values.get(self._identity_field)
         )
         identity._check_authority()
-        identity._lock_identity()
+        claim_records(identity.solution_id, allow_referencing=True)
+        claim_records(identity, allow_referencing=True)
         identity._check_active_solution(identity.solution_id)
         if not identity.active:
             raise ValidationError(
@@ -261,12 +291,13 @@ class ContentRevision(models.AbstractModel):
         self._check_input(values)
         record = super().create(values)
         record._validate_content()
+        identity._record_revision(record)
         return record
 
     def _check_editable(self):
         self._check_authority()
-        self[self._identity_field]._lock_identity()
-        lock_records(self)
+        claim_records(self[self._identity_field], allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         if any(record.sealed for record in self):
             raise ValidationError(
                 _("Referenced content is immutable; create a numbered successor.")
@@ -324,8 +355,8 @@ class ContentRevision(models.AbstractModel):
     def _seal(self):  # pylint: disable=missing-return
         """Private extension seam for already-authorized baseline/link/Sprint use."""
         self._check_authority()
-        self[self._identity_field]._lock_identity()
-        lock_records(self)
+        claim_records(self[self._identity_field], allow_referencing=True)
+        claim_records(self, allow_referencing=True)
         self._validate_content()
         for record in self.filtered(lambda row: not row.sealed):
             super(ContentRevision, record.sudo()).write(

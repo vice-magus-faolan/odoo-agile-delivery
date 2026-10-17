@@ -8,13 +8,12 @@ from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 
-from .solution_access import lock_records
+from .project_agile_solution import claim_records
 from .solution_content import check_reference_commands
 from .solution_task_access import (
     check_document,
     check_requirements,
     check_task,
-    lock_trace_scope,
 )
 
 INPUT = frozenset(
@@ -272,7 +271,7 @@ class SolutionTaskIntent(models.Model):
         self.ensure_one()
         caller = self._check_creator()
         with self.env.cr.savepoint():
-            lock_records(caller, serialize=True)
+            claim_records(caller, allow_referencing=True)
             caller._check_creator()
             if caller.state == "consumed":
                 check_task(
@@ -280,7 +279,15 @@ class SolutionTaskIntent(models.Model):
                 )
                 return caller._task_action()
             revisions = caller._validate_proposal()
-            lock_trace_scope(revisions, caller.task_id)
+            claim_records(caller.task_id, allow_referencing=True)
+            claim_records(caller.project_id, allow_referencing=True)
+            claim_records(caller.solution_id, allow_referencing=True)
+            claim_records(revisions.requirement_id, allow_referencing=True)
+            claim_records(revisions, allow_referencing=True)
+            claim_records(
+                caller.document_revision_id.document_id, allow_referencing=True
+            )
+            claim_records(caller.document_revision_id, allow_referencing=True)
             caller._validate_proposal()
             if caller._fingerprint() != caller.sudo()._source_digest:
                 raise ValidationError(

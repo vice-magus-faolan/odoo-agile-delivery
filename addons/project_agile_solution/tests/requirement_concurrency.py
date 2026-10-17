@@ -8,12 +8,13 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -60,12 +61,13 @@ def worker(env):
                 _wait(directory / "winner.commit")
             env.cr.commit()
             break
-        except SerializationFailure:
+        except (SerializationFailure, ConcurrencyError):
             env.cr.rollback()
             env.invalidate_all()
             identities = env[IDENTITIES[data["kind"]]].with_user(data["uid"])
             identity = identities.browse(data["identity_id"])
             retries += 1
+            time.sleep(0.1)
         except ValidationError:
             env.cr.rollback()
             outcome = "stale_rejected"
@@ -151,7 +153,7 @@ def _race(env, identity, manager, action, kind):
             assert results[1]["outcome"] == (
                 "applied" if action == "key" else "stale_rejected"
             )
-            assert results[1]["retries"] == 1
+            assert results[1]["retries"] >= 1
             if action == "key":
                 records = (
                     env[IDENTITIES[kind]]

@@ -1,8 +1,14 @@
 """Project-scoped solution lineage, not a Task or an approved specification."""
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 from odoo.fields import Domain
+
+
+def claim_records(records, *, allow_referencing=False):
+    """Claim every row or restart the transaction through native request retry."""
+    if records.try_lock_for_update(allow_referencing=allow_referencing) != records:
+        raise ConcurrencyError("Solution records are being changed concurrently.")
 
 
 class ProjectAgileSolution(models.Model):
@@ -33,6 +39,45 @@ class ProjectAgileSolution(models.Model):
         compute="_compute_native_project_access",
         search="_search_native_project_access",
     )
+
+    _last_document_id = fields.Many2one(
+        "project.agile.solution.document",
+        readonly=True,
+        copy=False,
+        ondelete="set null",
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Published by document creation to conflict with concurrent scope "
+            "approval and lineage removal."
+        ),
+    )
+    _last_approved_revision_id = fields.Many2one(
+        "project.agile.solution.revision",
+        readonly=True,
+        copy=False,
+        ondelete="set null",
+        groups="project_agile_solution.group_snapshot_storage",
+        help=(
+            "Published by document approval to order concurrent SOW and "
+            "specification approvals."
+        ),
+    )
+
+    def _record_document(self, document):
+        self.ensure_one()
+        if document.solution_id != self:
+            raise ValidationError(_("Document history must retain its solution."))
+        return super(ProjectAgileSolution, self.sudo()).write(
+            {"_last_document_id": document.id}
+        )
+
+    def _record_approval(self, revision):
+        self.ensure_one()
+        if revision.solution_id != self:
+            raise ValidationError(_("Approval must retain its solution."))
+        return super(ProjectAgileSolution, self.sudo()).write(
+            {"_last_approved_revision_id": revision.id}
+        )
 
     def _compute_native_project_access(self):
         """Accessible lineage records have passed the global Project-access rule."""
@@ -92,7 +137,10 @@ class ProjectAgileSolution(models.Model):
     def write(self, values):
         """Archive/rename identity; never move it between Projects or companies."""
         self.check_access("write")
-        if {"project_id", "company_id"} & values.keys():
+        if {
+            "project_id",
+            "company_id",
+        } & values.keys():
             raise ValidationError(
                 _("A solution lineage cannot change Project or company.")
             )

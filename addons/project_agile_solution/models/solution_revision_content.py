@@ -3,7 +3,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-from .solution_access import lock_records
 from .solution_content import check_reference_commands
 
 MEMBERS = {
@@ -173,18 +172,3 @@ class SolutionContextRetention(models.Model):
                 _("Edit discovery references only through working question context.")
             )
         return super().write(values)
-
-    def unlink(self):
-        self.sudo(False).check_access("unlink")
-        lock_records(self, serialize=True)
-        # A boolean retention guard never returns elevated Task/context metadata.
-        if (
-            self.env["project.agile.solution.context.revision"]
-            .sudo()
-            .search_count([("spike_task_ids", "in", self.ids)], limit=1)
-        ):
-            # Referenced discovery work is retained, never deleted underneath history.
-            raise ValidationError(  # pylint: disable=no-raise-unlink
-                _("Referenced discovery work must be retained; archive instead.")
-            )
-        return super().unlink()

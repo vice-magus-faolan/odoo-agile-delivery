@@ -106,9 +106,6 @@ class TestGitPolicyOperationsContract(unittest.TestCase):
         self.assertIn("from . import test_policy_operations_tour", tests)
         verify = (self.root / "scripts/verify").read_text()
         self.assertIn("python3 -m compileall -q addons scripts", verify)
-        self.assertIn(
-            "controls, dry-run, apply and recovery verification passed", verify
-        )
         overlay = (self.root / "compose.verify.yaml").read_text()
         for boundary in (
             "read_only: true",

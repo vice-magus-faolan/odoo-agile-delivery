@@ -6,6 +6,9 @@ WORKTREE_NAMESPACE=$(printf '%s' "$(basename "$ROOT")" | tr '[:upper:]' '[:lower
 # Always own a disposable project; never adopt an inherited development stack.
 COMPOSE_PROJECT_NAME="odoo-agile-verify-${WORKTREE_NAMESPACE%-}-$$"
 export COMPOSE_PROJECT_NAME
+# Reuse one image tag per checkout, independently of disposable run projects.
+VERIFY_IMAGE_TAG=$(printf '%s' "$ROOT" | sha256sum | cut -d ' ' -f 1)
+export VERIFY_IMAGE_TAG
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.yaml -f compose.verify.yaml)
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
@@ -134,10 +137,4 @@ uninstall_module project_agile
 uninstall_module hr_timesheet
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Uninstall/reinstall smoke test passed for $MODULES."
-printf "%s\n" "Milestone 5 planning-board verification passed."
-printf "%s\n" "Milestone 6 Git facts contract verification passed."
-printf "%s\n" "Milestone 7 Git policy controls, dry-run, apply and recovery verification passed."
-printf "%s\n" "Milestone 8 lineage/baseline lifecycle, native negative tests and independent allocation/approval races verified; full M8 remains downstream."
-printf "%s\n" "Milestone 8 exact FR/NFR/context, reusable SOW narrative, native forms and independent identity/revision allocation races verified."
-printf "%s\n" "Milestone 8 deliberate native Task links/intents and optional frozen Scrum context verified."
-printf "%s\n" "Milestone 8 exact audience-safe native reports/export, explicit acceptance, honest coverage and synthetic browser journeys verified; cumulative assessment remains downstream."
+printf "%s\n" "Verification passed."

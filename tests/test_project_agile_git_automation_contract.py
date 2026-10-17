@@ -120,8 +120,6 @@ class TestGitAutomationContract(unittest.TestCase):
             "--init project_agile_git_automation",
             script,
         )
-        self.assertIn("Milestone 5 planning-board verification passed.", script)
-        self.assertIn("Milestone 6 Git facts contract verification passed.", script)
 
     def test_dry_run_model_discovery_and_no_effect_consumption(self):
         models = (self.addon / "models" / "__init__.py").read_text()

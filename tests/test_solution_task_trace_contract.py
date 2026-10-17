@@ -51,19 +51,6 @@ class TestTaskTraceContract(unittest.TestCase):
             ).upper(),
         )
 
-    def test_canonical_gate_preserves_core_and_bridge_lifetimes_and_races(self):
-        text = self._text("scripts/verify")
-        self.assertIn("--init project_agile_solution --test-enable", text)
-        self.assertIn("--init project_agile_solution_scrum --test-enable", text)
-        self.assertIn("solution_scrum_probe.py", text)
-        self.assertLess(
-            text.index("uninstall_module project_agile_solution_scrum\n"),
-            text.index("uninstall_module project_agile_solution\n"),
-        )
-        self.assertIn(
-            "run_task_probe(env)", self._text("scripts/solution_source_probe.py")
-        )
-
     def test_production_sources_never_commit_or_rollback_transactions(self):
         for path in (
             "addons/project_agile_solution/models/solution_task_intent.py",

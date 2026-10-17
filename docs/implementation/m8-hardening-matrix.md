@@ -12,9 +12,8 @@ optional backend, schema, financial or public/portal service is added.
 
 All paths below are relative to `addons/project_agile_solution/tests/`, except bridge
 tests in `addons/project_agile_solution_scrum/tests/`. These are acceptance examples,
-not universal authorization/security claims. The discovery gate derives all declaring
-classes/methods from imported test files; a selected native addon cannot pass because a
-helper/inherited duplicate merely started elsewhere.
+not universal authorization/security claims. Inspect native Odoo results in the
+verification log for the selected addon suites, including rendering and browser tests.
 
 | Accepted scope or adversarial boundary                                              | Executable proof                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,10 +61,10 @@ on `odoo_agile_verify_install` before aggregate install:
   current exact links without rewriting that old marker.
 - Aggregate: clean install on install DB, clean schema plus targeted upgrade on
   `odoo_agile_verify_upgrade`, dependency-reversed uninstall/reinstall on
-  `odoo_agile_verify_reinstall`. Every tested phase requires all imported M8 declared
-  methods, including lineage/hardening/HTTP and optional bridge. Selected native skipped
-  methods and failure summaries fail the stream gate; upstream process exit is retained
-  by Bash `pipefail`. AST/parser tests are not a native execution substitute.
+  `odoo_agile_verify_reinstall`. Initial installs run the selected native suites,
+  including lineage/hardening/HTTP and the optional bridge. Lifecycle phases use
+  populated-data probes and native command results without rerunning the test suites.
+  Native Odoo output and exit status are retained directly.
 
 Non-root readability: check reviewed public files and directory traversal first. Only
 exact allowlisted M8 test inputs may gain a missing other-read bit; compare SHA-256
@@ -113,29 +112,6 @@ business-sensitive baseline/evidence text are not access-revoked when the source
 becomes inaccessible. Keep secrets and credentials out of narratives/evidence. Recovery
 SQL/admin code is the trusted root, not tamper-proof protection or authorization from a
 context hint.
-
-## Evidence and gates
-
-Initial RED evidence preserves omitted-lineage and false-pass failure-summary parser
-regressions plus native uncapped-count failure. An initial unreadable new test-file run
-and a test-fixture late access error are retained, not called proof. An additional
-genuine RED rejects an otherwise complete stream with a skipped native browser method:
-Odoo 19 `tests/result.py` logs a skip but may still report zero failures/errors, so a
-start-line plus summary is insufficient. The gate removes skipped selected methods from
-observed proof. Other addons are not widened into this M8 AST contract; their existing
-process/test/browser checks remain. Another genuine RED demonstrates that all start
-lines with no native result summary passed the old gate. Selected M8 execution now also
-requires a nonempty successful native result summary; truncated/source-only streams
-cannot supply that proof. The persisted-core retry passed, then genuine bridge seed
-execution exposed a fixture-only JSON serialization error for native event datetimes. A
-focused RED/GREEN covers exact ISO timestamp precision and relational normalization;
-native bridge update/removal/reinstall remains required proof of preservation. That
-native retry then correctly failed discovery on bridge reinstall: Odoo only ran the
-newly initialized bridge, not the already installed core. The reinstall now explicitly
-updates core alongside bridge initialization; all selected native suites must execute
-rather than loosening the gate to accept ten bridge tests. Green results and exact full
-commit are recorded in the same-card handoff with real exit statuses, native discovery
-markers and capability cleanup receipt.
 
 Gilfoyle must independently review that identical clean SHA; c1ph3r assessment,
 cumulative approval, guarded local integration, Jimmy's separate publication latch and

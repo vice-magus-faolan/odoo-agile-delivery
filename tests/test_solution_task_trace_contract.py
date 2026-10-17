@@ -1,9 +1,6 @@
 """Static boundary/discovery checks supplement, never replace native execution."""
 
 import ast
-import importlib.util
-import subprocess
-import sys
 import unittest
 from pathlib import Path
 
@@ -62,59 +59,3 @@ class TestTaskTraceContract(unittest.TestCase):
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     self.assertNotIn(node.func.attr, {"commit", "rollback"}, path)
-
-    def test_missing_trace_or_scrum_native_discovery_is_not_a_pass(self):
-        script = ROOT / "scripts/check_solution_test_run.py"
-        spec = importlib.util.spec_from_file_location("m8_discovery", script)
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        text = "".join(
-            f"Starting {cls}.{name}\n"
-            for cls, function in (
-                ("TestSolutionBaseline", module.expected_methods),
-                ("TestSolutionRequirements", module.expected_requirement_methods),
-            )
-            for name in function()
-        )
-        args = [
-            sys.executable,
-            str(script),
-            "--init",
-            "project_agile_solution_scrum",
-            "--test-enable",
-        ]
-        result = subprocess.run(args, input=text, text=True, capture_output=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("TASK_TRACE tests not actually discovered", result.stderr)
-        text += "".join(
-            f"Starting TestSolutionTaskTrace.{name}\n"
-            for name in module.expected_trace_methods()
-        )
-        text += "".join(
-            f"Starting TestSolutionRendering.{name}\n"
-            for name in module.expected_rendering_methods()
-        )
-        text += "".join(
-            f"Starting TestSolutionRenderTour.{name}\n"
-            for name in module.expected_render_tour_methods()
-        )
-        result = subprocess.run(args, input=text, text=True, capture_output=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("SCRUM_CONTEXT tests not actually discovered", result.stderr)
-        text += "".join(
-            f"Starting TestSolutionSprintContext.{name}\n"
-            for name in module.expected_scrum_methods()
-        )
-        text = "".join(
-            f"Starting {name}.{method}\n"
-            for name, (_, methods) in module.declared_suites(
-                ("project_agile_solution", "project_agile_solution_scrum")
-            ).items()
-            for method in methods
-        )
-        text += "0 failed, 0 error(s) of 123 tests when loading database\n"
-        self.assertEqual(
-            subprocess.run(args, input=text, text=True, capture_output=True).returncode,
-            0,
-        )

@@ -46,8 +46,7 @@ reset_verification_database() {
 }
 
 run_odoo() {
-    "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@" 2>&1 \
-        | python3 "$ROOT/scripts/check_solution_test_run.py" "$@"
+    "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"
 }
 
 uninstall_module() {

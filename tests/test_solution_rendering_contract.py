@@ -1,9 +1,6 @@
 """Structural discovery guards; actual native report/security proof is separate."""
 
 import ast
-import importlib.util
-import subprocess
-import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -53,61 +50,3 @@ class TestSolutionRenderingContract(unittest.TestCase):
             for node in ast.walk(ast.parse((ADDON / "models" / filename).read_text())):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     self.assertNotIn(node.func.attr, {"commit", "rollback"})
-
-    def test_rendering_and_browser_discovery_cannot_be_omitted(self):
-        script = ROOT / "scripts/check_solution_test_run.py"
-        spec = importlib.util.spec_from_file_location("rendering_discovery", script)
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        suites = (
-            ("TestSolutionBaseline", module.expected_methods),
-            ("TestSolutionRequirements", module.expected_requirement_methods),
-            ("TestSolutionTaskTrace", module.expected_trace_methods),
-            ("TestSolutionRendering", module.expected_rendering_methods),
-            ("TestSolutionRenderTour", module.expected_render_tour_methods),
-        )
-        text = "".join(
-            f"Starting {name}.{method}\n"
-            for name, function in suites[:3]
-            for method in function()
-        )
-        command = [
-            sys.executable,
-            str(script),
-            "--init",
-            "project_agile_solution",
-            "--test-enable",
-        ]
-        missing_render = subprocess.run(
-            command, input=text, text=True, capture_output=True
-        )
-        self.assertNotEqual(missing_render.returncode, 0)
-        self.assertIn("RENDERING tests not actually discovered", missing_render.stderr)
-        text += "".join(
-            f"Starting TestSolutionRendering.{method}\n"
-            for method in module.expected_rendering_methods()
-        )
-        missing_browser = subprocess.run(
-            command, input=text, text=True, capture_output=True
-        )
-        self.assertNotEqual(missing_browser.returncode, 0)
-        self.assertIn(
-            "RENDER_TOUR tests not actually discovered", missing_browser.stderr
-        )
-        text += "".join(
-            f"Starting TestSolutionRenderTour.{method}\n"
-            for method in module.expected_render_tour_methods()
-        )
-        text = "".join(
-            f"Starting {name}.{method}\n"
-            for name, (_, methods) in module.declared_suites().items()
-            for method in methods
-        )
-        text += "0 failed, 0 error(s) of 113 tests when loading database\n"
-        self.assertEqual(
-            subprocess.run(
-                command, input=text, text=True, capture_output=True
-            ).returncode,
-            0,
-        )

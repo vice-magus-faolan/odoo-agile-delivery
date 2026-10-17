@@ -161,7 +161,8 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
                 }
             )
             with self.assertRaises(AccessError):
-                forged.create(values)
+                # Native create overrides may mutate inputs before access denial.
+                forged.create(dict(values))
             created = model.create(values)
             self.assertFalse(created.sudo()[field])
             if model._name == "project.task":

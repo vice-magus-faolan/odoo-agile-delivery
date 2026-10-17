@@ -104,7 +104,22 @@ def _apply(env, data):
     elif action == "add":
         task.write({"sprint_id": sprint.id})
     elif action == "close":
-        sprint._close_with_disposition("product_backlog")
+        target = env["project.sprint"].with_user(uid).browse(data.get("target_id", []))
+        sprint._close_with_disposition(
+            "draft_sprint" if target else "product_backlog", target
+        )
+    elif action == "complete":
+        task.write({"state": "1_done"})
+    elif action == "remove":
+        task.return_sprint_tasks_to_product_backlog()
+    elif action == "create_in_sprint":
+        task.copy({"name": "SYNTHETIC concurrent new work", "sprint_id": sprint.id})
+    elif action == "change_target":
+        env["project.sprint"].with_user(uid).browse(data["target_id"]).write(
+            {"team_id": data["other_team_id"]}
+        )
+        # Hold the changed target row before releasing the loser.
+        env.flush_all()
     else:
         raise AssertionError("Unknown fixture action")
     return task.id

@@ -100,12 +100,12 @@ reuse unchanged sealed rows. Unique revision numbers and server-owned publicatio
 newly allocated revisions on their identities prevent concurrent allocation; two
 submitted successors cannot silently become current. Document creation and approval
 publish their actual references on the solution to order SOW/spec scope decisions.
-Native ORM claims are nonblocking. A small shared helper requires the complete
-`try_lock_for_update` recordset and raises `ConcurrencyError` on contention, allowing
-native Odoo request retry to roll back and restart the whole transaction (up to five
-total attempts, then failure). Fresh-state validation rejects stale proposals. Claim
-strength is preserved for destructive/identifier guards. No manual cursor commit or
-business-code retry loop.
+Native ORM claims do not wait. Incomplete claims request native Odoo whole-transaction
+rollback and retry; fresh-state validation rejects stale proposals. Unlink claims also
+exclude concurrent foreign-key references to records being deleted. There is no manual
+cursor commit or business-code retry loop. See the
+[concurrency runbook](../runbooks/solution-document-baselines.md#concurrency-and-atomicity)
+for retry limits and exhaustion behavior.
 
 SOW is optional. SOW approval never approves a spec, its working successor, or later
 scope expansion. A spec records `based_sow_revision_id` only when a SOW exists, plus an

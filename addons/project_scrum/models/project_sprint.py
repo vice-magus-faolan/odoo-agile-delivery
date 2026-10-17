@@ -1,7 +1,7 @@
 from psycopg2 import IntegrityError
 
 from odoo import SUPERUSER_ID, _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ConcurrencyError, ValidationError
 
 
 class ProjectSprint(models.Model):
@@ -180,15 +180,22 @@ class ProjectSprint(models.Model):
                 sprint._activate()
         return True
 
+    def _claim_close_records(self, records):
+        """Require the complete close selection under native transaction retry."""
+        records = records.sorted("id")
+        if records.try_lock_for_update() != records:
+            raise ConcurrencyError(
+                "Sprint close records are being changed concurrently."
+            )
+
     def _lock_close_records(self, target_sprint=False):
         sprints = self | target_sprint
-        self.env.cr.execute(
-            "SELECT id FROM project_sprint WHERE id IN %s ORDER BY id FOR UPDATE",
-            [tuple(sorted(sprints.ids))],
-        )
-        if len(self.env.cr.fetchall()) != len(sprints):
+        if sprints.exists() != sprints:
             raise ValidationError(_("A selected Sprint no longer exists."))
-        sprints.invalidate_recordset(["state", "project_id", "company_id", "team_id"])
+        sprints.check_access("read")
+        # Strong claims also exclude new Task/event foreign-key references while
+        # close selects and moves work. No same-snapshot cache refresh is needed.
+        self._claim_close_records(sprints)
 
     def _validate_close_target(self, disposition, target_sprint):
         if disposition not in {"product_backlog", "draft_sprint"}:
@@ -235,14 +242,20 @@ class ProjectSprint(models.Model):
             if self.state != "active":
                 raise ValidationError(_("Only an active Sprint can be closed."))
             self._validate_close_target(disposition, target_sprint)
-            self.env.cr.execute(
-                "SELECT id FROM project_task "
-                "WHERE sprint_id = %s AND state != %s FOR UPDATE",
-                [self.id, "1_done"],
+            tasks = self.env["project.task"].with_context(active_test=False)
+            # After Sprint authorization, discover the complete bounded selection,
+            # not just visible/active work. Restore caller rights before any use;
+            # inaccessible unfinished work must reject close, never disappear.
+            unfinished_tasks = (
+                tasks.sudo()
+                .search(
+                    [("sprint_id", "=", self.id), ("state", "!=", "1_done")],
+                    order="id",
+                )
+                .with_env(tasks.env)
             )
-            unfinished_tasks = self.env["project.task"].browse(
-                [row[0] for row in self.env.cr.fetchall()]
-            )
+            unfinished_tasks.check_access("write")
+            self._claim_close_records(unfinished_tasks)
             if unfinished_tasks:
                 self._move_unfinished_tasks(
                     unfinished_tasks, disposition, target_sprint

@@ -13,7 +13,6 @@ python3.12 -m venv .venv
 python -m pip install -r requirements-lint.txt
 pre-commit validate-config
 pre-commit run --all-files --show-diff-on-failure
-python -m unittest discover -s tests -p 'test_*.py' -v
 ./scripts/verify
 ```
 

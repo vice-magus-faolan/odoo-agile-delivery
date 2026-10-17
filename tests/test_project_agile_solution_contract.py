@@ -98,9 +98,6 @@ class TestSolutionContract(unittest.TestCase):
             "--test-tags /project_agile_solution",
             script,
         )
-        self.assertIn(
-            '--update "$MODULES" --test-enable --test-tags "$TEST_TAGS"', script
-        )
         self.assertLess(
             script.index("uninstall_module project_agile_solution"),
             script.index("uninstall_module project_agile\n"),

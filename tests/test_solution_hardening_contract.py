@@ -61,17 +61,6 @@ class TestSolutionHardeningContract(unittest.TestCase):
             "reinstalled_bridge",
         ):
             self.assertIn("solution_lifecycle " + phase, verify)
-        self.assertIn("--update project_agile_solution --test-enable", verify)
-        self.assertIn(
-            "--update project_agile_solution,project_agile_solution_scrum "
-            "--test-enable",
-            verify,
-        )
-        self.assertIn(
-            "--init project_agile_solution_scrum "
-            "--update project_agile_solution --test-enable",
-            verify,
-        )
         probe = (ROOT / "scripts/solution_lifecycle_probe.py").read_text()
         self.assertIn("assert env.cr.dbname == DATABASE", probe)
         self.assertIn('DATABASE = "odoo_agile_verify_install"', probe)

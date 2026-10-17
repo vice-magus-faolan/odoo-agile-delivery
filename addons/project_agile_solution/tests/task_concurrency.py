@@ -9,6 +9,7 @@ import os
 import subprocess
 import tempfile
 import time
+import traceback
 from pathlib import Path
 
 from psycopg2.errors import SerializationFailure
@@ -35,6 +36,7 @@ def worker(env):
     (directory / (name + ".ready")).touch()
     _wait(directory / (name + ".go"))
     retries = 0
+    retry_errors = []
     while retries < 4:
         (directory / (name + ".attempt")).touch()
         try:
@@ -55,15 +57,25 @@ def worker(env):
                         "pid": os.getpid(),
                         "backend": backend,
                         "retries": retries,
+                        "retry_errors": retry_errors,
                         "result_id": result_id,
                     }
                 )
             )
             return
-        except (SerializationFailure, ConcurrencyError):
+        except (SerializationFailure, ConcurrencyError) as error:
+            retry_errors.append(
+                {
+                    "type": type(error).__name__,
+                    "site": traceback.extract_tb(error.__traceback__)[-1].name,
+                }
+            )
             env.cr.rollback()
             env.invalidate_all()
             retries += 1
+            if name == "loser" and data["ordering"] == "contended" and retries == 1:
+                (directory / "loser.retrying").touch()
+                _wait(directory / "loser.retry")
             time.sleep(0.1)
     raise AssertionError("Task trace race exhausted bounded retry")
 
@@ -125,15 +137,21 @@ def _apply(env, data):
     return task.id
 
 
-def race(env, winner, loser):
+def race(env, winner, loser, *, ordering="overlap"):
     assert env.cr.dbname == "odoo_agile_verify_install"
+    assert ordering in {"overlap", "committed", "contended"}
     with tempfile.TemporaryDirectory(
         prefix="solution-task-race-", dir="/var/lib/odoo"
     ) as temporary:
         directory, processes = Path(temporary), []
         try:
             for name, proposal in (("winner", winner), ("loser", loser)):
-                data = {**proposal, "directory": str(directory), "worker": name}
+                data = {
+                    **proposal,
+                    "directory": str(directory),
+                    "worker": name,
+                    "ordering": ordering,
+                }
                 process = subprocess.Popen(
                     [
                         "odoo",
@@ -161,9 +179,21 @@ def race(env, winner, loser):
                 _wait(directory / (name + ".ready"))
             (directory / "winner.go").touch()
             _wait(directory / "winner.mutated")
+            # Both snapshots already exist. Separate a committed row change
+            # from an incomplete native claim while the winner still owns it.
+            if ordering == "committed":
+                (directory / "winner.commit").touch()
+                _wait(directory / "winner.json")
             (directory / "loser.go").touch()
-            _wait(directory / "loser.attempt")
-            (directory / "winner.commit").touch()
+            if ordering == "contended":
+                _wait(directory / "loser.retrying")
+            else:
+                _wait(directory / "loser.attempt")
+            if ordering != "committed":
+                (directory / "winner.commit").touch()
+            if ordering == "contended":
+                _wait(directory / "winner.json")
+                (directory / "loser.retry").touch()
             for process in processes:
                 stdout, stderr = process.communicate(timeout=60)
                 assert process.returncode == 0, (stdout, stderr)
@@ -175,10 +205,22 @@ def race(env, winner, loser):
                 results[0]["pid"] != results[1]["pid"]
                 and results[0]["backend"] != results[1]["backend"]
             )
-            # Capture-first relinking need not read or rewrite the captured event.
-            # Its exact historical content is asserted by the bridge consumer.
-            if (winner["action"], loser["action"]) == ("start", "relink"):
-                assert results[1]["retries"] == 0, results
+            assert results[0]["retries"] == 0, results
+            if ordering == "contended":
+                assert results[1]["retries"] == 1, results
+                assert results[1]["retry_errors"] == [
+                    {"type": "ConcurrencyError", "site": "claim_records"}
+                ], results
+            elif ordering == "committed":
+                if winner["action"] == "start":
+                    # Capture writes the event, not the Task: no stale-row clash.
+                    assert results[1]["retries"] == 0, results
+                else:
+                    # Relinking publishes on the Task, invalidating its old snapshot.
+                    assert results[1]["retries"] == 1, results
+                    assert results[1]["retry_errors"][0]["type"] == (
+                        "SerializationFailure"
+                    ), results
             else:
                 assert results[1]["retries"] >= 1, results
             if loser.get("expect_stale"):

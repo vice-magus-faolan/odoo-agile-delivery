@@ -24,7 +24,6 @@ chmod -R a+rX "$ROOT/addons"
 # Public probes are bind-mounted and executed as the non-root Odoo user too.
 chmod -R a+rX "$ROOT/scripts"
 python3 -m compileall -q addons scripts
-python3 -m unittest discover -s tests -p "test_*.py" -v
 "${COMPOSE[@]}" build odoo
 
 reset_verification_database() {

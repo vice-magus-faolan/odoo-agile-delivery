@@ -112,12 +112,11 @@ and the advisory translation rule. From the repository root, with that environme
 
 ```bash
 pre-commit run --all-files --show-diff-on-failure
-python -m unittest discover -s tests -p 'test_*.py' -v
 ./scripts/verify
 ```
 
 `./scripts/verify` installs, upgrades, uninstalls and reinstalls the core and optional
-non-Document-Page addons in disposable databases, running root, native Odoo, browser
+non-Document-Page addons in disposable databases, running native Odoo, browser
 and concurrency tests. It automatically removes its owned containers, volumes and
 networks on exit and checks that teardown completed.
 

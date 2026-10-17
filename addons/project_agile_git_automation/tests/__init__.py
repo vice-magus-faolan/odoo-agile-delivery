@@ -5,3 +5,4 @@ from . import test_policy_apply
 from . import test_policy_operations
 from . import test_policy_operations_tour
 from . import test_policy_github_lifecycle
+from . import test_policy_evidence

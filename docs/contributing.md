@@ -20,5 +20,5 @@ Until issue #7, `prefer-env-translation` (`W8161`) remains advisory in the optio
 pylint hook, with all other mandatory checks blocking. Issue #7 must assess language
 fallbacks and multilingual compatibility before restoring mandatory gating.
 
-External process/lifecycle checks and standalone planning-race usage are documented in
-[the probe guide](../scripts/probes/README.md).
+External process/lifecycle checks, including the planning races run by
+`./scripts/verify`, are documented in [the probe guide](../scripts/probes/README.md).

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from odoo.exceptions import AccessError, ValidationError
 
-output_directory = Path("/mnt/planning-concurrency")
+output_directory = Path(os.environ["PLANNING_DIRECTORY"])
 worker = os.environ["PLANNING_WORKER"]
 scenario = json.loads((output_directory / "scenario.json").read_text())
 (output_directory / f"{worker}.ready").write_text("ready\n")

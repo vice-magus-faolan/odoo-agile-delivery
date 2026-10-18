@@ -111,6 +111,10 @@ run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-t
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
+    < "$ROOT/scripts/probes/planning_concurrency_probe.py"
+printf "%s\n" "Planning assign/return and reorder independent-process races passed."
+"${COMPOSE[@]}" run --rm -T odoo \
+    odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/probes/git_policy_concurrency_probe.py"
 printf "%s\n" "Native Git policy scheduling, budget interruption, independent-process races and crash recovery passed."
 "${COMPOSE[@]}" run --rm -T odoo \

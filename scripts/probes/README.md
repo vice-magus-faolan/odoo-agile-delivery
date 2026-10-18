@@ -13,11 +13,12 @@ Use only disposable databases; these probes commit synthetic data.
   races.
 - `github_association_concurrency_{probe,worker}.py`: duplicate normalization and audit
   continuity.
-- `planning_concurrency_{setup,worker,assert}.py`: assign/return and reorder races.
+- `planning_concurrency_{probe,worker}.py`: assign/return and reorder races.
 
 Run from the repository root with Docker Compose v2 available:
 
-- `./scripts/verify` runs the core probes after ordinary addon installation.
-- `python3 scripts/probes/test_planning_concurrency.py` runs standalone planning races.
-
-Both commands own and remove their disposable Compose resources.
+`./scripts/verify` runs the core probes, including planning races, after ordinary addon
+installation in its disposable database. Planning results appear as
+`PLANNING_CONCURRENCY=` followed by the assign/return and reorder outcomes and final
+backlog order. The command reports its verification result separately from owned Compose
+resource teardown.

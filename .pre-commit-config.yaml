@@ -50,7 +50,6 @@ repos:
         args:
           - --addons-dir=addons
           - --branch=main/addons
-          - --gen-html
           - --org-name=vice-magus-faolan
           - --repo-name=odoo-agile-delivery
           - --if-source-changed

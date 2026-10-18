@@ -294,8 +294,12 @@ class ProjectSprint(models.Model):
         self._check_lifecycle_access()
         if self.state != "active":
             raise ValidationError(_("Only an active Sprint can be closed."))
-        if not self.with_context(active_test=False).task_ids.filtered(
-            lambda task: task.state != "1_done"
+        if (
+            not self.env["project.task"]
+            .with_context(active_test=False)
+            .search_count(
+                [("sprint_id", "=", self.id), ("state", "!=", "1_done")], limit=1
+            )
         ):
             return self._close_with_disposition("product_backlog")
         return {

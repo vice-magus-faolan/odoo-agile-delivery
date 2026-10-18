@@ -223,6 +223,9 @@ class ProjectSprint(models.Model):
             event_type, tasks, carryover_target_sprint=target_sprint
         )
 
+    def _unfinished_task_domain(self):
+        return [("sprint_id", "=", self.id), ("state", "!=", "1_done")]
+
     def _close_with_disposition(self, disposition, target_sprint=False):
         self.ensure_one()
         self._check_lifecycle_access()
@@ -238,9 +241,7 @@ class ProjectSprint(models.Model):
             # Hidden or archived Tasks cannot be skipped; require caller write
             # access for the whole selection.
             unfinished_tasks = (
-                tasks.sudo()
-                .search([("sprint_id", "=", self.id), ("state", "!=", "1_done")])
-                .with_env(tasks.env)
+                tasks.sudo().search(self._unfinished_task_domain()).with_env(tasks.env)
             )
             unfinished_tasks.check_access("write")
             claim_records(unfinished_tasks)
@@ -297,9 +298,7 @@ class ProjectSprint(models.Model):
         if (
             not self.env["project.task"]
             .with_context(active_test=False)
-            .search_count(
-                [("sprint_id", "=", self.id), ("state", "!=", "1_done")], limit=1
-            )
+            .search_count(self._unfinished_task_domain(), limit=1)
         ):
             return self._close_with_disposition("product_backlog")
         return {

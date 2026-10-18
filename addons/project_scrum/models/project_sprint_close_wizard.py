@@ -33,9 +33,7 @@ class ProjectSprintCloseWizard(models.TransientModel):
             wizard.unfinished_task_count = (
                 self.env["project.task"]
                 .with_context(active_test=False)
-                .search_count(
-                    [("sprint_id", "=", wizard.sprint_id.id), ("state", "!=", "1_done")]
-                )
+                .search_count(wizard.sprint_id._unfinished_task_domain())
             )
 
     @api.constrains("unfinished_disposition", "target_sprint_id")

@@ -11,14 +11,13 @@ import tempfile
 import time
 from pathlib import Path
 
+from baseline_concurrency import _wait
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
 from odoo.exceptions import ConcurrencyError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
-
-from .baseline_concurrency import _wait
 
 IDENTITIES = {
     "requirement": "project.agile.requirement",
@@ -113,7 +112,8 @@ def _launch(env, directory, name, identity, manager, action, kind):
     )
     assert process.stdin is not None
     process.stdin.write(
-        "from odoo.addons.project_agile_solution.tests.requirement_concurrency "
+        "import sys\nsys.path.insert(0, '/mnt/probes')\n"
+        "from requirement_concurrency "
         "import worker\nworker(env)\n"
     )
     process.stdin.close()

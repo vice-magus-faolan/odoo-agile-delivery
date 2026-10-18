@@ -44,7 +44,7 @@ deliveries = env["project.git.delivery"].create(
 )
 before = task.read(["stage_id", "state", "write_date", "message_ids"])[0]
 env.cr.commit()
-source = Path("/mnt/policy-tests/github_association_concurrency_worker.py").read_text()
+source = Path("/mnt/probes/github_association_concurrency_worker.py").read_text()
 command = [
     "odoo",
     "shell",

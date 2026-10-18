@@ -120,6 +120,10 @@ non-Document-Page addons in disposable databases, running native Odoo, browser
 and concurrency tests. It automatically removes its owned containers, volumes and
 networks on exit and checks that teardown completed.
 
+
+External process/lifecycle checks and standalone planning-race usage are documented
+in [the probe guide](scripts/probes/README.md).
+
 Verify the optional OCA Document Page bridges separately:
 
 ```bash

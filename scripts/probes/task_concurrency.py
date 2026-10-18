@@ -12,11 +12,10 @@ import time
 import traceback
 from pathlib import Path
 
+from baseline_concurrency import _wait
 from psycopg2.errors import SerializationFailure
 
 from odoo.exceptions import ConcurrencyError, ValidationError
-
-from .baseline_concurrency import _wait
 
 
 def worker(env):
@@ -170,7 +169,8 @@ def race(env, winner, loser, *, ordering="overlap"):
                 processes.append(process)
                 assert process.stdin is not None
                 process.stdin.write(
-                    "from odoo.addons.project_agile_solution.tests.task_concurrency "
+                    "import sys\nsys.path.insert(0, '/mnt/probes')\n"
+                    "from task_concurrency "
                     "import worker\nworker(env)\n"
                 )
                 process.stdin.close()

@@ -27,7 +27,7 @@ approver = mail_new_test_user(env, "race_policy_approver", groups=capability)
 executor = mail_new_test_user(
     env, "race_policy_executor", groups="project.group_project_user"
 )
-worker_source = Path("/mnt/policy-tests/git_policy_concurrency_worker.py").read_text()
+worker_source = Path("/mnt/probes/git_policy_concurrency_worker.py").read_text()
 command = [
     "odoo",
     "shell",

@@ -47,7 +47,7 @@ assert set(all_orders) == {scenario["conflict_task_id"], first, second, third}, 
 )
 assert len(set(all_orders)) == len(all_orders)
 assertion = {
-    "database": "odoo_agile_planning_concurrency_t_b1f7013f",
+    "database": env.cr.dbname,
     "all_orders": all_orders,
     "orders": orders,
     "results": results,

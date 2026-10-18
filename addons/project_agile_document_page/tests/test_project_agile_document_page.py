@@ -165,3 +165,49 @@ class TestProjectAgileDocumentPage(TransactionCase):
     def test_open_requires_a_documentation_root(self):
         with self.assertRaises(UserError):
             self.project.action_open_agile_documentation_root()
+
+    def test_category_template_initializes_a_new_page(self):
+        category = self.page_model.create(
+            {
+                "name": "Fixture category",
+                "type": "category",
+                "template": "<p>Fixture template</p>",
+            }
+        )
+        page = self.page_model.new({"name": "Fixture draft", "parent_id": category.id})
+        page._onchange_parent_id()
+        self.assertEqual(page.content, category.template)
+
+    def test_content_history_archive_and_cascade_deletion(self):
+        page = self._create_page(
+            self.project,
+            content="<p>Initial fixture content</p>",
+            draft_name="1.0",
+            draft_summary="Initial fixture history",
+        )
+        page.content = "<p>Updated fixture content</p>"
+        self.assertTrue(page.history_head)
+        self.assertEqual(len(page.history_ids), 2)
+        history = page.history_ids
+        page.active = False
+        self.assertFalse(page.active)
+        page.unlink()
+        self.assertFalse(page.exists())
+        self.assertFalse(history.exists())
+
+    def test_project_document_page_relation_and_actions(self):
+        page = self._create_page(self.project)
+        self.assertIn(page, self.project.document_page_ids)
+        self.assertEqual(self.project.document_page_count, 1)
+        for xmlid in (
+            "document_page.view_wiki_form",
+            "document_page.view_wiki_tree",
+            "document_page.view_wiki_filter",
+            "document_page_project.action_document_page_projects",
+            "document_knowledge.group_document_user",
+            "document_page.group_document_editor",
+            "document_page.group_document_manager",
+            "document_page.document_page_rule",
+            "document_page.document_page_history_rule",
+        ):
+            self.assertTrue(self.env.ref(xmlid))

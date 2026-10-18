@@ -70,7 +70,7 @@ uninstall_module() {
 
 solution_lifecycle() {
     local phase=$1
-    { printf 'PHASE = "%s"\n' "$phase"; cat "$ROOT/scripts/solution_lifecycle_probe.py"; } \
+    { printf 'PHASE = "%s"\n' "$phase"; cat "$ROOT/scripts/probes/solution_lifecycle_probe.py"; } \
         | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http
 }
 
@@ -80,9 +80,9 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --te
 printf "%s\n" "Independent optional Git policy install passed (without GitHub or Scrum)."
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution --test-enable --test-tags /project_agile_solution
-"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+"${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
-    < "$ROOT/scripts/solution_source_probe.py"
+    < "$ROOT/scripts/probes/solution_concurrency_probe.py"
 printf "%s\n" "Independent optional solution install passed (without Scrum, Git, Sales or document backend)."
 solution_lifecycle seed_core
 run_odoo --database "$DATABASE_INSTALL" --update project_agile_solution
@@ -96,7 +96,7 @@ reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --test-enable --test-tags /project_agile_solution,/project_agile_solution_scrum
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
-    < "$ROOT/scripts/solution_scrum_probe.py"
+    < "$ROOT/scripts/probes/solution_scrum_probe.py"
 printf "%s\n" "Independent optional solution Scrum bridge install and native relink/event races passed."
 solution_lifecycle seed_bridge
 run_odoo --database "$DATABASE_INSTALL" --update project_agile_solution,project_agile_solution_scrum
@@ -109,13 +109,13 @@ printf "%s\n" "Independent bridge persisted-data upgrade and uninstall/reinstall
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
-"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+"${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
-    < "$ROOT/scripts/git_policy_concurrency_probe.py"
+    < "$ROOT/scripts/probes/git_policy_concurrency_probe.py"
 printf "%s\n" "Native Git policy scheduling, budget interruption, independent-process races and crash recovery passed."
-"${COMPOSE[@]}" run --rm -T -v "$ROOT/scripts:/mnt/policy-tests:ro" odoo \
+"${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
-    < "$ROOT/scripts/github_association_concurrency_probe.py"
+    < "$ROOT/scripts/probes/github_association_concurrency_probe.py"
 printf "%s\n" "Current-delivery association proof and independent-process duplicate recovery passed."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"

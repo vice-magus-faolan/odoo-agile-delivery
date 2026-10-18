@@ -1,8 +1,12 @@
 """Disposable optional-bridge proof and independent relink/Sprint event races."""
 
 import json
+import sys
 
-from odoo.addons.project_agile_solution.tests.task_concurrency import race, seed
+sys.path.insert(0, "/mnt/policy-tests")
+
+
+from task_concurrency import race, seed
 
 assert env.cr.dbname == "odoo_agile_verify_install"
 for name in ("project_agile_solution", "project_scrum", "project_agile_solution_scrum"):

@@ -115,7 +115,8 @@ def _launch(env, directory, name, revision, uid, action):
     )
     assert process.stdin is not None
     process.stdin.write(
-        "from odoo.addons.project_agile_solution.tests.baseline_concurrency "
+        "import sys\nsys.path.insert(0, '/mnt/policy-tests')\n"
+        "from baseline_concurrency "
         "import worker\nworker(env)\n"
     )
     process.stdin.close()

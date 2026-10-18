@@ -51,18 +51,8 @@ uninstall_module() {
             --no-http
 }
 
-run_runtime_probe() {
-    python3 -c 'from pathlib import Path; print(Path("scripts/oca_document_page_probe.py").read_text())' \
-        | "${COMPOSE[@]}" run --rm --no-deps -T odoo odoo shell \
-            --config=/etc/odoo/odoo.conf \
-            --addons-path="$ADDONS_PATH" \
-            -d "$DATABASE_INSTALL" \
-            --no-http
-}
-
 reset_verification_database "$DATABASE_INSTALL"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
-run_runtime_probe
 printf '%s\n' "OCA clean install and runtime contract passed for $MODULES."
 
 reset_verification_database "$DATABASE_UPGRADE"

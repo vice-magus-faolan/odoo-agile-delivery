@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 # Run bounded multi-process regressions for planning mutation serialization.
+# CLI results and cleanup diagnostics belong on stdout/stderr, not Odoo logging.
+# pylint: disable=print-used
 
 from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "scripts"
-DATABASE = "odoo_agile_planning_concurrency_t_b1f7013f"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "scripts/probes"
+RUN_ID = uuid.uuid4().hex
+PROJECT = "odoo-agile-planning-" + RUN_ID
+DATABASE = "odoo_agile_planning_" + RUN_ID
+COMPOSE = ["docker", "compose", "-p", PROJECT, "-f", str(ROOT / "compose.yaml")]
 WORKER_TIMEOUT_SECONDS = 20
 READY_TIMEOUT_SECONDS = 10
 
@@ -21,50 +28,35 @@ READY_TIMEOUT_SECONDS = 10
 def compose(
     arguments: list[str], *, check: bool = True, timeout: int = 180
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["docker", "compose", *arguments],
+    completed = subprocess.run(
+        [*COMPOSE, *arguments],
         cwd=ROOT,
-        check=check,
+        check=False,
         text=True,
         capture_output=True,
         timeout=timeout,
     )
-
-
-def terminate_database_sessions() -> None:
-    compose(
-        [
-            "exec",
-            "-T",
-            "db",
-            "psql",
-            "-U",
-            "odoo",
-            "-d",
-            "postgres",
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-            f"WHERE datname = '{DATABASE}' AND pid <> pg_backend_pid()",
-        ],
-        timeout=30,
-    )
+    if check and completed.returncode:
+        raise RuntimeError(
+            f"Compose exited {completed.returncode}: "
+            f"{completed.stdout}\n{completed.stderr}"
+        )
+    if check:
+        print(completed.stdout + completed.stderr, end="", flush=True)
+    return completed
 
 
 def reset_database() -> None:
-    compose(["up", "-d", "db"], timeout=120)
-    terminate_database_sessions()
-    compose(
-        ["exec", "-T", "db", "dropdb", "-U", "odoo", "--if-exists", DATABASE],
-        timeout=30,
-    )
+    # A fresh project owns an empty PostgreSQL volume; never reset inherited data.
+    compose(["up", "-d", "--wait", "--wait-timeout", "120", "db"], timeout=150)
     compose(
         [
             "run",
             "--rm",
             "--no-deps",
             "-T",
+            "-v",
+            str(ROOT / "addons") + ":/mnt/extra-addons:ro",
             "odoo",
             "odoo",
             "--config=/etc/odoo/odoo.conf",
@@ -77,6 +69,46 @@ def reset_database() -> None:
         ],
         timeout=300,
     )
+
+
+def cleanup() -> None:
+    failed = False
+    try:
+        completed = compose(["down", "--volumes", "--remove-orphans"], check=False)
+        if completed.returncode:
+            print(completed.stdout + completed.stderr, file=sys.stderr)
+            failed = True
+    except subprocess.SubprocessError as error:
+        print(f"Planning teardown command failed: {error}", file=sys.stderr)
+        failed = True
+    for kind, flags in (("container", "-aq"), ("volume", "-q"), ("network", "-q")):
+        try:
+            result = subprocess.run(
+                [
+                    "docker",
+                    kind,
+                    "ls",
+                    flags,
+                    "--filter",
+                    "label=com.docker.compose.project=" + PROJECT,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.stdout.strip():
+                print(
+                    f"Planning {kind} resources remain: {result.stdout}",
+                    file=sys.stderr,
+                )
+                failed = True
+        except subprocess.SubprocessError as error:
+            print(f"Planning {kind} absence query failed: {error}", file=sys.stderr)
+            failed = True
+    if failed:
+        raise RuntimeError("Planning owned-resource teardown failed")
+    print(f"Planning teardown complete: {PROJECT} (no containers, volumes or networks)")
 
 
 def shell_command(script_name: str) -> str:
@@ -97,13 +129,15 @@ def shell_arguments(
         "--user",
         f"{os.getuid()}:{os.getgid()}",
         "-v",
+        str(ROOT / "addons") + ":/mnt/extra-addons:ro",
+        "-v",
         f"{SCRIPTS}:/mnt/planning-scripts:ro",
         "-v",
         f"{workdir}:/mnt/planning-concurrency",
     ]
     for key, value in (environment or {}).items():
         arguments.extend(["-e", f"{key}={value}"])
-    arguments.extend(["odoo", "sh", "-lc", shell_command(script_name)])
+    arguments.extend(["odoo", "sh", "-c", shell_command(script_name)])
     return arguments
 
 
@@ -131,11 +165,11 @@ def wait_for_ready(workdir: Path, workers: tuple[str, ...]) -> None:
 
 
 def run_scenario(workdir: Path, workers: tuple[str, str]) -> None:
+    (workdir / "start").unlink(missing_ok=True)
     processes = [
         subprocess.Popen(
             [
-                "docker",
-                "compose",
+                *COMPOSE,
                 *shell_arguments(
                     workdir,
                     "planning_concurrency_worker.py",
@@ -172,11 +206,18 @@ def run_scenario(workdir: Path, workers: tuple[str, str]) -> None:
 
 
 def main() -> int:
-    cleanup_error: Exception | None = None
+    print(
+        f"Owning fresh disposable planning project: {PROJECT}; database: {DATABASE}",
+        flush=True,
+    )
+    subprocess.run(["chmod", "a+r", str(ROOT / "config/odoo.conf")], check=True)
+    subprocess.run(
+        ["chmod", "-R", "a+rX", str(ROOT / "addons"), str(SCRIPTS)], check=True
+    )
     try:
         reset_database()
         with tempfile.TemporaryDirectory(
-            prefix="t_b1f7013f-planning-concurrency-"
+            prefix="planning-concurrency-", dir=os.environ.get("TMPDIR", str(ROOT))
         ) as temporary_directory:
             workdir = Path(temporary_directory)
             run_shell(workdir, "planning_concurrency_setup.py")
@@ -192,20 +233,29 @@ def main() -> int:
                 )
             )
     finally:
+        original_error = sys.exc_info()[1]
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         try:
-            terminate_database_sessions()
-            compose(
-                ["exec", "-T", "db", "dropdb", "-U", "odoo", "--if-exists", DATABASE],
-                timeout=30,
-            )
+            cleanup()
         except Exception as error:
-            cleanup_error = error
-    if cleanup_error:
-        raise cleanup_error
+            print(
+                f"Planning teardown failed; original failure: {original_error!r}; "
+                f"cleanup: {error}",
+                file=sys.stderr,
+            )
+            if original_error is None:
+                raise
     return 0
 
 
+def interrupted(signum, frame):
+    raise SystemExit(128 + signum)
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     try:
         raise SystemExit(main())
     except (subprocess.SubprocessError, RuntimeError, TimeoutError) as error:

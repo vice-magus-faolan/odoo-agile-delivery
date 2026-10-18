@@ -6,6 +6,10 @@ Uninstall destroys M8 history; these checks do not promise archival retention.
 """
 
 import json
+import sys
+
+sys.path.insert(0, "/mnt/policy-tests")
+
 from datetime import date, datetime
 
 from odoo import Command
@@ -54,7 +58,7 @@ def record_values(record, fields):
 
 
 def seed_fixture(bridge):
-    from odoo.addons.project_agile_solution.tests.task_concurrency import seed
+    from task_concurrency import seed
 
     manager, project, solution, requirement = seed(
         env, "M8LIFEBRIDGE" if bridge else "M8LIFECORE"

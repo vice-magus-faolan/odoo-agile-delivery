@@ -11,7 +11,7 @@ services:
       - /tmp
     volumes:
       - ./addons:/mnt/extra-addons:ro
-      - ./scripts/probes:/mnt/policy-tests:ro
+      - ./scripts/probes:/mnt/probes:ro
 
 # Verification has DB/loopback connectivity only; provider/network calls cannot
 # become an accidental runtime requirement. This is not a live Odoo.sh fixture.

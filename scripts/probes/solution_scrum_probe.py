@@ -3,7 +3,7 @@
 import json
 import sys
 
-sys.path.insert(0, "/mnt/policy-tests")
+sys.path.insert(0, "/mnt/probes")
 
 
 from task_concurrency import race, seed

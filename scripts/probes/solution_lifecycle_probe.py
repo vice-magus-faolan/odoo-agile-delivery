@@ -8,7 +8,7 @@ Uninstall destroys M8 history; these checks do not promise archival retention.
 import json
 import sys
 
-sys.path.insert(0, "/mnt/policy-tests")
+sys.path.insert(0, "/mnt/probes")
 
 from datetime import date, datetime
 

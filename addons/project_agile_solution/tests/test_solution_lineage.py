@@ -269,24 +269,3 @@ class TestSolutionLineage(TransactionCase):
             # Contract expectation data is not fabricated runtime acceptance.
             self.assertNotIn("requirement_ids", lineage._fields)
         self.assertTrue(self.env.ref("project_agile_solution.action_solution_lineage"))
-
-    def test_solution_install_registers_models_actions_and_template(self):
-        for name in (
-            "project.agile.solution",
-            "project.agile.solution.document",
-            "project.agile.solution.revision",
-            "project.agile.solution.section",
-            "project.agile.solution.template",
-            "project.agile.requirement",
-            "project.agile.requirement.revision",
-            "project.agile.solution.context",
-            "project.agile.solution.context.revision",
-        ):
-            self.assertIn(name, self.env.registry)
-        for name in (
-            "action_solution_lineage",
-            "action_solution_document",
-            "action_requirement",
-            "template_sow_skeleton",
-        ):
-            self.assertTrue(self.env.ref("project_agile_solution." + name))

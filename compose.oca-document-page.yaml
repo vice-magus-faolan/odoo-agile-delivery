@@ -20,7 +20,9 @@ services:
     build:
       context: .
       dockerfile: fixtures/oca-document-page/Dockerfile
-    image: odoo-agile-oca-document-page-fixture:local
+    image:
+      odoo-agile-oca-document-page-fixture:${VERIFY_IMAGE_TAG:?Run
+      scripts/verify-oca-document-page to set the checkout image tag}
     depends_on:
       db:
         condition: service_healthy

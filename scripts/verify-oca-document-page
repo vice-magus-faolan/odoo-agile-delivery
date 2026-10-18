@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
+VERIFY_IMAGE_TAG=$(printf '%s' "$ROOT" | sha256sum | cut -d ' ' -f 1)
+export VERIFY_IMAGE_TAG
+
 WORKTREE_NAMESPACE=$(printf '%s' "$(basename "$ROOT")" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-')
 # Always own a fresh disposable project; never adopt a development stack.
 COMPOSE_PROJECT_NAME="odoo-agile-oca-verify-${WORKTREE_NAMESPACE%-}-$(date +%s%N)-$$"

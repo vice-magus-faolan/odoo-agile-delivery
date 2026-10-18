@@ -169,7 +169,7 @@ def race(env, winner, loser, *, ordering="overlap"):
                 processes.append(process)
                 assert process.stdin is not None
                 process.stdin.write(
-                    "import sys\nsys.path.insert(0, '/mnt/policy-tests')\n"
+                    "import sys\nsys.path.insert(0, '/mnt/probes')\n"
                     "from task_concurrency "
                     "import worker\nworker(env)\n"
                 )

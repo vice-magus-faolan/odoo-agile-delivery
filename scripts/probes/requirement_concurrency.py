@@ -112,7 +112,7 @@ def _launch(env, directory, name, identity, manager, action, kind):
     )
     assert process.stdin is not None
     process.stdin.write(
-        "import sys\nsys.path.insert(0, '/mnt/policy-tests')\n"
+        "import sys\nsys.path.insert(0, '/mnt/probes')\n"
         "from requirement_concurrency "
         "import worker\nworker(env)\n"
     )

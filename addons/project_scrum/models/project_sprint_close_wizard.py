@@ -31,7 +31,9 @@ class ProjectSprintCloseWizard(models.TransientModel):
     def _compute_unfinished_task_count(self):
         for wizard in self:
             wizard.unfinished_task_count = len(
-                wizard.sprint_id.task_ids.filtered(lambda task: task.state != "1_done")
+                wizard.sprint_id.with_context(active_test=False).task_ids.filtered(
+                    lambda task: task.state != "1_done"
+                )
             )
 
     @api.constrains("unfinished_disposition", "target_sprint_id")

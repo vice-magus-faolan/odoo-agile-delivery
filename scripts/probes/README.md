@@ -18,7 +18,4 @@ Use only disposable databases; these probes commit synthetic data.
 Run from the repository root with Docker Compose v2 available:
 
 `./scripts/verify` runs the core probes, including planning races, after ordinary addon
-installation in its disposable database. Planning results appear as
-`PLANNING_CONCURRENCY=` followed by the assign/return and reorder outcomes and final
-backlog order. The command reports its verification result separately from owned Compose
-resource teardown.
+installation in its disposable database.

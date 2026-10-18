@@ -439,18 +439,46 @@ class TestProjectScrumDomain(TransactionCase):
         manager = mail_new_test_user(
             self.env, "Archived work manager", groups="project.group_project_manager"
         )
-        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        done = self.task.copy({"name": "Completed work", "state": "1_done"})
+        sprint = self._create_sprint(
+            "Source", task_ids=[Command.set((self.task | done).ids)]
+        )
         target = self._create_sprint("Target")
         sprint.action_start()
         self.task.active = False
+        events_before = sprint.scope_event_ids
 
-        sprint.with_user(manager)._close_with_disposition("draft_sprint", target)
+        action = sprint.with_user(manager).action_close()
+
+        self.assertIsInstance(action, dict)
+        self.assertEqual(action["res_model"], "project.sprint.close.wizard")
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(manager)
+            .with_context(**action["context"])
+            .create(
+                {
+                    "unfinished_disposition": "draft_sprint",
+                    "target_sprint_id": target.id,
+                }
+            )
+        )
+        self.assertEqual(wizard.sprint_id, sprint)
+        self.assertEqual(wizard.unfinished_task_count, 1)
+        self.assertEqual(sprint.state, "active")
+        self.assertFalse(sprint.closed_at)
+        self.assertEqual((self.task | done).mapped("sprint_id"), sprint)
+        self.assertFalse(target.task_ids)
+        self.assertEqual(sprint.scope_event_ids, events_before)
+
+        self.assertTrue(wizard.action_confirm())
 
         self.assertFalse(self.task.active)
         self.assertEqual(self.task.sprint_id, target)
+        self.assertEqual(done.sprint_id, sprint)
         self.assertEqual(sprint.state, "closed")
         self.assertEqual(
-            sprint.with_context(active_test=False).committed_task_ids, self.task
+            sprint.with_context(active_test=False).committed_task_ids, self.task | done
         )
         carry = sprint.scope_event_ids.filtered(
             lambda event: event.event_type == "carried_to_sprint"
@@ -458,12 +486,58 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(carry.task_id, self.task)
         self.assertEqual(carry.carryover_target_sprint_id, target)
 
+    def test_close_counts_mixed_visible_and_archived_unfinished_work(self):
+        manager = mail_new_test_user(
+            self.env, "Mixed work manager", groups="project.group_project_manager"
+        )
+        archived = self.task.copy({"name": "Archived unfinished work"})
+        done = self.task.copy({"name": "Completed work", "state": "1_done"})
+        tasks = self.task | archived | done
+        sprint = self._create_sprint("Source", task_ids=[Command.set(tasks.ids)])
+        sprint.action_start()
+        archived.active = False
+        events_before = sprint.scope_event_ids
+
+        action = sprint.with_user(manager).action_close()
+
+        self.assertEqual(action["res_model"], "project.sprint.close.wizard")
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(manager)
+            .with_context(**action["context"])
+            .create({"unfinished_disposition": "product_backlog"})
+        )
+        self.assertEqual(wizard.sprint_id, sprint)
+        self.assertEqual(wizard.unfinished_task_count, 2)
+        self.assertEqual(sprint.state, "active")
+        self.assertFalse(sprint.closed_at)
+        self.assertEqual(tasks.mapped("sprint_id"), sprint)
+        self.assertEqual(sprint.scope_event_ids, events_before)
+
+        self.assertTrue(wizard.action_confirm())
+
+        self.assertEqual(sprint.state, "closed")
+        self.assertFalse((self.task | archived).mapped("sprint_id"))
+        self.assertFalse(archived.active)
+        self.assertEqual(done.sprint_id, sprint)
+        self.assertEqual(
+            sprint.with_context(active_test=False).committed_task_ids, tasks
+        )
+        carry = sprint.scope_event_ids.filtered(
+            lambda event: event.event_type == "carried_to_backlog"
+        )
+        self.assertEqual(carry.task_id, self.task | archived)
+
     def test_close_rejects_hidden_unfinished_work_without_partial_changes(self):
         manager = mail_new_test_user(
             self.env, "Restricted close manager", groups="project.group_project_manager"
         )
-        sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])
+        visible = self.task.copy({"name": "Visible unfinished work"})
+        tasks = self.task | visible
+        sprint = self._create_sprint("Source", task_ids=[Command.set(tasks.ids)])
         sprint.action_start()
+        self.task.active = False
+        events_before = sprint.scope_event_ids
         self.env["ir.rule"].create(
             {
                 "name": "Hide unfinished close work",
@@ -472,16 +546,28 @@ class TestProjectScrumDomain(TransactionCase):
             }
         )
         caller_tasks = self.env["project.task"].with_user(manager)
-        self.assertFalse(caller_tasks.search([("id", "=", self.task.id)]))
+        self.assertFalse(
+            caller_tasks.with_context(active_test=False).search(
+                [("id", "=", self.task.id)]
+            )
+        )
         sprint.with_user(manager).check_access("write")
+        action = sprint.with_user(manager).action_close()
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(manager)
+            .with_context(**action["context"])
+            .create({"unfinished_disposition": "product_backlog"})
+        )
+        self.assertEqual(wizard.unfinished_task_count, 1)
 
         with self.assertRaises(AccessError):
-            sprint.with_user(manager)._close_with_disposition("product_backlog")
+            wizard.action_confirm()
 
         self.assertEqual(sprint.state, "active")
         self.assertFalse(sprint.closed_at)
-        self.assertEqual(self.task.sprint_id, sprint)
-        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["committed"])
+        self.assertEqual(tasks.mapped("sprint_id"), sprint)
+        self.assertEqual(sprint.scope_event_ids, events_before)
 
     def test_close_requires_complete_sprint_and_task_claims(self):
         sprint = self._create_sprint("Source", task_ids=[Command.set(self.task.ids)])

@@ -13,6 +13,11 @@
         "security/solution_scrum_rules.xml",
         "views/sprint_context_views.xml",
     ],
+    "assets": {
+        "web.assets_tests": [
+            "project_agile_solution_scrum/static/tests/tours/agile_role_assignment.js"
+        ],
+    },
     "installable": True,
     "application": False,
 }

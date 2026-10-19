@@ -1,8 +1,11 @@
-Install **Agile Solution Definition** (`project_agile_solution`). On the user
-form, assign **Business analyst** under **Project** before creating or editing
-requirements, documents, revisions and Task previews. It includes **Agile
-member**, not Administrator. Combine it with **Scrum master** when the same
-person also runs Sprints.
+Install **Agile Solution Definition** (`project_agile_solution`). As a Settings
+administrator, open an existing internal user in
+**Settings > Users & Companies > Users**. On **Access Rights**, in **Services**,
+select **Business analyst** in **Agile Solution** before the user creates or
+edits requirements, documents,
+revisions and Task previews. It includes **Agile member**, not Administrator.
+For someone who also runs Sprints, select **Scrum master** separately in
+**Agile Scrum** and save. Keep any already authorized **Project** access.
 
 Authors need an active internal account, current Project visibility, write
 access to the solution records, and membership in the Project company. Project users can

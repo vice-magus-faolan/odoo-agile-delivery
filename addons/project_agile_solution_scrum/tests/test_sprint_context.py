@@ -313,9 +313,9 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
     def test_native_combined_role_assignment_keeps_approval_separate(self):
         analyst = self.env.ref("project_agile_solution.group_business_analyst")
         master = self.env.ref("project_scrum.group_scrum_master")
-        privilege = self.env.ref("project.res_groups_privilege_project")
         hierarchy = self.env["res.groups"]._get_view_group_hierarchy()
         for group in (analyst, master):
+            privilege = group.privilege_id
             self.assertEqual(
                 hierarchy["groups"][group.id]["privilege_id"], privilege.id
             )

@@ -148,20 +148,21 @@ than approve a different revision implicitly.
 
 Internal Project users read permitted material. Business analysts and native Project
 administrators author and mutate it only with concrete record access. Business analyst
-and Scrum master are independent groups under the native Odoo 19 Project privilege; each
-implies Agile member and native Project User, never Project Administrator. They can be
-combined. Shared templates, document approval and acceptance remain Project
-administrator operations. The designated approver constraint and an explicit approval
-authority check remain separate from authoring checks. Agile Project configuration and
-item types also remain administrator-only, without restricting unrelated native Project
-writes. Authors and Scrum operators need current native Project read access and write
-access on the affected child records, not a new Project write ACL. Existing
-administrator paths still require native Project write access. Public actions re-resolve
-typed IDs, existence, state, company, exact references, content version and permissions.
-Booleans are not integer IDs. Defaults, owner IDs and context are not authority. Task
-links require current Task access and mutation checks; discovery links require an actual
-permitted existing Agile Spike. Elevation is limited to already-authorized storage,
-never selecting accessible records or deciding approval.
+and Scrum master use separate native Odoo 19 privileges alongside Project in its
+Services category. Each implies Agile member and native Project User, never Project
+Administrator. Independent selectors preserve combined roles across user-form edits.
+Shared templates, document approval and acceptance remain Project administrator
+operations. The designated approver constraint and an explicit approval authority check
+remain separate from authoring checks. Agile Project configuration and item types also
+remain administrator-only, without restricting unrelated native Project writes. Authors
+and Scrum operators need current native Project read access and write access on the
+affected child records, not a new Project write ACL. Existing administrator paths still
+require native Project write access. Public actions re-resolve typed IDs, existence,
+state, company, exact references, content version and permissions. Booleans are not
+integer IDs. Defaults, owner IDs and context are not authority. Task links require
+current Task access and mutation checks; discovery links require an actual permitted
+existing Agile Spike. Elevation is limited to already-authorized storage, never
+selecting accessible records or deciding approval.
 
 Global descendant rules use an unevaluated current-user Project subquery. Odoo 19
 compiles rule domains on sudo recordsets, so a plain relational `any` is not enough to

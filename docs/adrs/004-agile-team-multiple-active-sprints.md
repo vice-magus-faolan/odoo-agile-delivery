@@ -6,7 +6,7 @@ Accepted and implemented in `project_scrum`.
 
 ## Context and decision
 
-A Project may host several delivery teams. A global or per-Project single-active- Sprint
+A Project may host several delivery teams. A global or per-Project single-active-Sprint
 rule would block legitimate parallel work; unowned concurrent Sprints would make
 capacity and reporting ambiguous.
 

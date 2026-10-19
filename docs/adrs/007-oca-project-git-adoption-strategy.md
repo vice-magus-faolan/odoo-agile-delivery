@@ -1,50 +1,65 @@
-# ADR-007: OCA Git connector adoption
+# ADR-007: OCA `project_git` Adoption Strategy
 
 ## Status
 
 Superseded by [ADR-011](011-git-facts-and-visibility-contract.md) and
-[ADR-012](012-git-workflow-policy-contract.md). This ADR preserves the adoption
-rationale, not a pending implementation plan. The suite now supplies its Git addons and
-uses native `ir.cron`, not `queue_job`.
+[ADR-012](012-git-workflow-policy-contract.md). The suite ships its own Git addons
+instead of adopting the OCA connector, and schedules work with `ir.cron`, not
+`queue_job`.
 
-## Examined alternative
+## Context
 
-The 2026-09-24 survey found OCA Project PR 1792 to be an open 17.0 draft proposing
-`project_git`, `project_github` and `project_gitlab`; those connector directories were
-absent from the surveyed 19.0 Project branch. The proposal separates generic Git facts
-from providers, with branches, commits, pull requests and events. Its PR CI selection
-and provider/project/request uniqueness were useful design input. This is historical
-survey evidence, not current upstream status.
+The future Git integration needs provider-neutral facts, secure webhooks, idempotency,
+and explicit Agile-key association without creating a private competing webhook stack.
+OCA Project PR #1792 is an open draft for 17.0, while the 19.0 Project branch exposes
+related modules but not `project_git`, `project_github`, or `project_gitlab`.[1][2] The
+proposed generic connector has branch, commit, pull-request, and event handling, but its
+task matching includes mutable task names and database-id forms that do not meet this
+suite's immutable `agile_key` contract.[5][6]
 
-Exact inspected excerpts:
+## Decision
 
-- [Git event model at 769d464e1fc1aff006e21f1668d47e4f13840138](https://github.com/OCA/project/blob/769d464e1fc1aff006e21f1668d47e4f13840138/project_git/models/project_git_event.py)
-- [Pull-request model at the same revision](https://github.com/OCA/project/blob/769d464e1fc1aff006e21f1668d47e4f13840138/project_git/models/project_git_pull_request.py)
-- [OCA Project PR 1792](https://github.com/OCA/project/pull/1792)
+Do not install, locally forward-port, or depend on the proposed connector now. Continue
+Agile and Scrum work independently. When Git work is scheduled, pursue an upstream-first
+Odoo 19 design/contribution with these layers: provider ingestion, durable authenticated
+delivery ledger, normalized Git facts, immutable Agile-key association, and opt-in
+automation policy. Evaluate OCA `queue_job` before any custom worker.
 
-Matching mutable Task names and database-ID forms such as `taskid#` does not meet this
-suite's immutable project-prefixed Agile-key contract. `project_task_code` also supplies
-a global company-unique sequence, not the same project-local key. The surveyed
-`version-control-platform` 19.0 branch was scaffolding without an installable addon
-catalog, so was not a dependency.
+## Alternatives
 
-## Decision and consequences
+- Local fork/forward-port of PR #1792: rejected because it is draft 17.0 work and
+  creates a competing maintenance line.
+- New private webhook stack: rejected because it duplicates an active upstream design
+  space and raises security/operability risk.
+- Depend on `project_task_code`: rejected because its global company-unique code is not
+  the required project-prefixed immutable Agile key.[8]
 
-Do not locally fork, forward-port or depend on that draft. Agile and Scrum remain
-independent of Git/OCA dependencies. The maintained implementation instead separates
-authenticated ingress, durable delivery identity, normalized provider-neutral facts,
-explicit repository-scoped Agile-key association and opt-in workflow policy. Repository
-credentials, idempotency, retention, retries, failure visibility and company/Project
-isolation are mandatory boundaries, not implied by a CI field.
+## Consequences
 
-The original proposal to evaluate OCA `queue_job` was superseded by the deployment
-constraint against external queue runners. Native bounded `ir.cron` provides the current
-portable processing boundary. Provider expansion and upstream contribution remain
-separate decisions; neither draft availability nor this rationale grants production
-dependency or activation authority.
+Milestone 1 remains free of Git/OCA dependencies. Future implementation must define
+repository-scoped credentials, delivery-id idempotency, raw-event retention,
+retry/failure visibility, provider CI mapping, and cross-project association isolation.
+`queue_job` is a candidate async mechanism, not a substitute for a durable delivery
+ledger.[9]
 
-See
-[dependency compatibility](../dependency-compatibility.md#git-adoption-and-deferred-capabilities)
-for the related alternatives and [ADR-008](008-git-automation-model.md) for the
-historical fact-versus-policy distinction. Current exact provenance, provider ordering,
-retry and action semantics belong to ADR-011/012, not to this superseded proposal.
+## Open Questions
+
+- Will the OCA work land in `OCA/project`, `version-control-platform`, or another
+  upstream home?
+- Which provider delivery IDs and database constraints provide replay protection?
+- What grammar supports explicit `ENG-142` references, multi-key payloads, and safe
+  project scoping?
+- How will out-of-order GitHub checks and GitLab pipeline states normalize?
+
+## Evidence
+
+## Sources
+
+[1] https://github.com/OCA/project/tree/19.0 [2]
+https://api.github.com/repos/OCA/project/pulls/1792 [5]
+https://raw.githubusercontent.com/OCA/project/769d464e1fc1aff006e21f1668d47e4f13840138/project_git/models/project_git_event.py
+[6]
+https://raw.githubusercontent.com/OCA/project/769d464e1fc1aff006e21f1668d47e4f13840138/project_git/models/project_git_pull_request.py
+[8]
+https://raw.githubusercontent.com/OCA/project/19.0/project_task_code/models/project_task.py
+[9] https://raw.githubusercontent.com/OCA/queue/19.0/queue_job/__manifest__.py

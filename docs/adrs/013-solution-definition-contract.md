@@ -3,21 +3,22 @@
 ## Status and outcome
 
 Accepted and implemented by optional `project_agile_solution` and
-`project_agile_solution_scrum`. This ADR owns the domain decisions;
-[dependency compatibility](../dependency-compatibility.md) records exact native/OCA
-selections, and [Solution operations](../runbooks/solution-operations.md) owns
-transaction, privacy and recovery constraints.
+`project_agile_solution_scrum`. This ADR owns the domain, transaction and access
+contracts. [Solution operations](../runbooks/solution-operations.md) provides admin
+recovery and access instructions.
 
 Agile teams need to explain agreed intent, uncertainty, delivery coverage and explicit
 acceptance. Requirements express delivery intent, not another Task system. The design
-was informed by one prospective user's request and synthetic scenarios; these do not
-establish customer demand, actual external APIs or legal suitability.
+was informed by one prospective user's request and synthetic scenarios.
+[FAR 37.602](https://www.acquisition.gov/far/37.602) informed outcome-based scope and
+[NASA's handbook appendices C and D](https://www.nasa.gov/reference/system-engineering-handbook-appendix/)
+informed identifiable, verifiable requirements and traceability.
 
 ## Dependencies and native boundaries
 
 Solution core depends only on LGPL-3 `project_agile`, transitively native Community
-Project. Both Solution addons retain LGPL-3. The base target is self-hosted Odoo 19
-Community, with custom functionality kept deployable on Odoo.sh. Enterprise and Odoo.sh
+Project. Both Solution addons retain LGPL-3. Odoo 19 Community is the tested edition.
+The architecture is Odoo.sh-first, portable to self-hosted Odoo. Enterprise and Odoo.sh
 installed-extension behavior require separate verification. This is an Odoo-compatible
 suite, not a claim of full OCA conformity.
 
@@ -28,6 +29,11 @@ wiki/editor is required by core. Native `ir.cron` is the suite's scheduling boun
 `queue_job` is not supported. General documentation remains with its selected backend.
 OCA page history and Task templates do not supply immutable requirement revisions,
 separate scope approval and frozen delivery references.
+
+Native API and security decisions were inspected against
+[Odoo revision 8da213dc6785e097f2558dc2d648b588957786a1](https://github.com/odoo/odoo/tree/8da213dc6785e097f2558dc2d648b588957786a1).
+The current runtime is selected by the checked-in verification inputs; its Odoo build is
+reported in the verify log.
 
 ## Records and identity
 
@@ -107,13 +113,36 @@ approval does not require two people: the designated approver may also be the au
 Recorded external authority is an internal assertion, not external authentication or a
 legal signature.
 
-Nonwaiting native ORM claims and shared publication writes order allocation, submission,
-SOW/spec approval and Task confirmation. A stale contender retries the whole transaction
-and then rejects stale intent rather than silently approving a different revision. Batch
-and multi-step operations are all-or-nothing even when a direct caller catches an
-exception. Exact claim, retry-limit, exhaustion and caller-responsibility semantics are
-in the
-[concurrency contract](../runbooks/solution-operations.md#concurrency-and-atomicity).
+## Concurrency and atomicity
+
+Odoo 19 nonwaiting ORM claims cover the actual document, revision, identity and
+authority records. An incomplete claim requests whole-transaction rollback and native
+request retry in a fresh transaction, up to five total attempts. Persistent contention
+can exhaust that limit and fail the request. Direct Python callers outside the native
+request boundary own their transaction retry. There is no business-code retry loop,
+partial-transaction refresh or manual business-code commit. A savepoint does not refresh
+a repeatable-read snapshot. Unlink claims also exclude concurrent foreign-key references
+to the deleted records.
+
+New retained history publishes its reference on Project to conflict with company
+changes, deletion and first-use sequence allocation. Document creation and approval
+publish on the solution; revision allocation publishes on its document or stable
+identity. These shared ORM writes order exact SOW/spec references and competing new
+heads. Actual lifecycle writes conflict with revision edits. Section edits advance the
+parent content version, preventing submission or a pending Task preview from missing a
+child-only edit. Publication fields are server-owned, not approval authority.
+
+Task confirmation claims and consumes its durable intent, preventing an old snapshot
+from creating another Task. After retry, a consumed intent returns the same currently
+authorized result. Link creation/retirement publishes the edge on its Task; discovery
+references publish the question revision. Task scope/deletion guards and Sprint capture
+claim that same Task before reading exact links. Sealed requirements need no
+Solution-wide capture write.
+
+Batch creation and multi-step operations use savepoints. Task creation, exact links,
+seals and intent consumption succeed together or leave none of those changes, even when
+a direct caller catches an error. Approval races retry and reject stale intent rather
+than approve a different revision implicitly.
 
 ## Current authority and frozen history
 
@@ -135,9 +164,16 @@ counters, navigation and reports recheck the exact reference closure, including
 sections, requirements/context, referenced SOW and discovery Tasks. Accessible archived
 references remain usable. Missing or inaccessible required references refuse complete
 output without leaking names, IDs, counts or excerpts. Filtered relation caches cannot
-establish membership completeness. The unassigned, non-implied snapshot-storage sentinel
-must remain inaccessible to user roles, including browser debug mode; see Solution
-operations.
+establish membership completeness; inverse ORM queries establish the complete set.
+`action_read_snapshot()` is the exact read/RPC API. Native export additionally requires
+`base.group_allow_export`. Raw `_snapshot_content`, `_snapshot_digest` and
+`_template_content` use the unassigned, non-implied
+`project_agile_solution.group_snapshot_storage` sentinel. Never assign it to a user or
+imply it from another role. Technical Features (`base.group_no_one`) is enabled by
+browser debug mode for internal users and is not a deny-all boundary. Narrow elevation
+reads stored payload only after parent authorization, without supplying reference access
+or approval. The storage-only Task inverse permits a bounded completeness check without
+exposing counts or permitting inverse/default edits.
 
 ## Task traceability and deliberate creation
 
@@ -198,14 +234,22 @@ internal user, not a portal/login grant or a complete internal baseline. It incl
 only customer-tagged narrative, requirements and section/domain/deliverable context.
 Questions, decisions, actors, owners, discovery Task labels, internal rationale, raw IDs
 and acceptance evidence are excluded. Both audiences require complete current reference
-access. A generated report is not an editable master.
+access. Report identity fixes audience and exact IDs; caller context cannot override
+them. Do not distribute native report URLs as customer access. Rendering discards
+scripts, styles, markup, links, images and remote resources. Frozen baselines exclude
+current Task descriptions/evidence; internal coverage is a separate current projection.
+Exported copies cannot be access-revoked later, so narratives and evidence must exclude
+secrets and distribution/retention must remain restricted.
 
 Coverage separates linked/unlinked exact requirements, older-head links, legitimate
 maintenance, unexplained work, unresolved planning/blocking questions, selected-baseline
 changes and accepted/rejected/withdrawn/unaccepted requirements. No aggregate completion
 percentage or Task Done/PR-merge inference replaces these categories. Task scope is
-Project-wide; requirement links are solution-scoped. The operations guide defines
-bounded collections and unavailable comparison behavior.
+Project-wide; requirement links are solution-scoped. Latest heads include working
+successors. Without a selected comparison, changes report `not_selected`. More than
+1,000 rows in any queried requirement identity/revision, active-link, Project-task or
+acceptance collection refuses preview. Caller and narrow elevated cardinality checks cap
+at 1,001 without returning elevated counts. Split initiatives rather than bypass limits.
 
 Only the active internal approver of the exact specification baseline, with current
 record/company authority, can record requirement acceptance. Changing the document's
@@ -229,9 +273,16 @@ Use successors and append-only correction events. Before migration/uninstall, ba
 database and filestore consistently and test isolated restoration with exact
 source/configuration. Uninstall deletes addon history; surviving native Tasks and Sprint
 events cannot reconstruct it. Restore must validate frozen references, content, rules
-and consumed results before enabling creation. Detailed recovery is in Solution
-operations; same-version lifecycle checks are not major-version migration or Odoo.sh
-production proof.
+and consumed results before enabling creation. Restrictive references protect used
+documents, intents, links and decisions. Validate revision membership, current
+Project/company/Task rules, event capture markers and consumed-intent Task IDs after
+restore. Do not regenerate Tasks, backfill Sprint context from current links or infer
+acceptance. Native import callers must inspect returned errors and result IDs rather
+than treating row-error responses as success. Restore source and database/filestore
+together after a failed upgrade; old code must not run on an unverified newer schema.
+Bridge reinstall leaves old events `not_available`, not fabricated empty/captured
+history. Only a verified consistent backup restores lost history. Admin steps are in
+[Solution operations](../runbooks/solution-operations.md).
 
 Rejected alternatives are requirements-as-Tasks, mutable latest-text baselines,
 pointer-only snapshots, a generic contracts/Sales engine, copied wiki/history, automatic

@@ -150,9 +150,9 @@ outside the application's immutability guarantee.
 
 ## Hosting and compatibility
 
-The base target is self-hosted Odoo 19 Community with Odoo.sh-deployable custom addons.
-Runtime needs native ORM/PostgreSQL and `ir.cron`, not `queue_job`, an external daemon,
-provider SDK/API, shell executable or writable addon tree. Verification uses
+Odoo.sh is the primary expected target, portable to self-hosted Odoo. Runtime needs
+native ORM/PostgreSQL and `ir.cron`, not `queue_job`, an external daemon, provider
+SDK/API, shell executable or writable addon tree. Verification uses
 Docker/browser/subprocess tools; these are not runtime dependencies. The
 [apply boundary](../git-policy-apply-boundary.md) describes native inheritance,
 transactional safeguards and exercised verification; the actual Odoo build appears in

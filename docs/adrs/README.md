@@ -19,7 +19,3 @@ Deferred: [ADR-005 Release / Version Model](005-release-version-model.md).
 Superseded proposals retained for rationale:
 [ADR-007 OCA Git adoption](007-oca-project-git-adoption-strategy.md) and
 [ADR-008 Git automation](008-git-automation-model.md).
-
-See [dependency compatibility](../dependency-compatibility.md) for exact source
-selections, dependency and license decisions. An ADR does not activate policy, change
-permissions or establish deployment compatibility.

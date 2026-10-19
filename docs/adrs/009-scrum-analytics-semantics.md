@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Milestone 3 calculation and additive native-reporting contract.
+Accepted — calculation and additive native-reporting contract.
 
 ## Context
 
@@ -104,7 +104,7 @@ reestimate or close-time facts and must not claim ADR-009 precision for those ga
 
 ## Open Questions
 
-None for the delivered Milestone 3 replay and projection contract.
+None for the delivered replay and projection contract.
 
 ## Evidence
 

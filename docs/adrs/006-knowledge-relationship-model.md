@@ -19,8 +19,8 @@ or build a wiki, use OCA `knowledge` 19.0 at
 
 All three declare AGPL-3. The two local bridges also retain AGPL-3. Core Agile, Scrum
 and analytics acquire no Document Page dependency. The
-[compatibility guide](../dependency-compatibility.md#selected-document-page-runtime)
-records image digests, dependency behavior and the separate fixture command.
+[Document Page setup guide](../../addons/project_agile_document_page/README.rst#configuration)
+lists the required modules and verification command.
 
 OCA owns content, editor, page history, category hierarchy, templates, groups, company
 rules, archive/delete behavior and the existing Project-page relation. Do not copy,
@@ -43,7 +43,7 @@ Project/page/company access. They must not disclose inaccessible page titles, ID
 counts or open actions through sudo or caller-forged company context.
 
 `parent_id` accepts category pages and rejects recursive hierarchy. Category `template`
-is the native parent-onchange source for an empty new page. Computed/ inverse content
+is the native parent-onchange source for an empty new page. Computed/inverse content
 creates `document.page.history`; no proprietary article templates or custom history
 records are inferred.
 
@@ -76,8 +76,7 @@ dependency-safe uninstall/reinstall and native runtime behavior; it does not est
 Enterprise or Odoo.sh staging compatibility.
 
 Before public or production use, review the actual combined deployment's AGPL and
-corresponding-source obligations. Disposable verification is not a production license or
-deployment grant.
+corresponding-source obligations.
 
 Rejected alternatives: guess Enterprise APIs; build a competing wiki/editor; treat OCA
 and Enterprise backends as API-compatible; or silently adopt unmerged PR code. The

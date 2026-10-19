@@ -12,10 +12,17 @@ write access to all affected Project tasks.
 3. As the intended rule owner, open **Project > Configuration > Git Policy
    Rules**. Create a named rule and select its repository; Odoo records you as
    its owner. Then create its draft revision under **Git Policy Revisions**.
-   Select the rule, exact target branch, 1 to 20 active
-   source stages shared with the Project, not a user's personal stages, one eligible target stage, the execution
-   user and up to 20 exact check names. No names means CI is not a condition,
-   not that CI passed. Rating, email-template and SMS-template stages are refused.
+   Select:
+
+   - the rule and exact target branch;
+   - 1 to 20 active source stages shared with that Project, not a user's personal stages;
+   - one active shared target stage outside the source selection, without rating, email
+     or SMS templates;
+   - up to 20 distinct exact check names, each 1 to 255 characters;
+   - an active internal execution user, not a superuser or portal account, with company
+     membership and actual access to every affected Task.
+
+   No check names means CI is not a condition, not that CI passed.
 4. A different Git Policy Manager opens the revision and chooses **Approve and
    Activate**, acknowledges the native side effects, then confirms. Review the
    saved mode and cutoff: approval in Dry Run does not enable task writes.

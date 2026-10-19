@@ -31,8 +31,7 @@ winner. At most twenty visible Task diagnostics are emitted for an oversized PR.
 Authorities are checked on the concrete visible Task batch once per approval, not
 repeatedly per PR/Task. A denied executor record rejects the approval batch
 conservatively. New snapshots necessarily require inserts; repeat polling does not
-append identical evidence/decisions. These are bounded pages, not a throughput
-guarantee.
+append identical evidence/decisions.
 
 ## Provenance is not a boolean or a post-retention signature
 

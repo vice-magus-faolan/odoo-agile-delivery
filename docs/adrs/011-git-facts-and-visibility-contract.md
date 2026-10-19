@@ -1,4 +1,4 @@
-# ADR-011: Milestone 6 Git Facts and Visibility Contract
+# ADR-011: Git Facts and Visibility Contract
 
 ## Status
 
@@ -150,19 +150,20 @@ observations, not evidence that an Odoo task is complete.
 
 ## Queue Job Decision
 
-Reject OCA `queue_job` as a required or production runtime dependency for Milestone 6.
-Its 19.0 manifest is mature and LGPL-3 but has a jobrunner model not accepted as the
+Reject OCA `queue_job` as a required or production runtime dependency for Git facts. Its
+19.0 manifest is mature and LGPL-3 but has a jobrunner model not accepted as the
 portable Odoo.sh target. A separately approved self-hosted adapter may be evaluated
 later; it cannot alter the core schema, native processing contract, or canonical
 verifier.
 
 ## Consequences
 
-Connector facts are observations, not evidence that an Odoo task is complete. M6 itself
-supplies no workflow automation, configurable task policy, provider polling, or outbound
-provider operation. The separately optional M7 addon in ADR-012 owns approved policy
-effects; M6 receipt/normalization never writes Tasks. Every schema/security/cron change
-requires clean install, update, and dependency-safe uninstall/reinstall verification.
+Connector facts are observations, not evidence that an Odoo task is complete. The
+connector supplies no workflow automation, configurable task policy, provider polling,
+or outbound provider operation. The separately optional addon in ADR-012 owns approved
+policy effects; receipt/normalization never writes Tasks. Every schema/security/cron
+change requires clean install, update, and dependency-safe uninstall/reinstall
+verification.
 
 ## Sources
 

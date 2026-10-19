@@ -5,7 +5,7 @@
 Accepted and implemented: configuration, dry-run evaluation, native apply and
 [operational controls](../runbooks/git-policy-operations.md). Supersedes ADR-008, not
 ADR-011's observation-only connector contract. Installation remains disabled and
-dry-run-first; architecture acceptance is not live activation.
+dry-run-first.
 
 ## Outcome and boundaries
 
@@ -18,8 +18,7 @@ observations and immutable Agile-key associations, without workflow effects.
 private-suite code, not an OCA-conformity claim. Its sole base dependency is
 `project_agile_git`. No GitHub, Scrum, queue_job, SDK, polling, daemon, outbound
 provider operation, or synchronous webhook task write is required. Existing addons must
-not depend on it. The base target is self-hosted Community with Odoo.sh-deployable
-custom addons.
+not depend on it. Odoo.sh is the primary expected target, not the sole target.
 
 Only one typed effect is permitted: `task_stage_transition`, writing exactly
 `{'stage_id': approved_target_stage.id}` through normal Task ORM under an approved
@@ -211,12 +210,12 @@ Keep three layers distinct: observation describes a provider fact; deterministic
 evaluation produces a proposal and finite reason; the worker independently checks
 authority and performs the sole permitted write.
 
-The existing M6 PR has repository/provider identity, merged_at, target_branch, head_sha,
-updated_at, ordering_state, and provenance_delivery_id. Checks have repository/provider
-identity, exact name, head_sha, state, completed_at, updated_at, ordering_state, and
-provenance_delivery_id. Association audit supplies the delivery/source type/provider
-ID/key evidence; immutable associations alone are not proof that the current PR
-observation referenced that task.
+The existing PR record has repository/provider identity, merged_at, target_branch,
+head_sha, updated_at, ordering_state, and provenance_delivery_id. Checks have
+repository/provider identity, exact name, head_sha, state, completed_at, updated_at,
+ordering_state, and provenance_delivery_id. Association audit supplies the
+delivery/source type/provider ID/key evidence; immutable associations alone are not
+proof that the current PR observation referenced that task.
 
 Before producing a sealed observation, trusted internal code must re-resolve a processed
 authenticated delivery in the same repository/company, appropriate event type, and exact
@@ -233,10 +232,10 @@ after retention purge.
 
 Git facts alone are not immutable policy-ready seals. Policy evaluation uses the small
 validated snapshot boundary above, not mutable facts as decision records. Do not modify
-M6 ingress into a policy executor. There is no need for a new PR/check correlation field
-for correlation: exact repository plus exact PR head SHA is represented today. No
-merge-commit/test-merge SHA may substitute for PR head SHA. Validate supported full SHA
-format (40 or 64 hex characters), never repair/truncate missing identifiers.
+Git ingress into a policy executor. Exact repository plus exact PR head SHA already
+correlates PRs and checks. No merge-commit/test-merge SHA may substitute for PR head
+SHA. Validate supported full SHA format (40 or 64 hex characters), never repair/truncate
+missing identifiers.
 
 Trigger eligibility requires: known ordering, merged PR, nonfuture merged_at and
 updated_at, exact configured target branch, active repository/project, and source merge
@@ -260,7 +259,7 @@ Multiple same-name runs are intentionally unsupported.
 
 A later matching check observation wakes only existing eligible waiting PRs in that
 repository/head SHA; the evaluator rechecks every condition and all required names. It
-never associates tasks from check names instead of PR keys. The M6 GitHub check parser
+never associates tasks from check names instead of PR keys. The GitHub check parser
 reads updated_at; real check_run deliveries without it remain ambiguous and cannot
 satisfy this policy. Do not synthesize updated_at from received_at, completed_at, IDs,
 or a PR timestamp. Better provider ordering support is later observation work; the

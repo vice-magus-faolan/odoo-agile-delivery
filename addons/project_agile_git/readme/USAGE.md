@@ -13,5 +13,5 @@ Facts are read-only observations. **Ordering State** identifies **Stale** or
 current values. Review the provider record and delivery details before acting
 on those observations.
 
-To stop future GitHub ingress, archive the repository. Existing deliveries and
-facts remain, and already queued work can still be processed.
+To stop future GitHub deliveries, archive the repository. Existing deliveries
+and facts remain, and already queued work can still be processed.

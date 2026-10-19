@@ -22,8 +22,9 @@ record acceptance through **Project > Exact Requirement Decisions** under the
 Solution acceptance rules.
 
 **No Active Requirement Links** means the event was captured without links;
-**Not Available / Predates Bridge** means exact context is unavailable for that
-event. Installation preserves old events as they are. Captured rows are
+**Not Available / Predates Bridge** means there is no bridge record for that
+event; the work may still have had requirement links at the time. Installation
+preserves old events as they are. Captured rows are
 read-only and retain their original snapshot. Losing access to required
 references can hide history or prevent capture. Continue to manage Sprint state,
 assignment and points through the native Scrum workflow.

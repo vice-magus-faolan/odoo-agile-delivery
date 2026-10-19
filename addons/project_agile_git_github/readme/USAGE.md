@@ -1,0 +1,53 @@
+## Link facts to tasks
+
+Use an existing task key such as `ENG-142` in one of these supported source fields:
+
+- `push`: branch ref and each commit message;
+- `pull_request`: title, body and head branch;
+- `check_run`: name and output title.
+
+For example, use branch `feature/ENG-142-oauth` or commit message
+`ENG-142: Add OAuth callback`. Keys use an uppercase prefix of 2 to 10 letters
+or digits starting with a letter, a hyphen, and a positive decimal suffix.
+Separate the key from surrounding word characters. Matching is limited to
+active tasks in the configured repository Project and company. Task names and
+Odoo database IDs do not establish links. Source text is bounded to 4,096
+characters with at most 20 distinct keys per source field.
+
+After scheduled processing, open the task and choose **Branches**, **Commits**,
+**Pull Requests** or **Checks** to inspect its linked facts. A missing link can
+mean the key was unknown, invalid, excessive or referred to archived work.
+
+## Inspect and recover deliveries
+
+As a Project administrator, open **Project > Tasks > Git Repositories**, select
+the repository and choose **Deliveries**. Inspect **Provider Delivery Id**,
+**Event Type**, **State**, **Attempt Count**, **Next Retry At**, **Payload Sha256**
+and **Error Summary**. **Replay Mismatch Count** and **Last Replay Mismatch At**
+identify conflicting reuse of a delivery ID.
+
+- **Queued** awaits scheduled processing. **Processing** has a five-minute
+  lease; an expired lease becomes eligible for another claim.
+- **Retryable** awaits **Next Retry At**. Transient failures use exponential
+  backoff starting at one minute and capped at one hour, becoming **Failed**
+  when the attempt count reaches five. Malformed payloads fail without automatic
+  retries; unsupported events with retained payloads become **Discarded**.
+- **Processed** records completed normalization. Inspect task-linked facts to
+  see the observations and their source ordering.
+- After correcting the cause of a **Failed** or **Discarded** delivery, choose
+  **Reprocess** only if a retained payload is still available. It requeues the
+  same ledger row and preserves the attempt count; it does not provide a fresh
+  five-attempt budget. A new transient failure at or above five attempts is
+  terminal. Repeating an unsupported event will not add support for it.
+
+Digest-only, oversized-excerpt and purged deliveries have no payload to
+reprocess. Arrange a new provider delivery after correcting configuration;
+exact redelivery of an old receipt does not fill its missing payload.
+
+Retained excerpts receive a 30-day expiry. Daily cleanup removes expired
+excerpts only from **Processed** or **Discarded** deliveries, in batches of at
+most 100. **Retained Payload Purged At** records cleanup; the ledger, digest,
+facts and association audit remain. **Queued**, **Processing**, **Retryable**
+and **Failed** payloads are retained for recovery even after expiry. Have a
+System Administrator investigate scheduler or retention problems through normal
+Odoo administration.

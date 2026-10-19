@@ -1,0 +1,579 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils: https://docutils.sourceforge.io/" />
+<title>Agile Solution Definition</title>
+<style type="text/css">
+
+/*
+:Author: David Goodger (goodger@python.org)
+:Id: $Id: html4css1.css 9511 2024-01-13 09:50:07Z milde $
+:Copyright: This stylesheet has been placed in the public domain.
+
+Default cascading style sheet for the HTML output of Docutils.
+Despite the name, some widely supported CSS2 features are used.
+
+See https://docutils.sourceforge.io/docs/howto/html-stylesheets.html for how to
+customize this style sheet.
+*/
+
+/* used to remove borders from tables and images */
+.borderless, table.borderless td, table.borderless th {
+  border: 0 }
+
+table.borderless td, table.borderless th {
+  /* Override padding for "table.docutils td" with "! important".
+     The right padding separates the table cells. */
+  padding: 0 0.5em 0 0 ! important }
+
+.first {
+  /* Override more specific margin styles with "! important". */
+  margin-top: 0 ! important }
+
+.last, .with-subtitle {
+  margin-bottom: 0 ! important }
+
+.hidden {
+  display: none }
+
+.subscript {
+  vertical-align: sub;
+  font-size: smaller }
+
+.superscript {
+  vertical-align: super;
+  font-size: smaller }
+
+a.toc-backref {
+  text-decoration: none ;
+  color: black }
+
+blockquote.epigraph {
+  margin: 2em 5em ; }
+
+dl.docutils dd {
+  margin-bottom: 0.5em }
+
+object[type="image/svg+xml"], object[type="application/x-shockwave-flash"] {
+  overflow: hidden;
+}
+
+/* Uncomment (and remove this text!) to get bold-faced definition list terms
+dl.docutils dt {
+  font-weight: bold }
+*/
+
+div.abstract {
+  margin: 2em 5em }
+
+div.abstract p.topic-title {
+  font-weight: bold ;
+  text-align: center }
+
+div.admonition, div.attention, div.caution, div.danger, div.error,
+div.hint, div.important, div.note, div.tip, div.warning {
+  margin: 2em ;
+  border: medium outset ;
+  padding: 1em }
+
+div.admonition p.admonition-title, div.hint p.admonition-title,
+div.important p.admonition-title, div.note p.admonition-title,
+div.tip p.admonition-title {
+  font-weight: bold ;
+  font-family: sans-serif }
+
+div.attention p.admonition-title, div.caution p.admonition-title,
+div.danger p.admonition-title, div.error p.admonition-title,
+div.warning p.admonition-title, .code .error {
+  color: red ;
+  font-weight: bold ;
+  font-family: sans-serif }
+
+/* Uncomment (and remove this text!) to get reduced vertical space in
+   compound paragraphs.
+div.compound .compound-first, div.compound .compound-middle {
+  margin-bottom: 0.5em }
+
+div.compound .compound-last, div.compound .compound-middle {
+  margin-top: 0.5em }
+*/
+
+div.dedication {
+  margin: 2em 5em ;
+  text-align: center ;
+  font-style: italic }
+
+div.dedication p.topic-title {
+  font-weight: bold ;
+  font-style: normal }
+
+div.figure {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+div.footer, div.header {
+  clear: both;
+  font-size: smaller }
+
+div.line-block {
+  display: block ;
+  margin-top: 1em ;
+  margin-bottom: 1em }
+
+div.line-block div.line-block {
+  margin-top: 0 ;
+  margin-bottom: 0 ;
+  margin-left: 1.5em }
+
+div.sidebar {
+  margin: 0 0 0.5em 1em ;
+  border: medium outset ;
+  padding: 1em ;
+  background-color: #ffffee ;
+  width: 40% ;
+  float: right ;
+  clear: right }
+
+div.sidebar p.rubric {
+  font-family: sans-serif ;
+  font-size: medium }
+
+div.system-messages {
+  margin: 5em }
+
+div.system-messages h1 {
+  color: red }
+
+div.system-message {
+  border: medium outset ;
+  padding: 1em }
+
+div.system-message p.system-message-title {
+  color: red ;
+  font-weight: bold }
+
+div.topic {
+  margin: 2em }
+
+h1.section-subtitle, h2.section-subtitle, h3.section-subtitle,
+h4.section-subtitle, h5.section-subtitle, h6.section-subtitle {
+  margin-top: 0.4em }
+
+h1.title {
+  text-align: center }
+
+h2.subtitle {
+  text-align: center }
+
+hr.docutils {
+  width: 75% }
+
+img.align-left, .figure.align-left, object.align-left, table.align-left {
+  clear: left ;
+  float: left ;
+  margin-right: 1em }
+
+img.align-right, .figure.align-right, object.align-right, table.align-right {
+  clear: right ;
+  float: right ;
+  margin-left: 1em }
+
+img.align-center, .figure.align-center, object.align-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+table.align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.align-left {
+  text-align: left }
+
+.align-center {
+  clear: both ;
+  text-align: center }
+
+.align-right {
+  text-align: right }
+
+/* reset inner alignment in figures */
+div.align-right {
+  text-align: inherit }
+
+/* div.align-center * { */
+/*   text-align: left } */
+
+.align-top    {
+  vertical-align: top }
+
+.align-middle {
+  vertical-align: middle }
+
+.align-bottom {
+  vertical-align: bottom }
+
+ol.simple, ul.simple {
+  margin-bottom: 1em }
+
+ol.arabic {
+  list-style: decimal }
+
+ol.loweralpha {
+  list-style: lower-alpha }
+
+ol.upperalpha {
+  list-style: upper-alpha }
+
+ol.lowerroman {
+  list-style: lower-roman }
+
+ol.upperroman {
+  list-style: upper-roman }
+
+p.attribution {
+  text-align: right ;
+  margin-left: 50% }
+
+p.caption {
+  font-style: italic }
+
+p.credits {
+  font-style: italic ;
+  font-size: smaller }
+
+p.label {
+  white-space: nowrap }
+
+p.rubric {
+  font-weight: bold ;
+  font-size: larger ;
+  color: maroon ;
+  text-align: center }
+
+p.sidebar-title {
+  font-family: sans-serif ;
+  font-weight: bold ;
+  font-size: larger }
+
+p.sidebar-subtitle {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+p.topic-title {
+  font-weight: bold }
+
+pre.address {
+  margin-bottom: 0 ;
+  margin-top: 0 ;
+  font: inherit }
+
+pre.literal-block, pre.doctest-block, pre.math, pre.code {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+pre.code .ln { color: gray; } /* line numbers */
+pre.code, code { background-color: #eeeeee }
+pre.code .comment, code .comment { color: #5C6576 }
+pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
+pre.code .literal.string, code .literal.string { color: #0C5404 }
+pre.code .name.builtin, code .name.builtin { color: #352B84 }
+pre.code .deleted, code .deleted { background-color: #DEB0A1}
+pre.code .inserted, code .inserted { background-color: #A3D289}
+
+span.classifier {
+  font-family: sans-serif ;
+  font-style: oblique }
+
+span.classifier-delimiter {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+span.interpreted {
+  font-family: sans-serif }
+
+span.option {
+  white-space: nowrap }
+
+span.pre {
+  white-space: pre }
+
+span.problematic, pre.problematic {
+  color: red }
+
+span.section-subtitle {
+  /* font-size relative to parent (h1..h6 element) */
+  font-size: 80% }
+
+table.citation {
+  border-left: solid 1px gray;
+  margin-left: 1px }
+
+table.docinfo {
+  margin: 2em 4em }
+
+table.docutils {
+  margin-top: 0.5em ;
+  margin-bottom: 0.5em }
+
+table.footnote {
+  border-left: solid 1px black;
+  margin-left: 1px }
+
+table.docutils td, table.docutils th,
+table.docinfo td, table.docinfo th {
+  padding-left: 0.5em ;
+  padding-right: 0.5em ;
+  vertical-align: top }
+
+table.docutils th.field-name, table.docinfo th.docinfo-name {
+  font-weight: bold ;
+  text-align: left ;
+  white-space: nowrap ;
+  padding-left: 0 }
+
+/* "booktabs" style (no vertical lines) */
+table.docutils.booktabs {
+  border: 0px;
+  border-top: 2px solid;
+  border-bottom: 2px solid;
+  border-collapse: collapse;
+}
+table.docutils.booktabs * {
+  border: 0px;
+}
+table.docutils.booktabs th {
+  border-bottom: thin solid;
+  text-align: left;
+}
+
+h1 tt.docutils, h2 tt.docutils, h3 tt.docutils,
+h4 tt.docutils, h5 tt.docutils, h6 tt.docutils {
+  font-size: 100% }
+
+ul.auto-toc {
+  list-style-type: none }
+
+</style>
+</head>
+<body>
+<div class="document" id="agile-solution-definition">
+<h1 class="title">Agile Solution Definition</h1>
+
+<!-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! This file is generated by oca-gen-addon-readme !!
+!! changes will be overwritten.                   !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! source digest: sha256:556a7659425bb6beaf79bbf28d0388e7b4240aaf6ff084ff610ba2bb20a7f869
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -->
+<p><a class="reference external image-reference" href="https://odoo-community.org/page/development-status"><img alt="Beta" src="https://img.shields.io/badge/maturity-Beta-yellow.png" /></a> <a class="reference external image-reference" href="http://www.gnu.org/licenses/lgpl-3.0-standalone.html"><img alt="License: LGPL-3" src="https://img.shields.io/badge/license-LGPL--3-blue.png" /></a> <a class="reference external image-reference" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution"><img alt="vice-magus-faolan/odoo-agile-delivery" src="https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github" /></a></p>
+<p>Define an initiative with versioned solution specifications, optional
+Statements of Work, and exact functional or nonfunctional requirements.
+Approve a frozen document baseline, link its requirements to native
+Project tasks, and record acceptance separately with evaluated criteria
+and evidence.</p>
+<p>This optional Odoo 19 Community addon depends on Agile core
+(<tt class="docutils literal">project_agile</tt>). Scrum context is available separately through
+<tt class="docutils literal">project_agile_solution_scrum</tt>.</p>
+<p><strong>Table of contents</strong></p>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><a class="reference internal" href="#installation" id="toc-entry-1">Installation</a></li>
+<li><a class="reference internal" href="#configuration" id="toc-entry-2">Configuration</a></li>
+<li><a class="reference internal" href="#usage" id="toc-entry-3">Usage</a><ul>
+<li><a class="reference internal" href="#build-and-approve-a-specification" id="toc-entry-4">Build and approve a specification</a></li>
+<li><a class="reference internal" href="#link-delivery-work" id="toc-entry-5">Link delivery work</a></li>
+<li><a class="reference internal" href="#preview-the-chosen-audience" id="toc-entry-6">Preview the chosen audience</a></li>
+<li><a class="reference internal" href="#record-exact-acceptance" id="toc-entry-7">Record exact acceptance</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#bug-tracker" id="toc-entry-8">Bug Tracker</a></li>
+<li><a class="reference internal" href="#credits" id="toc-entry-9">Credits</a><ul>
+<li><a class="reference internal" href="#authors" id="toc-entry-10">Authors</a></li>
+<li><a class="reference internal" href="#maintainers" id="toc-entry-11">Maintainers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="installation">
+<h1><a class="toc-backref" href="#toc-entry-1">Installation</a></h1>
+<p>Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation">repository installation
+guide</a>.</p>
+</div>
+<div class="section" id="configuration">
+<h1><a class="toc-backref" href="#toc-entry-2">Configuration</a></h1>
+<p>Install <strong>Agile Solution Definition</strong> (<tt class="docutils literal">project_agile_solution</tt>).
+Before creating or editing solution content, use an active internal
+account with <strong>Administrator</strong> as its Project access level. A Project
+administrator also needs write access to the Project and solution
+records, and membership in the Project company. Project users can read
+permitted content and preview reports. Project visibility and record
+rules apply to both roles.</p>
+<ol class="arabic simple">
+<li>Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration">Agile core
+configuration</a>
+to enable <strong>Agile Enabled</strong> on the Project and set its <strong>Agile Key</strong>.</li>
+<li>Open <strong>Project &gt; Solution Lineages</strong>. Create a named initiative and
+select its active Agile <strong>Project</strong>. A lineage groups documents and
+requirements. Approve its document baselines separately using the
+workflow below.</li>
+<li>Open <strong>Project &gt; Solution Documents</strong>. Create a document with the
+same <strong>Solution</strong>, a <strong>Name</strong>, and <strong>Kind</strong>: <strong>Solution Specification
+/ Internal Brief</strong> or <strong>Statement of Work</strong>. Set <strong>Approver</strong> to an
+active internal Project administrator who can access and edit the
+Project and document. Only that designated user can approve its exact
+revision.</li>
+</ol>
+<p>For an internal initiative, a Statement of Work (SOW) is optional. If
+the solution has a SOW document, separately approve its current baseline
+and select it in the specification before approving the specification.
+Record requirement acceptance separately through Exact Requirement
+Decisions.</p>
+</div>
+<div class="section" id="usage">
+<h1><a class="toc-backref" href="#toc-entry-3">Usage</a></h1>
+<div class="section" id="build-and-approve-a-specification">
+<h2><a class="toc-backref" href="#toc-entry-4">Build and approve a specification</a></h2>
+<p>Use the Project administrator account and Project access described in
+Configuration. The following example starts with a Solution
+Specification / Internal Brief.</p>
+<ol class="arabic simple">
+<li>In <strong>Project &gt; Requirements</strong>, create a requirement with <strong>Name</strong> and
+<strong>Solution</strong>. Save, then choose <strong>Open / New Content Revision</strong>. Fill
+<strong>Title</strong>, <strong>Requirement Type</strong> (Functional or Nonfunctional),
+<strong>Priority</strong>, <strong>Audience</strong>, <strong>Description</strong>, <strong>Rationale</strong>,
+<strong>Verification Method</strong>, and <strong>Acceptance Expectations</strong>. Save the
+exact content revision. Link it to delivery work using the task
+preview workflow below.</li>
+<li>In <strong>Project &gt; Solution Documents</strong>, open your document and choose
+<strong>Open / New Working Revision</strong>. Edit <strong>Title</strong> and add sections
+under <strong>Ordered Narrative</strong>, including their <strong>Audience</strong> and
+<strong>Body</strong>. Alternatively, <strong>Copy Template Sections</strong> lets you select a
+starting template and <strong>Confirm</strong> the copy. Later template changes do
+not update the copied sections.</li>
+<li>Under <strong>Exact Requirements</strong>, select the requirement revision you
+just saved. Under <strong>Exact Supporting Context</strong>, optionally select
+content prepared through <strong>Project &gt; Solution Supporting Context</strong>
+and <strong>Open / New Context Revision</strong>. Questions can name an owner,
+planning significance and existing Spike tasks. Approve any
+additional scope through a successor document baseline.</li>
+<li>If a SOW exists, set <strong>Based Sow Revision</strong> to its currently approved
+revision. Use <strong>Scope Disposition</strong> and <strong>Scope Change Reason</strong> to
+describe an explicit change. Expanded specification scope needs a
+separately approved successor SOW marked <strong>Explicit Scope Change</strong>.</li>
+<li>Save and choose <strong>Submit for Review</strong>. The content is frozen <strong>In
+Review</strong>, but is still unapproved. The designated approver chooses
+<strong>Approve Exact Revision</strong>. To edit a review, use <strong>Return with
+Reason</strong>, enter <strong>Reason</strong> and <strong>Confirm</strong>. Requirement and context
+content already sealed by a reference stays sealed; revise it through
+its stable identity instead.</li>
+<li>For later changes, open the approved revision and choose <strong>New
+Working Revision</strong>. Create successor requirement and context
+revisions as needed and select them in the new draft. Approving the
+successor marks the previous baseline <strong>Superseded</strong> and preserves
+its content and decisions.</li>
+</ol>
+</div>
+<div class="section" id="link-delivery-work">
+<h2><a class="toc-backref" href="#toc-entry-5">Link delivery work</a></h2>
+<p>As a Project administrator with write access to the affected tasks, open
+<strong>Project &gt; Deliberate Task Previews</strong>. Create a preview with
+<strong>Solution</strong>, <strong>Operation</strong> (<strong>Link Existing Native Task</strong> or <strong>Create
+Native Task</strong>), <strong>Name</strong>, and one to twenty exact <strong>Requirement
+Revisions</strong>. Select <strong>Task</strong> for existing work; for new work, select
+<strong>Agile Item Type</strong> and optionally <strong>Description</strong>. An optional
+<strong>Document Revision</strong> must contain the selected exact requirements.</p>
+<p>Save, choose <strong>Review and Confirm</strong>, inspect the proposed work, then
+choose <strong>Confirm This Preview</strong> as the same user. Work is created or
+linked only when you confirm the preview. Changed source content
+requires a fresh preview; confirming an already consumed preview returns
+its existing task rather than creating another. Inspect links under
+<strong>Project &gt; Requirement Work Links</strong>. Use <strong>Retire Working Link</strong> with a
+reason when replacing coverage, then link the successor.</p>
+<p>Manage task descriptions, criteria, estimates, workflow and Sprint
+allocation on the tasks themselves. Specification changes preserve these
+task values. For a task without requirements, enter its explanation on
+the <strong>Solution Maintenance</strong> tab.</p>
+</div>
+<div class="section" id="preview-the-chosen-audience">
+<h2><a class="toc-backref" href="#toc-entry-6">Preview the chosen audience</a></h2>
+<ol class="arabic simple">
+<li>Open the exact document revision through <strong>Project &gt; Solution
+Revisions</strong> and choose <strong>Preview / Coverage</strong>. Project users need
+current access to the revision and every required reference,
+including archived references.</li>
+<li>Select <strong>Internal</strong> or <strong>Redacted Customer</strong>. For internal change
+comparison, select an approved or superseded <strong>Baseline</strong> of the same
+document. Read <strong>Honest Coverage / Change Impact</strong> for missing links,
+older revisions, unresolved questions and explicit decisions.</li>
+<li>Choose <strong>Render Selected Audience</strong> for HTML output. Draft and review
+output remains unapproved; approved or superseded output uses that
+exact frozen baseline.</li>
+</ol>
+<p>Redacted customer output includes only customer-tagged narrative,
+requirements and section, domain and deliverable context. Questions,
+decisions, actors and acceptance evidence are excluded even when tagged
+customer. Narrative is rendered as plain text. Review exported files
+before sharing them with customers. Keep internal report URLs private.</p>
+<p>Rendering requires access to every required reference. If rendering is
+refused, ask your Project administrator to check access. Internal
+coverage accepts up to 1,000 rows; split larger initiatives into smaller
+ones.</p>
+</div>
+<div class="section" id="record-exact-acceptance">
+<h2><a class="toc-backref" href="#toc-entry-7">Record exact acceptance</a></h2>
+<p>Only the active internal Project administrator who actually approved the
+selected specification baseline may record its decisions, with current
+Project, record and company access. Changing the document Approver does
+not transfer that past authority.</p>
+<ol class="arabic simple">
+<li>Open <strong>Project &gt; Exact Requirement Decisions</strong> and create a record.</li>
+<li>Select <strong>Requirement Revision</strong> and its currently approved
+specification <strong>Document Revision</strong>. The requirement must be included
+in that exact baseline.</li>
+<li>Set <strong>Decision</strong> to <strong>Accepted</strong>, supply <strong>Asserted Authority /
+Role</strong>, <strong>Criteria Evaluated</strong>, and nonempty manual <strong>Evidence</strong>.
+Save. The recorder and UTC decision time are recorded automatically.</li>
+</ol>
+<p>Record acceptance explicitly through this decision workflow. Evidence is
+free text for your observations and references; Odoo does not open or
+check it. Acceptance applies only to the exact requirement and baseline
+pair. Record a new decision for a successor, even when it reuses the
+same content.</p>
+<p>Saved decisions cannot be edited or deleted. Append <strong>Rejected</strong> or
+<strong>Withdrawn</strong> with criteria and evidence to correct history; those
+corrections also allow a superseded baseline. Withdrawal requires a
+currently accepted decision for the same exact pair. The
+acceptance-events list filter shows the decision history. Read the
+latest decision for each exact pair to determine its current accepted
+status.</p>
+</div>
+</div>
+<div class="section" id="bug-tracker">
+<h1><a class="toc-backref" href="#toc-entry-8">Bug Tracker</a></h1>
+<p>Bugs are tracked on <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues">GitHub Issues</a>.
+In case of trouble, please check there if your issue has already been reported.
+If you spotted it first, help us to smash it by providing a detailed and welcomed
+<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_solution%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**">feedback</a>.</p>
+<p>Do not contact contributors directly about support or help with technical issues.</p>
+</div>
+<div class="section" id="credits">
+<h1><a class="toc-backref" href="#toc-entry-9">Credits</a></h1>
+<div class="section" id="authors">
+<h2><a class="toc-backref" href="#toc-entry-10">Authors</a></h2>
+<ul class="simple">
+<li>Odoo Agile Delivery</li>
+</ul>
+</div>
+<div class="section" id="maintainers">
+<h2><a class="toc-backref" href="#toc-entry-11">Maintainers</a></h2>
+<p>This module is part of the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution">vice-magus-faolan/odoo-agile-delivery</a> project on GitHub.</p>
+<p>You are welcome to contribute.</p>
+</div>
+</div>
+</div>
+</body>
+</html>

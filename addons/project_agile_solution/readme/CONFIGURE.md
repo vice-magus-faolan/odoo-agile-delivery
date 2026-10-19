@@ -18,5 +18,4 @@ company. Project users can read permitted content and preview reports. Project v
 For an internal initiative, a Statement of Work (SOW) is optional. If the solution
 has a SOW document, separately approve its current baseline and select it in the
 specification before approving the specification. Record requirement acceptance
-separately through Exact Requirement Decisions. Obtain any required legal
-signatures through your agreed signing process.
+separately through Exact Requirement Decisions.

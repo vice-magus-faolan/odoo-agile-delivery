@@ -16,6 +16,12 @@ pre-commit run --all-files --show-diff-on-failure
 ./scripts/verify
 ```
 
+Local checks provide focused feedback and failure diagnosis; a duplicate full local
+verifier run is not required before handoff. Independently review the committed source,
+then publish an ordinary topic-branch PR to trigger the required hosted lint and
+module-verification jobs. Those jobs must pass on the exact PR head before delivery
+acceptance.
+
 Until issue #7, `prefer-env-translation` (`W8161`) remains advisory in the optional
 pylint hook, with all other mandatory checks blocking. Issue #7 must assess language
 fallbacks and multilingual compatibility before restoring mandatory gating.

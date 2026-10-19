@@ -47,8 +47,9 @@ reuse of a delivery ID.
   attempts gets one more try.
 
 Digest-only, oversized-input and purged deliveries have no payload to
-reprocess. Arrange a new provider delivery after correcting configuration;
-exact redelivery of an old delivery does not fill its missing payload.
+reprocess. After correcting configuration, push again or re-run the check so
+GitHub sends a new delivery; for a PR, send a new supported PR event. Exact
+redelivery of an old delivery does not fill its missing payload.
 
 Retained excerpts receive a 30-day expiry. Daily cleanup removes expired
 excerpts only from **Processed** or **Discarded** deliveries, in batches of at

@@ -1,17 +1,9 @@
 # Bounded Git-policy authority support
 
-Target: the pinned Odoo 19 Community image and the suite's native `project_agile_git`
-repository rules. This is a support classifier, not an expression engine or alternative
-permission evaluator. Odoo evaluates actual ACLs and record rules under each persisted
-non-superuser identity.
-
-## Approved amendment
-
-Jimmy authorized the bounded revoke-only Task observer on September 30, 2026, on task
-`t_0ef017bf`, starting from rejected commit `933ac40da92a81a1c48503a2ab80078ebf2db77a`.
-This amends the rules phase only: no evaluator, scheduler, policy-initiated Task write,
-trusted-context bypass, or early concurrency-fence field. No publication, deployment or
-live activation is authorized.
+Target: the supported Odoo 19 Community security profile and the suite's native
+`project_agile_git` repository rules. This is a support classifier, not an expression
+engine or alternative permission evaluator. Odoo evaluates actual ACLs and record rules
+under each persisted non-superuser identity.
 
 ## Exact supported native profile
 
@@ -28,10 +20,8 @@ Runtime baseline evidence was read from a fresh standalone disposable database, 
 inferred from another Odoo version. The native Project security source hash remains
 `34698c4ee327698a9056e7e6ee0e7beec9bc2a0d7c4c89eb4919fe50e9441cb8`; base security is
 `9d63f5ec1fbd084b036b8f94a3d7a258055f57a605a1d3135a42446d042363db`. The baseline
-includes auto-installed `project_todo.task_edition_rule_internal`. The run's
-authority-metadata evidence retains exact domain text, normalized AST, fingerprints,
-group identities and permission flags. Approval/current validation repeat the checked-in
-definitions against the actual installed database.
+includes auto-installed `project_todo.task_edition_rule_internal`. Approval/current
+validation repeat the checked-in definitions against the actual installed database.
 
 Supported native dependencies and observers:
 
@@ -72,12 +62,8 @@ the same relation as `ir.rule.groups`; it and `model_access` changes are observe
 security changes too. Registry metadata for both implication fields and rule_groups must
 match the checked-in stored scalar-relation profile. Exact installed
 `addons/base/models/res_groups.py` SHA-256:
-`6111f736f19922033582ade995c7e05da21615e0b35a55407862882a910950cc`. Real non-superuser
-Settings Administrator fixtures prove executor Task write denial followed by restoration
-before any validation, terminal revocation, rejected old approval and fresh
-successor/cutoff. Denied mutations and deliberate enclosing transaction rollback
-preserve the native relation, active pointer and absence of tombstones; the test alone
-rebuilds Odoo's global group cache after its rollback.
+`6111f736f19922033582ade995c7e05da21615e0b35a55407862882a910950cc`. Denied mutations and
+enclosing transaction rollback leave native relations and approval history unchanged.
 
 ## Only supported custom extension
 
@@ -132,7 +118,7 @@ invariant and use native unkeyed Tasks for successful old/new scope and descenda
 propagation checks. The classifier does not turn a denied native business operation into
 a permitted one.
 
-## Recovery and later phases
+## Recovery
 
 Retain tombstones; restore native configuration/access, create a successor and obtain
 fresh distinct-user approval. A restored current fingerprint is never evidence that
@@ -140,9 +126,6 @@ temporary historical loss was observed. Trusted server code and direct database
 administration remain the trust root; hot monkey patches or new business/access override
 code require separate exact-source review, not just a matching domain hash.
 
-The later evaluator/apply phases must revalidate this supported profile, concrete access
-and revocation under ADR-012's control locks. Independent-connection
-apply/manual-edit/disable race and lock-fence proofs belong to the later apply slice;
-this rules-phase observer is not a completed concurrency executor. If a later effect
-touches a supported authority input, reconcile its terminal revocation and lock order
-without a context bypass. No scheduler/effect is implemented or activated here.
+Evaluation and apply revalidate this supported profile, concrete access and revocation
+under ADR-012's transaction boundary. Ordinary stage/state transitions still pass
+through native ORM; this classifier is not another permission evaluator.

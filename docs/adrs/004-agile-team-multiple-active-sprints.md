@@ -1,52 +1,33 @@
-# ADR-004: Agile Team / Multiple Active Sprint Model
+# ADR-004: Teams and multiple active Sprints
 
 ## Status
 
-Accepted — implemented by the Milestone 2 project_scrum foundation.
+Accepted and implemented in `project_scrum`.
 
-## Context
+## Context and decision
 
-One product Project can contain more than one delivery team. A global or per-project
-one-active-Sprint rule would prevent legitimate parallel work; unlimited concurrent
-Sprints without ownership would make assignment and reporting ambiguous.
+A Project may host several delivery teams. A global or per-Project single-active- Sprint
+rule would block legitimate parallel work; unowned concurrent Sprints would make
+capacity and reporting ambiguous.
 
-## Decision
+The narrow `project.agile.team` model supplies a durable Sprint ownership boundary that
+native Project roles do not provide. A team belongs to one Agile-enabled Project and
+inherits its company. Different teams may have active Sprints in the same Project.
 
-The `project_scrum` module makes team ownership explicit on each Sprint and enforces
-active-Sprint policy at the team boundary, not globally and not merely per Project. It
-introduces the narrow `project.agile.team` model because native Project roles do not
-provide a durable Sprint ownership boundary. A team belongs to one Agile-enabled Project
-and inherits its company.
+A native Odoo 19 `models.UniqueIndex` prevents two active Sprints with the same
+`(project_id, team_id)`, including competing transactions. Draft and closed Sprints do
+not reserve the slot. Activation preserves permission, state and consistency checks and
+translates the index's `IntegrityError` into a business error within a savepoint,
+rolling back commitment and scope evidence.
 
-Multiple active Sprints are allowed for distinct teams in the same Project. A native
-Odoo 19 `models.UniqueIndex` rejects a second active Sprint for the same
-`(project_id, team_id)` pair, including competing transactions. Draft and closed Sprints
-do not reserve this slot. Lifecycle actions retain access, state and consistency checks;
-activation translates this index's `IntegrityError` into a business error inside a
-savepoint, rolling back commitment and scope evidence.
+## Alternatives and consequences
 
-## Alternatives
+One active Sprint globally couples unrelated workspaces. One per Project prevents
+parallel teams. Unlimited Sprints without teams obscure ownership. The selected boundary
+instead requires Project/team/company compatibility and reports which team owns each
+Sprint.
 
-- One active Sprint globally: rejected because it couples unrelated workspaces.
-- One active Sprint per Project: rejected because a Project may host several teams.
-- Allow arbitrary active Sprints with no team: rejected because capacity, task
-  ownership, and reporting become unclear.
-
-## Consequences
-
-Sprint lifecycle validates team and Project compatibility, task assignment, and company
-isolation. Reporting identifies the team that owns a Sprint. Team membership and
-configurable per-team concurrency policy remain deliberately out of this narrow
-foundation.
-
-## Open Questions
-
-- Which relationship should later supply team membership and task ownership?
-- Can a task move between concurrent team Sprints, and what scope events are required?
-- Should a future policy allow a no-team Sprint for a small installation?
-
-## Evidence
-
-- [Mission brief: Scrum is optional](../mission-brief.md#rule-6--scrum-is-optional)
-- [Mission brief: team-configured active-Sprint rule](../mission-brief.md#8-sprint-lifecycle)
-- [Mission brief: Scrum foundation](../mission-brief.md#22-milestone-2-scrum-foundation)
+Team membership, a configurable per-team concurrency policy and no-team Sprints are not
+supplied by this model. Carry-over targets must be compatible Draft Sprints for the same
+team; this does not establish a general cross-team transfer policy. Such changes need
+their own Task ownership and scope-history decisions.

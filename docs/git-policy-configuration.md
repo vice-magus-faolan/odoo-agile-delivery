@@ -1,101 +1,77 @@
-# Git policy configuration and approval authority
+# Git policy configuration and approval
 
-Target: Odoo 19 Community, private Odoo-compatible LGPL-3 addon
-`project_agile_git_automation`, sole dependency `project_agile_git`. Configuration,
-[deterministic dry runs](git-policy-dry-run.md), separate bounded native apply and
-[operator controls/recovery](runbooks/git-policy-operations.md) are available. Core
-Agile and Git facts remain independently installable; no live activation/deployment is
-performed by this delivery.
+The optional `project_agile_git_automation` addon depends only on `project_agile_git`
+and retains LGPL-3. It targets Odoo 19 Community; validate installed extensions and
+Odoo.sh behavior separately. Installing it creates no rules, assigns no policy
+capability members and does not enable Task changes. Projects start disabled and in Dry
+Run mode.
 
-## Operating boundary
+## Roles and supported configuration
 
-Installation seeds no policy capability members or rules. Projects default to
-disabled/dry-run. Assign the explicit Git Policy Manager capability through normal
-authorized administration. An ordinary Project Manager cannot configure/activate. A
-visible System Administrator can emergency-disable without acquiring activation
-authority.
+An authorized administrator must grant **Git Policy Manager** to the intended rule owner
+and a different approver. This includes Project administrator permissions; Project
+administrator access alone does not allow policy configuration or activation. A visible
+System Administrator can emergency-disable without gaining activation authority.
 
-Enable a company-scoped active Agile Project explicitly. Configure a repository-scoped
-rule and draft revision: merged PR, literal target branch, 1–20 active nonpersonal
-Project-linked source stages, one eligible target stage, optional 0–20 distinct literal
-CI names (1–255 characters), and an explicit active internal non-superuser execution
-user in the same company. No CI names means CI is not a condition. Empty Projects fail
-closed because activation requires concrete Task write-authority evidence. Selectors
-cannot create/edit/delete native stages.
+Use the
+[addon setup guide](../addons/project_agile_git_automation/README.rst#configuration) for
+visible controls. Select:
 
-A different authorized approver must acknowledge native side effects and approve the
-exact revision. Approved revisions, activation time/cutoff, identities, mode, stage
-fingerprint and epochs are immutable. Public actions return serializable action/result
-dictionaries. New-revision action returns a form action; activation returns
-`activation_id`.
+- an active Agile Project with a company and its configured repository;
+- the exact target branch and 1 to 20 active source stages shared with that Project, not
+  a user's personal stages;
+- one active shared target stage outside the source selection, without rating, email or
+  SMS templates;
+- up to 20 distinct exact check names, each 1 to 255 characters;
+- an active internal execution user, not a superuser or portal account, with company
+  membership and actual access to every affected Task.
 
-Create a successor draft to edit approved selectors. Editing/creating a draft or
-changing named checks revokes existing authority; approval is never copied. Owner
-transfer, archive/delete request, explicit disable, Project scope/visibility/company
-changes, repository authority changes, relevant stage settings, identity
-activation/groups/company membership and ACL/record-rule changes revoke authority. A
-delete request archives the rule; referenced stage/provider identities cannot be
-deleted/reassigned. Restoration does not resurrect revoked epochs. Security-rule/ACL
-changes conservatively revoke all approval epochs. A fresh successor approval is
-required.
+No check names means CI is not a condition, not that CI passed. Several provider checks
+with the same required name do not count as success even if one passed. No wildcard,
+script, arbitrary field action or caller-selected Task is supported. An empty Project
+cannot be activated because there is no concrete Task on which to establish the required
+permissions.
 
-## Security and implementation
+## Approve in Dry Run first
 
-The [approved bounded authority profile](git-policy-authority-profiles.md) pins native
-XML identities, normalized domain fingerprints, groups, permissions and mutable
-dependencies. Only literal direct stored Task name/active custom rules are initially
-supported; unknown Project/repository/stage/identity or other Task profiles fail closed
-at activation/current validation. Native Odoo remains the access evaluator. The Task
-observer revokes affected approval epochs and the apply layer adds a monotonic
-stage/state concurrency fence. Successful authority-input edits, create/delete and
-old/new/descendant scope changes invalidate approvals before restoration can reuse them.
-Both stage relation directions are observed.
+The owner prepares a draft revision. A different Git Policy Manager approves that exact
+revision and acknowledges normal native stage side effects. Check the saved mode,
+cutoff, Project, repository and execution user. Dry-run approval permits preview
+decisions, not Task writes. Use the [dry-run guide](git-policy-dry-run.md) to inspect
+outcomes and reasons before considering Apply mode.
 
-Global company rules plus fresh native Project subqueries protect search/count/read
-surfaces. Never cache visible record IDs inside an ir.rule expression: the cached domain
-can retain stale access. Public controls require caller capability and current record
-access before narrow server-derived writes. Company context is validated; defaults and
-arbitrary expressions/actions/model names/methods/fields do not grant authority.
-Execution identity is persisted in the approved revision, never
-provider/context-selected. Activation checks every current concrete Project Task under
-that execution identity; apply repeats actual-record access checks before mutation.
+The installed permissions must match the
+[supported native rules and extensions](git-policy-authority-profiles.md). Only the
+documented custom Task-name and active-status rules are supported; unknown Project,
+repository, stage, identity or other Task-rule changes prevent approval. Do not bypass
+refusal with sudo or context. Odoo still checks the actual records as each user; a
+matching supported configuration is not an access grant.
 
-Native ORM approval publication shares Project/repository rows; effect publication
-shares repository/rule rows with competing authority/evidence mutations. The private
-server-owned last-approval/effect markers exist to create ORM shared-row write
-conflicts, not authorization, lease counters or recovery/navigation features. First
-approval needs the Project row when no current activation exists to revoke; later
-Project revocation already writes the rules used by effect publication. Authority reads
-do not take blocking locks. Concurrent changes require fresh-transaction retry. Approval
-validity is rechecked against current identities, scope, mode, epochs, stages and Task
-permissions. Native Project/Task unfollow and follower reassignment revoke through an
-authorized revoke-only follower hook; restoring access before the next validation cannot
-resurrect an epoch. Revocation is transaction-local and durable only when the owning
-transaction commits. Direct database administration remains the trust root. The separate
-apply worker implements ADR-012 shared-write conflicts, provenance, bounded evaluation,
-retries and actual Task checks; this delivery does not authorize live apply.
+## Changing or revoking approval
 
-## Native effects and recovery
+Approved selectors and approval details are immutable. Create a **New Revision** to
+change them. Draft changes revoke existing approval, and a different person must approve
+the new revision. Selecting Apply mode also revokes earlier approvals; reviewing
+previews does not make them executable. A new approval cutoff admits only later eligible
+merges and their original authenticated receipts, not old history.
 
-This configuration layer does not write Tasks. The separately approved native apply
-stage write can create tracking messages/notifications, update timestamps and durations,
-and recompute nonterminal Task state. Native completion/reopen state, Sprint/history,
-estimates, followers and messages are not action targets.
-Rating/email-template/SMS-template targets are excluded. Do not claim a native ORM write
-has no side effects.
+Disabling, ownership changes, archive/delete requests and changes to Project,
+repository, stages, identities, company membership, ACLs or record rules may revoke
+approval. Both directions of stage membership and user/group changes are observed.
+Restoring old settings or access does not restore revoked approval: correct the cause,
+create a new revision and obtain distinct-person approval again. A delete request
+archives a rule; used history and provider identities cannot be removed or reassigned to
+permit another execution.
 
-Emergency disable Project/rule first. Retain immutable approval/revocation evidence.
-Correct source permissions/configuration, create a successor and obtain fresh
-distinct-author acknowledgment. No historical/backfill replay is authorized by
-activation. Apply remains separately operator-gated.
+Before live changes, assess installed Task extensions and notification behavior. Normal
+stage writes can create tracking messages and notifications, change timestamps/durations
+and recompute nonterminal state. They do not request Done, reopening, Sprint changes or
+estimates. Already-sent external effects cannot be retracted by transaction rollback;
+template-driven target stages are excluded.
 
-## Verification
-
-Discovered post-install nonadmin ORM tests cover finite selectors, forged
-defaults/context/fields, owner transfer, two-person/wizard approval, Task record-rule
-denial, multiple companies, identity/ACL changes, historical immutability and stage
-mutation rejection. Canonical repository `env -u COMPOSE_PROJECT_NAME ./scripts/verify`
-covers independent addon install, aggregate install, upgrade, dependency-safe
-uninstall/reinstall and existing native UI/fact coverage. All verification uses
-disposable worktree-scoped Compose resources. No OCA conformity, production deployment
-or customer outcome is claimed.
+For uncertainty or shutdown, use **Emergency Disable** on the Project or **Disable
+Rule**. This stops pending work, not already committed changes. Follow the
+[operations runbook](runbooks/git-policy-operations.md) for diagnostics, retry limits,
+backups and restore. Technical shared-write/concurrency behavior is in the
+[apply boundary](git-policy-apply-boundary.md), with the full contract in
+[ADR-012](adrs/012-git-workflow-policy-contract.md).

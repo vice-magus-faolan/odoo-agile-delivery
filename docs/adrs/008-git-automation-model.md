@@ -52,8 +52,6 @@ out-of-order deliveries. It may initially expose facts without any workflow auto
 
 ## Evidence
 
-- [Mission brief: provider facts separated from automation](../mission-brief.md#rule-9--git-integrations-report-facts)
-- [Mission brief: target automation policy](../mission-brief.md#15-git-automation)
 - [ADR-007: adoption strategy](007-oca-project-git-adoption-strategy.md)
 
 ## Sources

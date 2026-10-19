@@ -1,7 +1,7 @@
 # Git policy apply boundary
 
-Odoo 19 Community-compatible, optional LGPL-3 private-suite addon. No OCA conformity
-claim, new dependency, default rule, provider call or live activation.
+Odoo 19 Community-compatible, optional LGPL-3 private-suite addon. Installation creates
+no default rule and does not activate task changes.
 
 ## Execution and recovery
 
@@ -12,12 +12,12 @@ Approved cutoffs exclude historical facts.
 
 Attempts retain their original Task/stage/monotonic transition fence, activation and
 sealed observation. Claims expire after five minutes. Waiting/transient attempts use
-exponential backoff from one minute, capped at one hour; five processing claims end in
-terminal failure. Terminal attempts are not revived by discovery or replay. Later CI
-evidence may settle a waiting attempt, never widen its Task or approved action. The
-native Retry Transient Failure action requeues only an eligible existing transient
-attempt, without resetting its budget/fence or replacing evidence/identity. Terminal,
-exhausted, stale, expired and consumed candidates remain nonretryable. See the
+exponential backoff from one minute, capped at one hour; five processing tries exhaust
+an attempt. Terminal attempts are not revived by discovery or replay. Later CI evidence
+may settle a waiting attempt, never widen its Task or approved action. The native Retry
+Transient Failure action requeues only an eligible existing transient attempt, without
+resetting its budget/fence or replacing evidence/identity. Terminal, exhausted, stale,
+expired and consumed candidates remain nonretryable. See the
 [operations runbook](runbooks/git-policy-operations.md).
 
 Immediately before mutation the worker claims the Attempt and revalidates persisted

@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Follow `docs/mission-brief.md`. In particular:
+Follow the maintained architecture decisions in `docs/adrs/`. In particular:
 
 - extend `project.task`; do not create a parallel issue model;
 - use native `parent_id` / `child_ids` and native task dependencies;
@@ -16,7 +16,7 @@ Follow `docs/mission-brief.md`. In particular:
 - Work in a task-scoped branch/worktree, never directly in the canonical checkout.
 - Add model-level enforcement for invariants; UI domains alone are insufficient.
 - Include automated tests for new behavior and regressions.
-- Run `./scripts/verify` before handoff.
+- Use focused local checks for development feedback. Independently review committed source before PR publication; the required hosted lint and module tests must pass before merge.
 - Keep new or changed functions easy to reason about; soft-warn around cyclomatic complexity 10 and justify or refactor above 15.
 - Commit before review and hand off the exact full SHA, branch, changed files, checks, and residual risks.
 

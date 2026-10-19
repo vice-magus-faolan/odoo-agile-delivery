@@ -46,8 +46,6 @@ a release is published and how release notes relate to Knowledge.
 
 ## Evidence
 
-- [Mission brief: release/version target](../mission-brief.md#1-north-star)
-- [Mission brief: future release notes](../mission-brief.md#11-phase-4--knowledge-integration)
 - [OCA `project_version` 19.0 manifest][3]
 
 ## Sources

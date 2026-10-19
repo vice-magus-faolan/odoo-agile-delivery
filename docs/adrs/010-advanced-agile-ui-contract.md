@@ -1,134 +1,96 @@
-# ADR-010: Advanced Agile UI Contract
+# ADR-010: Additive Agile planning UI
 
 ## Status
 
-Accepted for Milestone 5 skeleton; implementation of the planning board is deferred to
-its dependent delivery card.
+Accepted and implemented in optional `project_agile_ui`: a current-user planning board
+with bounded reads and explicit assign, return and reorder actions. The initial
+read-only skeleton is superseded by the delivered board described here.
 
-## Context
+## Context and dependency boundary
 
-`project_agile` and `project_scrum` already own Agile configuration, task keys,
-item-type eligibility, project/company validation, Sprint lifecycle, task-to- Sprint
-assignment, and immutable scope facts. `project_scrum_analytics` owns historical replay.
-A planning UI must compose that truth without recreating a Jira-like backend or changing
-ordinary Odoo Project behavior.
+Agile and Scrum own keys, type eligibility, Project/company checks, Sprint lifecycle,
+membership and immutable scope events; analytics owns historical calculations. The UI
+composes those contracts rather than recreating a backend. It retains LGPL-3 and depends
+only on `project_scrum`. Ordinary Project views and core addons remain usable without
+the board. No Git indicator or Task-document backend is required.
 
-The deployed fixture is Odoo Community 19.0 image
-`odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`. The
-exact 19.0 web source was inspected for manifest asset declarations,
-`web.assets_unit_tests`, `@odoo/hoot`, `@web/core/registry`, and the registry API. The
-skeleton therefore uses only the standard manifest asset extension point. A later client
-action, when there is actual UI to render, must register through
-`registry.category("actions")`; it must not patch a global Project Kanban view or use
-framework-private registries.
+Use the standard Odoo 19 `registry.category("actions")` client-action extension,
+manifest assets, OWL and native Hoot in `web.assets_unit_tests`. Do not patch global
+Project Kanban, use private registries or add a parallel JavaScript test runner.
+Original web/API inspection used Community image
+`odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`; that
+historical finding does not pin future verifier builds.
 
-## Decision
+## Snapshot and authority
 
-### Addon and dependency boundary
+`project.project.get_agile_planning_snapshot(project_id, cursor=False)` resolves one
+active, non-template Agile Project as the current user with current company and native
+record permissions. It rejects unavailable Projects and invalid typed IDs/cursors
+without exposing hidden metadata. Context does not grant authority; there is no
+caller-selected model, method, field set, company or team.
 
-`project_agile_ui` is an optional LGPL-3 addon with exactly one dependency:
-`project_scrum`. It has no models, ACLs, controllers, menu entries, server actions,
-global view inheritance, or backend assets in this milestone. Its only asset is a native
-Odoo 19 `web.assets_unit_tests` Hoot fixture. Consequently `project_agile`,
-`project_scrum`, and ordinary Project remain independently installable and their
-existing standard views/actions remain the only user interface until the read-only board
-lands.
+The snapshot returns at most 20 visible Draft/Active Sprints with active teams, 100
+assigned items across those Sprints and 50 Product Backlog items per page. Native Task
+identity/key/type/points/parent context and form navigation remain bounded projections.
+Current points come from Task assignment; committed points come from immutable committed
+events, not browser arithmetic. Totals may include work omitted from the capped item
+list.
 
-No Git indicators. No Task-document controls or dependency on unmerged
-`document_page_project_task` exists, and no duplicated backend business rules are in
-this addon or its contract.
+Backlog eligibility is active, unscheduled, Sprint-eligible, non-template work in that
+Project/company. Ordering is sequence then ID. A cursor names sequence, ID and the
+Project backlog revision; a changed revision rejects the old cursor. Done and Canceled
+Tasks are not excluded by the current domain, a known
+[#46 limitation](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/46),
+not a shipped fix.
 
-### Later read-only user journeys
+Reads use batched current-user ORM queries and grouped sums rather than per-card
+queries. Keep the native payload/query-budget regression; its representative snapshot is
+bounded to ten SQL queries, not a full-render or deployment latency SLA. Native Sprint
+and planning-scoped backlog lists remain read/navigation fallbacks with the same
+permissions.
 
-1. A Project user opens a project-scoped **Sprint Planning** client action from an
-   additive Agile entry point. They see visible draft/active Sprints and the eligible
-   unscheduled Product Backlog for that one Agile project.
-2. They can open the existing native Sprint or Task form from an item. The standard
-   Product Backlog and Sprint Backlog actions remain an equivalent fallback for every
-   read path.
-3. A Project manager sees the same read-only workspace. Mutating assignment, ordering,
-   or lifecycle controls are absent from the first board card; later mutation work must
-   use existing validated server actions rather than client writes.
-4. A user without Project/Sprint access receives the normal Odoo access failure, not a
-   partial or existence-revealing response. A non-Agile, archived, or unavailable
-   project uses its standard Project views; it does not receive the planning action.
+## Explicit planning changes
 
-### Data and authority contract for the later board
+`project.project.apply_agile_planning_change` accepts only assign, return or reorder
+with typed identities and exact expected Task/Sprint versions. It checks the whole
+selected set's current access before mutation, at most 20 Tasks. Assign uses the
+existing validated Scrum operation and targets Draft Sprints with active teams. Return
+supports Draft/Active Sprints and preserves native scope events; closed membership is
+not mutable. Reorder acts on one eligible backlog Task and a validated placement target.
+No client value grants lifecycle authority.
 
-The later implementation adds one narrow, current-user service on a named Agile/Scrum
-model, for example `project.agile.planning.get_snapshot`. It accepts only `project_id`,
-a server-validated opaque/typed backlog cursor, and bounded limits. It must reject
-booleans/non-integers, missing records, non-Agile projects, unavailable companies, and
-records failing ACL or record-rule read checks before it constructs any payload. It
-performs no `sudo()`, accepts no caller-selected model/method/fields/company/team, and
-never accepts context as authority.
+The server validates versions, eligibility, Project/company and lifecycle in a
+savepoint. A shared Project backlog-revision write conflicts with concurrent planning
+changes; rejection leaves no partial placement/order change. The UI refreshes current
+data after changes and instructs the user to refresh/retry a stale action instead of
+silently applying it to different work. Only the private coordination-field write is
+narrowly elevated; Task mutations use caller ORM. These actions do not approve
+requirements, alter analytics formulas or automatically plan work from Git or documents.
 
-The response contains only the selected project, up to 20 visible draft/active Sprints,
-and the first/backlog cursor page of up to 50 eligible unscheduled work items. Task data
-is limited to id, display name, Agile key, item type, story points, parent/Epic display
-context when the existing `parent_id` allows it, and native-form navigation identity.
-Sprint data is limited to id, name, team display name, state, goal, current
-assigned-point total, and immutable committed-point total. Current and committed totals
-must derive respectively from authoritative task assignment and `committed` scope
-events; the UI must not recompute lifecycle/history semantics.
+## Client behavior and accessibility
 
-The server scopes every domain by project, current available companies, Agile
-enablement, Sprint eligibility, and active/non-template task boundaries. It uses
-current-user ORM searches. Its budget is one authorized project lookup, one bounded
-Sprint read, one grouped current-task aggregate, one grouped committed-event aggregate,
-and one bounded backlog query, plus at most one parent-name batch read. No loop may
-query per Sprint or per task. The contract is a maximum of six logical ORM reads per
-first page and must be protected with a query-count regression test when implemented.
+The action owns request sequencing/cancellation, rendering and native navigation;
+presentation components receive narrow data. Ignore stale responses after Project, page
+or lifecycle changes. Cached content is not mutation authority. Show loading, empty,
+error and stale states distinctly; retry and standard-view fallbacks do not widen
+access. An unavailable Project exposes no hidden metadata.
 
-### Component boundary and client behavior
+Use labeled Sprint and Product Backlog regions, logical headings, semantic
+buttons/links, visible focus and announced loading/errors. Narrow layouts stack without
+mandatory horizontal dragging. Keyboard buttons provide every supported planning action;
+drag/drop is an alternative, not the only control.
 
-The future action owns only orchestration, request cancellation/sequence protection, and
-rendering. It has a container with `SprintList`, `SprintCard`, `BacklogList`, and
-`BacklogItem` presentation components. Components receive narrow immutable props; only
-the action service handles Odoo navigation. The client must ignore an older response
-when the project, cursor, or component lifecycle has changed. Cached data is labelled
-stale until refreshed and is never used to authorize a link or mutation.
+## Verification and consequences
 
-The desktop layout has labelled **Sprints** and **Product Backlog** regions. At a narrow
-breakpoint it becomes a single column, Sprints first, without horizontal drag surfaces.
-Controls use semantic buttons/links, visible focus, logical heading order, and announced
-loading/error changes (`aria-busy` and a polite status region). Keyboard operation
-relies on normal Tab/Shift+Tab and Enter/Space activation; no single-key shortcuts or
-pointer-only interaction are introduced. Drag/drop is intentionally absent from the
-read-only card.
+Keep native Python permission/company/cursor/payload/atomic-change regressions, Hoot
+rendering/loading/error/navigation/focus tests and meaningful browser journeys, with
+distinct-process planning races in the existing verifier. Tests exercise the real
+server/client boundary rather than only a discoverable skeleton asset. See the
+[addon workflow](../../addons/project_agile_ui/README.rst) for current controls and
+[contributor checks](../contributing.md) for commands.
 
-Loading uses non-interactive skeletons. Empty has distinct Sprint and Backlog messages
-with native-action recovery links. Error preserves already-rendered stale content only
-when labelled as stale and offers retry. No-access and unavailable project states reveal
-no hidden metadata. Closed Sprint state is shown only through explicit later filtering;
-standard list/form fallback remains available.
-
-### Frontend verification strategy
-
-Odoo 19 uses Hoot in `web.assets_unit_tests`; the skeleton provides a discoverable
-`*.test.js` test rather than a parallel npm, Jest, or QUnit harness. The fixture is
-installed with the addon and exercised by Odoo's native frontend test bundle. The board
-card must add Hoot tests for rendering, loading/empty/error/stale transitions,
-navigation, responsive semantics, and keyboard focus. It must add Python tests for
-authorized snapshot scope, no-access, multi-company isolation, multiple active-team
-Sprints, cursor bounds, and query budget. A native Odoo tour is required only once the
-browser flow has meaningful server/client integration; it must cover the standard-view
-fallback and never automate writes on the read-only card.
-
-## Alternatives considered
-
-- Extend `project` Kanban globally: rejected because Agile is opt-in and ordinary
-  Project behavior must remain unchanged.
-- Put a generic `search_read` RPC in the browser: rejected because it leaks authority
-  and duplicates domain/lifecycle policy in the client.
-- Depend on the OCA Document Page bridge: rejected because it is unmerged and
-  Task-document behavior is outside the planning contract.
-- Add a bespoke JavaScript test runner: rejected because Odoo 19 already owns the asset
-  and Hoot test mechanism.
-
-## Consequences
-
-The skeleton delivers a validated installation and frontend discovery seam but no
-planning board, drag/drop, writes, Git integration, or document controls. Future cards
-have one explicit service boundary, bounded payload/query rules, and a browser-test
-route without guessing framework APIs.
+Rejected alternatives are global Kanban replacement, generic browser `search_read` with
+duplicated domain rules, a mandatory document backend, and a separate frontend test
+framework. The additive board costs explicit bounded service/action contracts but keeps
+native work and history authoritative. Richer provider/document controls, automatic
+planning and changed backlog eligibility are not supplied by this ADR.

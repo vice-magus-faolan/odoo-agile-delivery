@@ -1,222 +1,175 @@
 # Git workflow policy operations
 
-## Scope and authority
+## Before enabling Task changes
 
-Odoo 19 Community, optional LGPL-3 private-suite `project_agile_git_automation`. Not an
-OCA-conformity claim. Its only dependency is `project_agile_git`; GitHub, Scrum,
-analytics, document bridges and planning UI remain optional and independent. Fact
-ingress/normalization is observation-only with policy absent, disabled or in dry-run. No
-installation default moves merged PRs to Done. The sole policy action is an explicitly
-approved eligible Task `stage_id` transition; native completion, Sprint/history,
-estimates, followers and messages are not configurable targets. Native
-tracking/notifications, timestamps/durations and nonterminal recomputation are real side
-effects. Rating, email-template and SMS-template targets are refused.
+The optional LGPL-3 `project_agile_git_automation` addon changes only an eligible Task's
+stage through normal Odoo ORM. It does not set Done, reopen work, assign Sprints, change
+estimates or configure follower/message actions. Ordinary native tracking,
+notifications, timestamps, durations and nonterminal-state recomputation still occur.
+Rating, email-template and SMS-template target stages are refused. Git ingress and
+normalization remain observations, not Task writes.
 
-This runbook is not approval to deploy, grant capabilities, configure a scheduler or
-webhook, enable live policies, publish code, or restore a database. Obtain operator
-approval for those effects separately and record the exact delivered SHA. Fixture
-approval is not live approval. Customer production outcome is unobserved.
+An authorized administrator must grant **Git Policy Manager** to the owner and a
+different approver. Installation assigns nobody and enables no rules. Project
+administrator access alone is insufficient. Use a least-privileged active internal
+execution user, not uid 1 or a portal account. All three need current company and
+concrete Project/Task access. Visible System Administrators may emergency-disable, not
+activate merely by virtue of that role.
 
-## Approval and dry-run-before-enable
+Before live Apply mode, take a consistent database/filestore backup, test isolated
+restoration and assess the installed Task extensions and notification settings. Unknown
+permission profiles prevent approval; compare
+[supported permissions and extensions](../git-policy-authority-profiles.md), not just
+the user's model ACLs. Do not bypass refusal with sudo or context.
 
-1. Back up the database and filestore together; record the exact code/image/addon
-   versions and test restoration in an isolated environment. Inventory native Task
-   overrides, access rules and notification configuration. Unknown installed
-   source/authority profiles fail closed; never bypass them with context or sudo.
-2. An authorized administrator assigns Git Policy Manager explicitly to the owner and a
-   different approver; installation assigns nobody. Use a least-privileged active
-   internal execution user, not uid 1 or a portal account. All three need current
-   company membership and concrete Project/Task authority. A System Administrator may
-   emergency-disable but does not implicitly gain activation.
-3. In Project → Git Policy, select Enable Dry Run. Configure a repository-local rule and
-   draft revision in Project → Configuration → Git Policy Rules/Revisions: exact branch,
-   1–20 eligible source stages, one eligible target, 0–20 exact check names and the
-   approved executor. No names means CI is not a condition, not that CI passed. No
-   domains, scripts, wildcard checks or caller-selected Tasks exist.
-4. A distinct approver opens the revision, selects Approve and Activate, and explicitly
-   acknowledges native effects. Review immutable activation mode, server UTC cutoff,
-   revision, owner/approver/executor and scope. Dry-run proposals never reserve an
-   effect, increment a Task fence or authorize execution.
-5. Preview from the rule or Repository (20 PRs per request). Inspect ordinary Dry Runs
-   list/form, bounded finite reason and normalized observation. The native button
-   previews the first page; the validated `action_dry_run_git_policy(after_id)` RPC
-   returns `next_pr_cursor` for explicitly controlled further pages. The cursor is
-   pagination only, never authority. Do not claim the first page is all evidence.
-   Exercise synthetic post-cutoff events in staging before production approval.
-6. Only after separate live-effect approval and review of dry runs: select Apply Mode on
-   the Project. This revokes old approvals; it does NOT promote previews. The owner
-   creates a fresh successor revision; a different approver activates it with a new
-   cutoff. Only later eligible merges AND original authenticated receipts strictly after
-   that cutoff can execute. Activation is not a historical backfill.
+## Preview and approve
 
-The Project page exposes enabled/mode/authority epoch and scoped Attempts navigation;
-rule status distinguishes Disabled, Dry Run and Active. Status represents persisted
-controls, not a promise of current Task eligibility. Configuration menus expose
-Attempts, Consumed Effects and Discovery. Ordinary native list/form widgets render
-untrusted names/SHA text as text, not HTML; no production custom OWL is required.
-Task-specific search/count/group/read/export always intersects current native
-Task/Project/company rules. No elevated counters or counts of inaccessible Tasks.
+1. Follow the
+   [addon configuration guide](../../addons/project_agile_git_automation/README.rst#configuration).
+   On the Project's **Git Policy** tab choose **Enable Dry Run**. Configure the
+   repository-local rule and draft revision with an exact branch, eligible source and
+   target stages, execution user and optional exact check names. No check names means CI
+   is not a condition, not that it passed.
+2. A different Git Policy Manager selects **Approve and Activate**, acknowledges native
+   side effects and confirms. Check the saved Dry Run mode, cutoff and
+   owner/approver/execution user. Approval does not itself enable Task writes.
+3. On the repository select **Evaluate Dry Run (20 PRs)**, or use **Preview Repository
+   (20 PRs)** on its rule. Read the outcomes and reasons in the resulting decisions;
+   **Project > Configuration > Git Policy Dry Runs** lists history. The button examines
+   only the first page. The [dry-run guide](../git-policy-dry-run.md) describes bounded
+   pagination and exact evidence requirements. Exercise synthetic post-cutoff events in
+   staging before considering live changes.
+4. Review those decisions and obtain the required operational approval before choosing
+   **Select Apply Mode**. This revokes earlier approvals; previews cannot be executed.
+   Create a **New Revision** and have a different Git Policy Manager approve it with a
+   new cutoff. Only eligible merges and original authenticated receipts strictly later
+   than that cutoff may run. Old merges are not backfilled.
 
-## Diagnostics and safe recovery
+The Project shows enabled/mode controls and **View Attempts**. Configuration menus
+include **Git Policy Attempts**, **Git Policy Consumed Effects** and **Git Policy
+Discovery**. A rule's Disabled, Dry Run or Active status reports saved controls, not a
+promise that a particular Task is currently eligible. Lists, counts, reads and exports
+still require current Project, Task and company permissions.
 
-Attempts retain the original activation/revision, repository/PR identity, immutable
-Agile key, Task/stage/fence and sealed observation. Forms show finite state/reason,
-claim count, next retry, lease expiry and append-only events. New events retain the
-initiating actor; earlier rows may have no actor (upgrade does not fabricate one). This
-actor is not necessarily the business execution user; Consumed Effects shows that
-approved actor and historical before/after stage/native state/version/time. No payload,
-Task description, arbitrary exception or secret is retained in policy reasons.
-Raw/redacted GitHub payload operations remain governed by the separate
-[Git facts runbook](github-git-facts-operations.md).
+## Diagnose an attempt
 
-- `waiting`: missing/pending exact-head checks; native processing may recheck them.
-  Missing/pending CI consumes the same five processing claims as transient faults
-  (M7-L1), not a separate 24-hour wait allowance. After five claims, the next due scan
-  settles `failed/attempt_limit`; late success does not resurrect it. Claim spacing
-  depends on backoff and actual cron service, so there is no fixed wall-clock wait SLA.
-  Monitor waiting claim counts/next retry and exhaustion separately from transient
-  failures. This conservative contract limit is retained, not remediated by resetting
-  budgets, reviving old attempts or weakening freshness. Multiple same-name check
-  identities, absent `updated_at`, ambiguous ordering, another SHA/repository or invalid
-  timestamps fail closed. Do not synthesize dates.
-- `retryable/transient_failure`: inspect sanitized events and the actual operational
-  fault. A current capability holder with visible attempt and rule write authority can
-  Retry Transient Failure on that existing attempt. It only requeues an unchanged
-  eligible candidate; it accepts no replacement Task/evidence/identity parameters, does
-  not reset the five-claim budget, and repeats cutoff/fence/authority checks. Native
-  cron revalidates again. There is no public apply-now button.
-- `processing`: random private five-minute lease; do not copy a lease token into RPC
-  context or edit it. A committed expired lease is reclaimable through the native
-  worker, not proof of permission. An uncommitted killed transaction rolls back;
-  independent-process fixture coverage verifies write/audit crash recovery.
-- `failed`, `rejected`, `expired`, `revoked`, `no_op`, `applied`: terminal; discovery,
-  reprocess, new revision and operator retry do not resurrect the old candidate.
-  Consumed markers prevent another effect for that repository/PR/Agile-key/action, even
-  after a manual move back or a different target/revision/head SHA. A new PR is the
-  normal future trigger. Do not reset fences, budgets or consumed markers.
+Use **View Attempts** for state, reason, processing count, next retry and lease expiry.
+Events retain the initiating actor where available; older rows may have no actor.
+**Consumed Effects** identifies the approved execution user and the historical
+before/after stage, native state and time. Policy diagnostics contain no provider
+payload, Task description, arbitrary exception text or secret. Use the
+[Git facts runbook](github-git-facts-operations.md) for ingress/payload recovery.
 
-Batches have at most 20 claims, each with a complete item savepoint before native
-progress commit. One discovery PR is processed per repository cursor visit; loads are
-bounded to 20 PRs/rules/check/source pages and overflow rejects instead of choosing a
-partial winner. Repository cursors cycle existing facts but never renew source
-timestamps/cutoffs. Retry delay starts at 60 seconds, doubles, caps at 3600; five claims
-exhaust an attempt. Fresh-transaction retry is required after database
-serialization/deadlock; a savepoint cannot refresh repeatable-read evidence.
+- **Waiting:** a required exact-head check is missing or pending. Waiting uses the same
+  limit of five processing tries as transient failures, not a separate 24-hour wait.
+  After five claims, the next due scan records `failed/attempt_limit`; a late successful
+  check does not reopen it. Several provider checks with the same required name remain
+  ambiguous, even if one succeeds. Missing update times, ambiguous ordering, another
+  head/repository or invalid timestamps also prevent success. Do not invent dates.
+- **Retryable / transient failure:** correct the operational cause. A Git Policy Manager
+  with access to the attempt and write access to its rule may choose **Retry Transient
+  Failure**. It requeues the same eligible unchanged candidate, without replacing its
+  Task, evidence or execution user, or resetting its five tries. The scheduler checks
+  everything again; there is no public apply-now action.
+- **Processing:** the private lease expires after five minutes. Let the native worker
+  recover an expired committed lease; do not copy tokens or edit it. An uncommitted
+  failed process rolls back instead.
+- **Failed, Rejected, Expired, Revoked, No Op or Applied:** terminal. Discovery,
+  reprocessing and new approvals do not reopen that attempt. A consumed effect prevents
+  another transition for the same repository, PR and immutable Task key, even after a
+  manual move back or a different target, revision or head. A new PR is the normal
+  future trigger. Do not reset counters or delete consumed history.
 
-### Discovery capacity admission (M7-L2)
+Each batch handles at most 20 processing claims with a complete item savepoint before
+native scheduler progress commits. Retry delay starts at 60 seconds and doubles, with a
+configured 3600-second cap. Five claims exhaust the attempt before that cap becomes an
+ordinary retry wait; waiting and transient faults share the budget. Actual waits also
+depend on scheduler service. A five-minute lease is not an execution deadline or
+permission grant. Database serialization/deadlock recovery requires a fresh whole
+transaction, not a partial retry on an old snapshot.
 
-Expired history still consumes cursor visits; a disposable fixture with 40 expired PRs
-before one fresh PR required 41 visits. One due repository is visited per cron
-invocation, not every repository. This is a retained availability limitation, not a
-safety bypass or evidence that production throughput is adequate.
+## Discovery capacity and late evidence
 
-Before separately approving live apply, measure an upper service-gap bound `C` for cron
-on that environment, the retained discovery cursor count `R` (including inactive
-repositories that still consume visits), oldest undiscovered eligible merge age `A`, and
-rows `H` ahead of it in the ascending-ID scan. Under regular fair service, a
-conservative scan allowance is `(H + 1) * R * C`, plus one wrap visit when the cursor is
-beyond that merge. Include ingress delay, CI readiness, attempt service and a safety
-margin; require the total including `A` to remain below 24 hours. This is an operator
-admission calculation, NOT a server-enforced capacity gate or a guaranteed Odoo.sh
-service bound. Continuous backlog/cursor lag monitoring must confirm it. If no credible
-service bound or margin exists, keep facts-only or dry-run; do not approve live apply as
-a reliable automation service. Safety still fails closed if an event expires. Do not
-backfill by changing timestamps/cutoffs.
+One due repository cursor is visited per cron invocation and examines one PR per visit.
+Expired history still uses visits. A repository with 40 older PRs before an eligible new
+PR needs 41 visits to reach it. Inactive repositories can still consume cursor visits.
+Bounded pages reject overflow rather than choosing a partial winner. Cursor movement,
+duplicate receipts and retries do not refresh source timestamps; candidates expire 24
+hours after merge.
 
-The official five-minute guidance is a best-effort lower-frequency warning, not an upper
-`C` bound. With one cursor and a hypothetical measured five-minute service gap, 40 rows
-ahead alone cost 205 minutes; more repositories/gaps increase latency. Record actual
-service measurements and residual late-event risk at deployment; no live measurement or
-production admission is supplied by the local fixture. Bounded historical skipping or a
-distinct CI polling budget remain future reviewed changes, not hidden modifications of
-this candidate's authority or retry contract.
+Before relying on live Apply mode, measure the largest credible scheduler service gap
+`C`, retained repository cursor count `R`, eligible merge age `A`, and the number `H` of
+rows ahead of it in the ascending-ID scan. With regular fair service, allow
+`(H + 1) * R * C`, plus a wrap visit if the cursor has passed that merge. Include
+ingress delay, CI readiness, attempt service and a safety margin; the total including
+`A` must remain below 24 hours. This is deployment planning, not a server-enforced
+capacity guarantee. If no credible bound/margin exists, keep facts-only or Dry Run mode.
+Monitor Discovery progress and expired reasons; never backfill by changing cutoffs or
+timestamps.
 
-### Current-delivery provenance continuity (M7-S1)
+With one cursor and a measured five-minute service gap, 40 rows ahead alone take 205
+minutes. Additional repositories and service gaps increase latency. The platform's
+five-minute warning is not an upper bound on scheduler delay. No production throughput
+or service bound follows from disposable verification.
 
-Signed opened/merge/repeated-update events must each retain the resolved active
-project/company-local Task on their new association decision, including duplicates. The
-current PR delivery's exact repository/provider/key/Task audit remains mandatory; an old
-permanent link is insufficient. A uniqueness exception alone is not proof: the
-normalizer re-resolves an exact association, or lets the native transaction retry when
-the winner is not visible. No Task is written by normalization. Monitor
-`invalid_provenance`; never repair immutable old audit rows or relax the consumer. Old
-Task-less decisions are not backfilled. An authorized replay preserves the same
-receipt/cutoff and immutable audit; it cannot turn missing historical proof into a new
-trigger. Require genuinely later eligible current delivery evidence instead.
+For `invalid_provenance`, check whether a genuinely later eligible delivery has current
+repository/provider/key/Task association evidence. A permanent Task link alone is
+insufficient; old Task-less association decisions are not backfilled. Reprocessing
+retains the original receipt, cutoff and immutable audit, so cannot manufacture missing
+historical proof. Do not edit old audits or relax validation.
 
-## Shutdown, rollback and backups
+## Stop, restore and retain history
 
-Emergency Disable on Project stops all rules; Disable Rule revokes that identity's
-current epoch. Capability holders and visible System Administrators can disable. Control
-locks serialize disable with execution: after disable commits, no later pending effect
-settles; an effect already settled first is historical. Verify persisted disabled mode
-and revoked approvals, not just a dismissed dialog. Deactivating a cron alone is not the
-policy kill switch and cannot undo a running item. No model/RPC path is allowed to call
-progress commits outside native cron.
+Choose **Emergency Disable** on the Project or **Disable Rule**. Verify saved disabled
+controls and revoked approvals, not only that the dialog closed. Once disable commits,
+later pending effects cannot settle; an effect committed first remains historical.
+Stopping the cron alone is not the kill switch. Restoring permissions or configuration
+does not revive revoked approvals: create and approve a new revision.
 
-Disable does NOT undo already committed Task changes, native queued messages or
-notifications. Do not promise to retract external mail/SMS; template-driven effects are
-excluded precisely because transaction rollback cannot retract them. If a human chooses
-a stage correction, do it as an ordinary separately authorized Task change, respecting
-later manual changes and preserving evidence. Do not replay for rollback.
+Disable does not undo committed Task changes, queued notifications or external messages.
+Make any necessary stage correction as an ordinary authorized Task edit without
+overwriting later manual work. Transaction rollback cannot retract a sent mail or SMS;
+excluded template stages and installed-extension review matter.
 
-Before code rollback/update/uninstall: disable policies, preserve backups, immutable
-effect/attempt/approval/revocation evidence and exact versions; review the supported
-migration path in a disposable restored database. Uninstall may remove policy tables:
-this is not retention or a harmless recovery action. Loss of tombstones through
-restore/uninstall is an incident: keep policy disabled, reconcile external observations
-and Task state, and require fresh successor approval/cutoff excluding old observations.
-Never restore only one policy table or enable an old restored activation automatically.
+Before rollback, update or uninstall, disable policies and preserve a consistent backup
+plus approval, revocation, attempt and consumed-effect history with exact
+source/image/addon versions. Test the migration/restore path in isolation. Uninstall
+removes policy history and is not archival. Restoring a backup without **Consumed
+Effects** can move the same tasks twice. Keep policies disabled while reconciling
+external observations and Task state, then approve a new revision with a cutoff
+excluding old observations. Never restore one policy table independently or enable an
+old restored approval automatically.
 
-## Retention
+Consumed effects and used approval/revocation history remain for the repository's
+lifetime. Ordinary ORM cannot rewrite/delete immutable decisions, observations or
+events. Do not delete/recreate/repurpose a repository to escape its identity. There is
+no policy purge API or job; a future archival design must preserve idempotency.
+Current-authority exports are not a backup of inaccessible history. Delivery-payload
+purge does not remove consumed policy effects. Trusted database administration remains
+outside the application's immutability guarantee.
 
-Consumed effect tombstones and used revisions/activations/revocations are retained for
-the repository's lifetime. Immutable observations/decisions/attempt events cannot be
-edited/deleted via ORM; unique fingerprints/events bound duplicate-poll growth. Do not
-delete/recreate/repurpose a repository to evade stable identities. There is no new
-policy purge job or public purge API. A separate reviewed archival/export/ retention
-design is required; DB administrators remain the trust root. Authorized native export
-honors current scope and is not a backup of inaccessible policy history. M6 terminal
-payload purge does not delete the policy consumed identity.
+## Hosting and compatibility
 
-## Odoo.sh portability and staging limits
+The base target is self-hosted Odoo 19 Community with Odoo.sh-deployable custom addons.
+Runtime needs native ORM/PostgreSQL and `ir.cron`, not `queue_job`, an external daemon,
+provider SDK/API, shell executable or writable addon tree. Verification uses
+Docker/browser/subprocess tools; these are not runtime dependencies. The
+[apply boundary](../git-policy-apply-boundary.md) describes native inheritance,
+transactional safeguards and exercised verification; the actual Odoo build appears in
+the verify log. Community tests do not prove Enterprise, Odoo.sh or arbitrary
+Task-extension behavior, especially irreversible external effects.
 
-Primary expected target is Odoo.sh, not the sole supported host. Runtime requires native
-`ir.cron` and PostgreSQL/ORM; no queue_job, external daemon, writable addon tree,
-provider SDK/API, shell executable, or outbound provider connection. Tests/builds may
-use Docker/Chrome/subprocesses; those are test tools, not addon runtime dependencies.
-
-Canonical verification uses a read-only Odoo root filesystem and addon mount, writable
-Odoo data and temporary storage, and an internal DB-only Docker network without provider
-egress or published run-container ports. It exercises standalone optional install,
-aggregate install/update/reverse-uninstall/reinstall, native form tours, M5 Hoot, M6
-regressions and independent-process recovery. Native progress-budget interruption tests
-call the real separate-cursor scheduler and real progress commit, then exhaust remaining
-time at settled boundaries; crashes are real OS process termination in disposable
-fixtures, not simulated transaction success.
-
-This is NOT a live Odoo.sh, Enterprise or arbitrary-extension test. Verification builds
-from current official `odoo:19.0` and includes the installed native `hr_timesheet` addon
-in aggregate apply/lifecycle coverage. It does not use a source-file compatibility
-allowlist. Check the verify log for the Odoo build (for example,
-`Odoo version 19.0-20260926`). Other Task extensions continue through ordinary ORM
-inheritance; assess their behavior, particularly irreversible external effects, before
-enabling live apply. See [apply boundary](../git-policy-apply-boundary.md) and ADR-012
-for current identity, stage and transactional safeguards.
-
-Official
+The official
 [Odoo.sh technical FAQ](https://www.odoo.com/documentation/19.0/administration/odoo_sh/advanced/frequent_technical_questions.html)
-says scheduled actions are best effort and must not be expected more frequently than
-every five minutes. The addon interval is one minute but offers no one-minute SLA.
-Per-repository discovery is one PR per cursor visit: backlog latency can exceed
-freshness windows; monitor Discovery cursor and expired reasons. Bounded safety is
-preferred to claiming all historic observations will execute.
+says scheduled actions are best effort and must not be expected more often than every
+five minutes. The configured one-minute interval is not a one-minute SLA; backlog and
+waiting limits can prevent otherwise eligible work from running.
 
-Official
-[branch documentation](https://www.odoo.com/documentation/19.0/administration/odoo_sh/getting_started/branches.html)
-says staging copies are neutralized: scheduled actions are disabled and outgoing mail is
-intercepted. Manually trigger/re-enable only synthetic approved test work; less-active
-databases may run cron less often. Neutralized database copies can retain Project enable
-flags/approvals: explicitly disable/revoke before experimenting and create fresh
-synthetic approvals/cutoffs. Local Compose fixtures do not prove staging platform
-scheduling, email neutralization or production deployment behavior.
+Odoo.sh
+[staging branches](https://www.odoo.com/documentation/19.0/administration/odoo_sh/getting_started/branches.html)
+are neutralized: scheduled actions are disabled and outgoing mail intercepted. Database
+copies can retain Project enable flags and approvals. Explicitly disable and revoke them
+before experiments; use fresh synthetic approvals/cutoffs and trigger/re-enable only the
+intended synthetic scheduled work. Less-active databases may run cron less often. Local
+Compose checks do not establish platform scheduling, mail neutralization or a production
+deployment result.

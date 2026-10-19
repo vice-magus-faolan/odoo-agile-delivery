@@ -31,14 +31,14 @@ winner. At most twenty visible Task diagnostics are emitted for an oversized PR.
 Authorities are checked on the concrete visible Task batch once per approval, not
 repeatedly per PR/Task. A denied executor record rejects the approval batch
 conservatively. New snapshots necessarily require inserts; repeat polling does not
-append identical evidence/decisions. The discovered 20-Task fixture asserts fewer than
-800 cold queries and 200 repeat queries.
+append identical evidence/decisions. These are bounded pages, not a throughput
+guarantee.
 
 ## Provenance is not a boolean or a post-retention signature
 
 ADR-012 explicitly trusts database administration and reviewed server code. The
-protected M6 ledger represents authenticated ingress: the existing GitHub controller
-verifies exact-body HMAC before its private recorder. Ordinary callers cannot
+protected delivery ledger represents authenticated ingress: the existing GitHub
+controller verifies exact-body HMAC before its private recorder. Ordinary callers cannot
 create/edit ledger facts or association audits. No new authentication boolean is added,
 and a digest is not claimed to independently prove HMAC after retained payload removal.
 A provider implementation outside that reviewed trust boundary requires separate review;
@@ -81,9 +81,8 @@ completion/update within the accepted twenty-four-hour bounds. Unknown
 timestamps/state/order reject. Two same-name provider identities always remain
 ambiguous, even if a newer-looking or numerically larger run succeeded. There is no
 rerun ordering inferred from IDs, receipt order or unrelated checks. A single identity's
-ordering comes solely from M6's normalized known/stale/ambiguous state. A failed
-required name outranks waiting on another name, independent of name/record/delivery
-order.
+ordering comes solely from the normalized known/stale/ambiguous state. A failed required
+name outranks waiting on another name, independent of name/record/delivery order.
 
 Only fully eligible rules enter conflict detection. More than one for the same PR/Task
 conflicts, including identical targets; no priority, record-order winner or racing Task
@@ -93,13 +92,13 @@ and changed manual Task snapshot are explicit skips or rejections. The initial T
 stage/state/exact write_date is retained per evaluation epoch: polling cannot silently
 revive a stale candidate.
 
-## Effects, recovery and remaining phases
+## Effects and recovery
 
 Dry runs append only observations and proposals. They do not mutate Tasks,
 Sprints/history, facts, followers/chatter or approval epochs, reserve/consume real
 effect idempotency keys, or authorize execution. A mode/revision change needs fresh
 approval/cutoff; no proposal can be promoted to an effect. An already reached target is
-informational only. The implemented Task transition fence and independent- connection
+informational only. The implemented Task transition fence and independent-connection
 apply/manual-edit/disable races protect the separate apply boundary, not this dry-run
 snapshot. Proposals do not use that fence to prove an identical manual away-and-back
 change; they are deliberately never executable.
@@ -109,11 +108,5 @@ informational snapshots, not execution authority. Serialization/uniqueness races
 a fresh transaction, not an in-transaction privilege bypass or stale-cache retry. No
 business write can be partially applied here. If evidence or authority is uncertain,
 disable/revoke through existing authorized controls, retain the immutable diagnostic,
-correct the source/configuration and obtain fresh approval where required. No purge,
-backfill, production activation, publication or deployment is authorized.
-
-Canonical verification discovers the ORM matrix independently without GitHub or Scrum,
-then in aggregate clean install, upgrade and dependency-safe uninstall / reinstall.
-Optional Scrum fixtures assert unchanged Task fields/history. Existing M5 native UI and
-M6 ingress/security/normalization tests remain in the same gate. Production/customer
-outcome remains unobserved.
+correct the source/configuration and obtain fresh approval where required. Do not alter
+timestamps or replay old receipts to create eligibility.

@@ -108,5 +108,4 @@ None for the delivered Milestone 3 replay and projection contract.
 
 ## Evidence
 
-- [Mission brief: historical Scrum data](../mission-brief.md#rule-10--historical-scrum-data-must-remain-historical)
 - [ADR-003](003-sprint-scope-history-strategy.md)

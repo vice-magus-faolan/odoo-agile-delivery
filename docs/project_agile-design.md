@@ -1,11 +1,11 @@
-# `project_agile` Milestone 1 Design
+# `project_agile` domain design
 
 ## Boundary
 
 Beneficiary: delivery teams that need Agile semantics while retaining Odoo Project. The
 module depends only on `project`, is opt-in per project, and never introduces a parallel
 issue model. Native `project.task.parent_id`, `child_ids`, and dependencies remain
-authoritative. Scrum is isolated to a future `project_scrum` module.
+authoritative. Scrum is isolated in the optional `project_scrum` module.
 
 Non-goals: Scrum lifecycle, analytics, Knowledge, Git providers, OWL UI, Jira migration,
 a custom wiki, and a custom dependency model.
@@ -16,7 +16,8 @@ a custom wiki, and a custom dependency model.
 addons/project_agile/
   __init__.py
   __manifest__.py
-  README.md
+  README.rst
+  readme/
   data/
   models/
   security/
@@ -76,18 +77,28 @@ Product Backlog action scoped to Agile work and explicitly ordered by
 19 view external IDs were inspected in the target image before the view inheritance was
 added.
 
-## Test plan
+## Verification
 
 The module contract and Odoo tests cover clean installation, Agile key
 generation/uniqueness/stability, cross-project move rejection, ordinary-project
 isolation, valid and invalid type policy, native cycle handling, story-point validation,
 type reconfiguration, manager/employee access, seeded configuration, stable view/action
 XML IDs, and explicit backlog ordering. Focused tests and `./scripts/verify` run against
-disposable verification databases. Recovery is a clean database/container rerun; no
-persistent volume is deleted.
+disposable verification databases. The verifier removes its own disposable resources.
+Never reset a shared database to recover a failed development check.
 
-## Open questions
+## Architectural boundaries
 
-- Validate final Odoo 19 field and view naming against the exact target source.
-- Resolve whether a missing type is permitted during Agile project onboarding.
-- Decide key padding only after a consumer demonstrates a need.
+Native Tasks remain work items; use configurable type policy rather than hardcoded Jira
+hierarchies. Native blocking relationships remain authoritative. Add a semantic
+relationship model only for a demonstrated relation native Odoo does not represent. Task
+acceptance criteria are distinct from a team's Definition of Done. Agile stays opt-in;
+Scrum, analytics, documents, Git, planning UI and future Jira import must not be
+dependencies of the core. Standard views remain usable without custom OWL.
+
+Use existing documentation backends for general knowledge, not a custom wiki.
+Relationships, templates and navigation may connect Projects, Tasks, retrospective and
+future release notes without copying page/editor/history engines. Prefer extending
+suitable native/OCA capabilities after checking exact APIs and licenses. Release
+management and Jira migration remain deferred; see ADR-005 and
+[dependency compatibility](dependency-compatibility.md).

@@ -1,35 +1,25 @@
 # Architecture Decision Records
 
-Each ADR records a status, Context, Decision, Alternatives, Consequences, Open
-Questions, and evidence links.
-
+ADRs record decisions, alternatives, consequences and relevant source evidence.
 Implemented decisions:
 
 - [ADR-001 Work-Item Key Generation](001-work-item-key-generation.md)
 - [ADR-002 Configurable Item-Type Hierarchy](002-configurable-item-type-hierarchy.md)
-- [ADR-003 Sprint Scope History Strategy](003-sprint-scope-history-strategy.md)
-- [ADR-004 Agile Team / Multiple Active Sprint Model](004-agile-team-multiple-active-sprints.md)
-- [ADR-009 Trustworthy Scrum Analytics Semantics](009-scrum-analytics-semantics.md)
-- [ADR-011 Git Facts and Visibility Contract](011-git-facts-and-visibility-contract.md)
+- [ADR-003 Sprint Scope History](003-sprint-scope-history-strategy.md)
+- [ADR-004 Teams and Active Sprints](004-agile-team-multiple-active-sprints.md)
+- [ADR-006 OCA Document Page Relationships](006-knowledge-relationship-model.md)
+- [ADR-009 Scrum Analytics](009-scrum-analytics-semantics.md)
+- [ADR-010 Agile Planning UI](010-advanced-agile-ui-contract.md)
+- [ADR-011 Git Facts and Visibility](011-git-facts-and-visibility-contract.md)
+- [ADR-012 Opt-in Git Workflow Policy](012-git-workflow-policy-contract.md)
+- [ADR-013 Solution Definition and Traceability](013-solution-definition-contract.md)
 
-Accepted M7 contract with configuration, dry-run, apply and operator controls
-implemented; independent adversarial/cumulative delivery gates and live activation
-remain separate:
+Deferred: [ADR-005 Release / Version Model](005-release-version-model.md).
 
-- [ADR-012 Milestone 7 Opt-in Git Workflow Policy Contract](012-git-workflow-policy-contract.md)
+Superseded proposals retained for rationale:
+[ADR-007 OCA Git adoption](007-oca-project-git-adoption-strategy.md) and
+[ADR-008 Git automation](008-git-automation-model.md).
 
-Proposed, intentionally deferred decisions:
-
-- [ADR-005 Release / Version Model](005-release-version-model.md)
-- [ADR-006 Knowledge Relationship Model](006-knowledge-relationship-model.md)
-- [ADR-007 OCA `project_git` Adoption Strategy](007-oca-project-git-adoption-strategy.md)
-- [ADR-008 Git Automation Model](008-git-automation-model.md) — historical, superseded
-  by ADR-012
-
-Proposed M8 contract with a real optional lineage skeleton, pending independent
-same-card exact-SHA review (all other M8 functionality remains downstream):
-
-- [ADR-013 Solution Definition, Revisions and Delivery Traceability](013-solution-definition-contract.md)
-
-The proposed ADRs do not independently authorize new runtime dependencies or widen
-approved scope. M8 work is bounded by its separately approved scope and serial plan.
+See [dependency compatibility](../dependency-compatibility.md) for exact source
+selections, dependency and license decisions. An ADR does not activate policy, change
+permissions or establish deployment compatibility.

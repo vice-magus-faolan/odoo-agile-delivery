@@ -7,8 +7,8 @@ capabilities you need. Ordinary Project behavior remains available.
 
 ## Supported target
 
-The tested edition is **Odoo 19 Community**. The architecture is **Odoo.sh-first but
-portable to self-hosted Odoo**: ordinary ORM, views, QWeb and native `ir.cron`, without
+The tested edition is **Odoo 19 Community**. The base target is **self-hosted Community**,
+with custom addons kept deployable on **Odoo.sh**: ordinary ORM, views, QWeb and native `ir.cron`, without
 a required external queue runner. Validate your installed extensions, permissions
 and scheduler behavior in staging before production use.
 
@@ -137,8 +137,8 @@ are AGPL-3; review those license obligations when choosing this backend.
 
 ## Guides and architecture
 
-- [Solution baseline operations](docs/runbooks/solution-document-baselines.md) and
-  [rendering, coverage and acceptance](docs/runbooks/solution-rendering-and-acceptance.md)
+- [Solution history, access and recovery](docs/runbooks/solution-operations.md)
+- [Dependency and source compatibility](docs/dependency-compatibility.md)
 - [Git dry-run behavior](docs/git-policy-dry-run.md) and
   [apply boundary](docs/git-policy-apply-boundary.md)
 - [Contributor setup and checks](docs/contributing.md)

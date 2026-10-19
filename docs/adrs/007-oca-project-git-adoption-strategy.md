@@ -53,10 +53,6 @@ ledger.[9]
 
 ## Evidence
 
-- [Git/OCA research note](../research/oca-git-adoption.md)
-- [Mission brief: Git research spike](../mission-brief.md#12-git-integration-research-spike)
-- [Mission brief: webhook requirements](../mission-brief.md#16-webhook-requirements)
-
 ## Sources
 
 [1] https://github.com/OCA/project/tree/19.0 [2]

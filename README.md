@@ -137,8 +137,8 @@ are AGPL-3; review those license obligations when choosing this backend.
 
 ## Guides and architecture
 
-- [Solution baseline operations](docs/runbooks/solution-document-baselines.md) and
-  [rendering, coverage and acceptance](docs/runbooks/solution-rendering-and-acceptance.md)
+- [Solution history, access and recovery](docs/runbooks/solution-operations.md)
+- [Document Page setup](addons/project_agile_document_page/README.rst#configuration)
 - [Git dry-run behavior](docs/git-policy-dry-run.md) and
   [apply boundary](docs/git-policy-apply-boundary.md)
 - [Contributor setup and checks](docs/contributing.md)

@@ -2,320 +2,293 @@
 
 ## Status and outcome
 
-Proposed M8 contract for independent same-card exact-SHA review. The root implements
-only the optional lineage skeleton; this document specifies downstream obligations, not
-delivered functionality. Approved product scope is preserved verbatim in
-[the scope record](../milestone-8-approved-scope.md). See the
-[gap map and serial plan](../plans/2026-10-05-milestone-8-solution-definition.md),
-[research](../research/m8-solution-alternatives.md) and
-[synthetic fixture contract](../research/m8-synthetic-fixtures.md).
+Accepted and implemented by optional `project_agile_solution` and
+`project_agile_solution_scrum`. This ADR owns the domain, transaction and access
+contracts. [Solution operations](../runbooks/solution-operations.md) provides admin
+recovery and access instructions.
 
-Beneficiary: Agile teams explaining agreed intent, uncertainty, coverage and explicit
-acceptance. Problem evidence is one prospective user's request, not validated market
-fit. No customer SOW exists. Fixtures are synthetic, publicly informed design examples,
-not legal standards, observed production data or evidence of customer acceptance.
-Delivery, publication, runtime deployment and live activation are separate effects.
+Agile teams need to explain agreed intent, uncertainty, delivery coverage and explicit
+acceptance. Requirements express delivery intent, not another Task system. The design
+was informed by one prospective user's request and synthetic scenarios.
+[FAR 37.602](https://www.acquisition.gov/far/37.602) informed outcome-based scope and
+[NASA's handbook appendices C and D](https://www.nasa.gov/reference/system-engineering-handbook-appendix/)
+informed identifiable, verifiable requirements and traceability.
 
-## Context and dependency decision
+## Dependencies and native boundaries
 
-Keep `project_agile_solution`: the name makes the opt-in Agile solution boundary
-explicit and does not imply a Sales contract, wiki, portal or work-item replacement. It
-depends only on `project_agile`, transitively Community `project`. Preserve the suite's
-LGPL-3 choice; no existing license changes. The repository is Odoo-compatible, not
-OCA-hosted or an OCA-conformity claim. Odoo 19 Community is the tested edition.
-Odoo.sh-first means ordinary ORM, views, actions and native QWeb reports; no daemon,
-SDK, Sales, Git, queue_job, Enterprise or document backend is required. Odoo.sh
-compatibility of the actual deployed extension set is still a separate staging test.
+Solution core depends only on LGPL-3 `project_agile`, transitively native Community
+Project. Both Solution addons retain LGPL-3. Odoo 19 Community is the tested edition.
+The architecture is Odoo.sh-first, portable to self-hosted Odoo. Enterprise and Odoo.sh
+installed-extension behavior require separate verification. This is an Odoo-compatible
+suite, not a claim of full OCA conformity.
 
-Reuse native Tasks, hierarchy/dependencies, Agile keys/types/acceptance criteria,
-Project authority, ORM/constraints, transactions, `ir.sequence`, native form/list/search
-and QWeb. Do not copy generic Task templates, document-page history/editor or approval
-workflows. OCA candidates and exact pinned APIs were researched rather than inferred;
-none supplies this complete requirement-revision/Task/Sprint contract. M4's optional OCA
-backend and unmerged Task connector remain separate; no M8 parent depends on them.
+Reuse native Tasks, hierarchy, dependencies, Agile keys/types/criteria, Project
+permissions, ORM, constraints, transactions, `ir.sequence`, views and QWeb. No Sales,
+Git, Scrum, Enterprise, document backend, SDK, external queue runner or custom
+wiki/editor is required by core. Native `ir.cron` is the suite's scheduling boundary;
+`queue_job` is not supported. General documentation remains with its selected backend.
+OCA page history and Task templates do not supply immutable requirement revisions,
+separate scope approval and frozen delivery references.
 
-## Finite vocabulary and records
+Native API and security decisions were inspected against
+[Odoo revision 8da213dc6785e097f2558dc2d648b588957786a1](https://github.com/odoo/odoo/tree/8da213dc6785e097f2558dc2d648b588957786a1).
+The current runtime is selected by the checked-in verification inputs; its Odoo build is
+reported in the verify log.
 
-Names below are owned by this contract. Only `project.agile.solution` exists in the
-root. Later cards add these models in their own bounded phases, not empty placeholders.
-Every identity is project-bound; relations use restrictive deletion where history
-exists. Company follows the project's actual company, never caller context. Company-less
-native Projects remain supported but are not a loophole for cross-company references.
+## Records and identity
 
-| Model                                     | Meaning and justification                                                                                                                                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project.agile.solution`                  | Shared scope lineage; one Project can have several initiatives. Name/archive is not a revision.                                                                                                                                 |
-| `project.agile.solution.document`         | Stable document identity, kind `sow` or `spec`; separate approval chains under one lineage. Internal brief is a spec, not a mandatory third workflow.                                                                           |
-| `project.agile.solution.revision`         | Ordered numbered document content, lifecycle, predecessor and exact baseline references. A distinct draft working revision never aliases an approved row.                                                                       |
-| `project.agile.requirement`               | Stable project-scoped key, solution, archive flag; never a Task. Keys are allocated with native sequence, unique within Project, immutable and never reused.                                                                    |
-| `project.agile.requirement.revision`      | Numbered actual FR/NFR content: title/text, rationale, `must/should/could` priority, verification method/expectations and audience. Exact revisions, not mutable requirement text, are linked.                                  |
-| `project.agile.solution.context`          | Stable section/question/decision/actor/domain/deliverable identity using a finite `kind`. One model, not a separate lifecycle for every noun.                                                                                   |
-| `project.agile.solution.context.revision` | Actual versioned typed content and references. Necessary because decisions/questions and narrative must remain explainable after edits.                                                                                         |
-| `project.agile.solution.template`         | Reusable named/versioned ordered narrative section payload, SOW or spec kind, company-scoped or intentionally shared; not a wiki/editor. Copy explicit selected content into draft, retain template version/content provenance. |
-| `project.agile.requirement.task.link`     | Explicit same-Project Task to exact requirement revision edge; uniqueness `(task_id, requirement_revision_id)`. Many-to-many through this auditable edge, not a live latest-requirement alias.                                  |
-| `project.agile.solution.task.intent`      | Durable preview/confirm identity and finite proposed Task values, source revisions, creator and consumed result. Needed for deliberate retry-safe creation, not a queue.                                                        |
-| `project.agile.requirement.acceptance`    | Append-only exact-revision acceptance/rejection/withdrawal event with named authority, evidence, recorder, UTC time and superseded event where applicable. Not test management.                                                 |
+Every identity belongs to a Project through its solution lineage. Company follows that
+Project, not caller context. Company-less Projects are supported without allowing
+cross-company references.
 
-A document revision contains ordered references to exact requirement and context
-revision records with stored membership/ordering. Use explicit relational
-tables/children for membership if ordering requires them; their sole purpose is
-immutable structure, not another business vocabulary. Approved revisions retain actual
-content in those sealed child revision rows, not a pointer to today's mutable `name`,
-description, question answer or external page body. Snapshot lineage/project label,
-template source, requirement key and human authority labels when needed for reproducible
-display; live record pointers are for navigation and current authorization only.
+| Model                                     | Purpose                                                                                                                      |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `project.agile.solution`                  | Named, archivable initiative lineage; a Project may have several.                                                            |
+| `project.agile.solution.document`         | Stable SOW or specification identity with a designated approver. An internal brief is a specification, not another workflow. |
+| `project.agile.solution.revision`         | Numbered content, predecessor, lifecycle and exact baseline references.                                                      |
+| `project.agile.requirement`               | Permanent project-scoped `REQ-<sequence>` key; FR/NFR type belongs to content, not the key.                                  |
+| `project.agile.requirement.revision`      | Actual FR/NFR title/text, rationale, must/should/could priority, verification method, acceptance expectations and audience.  |
+| `project.agile.solution.context`          | Permanent `CTX-<sequence>` key with fixed section/question/decision/actor/domain/deliverable kind.                           |
+| `project.agile.solution.context.revision` | Numbered typed context and exact affected-requirement references.                                                            |
+| `project.agile.solution.template`         | Editable SOW/spec narrative starting point with version and ordered source content.                                          |
+| `project.agile.requirement.task.link`     | Auditable same-Project Task-to-exact-requirement edge, unique per Task/revision pair.                                        |
+| `project.agile.solution.task.intent`      | Creator-owned durable preview, bounded proposed Task values, exact source and consumed result.                               |
+| `project.agile.requirement.acceptance`    | Append-only exact-revision acceptance, rejection or withdrawal with authority, criteria, evidence, recorder and UTC time.    |
 
-Context content is validated by kind: sections have sequence/title/sanitized body;
-deliverables have evaluation expectations and requirement references; questions have
-owner (active internal responsible user plus optional external owner narrative),
-question, resolution/status, affected exact requirements, planning significance
-`informational/planning/blocking`, and optional existing Spike Tasks. Resolved questions
-retain who/when and rationale; a changed answer creates a successor. Decisions have
-context/choice/consequences and affected revisions; they do not infer scope approval.
-Actors have business role descriptions; domains have descriptions and requirement
-references. They are design vocabulary, not `res.groups`, automatic account grants or
-authentication roles. Journeys/personas use narrative sections without additional
-models. Unknown kind-specific fields and forged cross-scope references fail server
-validation.
+Native sequences may have rollback gaps; allocated keys are never reused. Numbered
+revisions are unique per document or stable identity. Requirement membership uses stable
+row identity for order; context uses sequence then ID. Document-owned narrative sections
+retain explicit order, sanitized HTML and audience. Exact references never resolve
+implicitly to today's latest text.
 
-## Revision and approval semantics
+Questions retain an active internal responsible owner, optional external-owner
+narrative, affected exact requirements, informational/planning/blocking significance,
+optional existing same-Project Agile Spike Tasks, and resolution with actor, time and
+rationale. A successor reopens its resolution. Decisions retain context, choice,
+consequences and affected revisions. Deliverables retain evaluation expectations. Actors
+and domain descriptions are design vocabulary, not accounts, groups or authentication
+grants. Journeys and personas use narrative rather than additional models.
+Kind-inappropriate and cross-scope values are rejected.
 
-Documents use `draft -> review -> approved -> superseded`. An authorized author may
-return review to draft with a reason; approval checks the exact content/version under a
-nonblocking native ORM claim. Content is frozen in review so concurrent editors cannot
-change the item being approved. Rejection returns it to draft explicitly. Numbered
-successors are distinct working rows; approved/superseded content, membership, ordering,
-audience, references and author/time cannot be rewritten by ORM/import/RPC/x2many,
-context flags or normal sudo flows. Direct state writes are rejected, including for
-superuser. A narrow private transition may update lifecycle metadata only after current
-caller authorization. Superseding a baseline does not delete it or make its acceptance
-disappear.
+The editable SOW starting template covers purpose/beneficiaries/outcomes; included
+capabilities/exclusions/boundaries; deliverables/evaluation;
+discovery/delivery/verification/handover checkpoints; customer/team responsibilities;
+assumptions/dependencies/constraints; acceptance authority/criteria/evidence; proposed
+changes and explicit approvals; optional commercial narrative/references; and
+approval/revision history. It supplies no pricing, payment, financial or legal defaults.
+The internal-brief template omits commercial/SOW assumptions. Both are shared editable
+`noupdate` starting points, not universally mandatory content. Copying selected sections
+appends sanitized content with exact source provenance; later template edits never
+propagate to existing documents.
 
-Requirement/context content becomes sealed when included in a submitted document review,
-confirmed Task intent/link, Sprint context or acceptance. Editing sealed content creates
-a successor row; an abandoned review never unseals reused history. Draft-only content
-can be edited, but a shared draft reference cannot mutate another document's
-review/baseline. Document membership binds exact content. New document revisions may
-reuse unchanged sealed rows. Unique revision numbers and server-owned publication of
-newly allocated revisions on their identities prevent concurrent allocation; two
-submitted successors cannot silently become current. Document creation and approval
-publish their actual references on the solution to order SOW/spec scope decisions.
-Native ORM claims do not wait. Incomplete claims request native Odoo whole-transaction
-rollback and retry; fresh-state validation rejects stale proposals. Unlink claims also
-exclude concurrent foreign-key references to records being deleted. There is no manual
-cursor commit or business-code retry loop. See the
-[concurrency runbook](../runbooks/solution-document-baselines.md#concurrency-and-atomicity)
-for retry limits and exhaustion behavior.
+## Revision, scope and approval
 
-SOW is optional. SOW approval never approves a spec, its working successor, or later
-scope expansion. A spec records `based_sow_revision_id` only when a SOW exists, plus an
-explicit scope disposition/change rationale. Within that scope, separate spec approval
-is still required. Changes to included/excluded deliverables, obligations or acceptance
-boundaries require an explicitly approved successor SOW before approving the expanded
-spec; discovery cannot authorize expansion. Internal initiatives use an explicitly
-approved spec without a SOW prerequisite. A SOW may remain approved while a detailed
-spec is in draft/review. No legal signature, commercial obligation or payment automation
-is implied by either approval. Template changes do not propagate into existing drafts or
-baselines without a deliberate selected copy operation.
+Documents follow `draft -> review -> approved -> superseded`. Submission freezes actual
+ordered content, membership, audience, exact references and template provenance. Return
+to draft requires a reason. Approved or superseded content is not rewritten by ORM,
+import, RPC, relational commands, context or ordinary sudo; correction creates a
+successor. Direct lifecycle-state writes are rejected even for superuser; private
+actions change lifecycle metadata only after authorization.
 
-Approval authority is explicit: a document names an active internal Project Manager
-approver; the public approval action requires that exact current user and current
-lineage/Project/revision write access and company membership. A manager flag alone
-without concrete record access is insufficient. This first release does not invent a
-universal two-person contract-signing policy: self-approval is possible only if the
-explicit designated approver is the author, and recorded as such. Customer signoff is an
-asserted external decision recorded by an authorized internal manager, not customer
-authentication or a cryptographic/legal signature. Later stricter project policies
-require an explicit reviewed extension, not undocumented assumptions.
+Requirement/context content seals when used in review, confirmed Task intent/link,
+Sprint capture or acceptance. Returning a document does not unseal reused content.
+Unchanged sealed revisions may be reused; editing creates a numbered successor.
+Snapshots retain actual nested content, original labels and source-template
+version/content, not only pointers to mutable names. Rename/archive affects navigation
+rather than stored bytes. A digest is not protection against trusted server code or
+database administrators.
 
-## Authority, privacy and historical access
+SOW is optional. When one exists, a specification selects an independently approved
+exact SOW revision and records scope disposition and rationale. SOW approval does not
+approve a specification, later detail or expanded scope. An expanded specification
+requires an explicitly approved changed successor SOW first; discovery alone does not
+authorize expansion. Without SOW, an internal initiative still requires specification
+approval. This is an explicit human scope decision, not semantic detection of undeclared
+expansion in prose.
 
-Root ACLs: internal Project users read; native Project Managers create/rename/archive/
-delete unused lineages. Global company rules intersect a global searchable
-`native_project_access` rule. Its hook restores `sudo(False)` and builds an unevaluated
-native Project `_search` subquery, honoring current native/custom rules. Odoo 19
-`BaseModel._search` compiles security domains on a sudo recordset, so a plain relational
-`any` in an `ir.rule` is insufficient: real negative tests failed with that first
-design. The private `_search` seam is exact-version-sensitive and must retain
-rule-change, search/read/export and multi-company regressions; no ID list is cached.
-Creation additionally checks concrete Project read/write access and active Agile opt-in.
-Project/company cannot be passed to change an existing lineage. No public/portal ACL or
-route exists.
+Each document names an active internal native Project Manager approver. Approval
+requires that exact current user plus current lineage, Project, document, revision and
+company authority. A manager group alone is insufficient. Unlike Git policy, Solution
+approval does not require two people: the designated approver may also be the author.
+Recorded external authority is an internal assertion, not external authentication or a
+legal signature.
 
-Downstream draft editing, submission, link and intent creation require native Manager
-and actual Project/document write access; normal Project users read authorized material.
-Tasks additionally require current read (and write for confirm/link mutation) checks;
-Spike links require an actual permitted existing Agile Spike, not a name guess. Every
-public action re-resolves typed IDs, exists/scope/company/state/content-version and
-current permissions. Booleans are not integer IDs. Context defaults are selection hints,
-not authority. Owner/approver IDs cannot forge group membership. Recheck active users,
-allowed companies and all referenced records before elevation. Use normal caller ORM; if
-immutable audit storage needs sudo, it is limited to already-validated values after
-authorization, never for discovery/counts/existence or a decision. All batch operations
-fail atomically, not a per-record partial success.
+## Concurrency and atomicity
 
-History remains immutable but is not permanent permission: current Project/record rules
-protect history and snapshots, search/read/group/export/name lookup/counters/action
-navigation. Related snapshots must not bypass new restrictions on a referenced Task,
-question or document. Archived accessible records are resolved with bounded
-`active_test=False` and marked historical. Inaccessible/missing required references
-produce a generic incomplete/unavailable result or deny exact full rendering, with no
-names, hidden counts, IDs or excerpts. No silent omission can be called a complete
-approved baseline. Restrictive deletion prevents ordinary dangling references.
+Odoo 19 nonwaiting ORM claims cover the actual document, revision, identity and
+authority records. An incomplete claim requests whole-transaction rollback and native
+request retry in a fresh transaction, up to five total attempts. Persistent contention
+can exhaust that limit and fail the request. Direct Python callers outside the native
+request boundary own their transaction retry. There is no business-code retry loop,
+partial-transaction refresh or manual business-code commit. A savepoint does not refresh
+a repeatable-read snapshot. Unlink claims also exclude concurrent foreign-key references
+to the deleted records.
+
+New retained history publishes its reference on Project to conflict with company
+changes, deletion and first-use sequence allocation. Document creation and approval
+publish on the solution; revision allocation publishes on its document or stable
+identity. These shared ORM writes order exact SOW/spec references and competing new
+heads. Actual lifecycle writes conflict with revision edits. Section edits advance the
+parent content version, preventing submission or a pending Task preview from missing a
+child-only edit. Publication fields are server-owned, not approval authority.
+
+Task confirmation claims and consumes its durable intent, preventing an old snapshot
+from creating another Task. After retry, a consumed intent returns the same currently
+authorized result. Link creation/retirement publishes the edge on its Task; discovery
+references publish the question revision. Task scope/deletion guards and Sprint capture
+claim that same Task before reading exact links. Sealed requirements need no
+Solution-wide capture write.
+
+Batch creation and multi-step operations use savepoints. Task creation, exact links,
+seals and intent consumption succeed together or leave none of those changes, even when
+a direct caller catches an error. Approval races retry and reject stale intent rather
+than approve a different revision implicitly.
+
+## Current authority and frozen history
+
+Internal Project users read permitted material; native Project Managers author and
+mutate it only with concrete record access. Public actions re-resolve typed IDs,
+existence, state, company, exact references, content version and permissions. Booleans
+are not integer IDs. Defaults, owner IDs and context are not authority. Task links
+require current Task access and mutation checks; discovery links require an actual
+permitted existing Agile Spike. Elevation is limited to already-authorized storage,
+never selecting accessible records or deciding approval.
+
+Global descendant rules use an unevaluated current-user Project subquery. Odoo 19
+compiles rule domains on sudo recordsets, so a plain relational `any` is not enough to
+establish native Project visibility. The private `_search` seam is version-sensitive; no
+cached list of visible IDs substitutes for current custom/native rules.
+
+Frozen history does not grant permanent access. Reads, searches, grouping, exports,
+counters, navigation and reports recheck the exact reference closure, including
+sections, requirements/context, referenced SOW and discovery Tasks. Accessible archived
+references remain usable. Missing or inaccessible required references refuse complete
+output without leaking names, IDs, counts or excerpts. Filtered relation caches cannot
+establish membership completeness; inverse ORM queries establish the complete set.
+`action_read_snapshot()` is the exact read/RPC API. Native export additionally requires
+`base.group_allow_export`. Raw `_snapshot_content`, `_snapshot_digest` and
+`_template_content` use the unassigned, non-implied
+`project_agile_solution.group_snapshot_storage` sentinel. Never assign it to a user or
+imply it from another role. Technical Features (`base.group_no_one`) is enabled by
+browser debug mode for internal users and is not a deny-all boundary. Narrow elevation
+reads stored payload only after parent authorization, without supplying reference access
+or approval. The storage-only Task inverse permits a bounded completeness check without
+exposing counts or permitting inverse/default edits.
 
 ## Task traceability and deliberate creation
 
-Existing Task links are the default. Link to exact requirement revisions and preserve
-unlinked maintenance work with an explicit maintenance reason
-(`solution_maintenance_reason` on Task in the optional addon); missing linkage is not
-automatically a defect. A cross-cutting NFR can link to many Tasks; one Task can link to
-many requirements. Moving a link to a successor is deliberate and records old/new
-evidence; it never rewrites Sprint context, a baseline or historical acceptance.
-Archived references remain historical; new work cannot target
-archived/non-Agile/template/unavailable Tasks or requirements.
+Existing Task links are the default. One NFR may span Tasks and one Task may address
+several requirements. An explicit maintenance reason explains legitimately unlinked work
+without implying approval. Link retirement preserves its reason and actor; replacement
+links never rewrite old baselines, acceptance or Sprint context. New links reject
+archived, template, non-Agile or inaccessible targets.
 
-Preview persists a durable Task intent with server-generated token, selected exact
-revisions, proposed name/description/type and creator, no Task. A native confirmation
-wizard shows source revision keys and permitted values. Confirm re-resolves caller,
-Project, type eligibility, exact source freshness and access. A changed draft or current
-baseline invalidates the old intent; user must preview again. A consumed intent returns
-the same still-authorized Task, never creates another. Database-unique intent identity,
-a native nonblocking claim and the actual consumed result order two confirmations;
-mismatching payload reuse is rejected.
+Preview stores a durable creator-owned intent and no Task. Confirmation through the
+native wizard rechecks current access, Project/type eligibility and exact source
+freshness after claims. Changed draft content, a new requirement head or changed
+specification invalidates an unconsumed preview. Preview again rather than reuse stale
+intent. A consumed intent returns the same still-authorized result, including after
+requirement successors; archive or deletion cannot renew creation.
 
-Confirm atomically creates a native Task using only `name`, `description`, `project_id`,
-and explicitly selected `agile_item_type_id`, links exact requirement revisions and
-stores the consumed Task result. No implicit estimate, Sprint, acceptance-criteria,
-parent/dependency, stage/state, follower or completion writes; normal Odoo creation side
-effects remain native and documented. Tests must prove zero duplicate/partial
-Task/link/intent result on injected failures and independent-connection retries.
-Cancellation keeps consumed identity; archive/delete of a generated Task cannot renew
-creation eligibility. Never automatically regenerate backlog, edit existing
-descriptions, manual criteria, workflow, estimates, ordering or planning when spec text
-changes.
+Confirmation creates one native Task using only name, description, Project and
+explicitly selected Agile item type, then links exact requirements and consumes the
+intent in the same savepoint. Caller default context is stripped. Native creation
+effects remain native. No estimate, criteria, hierarchy, dependency, stage/state, Sprint
+or ordering is supplied. Specification edits never regenerate backlogs or overwrite
+manually authored Task values. Independent confirmations converge on one result;
+failures leave no partial Task, links, seals or consumption.
 
 ## Optional frozen Scrum context
 
-The traceability card delivers `project_agile_solution_scrum`, depending exactly on
-`project_agile_solution` and `project_scrum`, not vice versa. No mandatory
-analytics/UI/Git or document backend. Extend the existing private
-`project.sprint._append_scope_events` producer via `super()` without copying lifecycle
-methods. Add a minimal immutable `project.agile.solution.sprint.context` edge keyed by
-`(scope_event_id, requirement_revision_id)` (and document baseline reference where
-present). At each committed/added event capture all exact Task links in that transaction
-with Project/Task authority established before narrow audit elevation. Store an explicit
-capture-status marker on the scope event: `captured/empty/not_available`, distinguishing
-known unlinked/maintenance from events predating the bridge. Existing history is never
-backfilled from current Task links.
+`project_agile_solution_scrum` depends on Solution core and `project_scrum`, never the
+reverse. It extends `project.sprint._append_scope_events` via `super()` without
+replacing lifecycle logic. At each native event it captures all exact active Task links,
+sealed requirement content and specification number/state. Context edges are unique per
+event/requirement revision. Status distinguishes `captured`, observed `empty`, and
+`not_available` for history predating the bridge. There is no backfill.
 
-Capture current planning context even if it is draft/unapproved, but label that status
-and seal the actual content; Sprint commitment is not requirements/scope approval. Later
-edits or v2 links do not change an event's v1 context. Removed/completed/reopened/
-carry-over events retain their observed references, and reports can navigate original
-commitment separately from current coverage. When historical full references are
-inaccessible, fail closed without elevated metadata. Do not change native Sprint
-assignment, state, points, committed-task lists or analytics formulas. Publish each
-created/retired link reference on its Task and claim that same Task for scope capture.
-Preserve existing Sprint close/Task ordering and atomic rollback; sealed requirements
-need no Solution-wide capture write. Installing or uninstalling the bridge cannot
-fabricate historical proof. Native core works without it.
+Draft/unapproved context is labeled and sealed, not approved by Sprint commitment. Later
+edits, links or approval cannot change historical events. Capture uses the same Task
+claim as competing link/scope changes and preserves native close/Task ordering and
+complete rollback; no extra Solution-wide capture write is needed. It changes no native
+Sprint assignment, state, points or analytics formulas.
 
-## Rendering and templates
+Current Task, Sprint and exact-reference access governs captured history. During a
+dependency-ordered upgrade, the stored event rule denies ordinary reads while
+`solution_native_access` is not yet registered; it does not fall back to privileged or
+incomplete history. Once loaded, the extension's current-reference rule applies. Core
+Scrum remains independent; installing or reinstalling the bridge cannot manufacture
+missing historical proof.
 
-Native forms/lists and QWeb HTML reports render either explicitly selected working
-revision or exact approved/superseded baseline, never a moving 'latest' substituted for
-an exact ID. Native PDF may project the same verified values when available. The report
-model's `_get_report_values` must perform current-user checks; report actions and direct
-report routes are not authorization. QWeb escaping and sanitized HTML apply; URLs are
-displayed as validated references, never fetched or embedded as remote content.
-PDF/export cannot widen scope through cached attachment reuse or sudo rendering; disable
-reusable report attachments for audience-sensitive output.
+## Rendering, coverage and acceptance
 
-Audience is finite `internal/customer`. Customer-facing is a deliberately generated
-projection by an authorized internal user, not portal access. Internal-only questions,
-decisions, actor/contact details and narrative do not appear in customer output. Declare
-'redacted customer projection of baseline X, not the full internal baseline' without
-revealing hidden item names/counts/IDs. For a complete-for-selected-audience claim, all
-included permitted references must be accessible and the declared projection rules
-satisfied; otherwise refuse or clearly label incomplete without leaking denied content.
-Full internal exact-baseline rendering requires the entire referenced closure
-accessible. Audience tags are sealed revision content, not caller-provided permission
-overrides. Current working output is always labelled draft/unapproved. No independent
-editable rendered master, wiki, editor/page history, Sales quote or Enterprise API is
-introduced.
+Native views and QWeb render explicitly selected working or exact approved/superseded
+revisions. Working output is unapproved. The report-value boundary rechecks current
+access; report actions, direct URLs, context, PDF and export cannot widen it. Report
+attachments and attachment reuse are disabled. Rendering converts narrative to escaped
+text without executable markup or remote resources. Production PDF engine behavior is
+not established by native HTML or test-mode PDF-entrypoint checks.
 
-Reusable SOW template starts with purpose/outcomes; included/excluded scope;
-deliverables/ evaluation; discovery/delivery/verification/handover/checkpoints;
-responsibilities; assumptions/dependencies/constraints; acceptance
-authority/criteria/evidence; proposed changes/approval history; optional commercial
-external references; revision history. An internal-brief template omits commercial/SOW
-assumptions. Templates are project- specific editable starting points, not universally
-mandatory or legally sufficient.
+Audience is internal or redacted customer. Customer output is generated by an authorized
+internal user, not a portal/login grant or a complete internal baseline. It includes
+only customer-tagged narrative, requirements and section/domain/deliverable context.
+Questions, decisions, actors, owners, discovery Task labels, internal rationale, raw IDs
+and acceptance evidence are excluded. Both audiences require complete current reference
+access. Report identity fixes audience and exact IDs; caller context cannot override
+them. Do not distribute native report URLs as customer access. Rendering discards
+scripts, styles, markup, links, images and remote resources. Frozen baselines exclude
+current Task descriptions/evidence; internal coverage is a separate current projection.
+Exported copies cannot be access-revoked later, so narratives and evidence must exclude
+secrets and distribution/retention must remain restricted.
 
-## Honest coverage, change impact and explicit acceptance
+Coverage separates linked/unlinked exact requirements, older-head links, legitimate
+maintenance, unexplained work, unresolved planning/blocking questions, selected-baseline
+changes and accepted/rejected/withdrawn/unaccepted requirements. No aggregate completion
+percentage or Task Done/PR-merge inference replaces these categories. Task scope is
+Project-wide; requirement links are solution-scoped. Latest heads include working
+successors. Without a selected comparison, changes report `not_selected`. More than
+1,000 rows in any queried requirement identity/revision, active-link, Project-task or
+acceptance collection refuses preview. Caller and narrow elevated cardinality checks cap
+at 1,001 without returning elevated counts. Split initiatives rather than bypass limits.
 
-Expose categories, not a fabricated completion percentage: unlinked requirements; linked
-exact current revisions; Task links to older revisions; requirement/context changes
-since selected baseline (added/changed/removed); unresolved planning/blocking questions
-and related Spike; legitimately unlinked maintenance; unexplained unlinked work;
-archived/unavailable references; approved-but-unaccepted; accepted exact revisions with
-evidence; rejected/withdrawn acceptance. Current Task Done/PR merge is explanatory
-context only. Aggregate/counter queries use caller access; inaccessible closure prevents
-'complete coverage' claims, including grouped views and exports.
+Only the active internal approver of the exact specification baseline, with current
+record/company authority, can record requirement acceptance. Changing the document's
+current approver does not transfer this authority. New acceptance requires the currently
+approved baseline, exact requirement revision, evaluated criteria and nonempty bounded
+manual evidence plus asserted authority/role. Rejection/withdrawal may correct an
+approved or superseded pair; withdrawal requires a current accepted event. Events
+preserve authenticated recorder, frozen label and UTC time. Acceptance of v1 never
+accepts v2. Evidence is not fetched or verified as URL truth/test success.
 
-Acceptance names exact requirement revision and its approved spec baseline, criteria
-actually evaluated, nonempty bounded manual evidence/reference, named acceptance
-authority and UTC decision/recorder. A native Manager with concrete access records it
-explicitly; external authority is an assertion with named partner/role, not an
-authentication grant. Reject acceptance of an unapproved/different-project/inaccessible
-revision, or empty criteria/evidence. Verification observation may precede acceptance
-but is not acceptance. Rejection/withdrawal append events, never overwrite prior
-evidence. Acceptance of v1 does not accept v2; supersession preserves v1 historical
-acceptance. Evidence is a manual reference/assertion, not an automated test result,
-immutable external artifact guarantee or an engine that verifies URL truth.
+## Recovery and consequences
 
-## Recovery, archive, retention and consequences
+Retain used identities, baselines, consumed intents, acceptance and Sprint references.
+Archive instead of rewriting history. Only unused lineages and unused draft-only
+document revisions are removable through authorized operations; requirement/context
+identities and numbered content retain history. Project company changes/deletion are
+refused once retained Solution history exists. There is no purge cron or regeneration
+recovery. Ordinary sudo cannot bypass seals.
 
-Unused root lineages may be deleted by an authorized Manager with Project write access;
-archive preserves identity. Later document/requirement/context histories and used
-intents, acceptance and Sprint references use `ondelete=restrict`; deletion of used
-histories and Project/company reassignment which would rewrite scope is refused.
-Rename/archive affects navigation, not stored approved content. No cron purge or
-automatic historical deletion. Draft-only unused records may be removed in a
-permission-checked transaction. Export and retention decisions require authorized scope;
-snapshots can contain business-sensitive text, so retain only relevant content, never
-secrets or raw credentials.
+Use successors and append-only correction events. Before migration/uninstall, back up
+database and filestore consistently and test isolated restoration with exact
+source/configuration. Uninstall deletes addon history; surviving native Tasks and Sprint
+events cannot reconstruct it. Restore must validate frozen references, content, rules
+and consumed results before enabling creation. Restrictive references protect used
+documents, intents, links and decisions. Validate revision membership, current
+Project/company/Task rules, event capture markers and consumed-intent Task IDs after
+restore. Do not regenerate Tasks, backfill Sprint context from current links or infer
+acceptance. Native import callers must inspect returned errors and result IDs rather
+than treating row-error responses as success. Restore source and database/filestore
+together after a failed upgrade; old code must not run on an unverified newer schema.
+Bridge reinstall leaves old events `not_available`, not fabricated empty/captured
+history. Only a verified consistent backup restores lost history. Admin steps are in
+[Solution operations](../runbooks/solution-operations.md).
 
-Normal ORM, even sudo, is not a recovery bypass for sealed content. Correct through an
-explicit successor/rejection/withdrawal event. DB administrators/trusted server code are
-the trust root; this is not tamper-proof against arbitrary SQL/admin restores. Back up
-DB/filestore before uninstall or migration. Odoo uninstall removes addon tables; it is
-not an archival strategy or a way to promise retention across uninstall. Root disposable
-uninstall/reinstall proves dependency/lifecycle health, not preservation of deleted
-data. Restore is a controlled incident: verify references/content/consumed intent
-identities, keep creation disabled until consistency is checked, do not regenerate Tasks
-or backfill historical Sprint context from today's links. No main advancement,
-push/publication, shared service restart or live customer/provider configuration is
-authorized here.
-
-## Alternatives, open risks and verification
-
-Rejected: requirement-as-Task (wrong lifecycle); mutable latest-text baselines;
-JSON-only pointer snapshots without actual immutable content; a generic SOW/legal/Sales
-engine; OCA page-history as requirement identity; Enterprise Knowledge assumptions;
-automatic backlog/Sprint creation; Done/merge-as-acceptance; privileged complete-looking
-exports.
-
-Costs: explicit revision membership and limited audit models, conservative refusals on
-inaccessible closure, additional optional Scrum seam tests. Residual product uncertainty
-is customer demand, actual SOW authority/legal suitability, unknown external interface,
-and deployment-specific permission/extensions. These are not invented validations.
-
-Root proof: isolated optional install, imported native nonadmin/private-Project/custom-
-rule/multi-company/forged-context/rollback tests, reproducible synthetic native Task
-seeds, and canonical M1-M7 plus new-module install/update/reverse-uninstall/reinstall.
-Downstream proof additionally includes all fixture/adversarial rows, browser
-forms/report privacy, concurrent approval/intent/capture and independent
-c1ph3r/cumulative review. Exact SHA review by Gilfoyle is required before the next
-slice. Any contract amendment must preserve approved scope and name its evidence;
-genuine product/security/dependency changes escalate.
+Rejected alternatives are requirements-as-Tasks, mutable latest-text baselines,
+pointer-only snapshots, a generic contracts/Sales engine, copied wiki/history, automatic
+planning and privileged complete-looking exports. Explicit revision and audit models
+cost storage and conservative historical-access refusals but preserve explainable intent
+without replacing native work. Release management, Jira import, provider expansion,
+public/customer routes, financial/signature engines and full test management remain out
+of scope. See [contributor checks](../contributing.md) and the actual Odoo build in
+verification logs for exercised verification.

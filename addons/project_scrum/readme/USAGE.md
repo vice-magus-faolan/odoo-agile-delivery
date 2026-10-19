@@ -20,13 +20,15 @@ not the Sprint-specific unscheduled queue.
 
 As a Project administrator, choose **Start Sprint**. Close any Active Sprint for
 the same Project/team first. Starting freezes the committed task set and records
-**Committed** events. Tasks already in native **Done** state also receive completion
-evidence.
+**Committed** events. Tasks already in **Done** state also receive **Completed** events.
+
+To complete a task, set its state to **Done**. Merely moving it to a stage named
+Done does not change its state.
 
 In an Active Sprint, membership changes record **Added** or **Removed** events;
 estimate changes record **Reestimated** with previous and new points. Moving into
-native **Done** (`1_done`) records **Completed**; moving out records **Reopened**.
-A stage name alone is not the Done state. Unchanged writes do not add events.
+**Done** records **Completed**; moving out records **Reopened**.
+Unchanged writes do not add events.
 
 ## Close and read history
 
@@ -36,7 +38,7 @@ A carry-over target must be a different Draft Sprint for the same Project, compa
 and team. Closing requires edit access to every unfinished task, including archived
 tasks. Canceled tasks also count as unfinished.
 
-Closing moves unfinished work atomically and records **Carried to Product Backlog**
+Closing moves all unfinished work or none and records **Carried to Product Backlog**
 or **Carried to Draft Sprint** events. Completed work stays on the closed Sprint.
 With no unfinished work, closing is direct.
 

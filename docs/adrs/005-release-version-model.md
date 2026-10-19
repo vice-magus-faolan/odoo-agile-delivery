@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — implementation is deferred beyond Milestone 1.
+Proposed — implementation remains deferred.
 
 ## Context
 
@@ -20,7 +20,7 @@ work items, optional Sprints, and Knowledge release notes. Keep it distinct from
 `project_version` satisfies the relationship and upgrade requirements; prefer
 contribution or extension over a competing parallel model.
 
-Milestone 1 adds no release/version module or dependency.
+The suite currently adds no release/version module or dependency.
 
 ## Alternatives
 
@@ -46,8 +46,6 @@ a release is published and how release notes relate to Knowledge.
 
 ## Evidence
 
-- [Mission brief: release/version target](../mission-brief.md#1-north-star)
-- [Mission brief: future release notes](../mission-brief.md#11-phase-4--knowledge-integration)
 - [OCA `project_version` 19.0 manifest][3]
 
 ## Sources

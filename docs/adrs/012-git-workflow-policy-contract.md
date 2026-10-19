@@ -1,22 +1,18 @@
-# ADR-012: Milestone 7 Opt-in Git Workflow Policy Contract
+# ADR-012: Opt-in Git Workflow Policy Contract
 
 ## Status
 
-Accepted for the bounded Milestone 7 continuation of mission brief section 15.
-Supersedes ADR-008's proposed automation design, not ADR-011's observation-only
-connector contract. Acceptance of this design is not production activation or a claim of
-production activation. The serial lane now implements rules, evaluator, apply worker and
-[operational controls](../runbooks/git-policy-operations.md); the root-only statements
-below describe that historical bounded phase, not current scope. Independent
-adversarial/cumulative review and delivery gates remain in the M7 graph. There was no
-previously accepted numbered M7 specification.
+Accepted and implemented: configuration, dry-run evaluation, native apply and
+[operational controls](../runbooks/git-policy-operations.md). Supersedes ADR-008, not
+ADR-011's observation-only connector contract. Installation remains disabled and
+dry-run-first.
 
 ## Outcome and boundaries
 
 Beneficiary: a Project owner who explicitly wants a merged PR to make an eligible Agile
-task ready for their next workflow stage. Evidence: M6 already persists
-repository-scoped PR/check observations and immutable Agile-key associations; mission
-brief section 15 distinguishes these facts from workflow policy.
+task ready for their next workflow stage.
+[ADR-011](011-git-facts-and-visibility-contract.md) supplies repository-scoped PR/check
+observations and immutable Agile-key associations, without workflow effects.
 
 `project_agile_git_automation` is optional, LGPL-3, Odoo 19 Community-compatible
 private-suite code, not an OCA-conformity claim. Its sole base dependency is
@@ -31,7 +27,7 @@ action, model/method/field, wildcard branch/check, task-name/database-ID matchin
 completion/reopen, Sprint, estimate, follower, or message action is configurable. No
 default merged-to-Done rule or automatically enabled demo policy exists. Jira migration,
 releases, other providers, Knowledge connectors, and richer UI indicators remain
-non-goals and do not gate M7.
+non-goals.
 
 ## Exact source findings (observed, not inferred)
 
@@ -95,9 +91,7 @@ party.
 
 ## Finite schema and decision ownership
 
-The following names and semantics are fixed for downstream implementation. They define
-the implemented finite schema; root-fixture restrictions below remain historical phase
-notes, not claims that later runtime tables are absent.
+The following names and semantics define the implemented finite schema.
 
 - Project controls: `git_policy_enabled=False`, `git_policy_mode='dry_run'` (`dry_run`,
   `apply`), `git_policy_authority_epoch` monotonic integer. Only explicit authorized
@@ -127,14 +121,13 @@ notes, not claims that later runtime tables are absent.
 - `project.git.policy.effect`: immutable consumed apply identity plus before/after
   stages/native state, identity, activation/revision, observation references, and
   timestamp. UNIQUE(repository_id, provider_request_id, agile_key, effect_type).
-- `project.git.policy.audit`: append-only bounded decision/event records. The root
-  fixture has only repository/delivery scope, server timestamp, `mode='dry_run'`, and
-  `reason='contract_fixture'`; it is not a seal, attempt, or effect marker. Later finite
-  reason/outcome extensions must not repurpose these fixture rows.
+- `project.git.policy.audit`: append-only bounded decision/event records. Historical
+  `contract_fixture` rows have only repository/delivery scope, server timestamp and
+  dry-run mode; they are not seals, attempts or effect markers and must not be
+  repurposed.
 - Task concurrency fence: `git_policy_transition_version`, advanced through native
   stored compute/ORM writes for stage/state/project/company/active changes, including
-  manual away-and-back changes. It is a concurrency token, never authorization. No Task
-  override or field is added in this root slice.
+  manual away-and-back changes. It is a concurrency token, never authorization.
 
 Rule bounds are server-validated on ORM create/write/actions as well as views. Unknown
 keys/enum values and mixed-company/project links are rejected, not ignored. No evaluated
@@ -144,26 +137,24 @@ winner.
 
 ## Ownership, approval, activation, and shutdown
 
-### Approved rules-phase authority amendment (September 30, 2026)
+### Authority-input changes
 
-Jimmy approved the bounded revoke-only Task observer on t_0ef017bf after exact 933ac40
-review demonstrated inverse stage removal/restoration and mutable custom Task-rule
-denial/restoration could retain an old epoch. The root remains inert; the rules phase
-may now inherit Task only to observe authorized native operations, not initiate policy
-Task writes, evaluate policies, schedule work or add the later Task concurrency field.
-The [bounded authority profile](../git-policy-authority-profiles.md) records exact
-native XML identities, normalized fingerprints, groups/permissions, registry field
-dependencies and fixed hook coverage. Native Odoo remains the permission evaluator. The
-sole custom extension is bounded literal boolean domains over direct stored Task
-name/active with =, !=, in, not in. Unknown, changed or unclassified profiles fail
-closed at approval/current validation. Owner, approver and executor all require concrete
-native Task read/write access. Successful native input edits/create/delete
-conservatively revoke affected old/new/descendant Project epochs; both stage-relation
-directions and inverse membership edits are observed. Restoration never clears a
-tombstone; a fresh successor approval/cutoff is required. Denied/rolled-back operations
-commit no partial revocation. Shared native ORM writes couple actual approvals/effects
-to the rows whose authority and evidence they consume. No trusted-write/context bypass
-or live/publication effect is approved.
+The revoke-only Task observer invalidates approval when mutable native authority inputs
+change, including inverse stage removal/restoration and custom Task-rule
+denial/restoration. It preserves native authorization and inheritance. The
+[bounded authority profile](../git-policy-authority-profiles.md) records exact native
+XML identities, normalized fingerprints, groups/permissions, registry field dependencies
+and fixed hook coverage. Native Odoo remains the permission evaluator. The sole custom
+extension is bounded literal boolean domains over direct stored Task name/active with =,
+!=, in, not in. Unknown, changed or unclassified profiles fail closed at
+approval/current validation. Owner, approver and executor all require concrete native
+Task read/write access. Successful native input edits/create/delete conservatively
+revoke affected old/new/descendant Project epochs; both stage-relation directions and
+inverse membership edits are observed. Restoration never clears a tombstone; a fresh
+successor approval/cutoff is required. Denied/rolled-back operations commit no partial
+revocation. Shared native ORM writes couple actual approvals/effects to the rows whose
+authority and evidence they consume. No trusted-write/context bypass or live/publication
+effect is approved.
 
 A new explicit `group_git_policy_manager` capability implies Project Manager but has no
 installation-time members. The rule owner must be an active internal user with that
@@ -219,12 +210,12 @@ Keep three layers distinct: observation describes a provider fact; deterministic
 evaluation produces a proposal and finite reason; the worker independently checks
 authority and performs the sole permitted write.
 
-The existing M6 PR has repository/provider identity, merged_at, target_branch, head_sha,
-updated_at, ordering_state, and provenance_delivery_id. Checks have repository/provider
-identity, exact name, head_sha, state, completed_at, updated_at, ordering_state, and
-provenance_delivery_id. Association audit supplies the delivery/source type/provider
-ID/key evidence; immutable associations alone are not proof that the current PR
-observation referenced that task.
+The existing PR record has repository/provider identity, merged_at, target_branch,
+head_sha, updated_at, ordering_state, and provenance_delivery_id. Checks have
+repository/provider identity, exact name, head_sha, state, completed_at, updated_at,
+ordering_state, and provenance_delivery_id. Association audit supplies the
+delivery/source type/provider ID/key evidence; immutable associations alone are not
+proof that the current PR observation referenced that task.
 
 Before producing a sealed observation, trusted internal code must re-resolve a processed
 authenticated delivery in the same repository/company, appropriate event type, and exact
@@ -239,11 +230,10 @@ public create/write payloads, and context. DB administrators and trusted server 
 remain the trust root; a stored digest is not independently verifiable HMAC evidence
 after retention purge.
 
-M6 has no immutable policy-ready observation seal. Downstream evaluation must add only
-the above small snapshot/validation boundary, not rely on a mutable live fact as an
-immutable decision record. Do not modify M6 ingress into a policy executor. There is no
-need for a new PR/check correlation field in the root: exact repository plus exact PR
-head SHA is represented today. No merge-commit/test-merge SHA may substitute for PR head
+Git facts alone are not immutable policy-ready seals. Policy evaluation uses the small
+validated snapshot boundary above, not mutable facts as decision records. Do not modify
+Git ingress into a policy executor. Exact repository plus exact PR head SHA already
+correlates PRs and checks. No merge-commit/test-merge SHA may substitute for PR head
 SHA. Validate supported full SHA format (40 or 64 hex characters), never repair/truncate
 missing identifiers.
 
@@ -269,7 +259,7 @@ Multiple same-name runs are intentionally unsupported.
 
 A later matching check observation wakes only existing eligible waiting PRs in that
 repository/head SHA; the evaluator rechecks every condition and all required names. It
-never associates tasks from check names instead of PR keys. The M6 GitHub check parser
+never associates tasks from check names instead of PR keys. The GitHub check parser
 reads updated_at; real check_run deliveries without it remain ambiguous and cannot
 satisfy this policy. Do not synthesize updated_at from received_at, completed_at, IDs,
 or a PR timestamp. Better provider ordering support is later observation work; the
@@ -324,11 +314,11 @@ Do not add context flags to suppress native notification code.
 
 Company is required for policy (company-less/shared projects remain facts-only). Global
 company rules intersect native Project visibility; no sudo counters, searches, exports,
-RPC reads, or retry controls. Root receipts use native manager visibility and
-follower/public visibility for Project users, with global company rules. Later
-task-specific records must additionally enforce current Task read visibility rather than
-leak it through a Project-only record. Existing custom Project/Task rules must be
-honored by action boundaries and task-specific queries.
+RPC reads, or retry controls. Historical contract receipts use native manager visibility
+and follower/public visibility for Project users, with global company rules.
+Task-specific records additionally enforce current Task read visibility rather than leak
+it through a Project-only record. Existing custom Project/Task rules must be honored by
+action boundaries and task-specific queries.
 
 Reason/outcome are finite selections. Store IDs, immutable key/SHA, timestamps,
 before/after stage/native state, approved actor, and bounded fingerprints; never
@@ -338,45 +328,31 @@ decision and one event per attempt/outcome transition. No duplicate-poll audit g
 Append-only effect tombstones and used revision/activation references are retained for
 the lifetime of the repository; they cannot be garbage-collected into replay
 eligibility. Terminal diagnostics may be archived (not modified or silently deleted);
-retention policy and authorized purge/export need separate review. Root has no
-production producer, purge, counters, or retry controls. Uninstall/reinstall must never
-backfill: old observations predate a newly approved cutoff; losing markers by database
-restoration is a recovery incident requiring disabled policies and a fresh cutoff, never
-automatic replay.
+retention policy and authorized purge/export need separate review. There is no policy
+purge API. Uninstall/reinstall must never backfill: old observations predate a newly
+approved cutoff; losing markers by database restoration is a recovery incident requiring
+disabled policies and a fresh cutoff, never automatic replay.
 
 ## Acceptance, verification, and recovery
 
-Root acceptance: independent optional installation with only its base chain;
-seven-module install/update/reverse-uninstall/reinstall; imported nonadmin,
-private-project, multi-company, forged-provenance/context, immutable/bounded-audit, and
-native stage semantics fixtures. Preserve M5 native Hoot/HttpCase and M6
-webhook/lease/retention regressions. Static checks under tests/, compileall of addons
-and scripts, bash syntax, canonical verifier, diff-check, dependency/license and
-complexity review must pass at the committed exact SHA.
-
-This root delivers no working automation or production activation. Downstream completion
-additionally requires dry-run nonconsumption; exact-SHA/name/repo/order and cutoff
-adversarial checks; conflicting-rule rejection; record-level execution authority;
-independent-connection idempotency/manual-change/disable recovery tests; and exact-SHA
-review before delivery. Revoke/disable first on uncertainty, preserve immutable
-evidence, and block instead of guessing APIs or upgrading privileges. No main
-advancement, publication, credentials, shared-service changes, or live provider/policy
-setup is authorized by local fixture work.
+The existing verifier covers standalone optional installation, native authority and
+forgery cases, dry-run nonconsumption, exact evidence/cutoff predicates, conflicting
+rules, ordinary Task effects and independent-process idempotency/manual-edit/disable
+races. See [contributor checks](../contributing.md) for commands and the verify log for
+the actual Odoo build. On uncertain authority, disable/revoke, retain immutable evidence
+and correct configuration before approving a new revision.
 
 ## Alternatives and consequences
 
 Hardcoded Done, generic server actions/eval, arbitrary successful CI, queued webhook
 task writes, and mandatory queue runners are rejected. A conservative
 one-effect-per-PR/task and single-check-identity policy deliberately rejects some valid
-reruns/late events; availability does not outrank authority. The smallest root is a
-fixture, not premature configuration/evaluator scaffolding. Future schema extensions
+reruns/late events; availability does not outrank authority. Future schema extensions
 need reviewed migration/install/update evidence.
 
 ## Sources
 
-- [Mission section 15](../mission-brief.md#15-git-automation)
 - [ADR-011](011-git-facts-and-visibility-contract.md)
-- [M7 implementation plan](../plans/2026-09-30-milestone-7-git-policy.md)
 - Official pinned Odoo source:
   https://github.com/odoo/odoo/tree/c2957158eb2f7a341a874c3c58884c8a162ef59a
 - Odoo 19 scheduler:

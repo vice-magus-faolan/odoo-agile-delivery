@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Milestone 3 calculation and additive native-reporting contract.
+Accepted — calculation and additive native-reporting contract.
 
 ## Context
 
@@ -104,9 +104,8 @@ reestimate or close-time facts and must not claim ADR-009 precision for those ga
 
 ## Open Questions
 
-None for the delivered Milestone 3 replay and projection contract.
+None for the delivered replay and projection contract.
 
 ## Evidence
 
-- [Mission brief: historical Scrum data](../mission-brief.md#rule-10--historical-scrum-data-must-remain-historical)
 - [ADR-003](003-sprint-scope-history-strategy.md)

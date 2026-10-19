@@ -31,8 +31,10 @@ A 202 means Odoo saved the delivery. Check its **State** to see whether it was
 processed. An exact duplicate uses the same delivery. A reused delivery ID with
 different event type, body digest or size returns HTTP 409.
 
-A retained redacted JSON excerpt must fit within 4,096 characters; an oversized
-excerpt produces a **Failed** delivery with a diagnostic and no retained payload.
+Redacted Excerpt retains only the supported event fields needed for facts and
+task links, not the full GitHub body. This redacted JSON must fit within 4,096
+characters. Malformed or oversized processing input produces a **Failed** delivery
+with a diagnostic and no retained payload; source text and commits are not truncated.
 Redaction removes recognized credentials but may leave sensitive text or unknown
 credential formats. Keep such content out of webhook fields and do not copy
 payloads or secrets into chatter, tickets or routine exports. Secret and retained

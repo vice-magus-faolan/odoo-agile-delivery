@@ -10,9 +10,7 @@ from odoo import api, fields, models
 
 MAX_RETAINED_PAYLOAD_CHARS = 4096
 MAX_RETAINED_COLLECTION_ITEMS = 100
-MAX_RETAINED_NESTING = 20
 RETAINED_PAYLOAD_DAYS = 30
-_SENSITIVE_KEY_PARTS = ("authorization", "password", "secret", "signature", "token")
 MAX_REPLAY_MISMATCH_COUNT = 100
 _SCALAR_REDACTION_PATTERNS = (
     (
@@ -37,31 +35,61 @@ def _redact_scalar_text(value):
     return value
 
 
-def _redact_payload_value(value, depth=0):
-    """Return a bounded, credential-scrubbed value safe for a retained excerpt."""
+# These are the normalizer inputs, not a subset of arbitrary provider metadata.
+# Missing fields stay missing so native validation/defaults retain their meaning.
+_EVENT_INPUTS = {
+    "push": {
+        "ref": None,
+        "after": None,
+        "head_commit": {"timestamp": None},
+        "commits": [{"id": None, "message": None, "timestamp": None}],
+    },
+    "pull_request": {
+        "number": None,
+        "pull_request": {
+            "id": None,
+            "title": None,
+            "body": None,
+            "state": None,
+            "merged": None,
+            "merged_at": None,
+            "updated_at": None,
+            "head": {"ref": None, "sha": None},
+            "base": {"ref": None},
+        },
+    },
+    "check_run": {
+        "check_run": {
+            "id": None,
+            "name": None,
+            "status": None,
+            "conclusion": None,
+            "head_sha": None,
+            "completed_at": None,
+            "updated_at": None,
+            "output": {"title": None},
+        },
+    },
+}
 
-    if depth >= MAX_RETAINED_NESTING:
-        return "[truncated]"
-    if isinstance(value, dict):
-        redacted = {}
-        for index, (key, item) in enumerate(value.items()):
-            if index >= MAX_RETAINED_COLLECTION_ITEMS:
-                redacted["[truncated]"] = "[truncated]"
-                break
-            key = str(key)
-            if any(part in key.lower() for part in _SENSITIVE_KEY_PARTS):
-                redacted[key] = "[redacted]"
-            else:
-                redacted[key] = _redact_payload_value(item, depth + 1)
-        return redacted
-    if isinstance(value, list):
-        redacted = [
-            _redact_payload_value(item, depth + 1)
-            for item in value[:MAX_RETAINED_COLLECTION_ITEMS]
-        ]
-        if len(value) > MAX_RETAINED_COLLECTION_ITEMS:
-            redacted.append("[truncated]")
-        return redacted
+
+def _project_payload_value(value, shape):
+    """Select consumer inputs without truncating collections or source text."""
+
+    if isinstance(shape, dict):
+        if not isinstance(value, dict):
+            raise ValueError("Malformed GitHub input object.")
+        return {
+            key: _project_payload_value(value[key], child)
+            for key, child in shape.items()
+            if key in value
+        }
+    if isinstance(shape, list):
+        if not isinstance(value, list) or len(value) > MAX_RETAINED_COLLECTION_ITEMS:
+            raise ValueError("Malformed or oversized GitHub input collection.")
+        return [_project_payload_value(item, shape[0]) for item in value]
+    if isinstance(value, (dict, list)):
+        raise ValueError("Malformed GitHub scalar input.")
     return _redact_scalar_text(value) if isinstance(value, str) else value
 
 
@@ -100,14 +128,20 @@ class ProjectGitRepository(models.Model):
         }
 
     @api.model
-    def _redacted_github_payload_excerpt(self, payload):
-        """Return one valid bounded redacted payload, or no payload when it cannot
-        fit safely.
+    def _redacted_github_payload_excerpt(self, payload, event_type):
+        """Retain only credential-scrubbed normalizer inputs within the fixed cap.
+
+        Reject an intrinsically oversized or malformed projection as a whole:
+        cutting text or commits could silently lose facts or explicit task keys.
+        Unsupported events need only repository identity for terminal diagnostics.
         """
 
-        excerpt = json.dumps(
-            _redact_payload_value(payload), ensure_ascii=True, separators=(",", ":")
-        )
+        shape = {"repository": {"id": None}, **_EVENT_INPUTS.get(event_type, {})}
+        try:
+            projection = _project_payload_value(payload, shape)
+        except ValueError:
+            return False
+        excerpt = json.dumps(projection, ensure_ascii=True, separators=(",", ":"))
         return excerpt if len(excerpt) <= MAX_RETAINED_PAYLOAD_CHARS else False
 
 
@@ -135,7 +169,7 @@ class ProjectGitDelivery(models.Model):
         the server create its protected ledger record; it is never used to grant
         an HTTP caller access or decide whether that caller is authorized. A
         valid but non-retainable excerpt is terminal so the worker cannot retry
-        indefinitely after privacy-safe truncation rejected its raw payload.
+        indefinitely after its required processing input could not be retained.
         """
 
         def result(delivery, created, exact_replay):

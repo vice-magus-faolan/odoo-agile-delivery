@@ -75,17 +75,22 @@ Unsupported delivery types are terminally `discarded` with a diagnostic.
 Default payload retention is digest-only. Such a delivery is deliberately
 non-normalizable and terminally visible; a repository must select `redacted_excerpt`
 before receipt to retain the bounded JSON projection needed for the supported parser.
-Retention removes sensitive-key values and recognized credential-shaped scalar text,
-including authorization bearer values and common GitHub/GitLab token forms. This is
-defense in depth, not permission to store arbitrary secrets: unmatched credential
-formats remain residual risk and redacted excerpts stay System Administrator-only. Raw
-payloads and webhook secrets are never exposed through ordinary reads, logs, errors,
-exports, or chatter. Bounded retention cleanup selects expired processed/discarded
-excerpts by provider, terminal state, payload presence and expiry, then clears the
-selected batch with one ORM write, preserving the ledger and recording the purge
-timestamp. These writes retain native access checks, inherited hooks and conservative
-policy evidence fencing. A concurrent state change causes the write to fail under
-repeatable read; the next scheduled run selects eligible work in a fresh transaction.
+Retention selects only repository identity and event-specific normalizer inputs,
+excluding unrelated provider metadata, and scrubs recognized credential-shaped scalar
+text, including authorization bearer values and common GitHub/GitLab token forms. The
+projection must fit within 4,096 characters without truncating required text or commits;
+malformed inputs, more than 100 commits, or an oversized projection fail explicitly
+without retaining a partial payload. The exact-body digest and 256 KiB request limit
+remain independent of this projection. This is defense in depth, not permission to store
+arbitrary secrets: unmatched credential formats remain residual risk and redacted
+excerpts stay System Administrator-only. Raw payloads and webhook secrets are never
+exposed through ordinary reads, logs, errors, exports, or chatter. Bounded retention
+cleanup selects expired processed/discarded excerpts by provider, terminal state,
+payload presence and expiry, then clears the selected batch with one ORM write,
+preserving the ledger and recording the purge timestamp. These writes retain native
+access checks, inherited hooks and conservative policy evidence fencing. A concurrent
+state change causes the write to fail under repeatable read; the next scheduled run
+selects eligible work in a fresh transaction.
 
 Task association accepts only explicit immutable keys matching `ENG-142`-style uppercase
 project keys with a positive decimal suffix. Tokens must be delimited from every Unicode

@@ -1,5 +1,6 @@
 """Retention cleanup coverage for bounded GitHub delivery evidence."""
 
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -96,7 +97,7 @@ class TestGitHubDeliveryRetention(TransactionCase):
 
     def test_oversized_redacted_excerpt_is_terminal_and_cannot_be_reprocessed(self):
         excerpt = self.repository._redacted_github_payload_excerpt(
-            {"repository": {"id": 6001}, "description": "x" * 5000}
+            {"repository": {"id": 6001}, "ref": "x" * 5000}, "push"
         )
         self.assertFalse(excerpt)
 
@@ -110,7 +111,7 @@ class TestGitHubDeliveryRetention(TransactionCase):
             payload_size=5000,
             retained_payload=excerpt,
             retention_error=(
-                "The signed payload exceeds the safe retained excerpt limit."
+                "The signed payload has malformed or oversized processing input."
             ),
         )
 
@@ -119,7 +120,7 @@ class TestGitHubDeliveryRetention(TransactionCase):
         self.assertFalse(delivery.retained_payload)
         self.assertEqual(
             delivery.error_summary,
-            "The signed payload exceeds the safe retained excerpt limit.",
+            "The signed payload has malformed or oversized processing input.",
         )
         with self.assertRaises(ValidationError):
             delivery.action_reprocess_github_delivery()
@@ -140,3 +141,29 @@ class TestGitHubDeliveryRetention(TransactionCase):
             )
         self.assertEqual(model._purge_expired_github_payloads(now), 1)
         self.assertEqual(model._purge_expired_github_payloads(now), 0)
+
+    def test_projection_preserves_all_commits_or_rejects_the_collection(self):
+        payload = {
+            "repository": {"id": 6001},
+            "commits": [{"id": str(index), "message": "RET-1"} for index in range(100)],
+        }
+        excerpt = self.repository._redacted_github_payload_excerpt(payload, "push")
+        self.assertEqual(json.loads(excerpt)["commits"], payload["commits"])
+        payload["commits"].append({"id": "100", "message": "RET-2"})
+        self.assertFalse(
+            self.repository._redacted_github_payload_excerpt(payload, "push")
+        )
+
+    def test_projection_rejects_malformed_nested_inputs_without_retaining_them(self):
+        for event, extra in (
+            ("push", {"commits": [{"message": {"secret": "private"}}]}),
+            ("push", {"commits": "not-a-list"}),
+            ("pull_request", {"pull_request": {"head": []}}),
+            ("check_run", {"check_run": {"output": {"title": ["private"]}}}),
+        ):
+            with self.subTest(event=event, extra=extra):
+                self.assertFalse(
+                    self.repository._redacted_github_payload_excerpt(
+                        {"repository": {"id": 6001}, **extra}, event
+                    )
+                )

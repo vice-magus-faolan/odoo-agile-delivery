@@ -40,10 +40,9 @@ reuse of a delivery ID.
   delivery again and keeps its attempt count, so a delivery that used its five
   attempts gets one more try.
 
-Digest-only, oversized-excerpt and purged deliveries have no payload to
+Digest-only, oversized-input and purged deliveries have no payload to
 reprocess. Arrange a new provider delivery after correcting configuration;
-exact redelivery of an old delivery does not fill its missing payload. Oversized
-payloads remain subject to the current limitation linked above.
+exact redelivery of an old delivery does not fill its missing payload.
 
 Retained excerpts receive a 30-day expiry. Daily cleanup removes expired
 excerpts only from **Processed** or **Discarded** deliveries, in batches of at

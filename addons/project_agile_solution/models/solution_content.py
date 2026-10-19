@@ -122,7 +122,7 @@ class ContentIdentity(models.AbstractModel):
             "project.agile.solution", values.get("solution_id")
         )
         solution.sudo(False).check_access("write")
-        solution.project_id.sudo(False).check_access("write")
+        solution.project_id._check_agile_project_access()
         self._check_active_solution(solution)
         claim_records(solution.project_id, allow_referencing=True)
         claim_records(solution, allow_referencing=True)

@@ -1,8 +1,16 @@
-Install **Agile Solution Definition** (`project_agile_solution`). Before creating
-or editing solution content, use an active internal account with
-**Administrator** as its Project access level. A Project administrator also needs
-write access to the Project and solution records, and membership in the Project
-company. Project users can read permitted content and preview reports. Project visibility and record rules apply to both roles.
+Install **Agile Solution Definition** (`project_agile_solution`). On the user
+form, assign **Business analyst** under **Project** before creating or editing
+requirements, documents, revisions and Task previews. It includes **Agile
+member**, not Administrator. Combine it with **Scrum master** when the same
+person also runs Sprints.
+
+Authors need an active internal account, current Project visibility, write
+access to the solution records, and membership in the Project company. Project users can
+read permitted content and preview reports. Native Project visibility and
+record rules continue to apply. A Business analyst cannot approve documents,
+record acceptance or manage shared narrative templates. Assign **Administrator**
+under **Project** to the approver; a Project administrator retains authoring
+capabilities as well.
 
 1. Follow the [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
    to enable **Agile Enabled** on the Project and set its **Agile Key**.

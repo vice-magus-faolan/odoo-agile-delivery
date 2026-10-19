@@ -145,7 +145,7 @@ class RequirementAcceptance(models.Model):
         baseline = self._checked_relation(
             "project.agile.solution.revision", values.get("document_revision_id")
         )
-        baseline._check_authority()
+        baseline._check_authority(approval=True)
         claim_records(baseline.document_id, allow_referencing=True)
         claim_records(baseline, allow_referencing=True)
         claim_records(requirement, allow_referencing=True)

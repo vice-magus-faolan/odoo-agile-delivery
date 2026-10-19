@@ -499,6 +499,7 @@ class SolutionRevision(models.Model):
                 )
 
     def action_approve(self):
+        self._check_authority(approval=True)
         caller = self._transition_caller("review")
         approver = caller.document_id.approver_id
         caller.document_id._check_approver()

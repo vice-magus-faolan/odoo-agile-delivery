@@ -3,12 +3,13 @@
     "summary": (
         "Optional solution documents, immutable baselines and separate approvals"
     ),
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.5.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project_agile"],
     "data": [
+        "security/project_agile_solution_groups.xml",
         "security/ir.model.access.csv",
         "security/project_agile_solution_rules.xml",
         "data/solution_templates.xml",

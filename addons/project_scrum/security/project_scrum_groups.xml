@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="group_scrum_master" model="res.groups">
+    <field name="name">Scrum master</field>
+    <field name="privilege_id" ref="project.res_groups_privilege_project" />
+    <field name="sequence">25</field>
+    <field name="implied_ids" eval="[(4, ref('project_agile.group_agile_member'))]" />
+  </record>
+</odoo>

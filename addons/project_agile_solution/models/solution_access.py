@@ -79,18 +79,18 @@ class SolutionAccess(models.AbstractModel):
         )
         return positive if operator == "in" else ~positive
 
-    def _check_authority(self, operation="write"):
+    def _check_authority(self, operation="write", *, approval=False):
         """Ordinary sudo/context cannot select authority or bypass Project rules."""
         caller = self.sudo(False)
         caller.check_access(operation)
-        if not caller.env.user.active or not caller.env.user.has_group(
-            "project.group_project_manager"
-        ):
-            raise AccessError(
-                _("An active Project Manager with current Project access is required.")
-            )
-        caller.project_id.check_access("read")
-        caller.project_id.check_access("write")
+        user = caller.env.user
+        authorized = user.has_group("project.group_project_manager") or (
+            not approval
+            and user.has_group("project_agile_solution.group_business_analyst")
+        )
+        if not user.active or not authorized:
+            raise AccessError(_("An active authorized Solution role is required."))
+        caller.project_id._check_agile_project_access()
         return caller
 
     def _checked_relation(self, model, record_id):

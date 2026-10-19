@@ -1,7 +1,7 @@
 ## Build and approve a specification
 
-Use the Project administrator account and Project access described in
-Configuration. The following example starts with a Solution Specification / Internal Brief.
+Use a Business analyst or Project administrator account with the Project access
+described in Configuration. The following example starts with a Solution Specification / Internal Brief.
 
 1. In **Project > Requirements**, create a requirement with **Name** and
    **Solution**. Save, then choose **Open / New Content Revision**. Fill **Title**,
@@ -24,7 +24,7 @@ Configuration. The following example starts with a Solution Specification / Inte
    change. Expanded specification scope needs a separately approved successor
    SOW marked **Explicit Scope Change**.
 5. Save and choose **Submit for Review**. The content is frozen **In Review**,
-   but is still unapproved. The designated approver chooses **Approve Exact
+   but is still unapproved. The designated Project administrator approver chooses **Approve Exact
    Revision**. To edit a review, use **Return with Reason**, enter **Reason** and
    **Confirm**. Requirement and context content already sealed by a reference
    stays sealed; revise it through its stable identity instead.
@@ -35,7 +35,8 @@ Configuration. The following example starts with a Solution Specification / Inte
 
 ## Link delivery work
 
-As a Project administrator with write access to the affected tasks, open
+As a Business analyst or Project administrator with write access to the affected
+tasks, open
 **Project > Deliberate Task Previews**. Create a preview with **Solution**,
 **Operation** (**Link Existing Native Task** or **Create Native Task**), **Name**, and one to
 twenty exact **Requirement Revisions**. Select **Task** for existing work; for

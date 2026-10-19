@@ -11,7 +11,7 @@ class SolutionRetention(models.Model):
 
     def unlink(self):
         self.sudo(False).check_access("unlink")
-        self.project_id.sudo(False).check_access("write")
+        self.project_id._check_agile_project_access()
         claim_records(self)
         # Retention-only elevation emits no metadata, names, IDs or counts.
         if (

@@ -34,7 +34,11 @@ class SolutionDocument(models.Model):
         "res.users",
         required=True,
         ondelete="restrict",
-        default=lambda self: self.env.user,
+        default=lambda self: (
+            self.env.user
+            if self.env.user.has_group("project.group_project_manager")
+            else False
+        ),
     )
     revision_ids = fields.One2many(
         "project.agile.solution.revision", "document_id", readonly=True, copy=False
@@ -78,7 +82,7 @@ class SolutionDocument(models.Model):
                 "project.agile.solution", values.get("solution_id")
             )
             solution.sudo(False).check_access("write")
-            solution.project_id.sudo(False).check_access("write")
+            solution.project_id._check_agile_project_access()
             claim_records(solution.project_id, allow_referencing=True)
             claim_records(solution, allow_referencing=True)
             if (

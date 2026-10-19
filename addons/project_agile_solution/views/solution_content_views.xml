@@ -23,7 +23,7 @@
             name="action_new_revision"
             type="object"
             string="Open / New Content Revision"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
         <sheet>
@@ -124,7 +124,7 @@
             name="action_new_revision"
             type="object"
             string="Open / New Context Revision"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
         <sheet>
@@ -173,7 +173,7 @@
             type="object"
             string="Record Resolution"
             invisible="sealed or kind != 'question' or resolution_status != 'open'"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
         <sheet>

@@ -1,3 +1,13 @@
+On the user form, assign **Agile member** under **Project** for ordinary typed
+work and estimates. It includes the native Project User role, not Administrator.
+When the optional addons are installed, **Business analyst** adds Solution
+authoring and **Scrum master** adds team and Sprint management. Both include
+Agile member and can be combined without granting Administrator.
+
+For the following setup, assign **Administrator** under **Project**. Agile
+configuration and shared item types remain Project administrator operations.
+Native Project visibility, task permissions and company access still apply.
+
 1. As a Project administrator, open the Project form and its **Settings** tab.
    In **Agile**, enable **Agile Enabled**.
 2. Set **Agile Key** to a unique prefix such as `ENG`, starting with an uppercase

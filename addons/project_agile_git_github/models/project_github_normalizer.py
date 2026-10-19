@@ -1,7 +1,6 @@
 """Asynchronous GitHub-to-provider-neutral Git fact normalization."""
 
 import json
-import re
 import secrets
 from datetime import datetime, timezone
 from urllib.parse import quote, unquote
@@ -12,16 +11,18 @@ from psycopg2.errors import SerializationFailure
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
+from .github_keys import (
+    MAX_PROVIDER_COMMITS,
+    MAX_RETAINED_COMMITS,
+    source_key_summary,
+    validated_key_summary,
+)
+
 BATCH_SIZE = 20
 LEASE_SECONDS = 300
 MAX_ATTEMPTS = 5
 MAX_RETRY_SECONDS = 3600
 MAX_SOURCE_TEXT = 4096
-MAX_KEYS_PER_SOURCE = 20
-AGILE_KEY_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_\u0080-\U0010FFFF])(?P<key>[A-Z][A-Z0-9]{1,9}-[1-9][0-9]*)(?![A-Za-z0-9_\u0080-\U0010FFFF])"
-)
-KEY_LIKE_PATTERN = re.compile(r"[A-Z][A-Z0-9]{0,32}-[0-9]+")
 
 
 class GitHubPayloadError(ValueError):
@@ -70,6 +71,19 @@ def _identifier(value, maximum=128):
     if isinstance(value, bool) or not isinstance(value, (int, str)):
         raise GitHubPayloadError("A GitHub provider identifier is malformed.")
     return _text(str(value), maximum)
+
+
+def _commit_message_excerpt(value):
+    """Read compact message evidence or the previously delivered text shape."""
+
+    if isinstance(value, dict):
+        try:
+            return validated_key_summary(value, with_excerpt=True)["excerpt"]
+        except ValueError as error:
+            raise GitHubPayloadError(
+                "The GitHub commit evidence is malformed."
+            ) from error
+    return _text(value)[:255]
 
 
 def _github_state(status, conclusion):
@@ -128,6 +142,17 @@ class ProjectGitDelivery(models.Model):
     # Asynchronous normalization is separate from authenticated ingress.
     # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.git.delivery"
+
+    omitted_commit_count = fields.Integer(
+        readonly=True,
+        copy=False,
+        help="Commits omitted from this push after retaining its first 100 commits.",
+    )
+    commit_omission_reason = fields.Char(
+        readonly=True,
+        copy=False,
+        help="Why this delivery retained fewer commits than GitHub supplied.",
+    )
 
     @api.model
     def _claim_github_delivery(self):
@@ -366,15 +391,32 @@ class ProjectGitDelivery(models.Model):
             "branch", branch.provider_branch_id, {"ref": branch_name}
         )
         commits = payload.get("commits", [])
-        if not isinstance(commits, list) or len(commits) > 100:
+        if not isinstance(commits, list) or len(commits) > MAX_RETAINED_COMMITS:
             raise GitHubPayloadError(
                 "The GitHub push commits collection is malformed or oversized."
             )
+        omitted = payload.get("omitted_commit_count", 0)
+        if (
+            type(omitted) is not int
+            or not 0 <= omitted <= MAX_PROVIDER_COMMITS - MAX_RETAINED_COMMITS
+            or (omitted and len(commits) != MAX_RETAINED_COMMITS)
+        ):
+            raise GitHubPayloadError("The GitHub omitted commit count is malformed.")
+        self.write(
+            {
+                "omitted_commit_count": omitted,
+                "commit_omission_reason": (
+                    "Only the first 100 commits in a push are retained."
+                    if omitted
+                    else False
+                ),
+            }
+        )
         for commit_data in commits:
             if not isinstance(commit_data, dict):
                 raise GitHubPayloadError("The GitHub push contains a malformed commit.")
             commit_sha = _text(commit_data.get("id"), 128)
-            commit_message = _text(commit_data.get("message"))
+            commit_message = commit_data.get("message")
             self._upsert_commit(commit_data)
             self._associate_source_keys(
                 "commit", commit_sha, {"message": commit_message}
@@ -430,7 +472,9 @@ class ProjectGitDelivery(models.Model):
             provider_request_id,
             {
                 "title": _text(pull_request.get("title")),
-                "body": _optional_text(pull_request.get("body")) or "",
+                "body": pull_request.get("body")
+                if pull_request.get("body") is not None
+                else "",
                 "head_ref": source_branch,
             },
         )
@@ -511,7 +555,7 @@ class ProjectGitDelivery(models.Model):
             [("repository_id", "=", self.repository_id.id), ("sha", "=", sha)], limit=1
         )
         values = {
-            "message_excerpt": _text(commit_data.get("message"))[:255],
+            "message_excerpt": _commit_message_excerpt(commit_data.get("message")),
             "authored_at": _utc_datetime(commit_data.get("timestamp")),
             "url": _github_fact_url(self.repository_id, "commit", sha),
             "last_seen_at": fields.Datetime.now(),
@@ -611,30 +655,31 @@ class ProjectGitDelivery(models.Model):
         """
 
         for source_field, text in fields_by_name.items():
-            keys = list(
-                dict.fromkeys(
-                    match.group("key") for match in AGILE_KEY_PATTERN.finditer(text)
+            try:
+                evidence = (
+                    validated_key_summary(
+                        text,
+                        with_excerpt=source_type == "commit"
+                        and source_field == "message",
+                    )
+                    if isinstance(text, dict)
+                    else source_key_summary(_text(text))
                 )
-            )
-            if len(keys) > MAX_KEYS_PER_SOURCE:
+            except ValueError as error:
+                raise GitHubPayloadError(
+                    "The GitHub key evidence is malformed."
+                ) from error
+            if evidence["reason"]:
                 self._record_association_audit(
                     source_type,
                     source_provider_id,
                     source_field,
                     "[invalid]",
                     "rejected",
-                    "too_many_keys",
+                    evidence["reason"],
                 )
                 continue
-            if not keys and KEY_LIKE_PATTERN.search(text):
-                self._record_association_audit(
-                    source_type,
-                    source_provider_id,
-                    source_field,
-                    "[invalid]",
-                    "rejected",
-                    "invalid_key",
-                )
+            keys = evidence["keys"]
             for agile_key in keys:
                 self._associate_agile_key(
                     source_type, source_provider_id, source_field, agile_key

@@ -78,9 +78,37 @@ before receipt to retain the bounded JSON projection needed for the supported pa
 Retention selects only repository identity and event-specific normalizer inputs,
 excluding unrelated provider metadata, and scrubs recognized credential-shaped scalar
 text, including authorization bearer values and common GitHub/GitLab token forms. The
-projection must fit within 4,096 characters without truncating required text or commits;
-malformed inputs, more than 100 commits, or an oversized projection fail explicitly
-without retaining a partial payload. The exact-body digest and 256 KiB request limit
+projection extracts explicit task keys from the entire credential-scrubbed commit
+message and PR body at ingress. It retains only distinct keys and a bounded rejection
+reason (`invalid_key` or `too_many_keys`), plus the first 255 characters of each
+scrubbed commit message for display. Extraction precedes display truncation, so trailing
+keys are not lost. Both ingress and the normalizer share one parser and validate compact
+metadata shape, cardinality, key syntax/length, uniqueness, reason and excerpt bounds.
+Provider-supplied metadata is never accepted as precomputed key authority. Previously
+delivered retained text shapes remain processable through the same association path.
+
+The projection has explicit field limits, not a 4,096-character aggregate cap: ordinary
+text/ref/title/name fields 4,096 characters; identifiers/SHAs 128 (PR number 64);
+state-like scalars 32; timestamps 64; keys 128 with at most 20 distinct keys per source.
+More than 20 distinct keys rejects the field’s associations with `too_many_keys`, not
+partial linking. No valid key but a key-like token retains the `invalid_key` decision.
+Malformed or oversized required fields fail without retaining a partial payload.
+
+A push retains its first 100 commit entries from GitHub’s at-most-2,048 collection and
+the exact omitted count. The scheduled processor still records the independently
+retained head SHA and timestamp with existing ordering rules. It persists both
+`omitted_commit_count` and `commit_omission_reason` on the delivery; successful
+settlement, reprocessing, exact HTTP replay and payload cleanup do not clear them. This
+preserves branch visibility without pretending that omitted commit facts or links were
+processed. A branch-only policy would unnecessarily discard the first 100 usable commit
+observations.
+
+These bounds yield fewer than 900,000 ASCII JSON characters for any supported
+projection, even allowing 12 escape characters per non-BMP source character: each of 100
+commit entries fits within 8,200 characters (20 ASCII keys, excerpt, ID, timestamp and
+JSON structure), with fewer than 54,000 top-level characters. PR and check projections
+are smaller. This is a conservative derived storage maximum, not a new generic rejection
+threshold. The exact-body digest, 256 KiB HTTP body limit and bounded JSON nesting
 remain independent of this projection. This is defense in depth, not permission to store
 arbitrary secrets: unmatched credential formats remain residual risk and redacted
 excerpts stay System Administrator-only. Raw payloads and webhook secrets are never
@@ -97,14 +125,15 @@ project keys with a positive decimal suffix. Tokens must be delimited from every
 word character, so embedded lowercase, underscore, and Unicode-word text is not
 authority. Bounded sources are push branch refs and commit messages; pull-request title,
 body, and head ref; and check-run name/output title. Key extraction and its
-association/audit decision always use the current delivery’s validated source text, even
-if fact ordering retains a newer stored observation. Exact project-local task key
-matches create immutable association facts. Any non-local key is indistinguishable from
-an unknown key in the repository-company audit; it never triggers a cross-company or
-cross-project existence probe. Archived, invalid, duplicate, or excessive references
-create immutable audit decisions and never cause task, Sprint, follower, message, or
-stage writes. No task names, database IDs, payload project/company fields, context, or
-heuristic match is authority.
+association/audit decision always use the current delivery’s validated source key
+evidence (or previously retained source text), even if fact ordering retains a newer
+stored observation. Exact project-local task key matches create immutable association
+facts. Any non-local key is indistinguishable from an unknown key in the
+repository-company audit; it never triggers a cross-company or cross-project existence
+probe. Archived, invalid, duplicate, or excessive references create immutable audit
+decisions and never cause task, Sprint, follower, message, or stage writes. No task
+names, database IDs, payload project/company fields, context, or heuristic match is
+authority.
 
 Facts and audit records remain repository, project, and company scoped through ORM
 validation, ACLs, multi-company rules, and Project visibility. Reprocess is a Project

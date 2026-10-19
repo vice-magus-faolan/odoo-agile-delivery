@@ -61,6 +61,12 @@ class TestGitHubDeliveryRetention(TransactionCase):
     def test_cleanup_purges_only_expired_terminal_payloads_and_keeps_ledger_rows(self):
         now = fields.Datetime.now()
         processed = self._delivery("processed", "processed", now - timedelta(days=1))
+        processed.write(
+            {
+                "omitted_commit_count": 50,
+                "commit_omission_reason": "First 100 commits retained.",
+            }
+        )
         discarded = self._delivery("discarded", "discarded", now - timedelta(days=1))
         queued = self._delivery("queued", "queued", now - timedelta(days=1))
         processing = self._delivery("processing", "processing", now - timedelta(days=1))
@@ -78,6 +84,10 @@ class TestGitHubDeliveryRetention(TransactionCase):
         self.assertFalse(processed.retained_payload)
         self.assertFalse(discarded.retained_payload)
         self.assertTrue(processed.retained_payload_purged_at)
+        self.assertEqual(processed.omitted_commit_count, 50)
+        self.assertEqual(
+            processed.commit_omission_reason, "First 100 commits retained."
+        )
         self.assertTrue(discarded.retained_payload_purged_at)
         self.assertTrue(processing.retained_payload)
         self.assertTrue(queued.retained_payload)
@@ -142,14 +152,79 @@ class TestGitHubDeliveryRetention(TransactionCase):
         self.assertEqual(model._purge_expired_github_payloads(now), 1)
         self.assertEqual(model._purge_expired_github_payloads(now), 0)
 
-    def test_projection_preserves_all_commits_or_rejects_the_collection(self):
+    def test_projection_bounds_commit_facts_and_records_exact_omission(self):
         payload = {
             "repository": {"id": 6001},
-            "commits": [{"id": str(index), "message": "RET-1"} for index in range(100)],
+            "commits": [{"id": str(index), "message": "RET-1"} for index in range(150)],
         }
         excerpt = self.repository._redacted_github_payload_excerpt(payload, "push")
-        self.assertEqual(json.loads(excerpt)["commits"], payload["commits"])
-        payload["commits"].append({"id": "100", "message": "RET-2"})
+        retained = json.loads(excerpt)
+        self.assertEqual(len(retained["commits"]), 100)
+        self.assertEqual(retained["omitted_commit_count"], 50)
+        self.assertEqual(
+            [item["id"] for item in retained["commits"]],
+            [str(index) for index in range(100)],
+        )
+        self.assertEqual(
+            retained["commits"][0]["message"],
+            {"keys": ["RET-1"], "reason": False, "excerpt": "RET-1"},
+        )
+
+    def test_projection_bounds_scalars_and_semantic_key_evidence(self):
+        keys = ["RET-" + str(index) for index in range(1, 21)]
+        payload = {
+            "repository": {"id": 6001},
+            "ref": "x" * 4096,
+            "after": "a" * 128,
+            "head_commit": {"timestamp": "t" * 64},
+            "commits": [{"id": "a" * 128, "message": " ".join(keys + keys)}],
+        }
+        retained = json.loads(
+            self.repository._redacted_github_payload_excerpt(payload, "push")
+        )
+        self.assertEqual(retained["commits"][0]["message"]["keys"], keys)
+        for field, value in (("ref", "x" * 4097), ("after", "a" * 129)):
+            with self.subTest(field=field):
+                self.assertFalse(
+                    self.repository._redacted_github_payload_excerpt(
+                        {**payload, field: value}, "push"
+                    )
+                )
+        payload["commits"][0]["message"] = "RET-" + "1" * 125
+        self.assertFalse(
+            self.repository._redacted_github_payload_excerpt(payload, "push")
+        )
+        payload["commits"][0]["message"] = "RET-" + "1" * 124
+        self.assertTrue(
+            self.repository._redacted_github_payload_excerpt(payload, "push")
+        )
+        payload["head_commit"]["timestamp"] += "t"
+        self.assertFalse(
+            self.repository._redacted_github_payload_excerpt(payload, "push")
+        )
+
+    def test_maximal_projection_has_a_finite_derived_json_size(self):
+        keys = ["AA-1" + f"{index:02d}" + "0" * 122 for index in range(1, 21)]
+        commit = {
+            "id": "🙂" * 128,
+            "timestamp": "🙂" * 64,
+            "message": "🙂" * 255 + " " + " ".join(keys),
+        }
+        payload = {
+            "repository": {"id": "🙂" * 128},
+            "ref": "🙂" * 4096,
+            "after": "🙂" * 128,
+            "head_commit": {"timestamp": "🙂" * 64},
+            "commits": [commit] * 2048,
+        }
+        excerpt = self.repository._redacted_github_payload_excerpt(payload, "push")
+        self.assertTrue(excerpt)
+        self.assertLess(len(excerpt), 900000)
+        retained = json.loads(excerpt)
+        self.assertEqual(retained["omitted_commit_count"], 1948)
+        self.assertEqual(len(retained["commits"]), 100)
+        self.assertEqual(retained["commits"][0]["message"]["keys"], keys)
+        payload["commits"].append(commit)
         self.assertFalse(
             self.repository._redacted_github_payload_excerpt(payload, "push")
         )
@@ -158,6 +233,24 @@ class TestGitHubDeliveryRetention(TransactionCase):
         for event, extra in (
             ("push", {"commits": [{"message": {"secret": "private"}}]}),
             ("push", {"commits": "not-a-list"}),
+            (
+                "push",
+                {
+                    "commits": [
+                        {
+                            "message": {
+                                "keys": ["RET-1"],
+                                "reason": False,
+                                "excerpt": "RET-1",
+                            }
+                        }
+                    ]
+                },
+            ),
+            (
+                "pull_request",
+                {"pull_request": {"body": {"keys": ["RET-1"], "reason": False}}},
+            ),
             ("pull_request", {"pull_request": {"head": []}}),
             ("check_run", {"check_run": {"output": {"title": ["private"]}}}),
         ):

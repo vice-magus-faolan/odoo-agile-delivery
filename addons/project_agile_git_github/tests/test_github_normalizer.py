@@ -1174,3 +1174,61 @@ class TestGitHubDeliveryNormalization(TransactionCase):
 
         self.assertEqual(delivery.state, "discarded")
         self.assertEqual(delivery.error_summary, "Unsupported GitHub event type.")
+
+    def test_malformed_compact_metadata_cannot_change_audits_or_leave_partial_facts(
+        self,
+    ):
+        invalid_messages = [
+            {"keys": "NRM-1", "reason": False, "excerpt": ""},
+            {
+                "keys": [f"NRM-{i}" for i in range(1, 22)],
+                "reason": False,
+                "excerpt": "",
+            },
+            {"keys": ["NRM-01"], "reason": False, "excerpt": ""},
+            {"keys": ["NRM-1", "NRM-1"], "reason": False, "excerpt": ""},
+            {"keys": ["NRM-" + "1" * 125], "reason": False, "excerpt": ""},
+            {"keys": [], "reason": "unknown", "excerpt": ""},
+            {"keys": ["NRM-1"], "reason": "too_many_keys", "excerpt": ""},
+            {"keys": [], "reason": True, "excerpt": ""},
+            {"keys": [], "reason": False, "excerpt": "x" * 256},
+            {"keys": [], "reason": False},
+            {"keys": [], "reason": False, "excerpt": "", "extra": True},
+        ]
+        for index, message in enumerate(invalid_messages):
+            with self.subTest(index=index):
+                payload = self._push("a" * 40, "2026-01-03T03:04:05Z", message)
+                delivery = self._delivery("push", payload, f"bad-compact-{index}")
+                self._process(delivery)
+                self.assertEqual(delivery.state, "failed")
+                self.assertIn("evidence", delivery.error_summary)
+                self.assertFalse(
+                    self.env["project.git.branch"].search(
+                        [("repository_id", "=", self.repository.id)]
+                    )
+                )
+                self.assertFalse(
+                    self.env["project.git.commit"].search(
+                        [("repository_id", "=", self.repository.id)]
+                    )
+                )
+                self.assertFalse(
+                    self.env["project.git.association.audit"].search(
+                        [("delivery_id", "=", delivery.id)]
+                    )
+                )
+
+    def test_malformed_omission_metadata_rolls_back_branch_and_commit_facts(self):
+        for index, omitted in enumerate((-1, True, 1949, 1)):
+            with self.subTest(omitted=omitted):
+                payload = self._push("a" * 40, "2026-01-03T03:04:05Z", "NRM-1")
+                payload["omitted_commit_count"] = omitted
+                delivery = self._delivery("push", payload, f"bad-omission-{index}")
+                self._process(delivery)
+                self.assertEqual(delivery.state, "failed")
+                self.assertIn("omitted commit count", delivery.error_summary)
+                self.assertFalse(
+                    self.env["project.git.branch"].search(
+                        [("repository_id", "=", self.repository.id)]
+                    )
+                )

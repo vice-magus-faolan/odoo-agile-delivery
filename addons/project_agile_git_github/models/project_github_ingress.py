@@ -8,8 +8,12 @@ from psycopg2 import IntegrityError
 
 from odoo import api, fields, models
 
-MAX_RETAINED_PAYLOAD_CHARS = 4096
-MAX_RETAINED_COLLECTION_ITEMS = 100
+from .github_keys import (
+    MAX_PROVIDER_COMMITS,
+    MAX_RETAINED_COMMITS,
+    source_key_summary,
+)
+
 RETAINED_PAYLOAD_DAYS = 30
 MAX_REPLAY_MISMATCH_COUNT = 100
 _SCALAR_REDACTION_PATTERNS = (
@@ -35,46 +39,67 @@ def _redact_scalar_text(value):
     return value
 
 
-# These are the normalizer inputs, not a subset of arbitrary provider metadata.
-# Missing fields stay missing so native validation/defaults retain their meaning.
+def _compact_source(value, with_excerpt=False):
+    """Extract keys before display truncation, after credential scrubbing."""
+
+    if value is None and not with_excerpt:
+        value = ""
+    if not isinstance(value, str):
+        raise ValueError("Malformed GitHub source text.")
+    value = _redact_scalar_text(value)
+    summary = source_key_summary(value)
+    if with_excerpt:
+        summary["excerpt"] = value[:255]
+    return summary
+
+
+def _compact_message(value):
+    """Retain the message display excerpt and full-source key evidence."""
+
+    return _compact_source(value, with_excerpt=True)
+
+
+# Scalar limits count characters before JSON escaping. Missing fields stay
+# missing so native validation/defaults retain their meaning. Callable shapes
+# accept provider text only, never caller-supplied compact evidence.
 _EVENT_INPUTS = {
     "push": {
-        "ref": None,
-        "after": None,
-        "head_commit": {"timestamp": None},
-        "commits": [{"id": None, "message": None, "timestamp": None}],
+        "ref": 4096,
+        "after": 128,
+        "head_commit": {"timestamp": 64},
+        "commits": [{"id": 128, "message": _compact_message, "timestamp": 64}],
     },
     "pull_request": {
-        "number": None,
+        "number": 64,
         "pull_request": {
-            "id": None,
-            "title": None,
-            "body": None,
-            "state": None,
-            "merged": None,
-            "merged_at": None,
-            "updated_at": None,
-            "head": {"ref": None, "sha": None},
-            "base": {"ref": None},
+            "id": 128,
+            "title": 4096,
+            "body": _compact_source,
+            "state": 32,
+            "merged": 32,
+            "merged_at": 64,
+            "updated_at": 64,
+            "head": {"ref": 4096, "sha": 128},
+            "base": {"ref": 4096},
         },
     },
     "check_run": {
         "check_run": {
-            "id": None,
-            "name": None,
-            "status": None,
-            "conclusion": None,
-            "head_sha": None,
-            "completed_at": None,
-            "updated_at": None,
-            "output": {"title": None},
+            "id": 128,
+            "name": 4096,
+            "status": 32,
+            "conclusion": 32,
+            "head_sha": 128,
+            "completed_at": 64,
+            "updated_at": 64,
+            "output": {"title": 4096},
         },
     },
 }
 
 
 def _project_payload_value(value, shape):
-    """Select consumer inputs without truncating collections or source text."""
+    """Select bounded consumer inputs, compacting only declared source text."""
 
     if isinstance(shape, dict):
         if not isinstance(value, dict):
@@ -85,12 +110,22 @@ def _project_payload_value(value, shape):
             if key in value
         }
     if isinstance(shape, list):
-        if not isinstance(value, list) or len(value) > MAX_RETAINED_COLLECTION_ITEMS:
+        if not isinstance(value, list) or len(value) > MAX_PROVIDER_COMMITS:
             raise ValueError("Malformed or oversized GitHub input collection.")
-        return [_project_payload_value(item, shape[0]) for item in value]
-    if isinstance(value, (dict, list)):
-        raise ValueError("Malformed GitHub scalar input.")
-    return _redact_scalar_text(value) if isinstance(value, str) else value
+        return [
+            _project_payload_value(item, shape[0])
+            for item in value[:MAX_RETAINED_COMMITS]
+        ]
+    if callable(shape):
+        return shape(value)
+    if value is None:
+        return None
+    if not isinstance(value, (str, int)) or len(str(value)) > shape:
+        raise ValueError("Malformed or oversized GitHub scalar input.")
+    projected = _redact_scalar_text(value) if isinstance(value, str) else value
+    if len(str(projected)) > shape:
+        raise ValueError("Oversized redacted GitHub scalar input.")
+    return projected
 
 
 class ProjectGitRepository(models.Model):
@@ -129,20 +164,23 @@ class ProjectGitRepository(models.Model):
 
     @api.model
     def _redacted_github_payload_excerpt(self, payload, event_type):
-        """Retain only credential-scrubbed normalizer inputs within the fixed cap.
+        """Retain finite semantic inputs, not arbitrary provider text/metadata.
 
-        Reject an intrinsically oversized or malformed projection as a whole:
-        cutting text or commits could silently lose facts or explicit task keys.
-        Unsupported events need only repository identity for terminal diagnostics.
+        First 100 commit facts are retained; the exact omitted count travels
+        separately so settlement can persist a manager-visible diagnostic.
+        Unsupported events need only repository identity.
         """
 
-        shape = {"repository": {"id": None}, **_EVENT_INPUTS.get(event_type, {})}
+        shape = {"repository": {"id": 128}, **_EVENT_INPUTS.get(event_type, {})}
         try:
             projection = _project_payload_value(payload, shape)
         except ValueError:
             return False
-        excerpt = json.dumps(projection, ensure_ascii=True, separators=(",", ":"))
-        return excerpt if len(excerpt) <= MAX_RETAINED_PAYLOAD_CHARS else False
+        if event_type == "push" and "commits" in projection:
+            projection["omitted_commit_count"] = max(
+                len(payload["commits"]) - MAX_RETAINED_COMMITS, 0
+            )
+        return json.dumps(projection, ensure_ascii=True, separators=(",", ":"))
 
 
 class ProjectGitDelivery(models.Model):

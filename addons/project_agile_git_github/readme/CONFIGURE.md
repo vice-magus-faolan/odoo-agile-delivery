@@ -31,8 +31,22 @@ A 202 means Odoo saved the delivery. Check its **State** to see whether it was
 processed. An exact duplicate uses the same delivery. A reused delivery ID with
 different event type, body digest or size returns HTTP 409.
 
-A retained redacted JSON excerpt must fit within 4,096 characters; an oversized
-excerpt produces a **Failed** delivery with a diagnostic and no retained payload.
+Redacted Excerpt retains only the supported event fields needed for facts and
+task links, not the full GitHub body. It extracts task keys from complete commit
+messages and PR bodies, retaining keys and a credential-scrubbed 255-character
+commit display excerpt rather than the full text. Other retained text is limited
+to 4,096 characters, identifiers to 128 (PR numbers to 64), states to 32 and
+timestamps to 64. Each source field allows at most 20 distinct keys of up to 128
+characters. Excessive keys are recorded as a rejected association decision.
+Malformed or oversized required fields produce a **Failed** delivery with a
+diagnostic and no retained payload.
+
+Pushes retain the first 100 commits from GitHub’s collection of up to 2,048.
+Larger pushes still update the branch head; **Omitted Commit Count** and
+**Commit Omission Reason** on the delivery identify the skipped commits even
+after successful processing or payload cleanup. These field and collection
+limits bound retained JSON to fewer than 900,000 characters, including Unicode
+escaping; there is no separate 4,096-character total-payload cap.
 Redaction removes recognized credentials but may leave sensitive text or unknown
 credential formats. Keep such content out of webhook fields and do not copy
 payloads or secrets into chatter, tickets or routine exports. Secret and retained

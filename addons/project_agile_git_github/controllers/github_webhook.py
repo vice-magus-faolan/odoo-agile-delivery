@@ -15,7 +15,9 @@ MAX_DELIVERY_ID_LENGTH = 128
 MAX_EVENT_TYPE_LENGTH = 100
 MAX_JSON_NESTING = 100
 _SIGNATURE_PATTERN = re.compile(r"sha256=[0-9a-f]{64}")
-_RETENTION_LIMIT_ERROR = "The signed payload exceeds the safe retained excerpt limit."
+_RETENTION_LIMIT_ERROR = (
+    "The signed payload has malformed or oversized processing input."
+)
 
 
 def _response(status):
@@ -146,7 +148,7 @@ class GitHubWebhookController(http.Controller):
         retention_error = None
         if ingress["retention_policy"] == "redacted_excerpt":
             retained_payload = repository_model._redacted_github_payload_excerpt(
-                payload
+                payload, event_type
             )
             if not retained_payload:
                 retention_error = _RETENTION_LIMIT_ERROR

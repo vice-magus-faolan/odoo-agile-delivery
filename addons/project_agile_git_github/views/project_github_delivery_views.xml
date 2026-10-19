@@ -19,6 +19,8 @@
       </xpath>
       <xpath expr="//field[@name='retained_until']" position="after">
         <field name="retained_payload_purged_at" />
+        <field name="omitted_commit_count" />
+        <field name="commit_omission_reason" />
         <field name="replay_mismatch_count" />
         <field name="last_replay_mismatch_at" />
       </xpath>

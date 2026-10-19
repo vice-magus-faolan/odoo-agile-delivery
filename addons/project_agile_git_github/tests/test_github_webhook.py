@@ -4,9 +4,11 @@ import hashlib
 import hmac
 import json
 import threading
+from pathlib import Path
 
 import requests
 
+from odoo.exceptions import ValidationError
 from odoo.tests import HttpCase, tagged
 
 
@@ -336,7 +338,9 @@ class TestGitHubWebhook(HttpCase):
                 ("provider_delivery_id", "=", "delivery-redacted"),
             ]
         )
-        self.assertIn("[redacted]", delivery.retained_payload)
+        self.assertEqual(
+            json.loads(delivery.retained_payload), {"repository": {"id": "4242"}}
+        )
         self.assertNotIn("must-not-be-retained", delivery.retained_payload)
         self.assertTrue(delivery.retained_until)
 
@@ -345,7 +349,10 @@ class TestGitHubWebhook(HttpCase):
         credential = "TOPSECRET123"
 
         response = self._post(
-            self._payload(message="Authorization: " + "Bearer " + credential),
+            {
+                **self._payload(),
+                "commits": [{"message": "Authorization: " + "Bearer " + credential}],
+            },
             delivery_id="delivery-scalar-secret",
         )
 
@@ -364,7 +371,10 @@ class TestGitHubWebhook(HttpCase):
         credential = "github_pat_" + "A" * 24
 
         response = self._post(
-            self._payload(message="rotated provider credential " + credential),
+            {
+                **self._payload(),
+                "ref": "refs/heads/rotated-provider-credential-" + credential,
+            },
             delivery_id="delivery-github-pat",
         )
 
@@ -377,3 +387,360 @@ class TestGitHubWebhook(HttpCase):
         )
         self.assertNotIn(credential, delivery.retained_payload)
         self.assertIn("[redacted]", delivery.retained_payload)
+
+    def _sample_delivery(self, event, adapt):
+        self.repository.retention_policy = "redacted_excerpt"
+        task = self.env["project.task"].create(
+            {"name": "Official sample reference", "project_id": self.project.id}
+        )
+        payload = json.loads(
+            (Path(__file__).parent / "fixtures" / (event + ".json")).read_text()
+        )
+        payload["repository"]["id"] = 4242
+        adapt(payload, task.agile_key)
+        raw = json.dumps(payload, separators=(",", ":")).encode()
+        self.assertGreater(len(raw), 4096)
+        response = self._post(payload, "sample-" + event, **{"X-GitHub-Event": event})
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", "sample-" + event),
+            ]
+        )
+        self.assertEqual(delivery.payload_sha256, hashlib.sha256(raw).hexdigest())
+        self.assertEqual(delivery.payload_size, len(raw))
+        self.assertEqual(delivery.state, "queued", delivery.error_summary)
+        retained = json.loads(delivery.retained_payload)
+        self.assertEqual(retained["repository"], {"id": 4242})
+        self.assertNotIn("sender", retained)
+        self.assertNotIn("installation", retained)
+        self.assertNotIn("users.noreply.github.com", delivery.retained_payload)
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.env.invalidate_all()
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        return payload, delivery, task
+
+    def _assert_sample_link(self, task, source_type, provider_id):
+        links = self.env["project.git.task.association"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("source_type", "=", source_type),
+                ("source_provider_id", "=", provider_id),
+            ]
+        )
+        self.assertEqual(links.task_id, task)
+        self.assertEqual(links.agile_key, task.agile_key)
+
+    def test_realistic_push_produces_facts_and_links(self):
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/feature/" + key
+            payload["commits"][0]["message"] += " " + key
+            payload["head_commit"]["message"] += " " + key
+
+        payload, delivery, task = self._sample_delivery("push", adapt)
+        branch = self.env["project.git.branch"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        commit = self.env["project.git.commit"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(branch.name, "feature/" + task.agile_key)
+        self.assertEqual(branch.head_sha, "6113728f27ae82c7b1a177c8d03f9e96e0adf246")
+        self.assertEqual(str(branch.source_updated_at), "2019-05-15 15:19:25")
+        self.assertEqual(commit.sha, branch.head_sha)
+        self.assertEqual(commit.message_excerpt, "Initial commit " + task.agile_key)
+        self.assertEqual(commit.provenance_delivery_id, delivery)
+        retained = json.loads(delivery.retained_payload)
+        self.assertEqual(set(retained["commits"][0]), {"id", "message", "timestamp"})
+        self._assert_sample_link(task, "branch", payload["ref"])
+        self._assert_sample_link(task, "commit", commit.sha)
+
+    def test_realistic_pull_request_produces_facts_and_links(self):
+        def adapt(payload, key):
+            payload["pull_request"]["title"] += " " + key
+            payload["pull_request"]["body"] += " " + key
+            payload["pull_request"]["head"]["ref"] += "/" + key
+
+        payload, delivery, task = self._sample_delivery("pull_request", adapt)
+        pull = self.env["project.git.pull.request"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(pull.provider_request_id, "279147437")
+        self.assertEqual(pull.number, "2")
+        self.assertEqual(
+            pull.title, "Update the README with new information. " + task.agile_key
+        )
+        self.assertEqual(
+            (pull.state, pull.source_branch, pull.target_branch),
+            ("open", "changes/" + task.agile_key, "master"),
+        )
+        self.assertEqual(str(pull.updated_at), "2019-05-15 15:20:33")
+        self.assertEqual(pull.head_sha, "ec26c3e57ca3a959ca5aad62de7213c562f8c821")
+        self.assertEqual(pull.provenance_delivery_id, delivery)
+        self.assertNotIn("user", json.loads(delivery.retained_payload)["pull_request"])
+        self._assert_sample_link(
+            task, "pull_request", str(payload["pull_request"]["id"])
+        )
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id), ("task_id", "=", task.id)]
+        )
+        self.assertEqual(
+            set(audits.mapped("source_field")), {"title", "body", "head_ref"}
+        )
+
+    def test_realistic_check_run_produces_facts_and_links(self):
+        def adapt(payload, key):
+            payload["check_run"]["name"] += " " + key
+            payload["check_run"]["output"]["title"] = key
+
+        payload, delivery, task = self._sample_delivery("check_run", adapt)
+        check = self.env["project.git.check"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(check.provider_check_id, "128620228")
+        self.assertEqual(check.name, "Octocoders-linter " + task.agile_key)
+        self.assertEqual(check.state, "success")
+        self.assertEqual(check.head_sha, "ec26c3e57ca3a959ca5aad62de7213c562f8c821")
+        self.assertEqual(str(check.completed_at), "2019-05-15 15:21:12")
+        self.assertFalse(check.updated_at)
+        self.assertEqual(check.provenance_delivery_id, delivery)
+        output = json.loads(delivery.retained_payload)["check_run"]["output"]
+        self.assertEqual(output, {"title": task.agile_key})
+        self._assert_sample_link(task, "check", str(payload["check_run"]["id"]))
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id), ("task_id", "=", task.id)]
+        )
+        self.assertEqual(set(audits.mapped("source_field")), {"name", "output_title"})
+
+    def test_oversized_required_field_is_terminal_without_partial_facts(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        payload = {
+            **self._payload(),
+            "ref": "refs/heads/" + "x" * 4096,
+            "after": "a" * 40,
+            "commits": [{"id": "a" * 40, "message": "GHI-1"}],
+        }
+        response = self._post(payload, "required-overflow")
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(delivery.state, "failed")
+        self.assertIn("oversized processing input", delivery.error_summary)
+        self.assertFalse(delivery.retained_payload)
+        self.assertFalse(delivery.retained_until)
+        self.assertEqual(delivery.attempt_count, 0)
+        self.assertFalse(self.env["project.git.delivery"]._claim_github_delivery())
+        self.assertFalse(
+            self.env["project.git.branch"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        with self.assertRaises(ValidationError):
+            delivery.action_reprocess_github_delivery()
+
+    def test_projection_does_not_hide_mismatched_raw_body_replays(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        payload = {**self._payload(), "sender": {"login": "first"}}
+        first = self._post(payload, "projection-replay")
+        payload["sender"]["login"] = "second"
+        second = self._post(payload, "projection-replay")
+        self.assertEqual((first.status_code, second.status_code), (202, 409))
+        delivery = self.env["project.git.delivery"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(delivery.replay_mismatch_count, 1)
+        self.assertNotIn("sender", delivery.retained_payload)
+
+    def test_fifty_real_length_commit_messages_keep_keys_after_display_excerpt(self):
+        credential = "ghp_" + "S" * 24
+        narrative = (
+            "Explain the migration, compatibility and verification details. " * 12
+        )
+
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/main"
+            payload["commits"] = [
+                {
+                    "id": f"{index:040x}",
+                    "timestamp": "2026-10-19T12:00:00Z",
+                    "message": credential + " " + narrative + key + " " + key,
+                }
+                for index in range(1, 51)
+            ]
+            payload["after"] = payload["commits"][-1]["id"]
+            payload["head_commit"]["timestamp"] = "2026-10-19T12:00:00Z"
+            payload["omitted_commit_count"] = 999
+
+        payload, delivery, task = self._sample_delivery("push", adapt)
+        commits = self.env["project.git.commit"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(len(commits), 50)
+        self.assertTrue(all(len(commit.message_excerpt) == 255 for commit in commits))
+        self.assertNotIn(credential, delivery.retained_payload)
+        self.assertNotIn(narrative, delivery.retained_payload)
+        self.assertEqual(delivery.omitted_commit_count, 0)
+        retained = json.loads(delivery.retained_payload)
+        self.assertEqual(retained["omitted_commit_count"], 0)
+        for commit in payload["commits"]:
+            self._assert_sample_link(task, "commit", commit["id"])
+        for commit in retained["commits"]:
+            self.assertEqual(commit["message"]["keys"], [task.agile_key])
+            self.assertNotIn(task.agile_key, commit["message"]["excerpt"])
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual(len(audits), 50)
+        self.assertEqual(set(audits.mapped("source_field")), {"message"})
+        self.assertEqual(set(audits.mapped("reason")), {"exact_key"})
+
+    def test_ten_thousand_character_pr_body_keeps_only_late_key_evidence(self):
+        credential = "github_pat_" + "S" * 24
+        private_text = "Private generated change narrative. " * 300
+
+        def adapt(payload, key):
+            payload["pull_request"]["body"] = credential + " " + private_text + key
+
+        payload, delivery, task = self._sample_delivery("pull_request", adapt)
+        self.assertGreater(len(payload["pull_request"]["body"]), 10000)
+        self.assertNotIn(credential, delivery.retained_payload)
+        self.assertNotIn("Private generated", delivery.retained_payload)
+        retained_body = json.loads(delivery.retained_payload)["pull_request"]["body"]
+        self.assertEqual(retained_body, {"keys": [task.agile_key], "reason": False})
+        pull = self.env["project.git.pull.request"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(pull.provider_request_id, str(payload["pull_request"]["id"]))
+        self.assertEqual(pull.title, payload["pull_request"]["title"])
+        self._assert_sample_link(task, "pull_request", pull.provider_request_id)
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual((audits.source_field, audits.reason), ("body", "exact_key"))
+
+    def test_large_push_advances_head_and_persists_exact_omission_after_replay(self):
+        branch = self.env["project.git.branch"].create(
+            {
+                "repository_id": self.repository.id,
+                "provider_branch_id": "refs/heads/main",
+                "name": "main",
+                "head_sha": "f" * 40,
+                "source_updated_at": "2026-10-18 12:00:00",
+            }
+        )
+
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/main"
+            payload["after"] = f"{150:040x}"
+            payload["head_commit"]["timestamp"] = "2026-10-19T12:00:00Z"
+            payload["commits"] = [
+                {"id": f"{index:040x}", "message": "Merge work for " + key}
+                for index in range(1, 151)
+            ]
+
+        payload, delivery, task = self._sample_delivery("push", adapt)
+        self.assertEqual(branch.head_sha, payload["after"])
+        self.assertEqual(branch.ordering_state, "known")
+        self.assertEqual(branch.provenance_delivery_id, delivery)
+        self.assertEqual(str(branch.source_updated_at), "2026-10-19 12:00:00")
+        commits = self.env["project.git.commit"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(
+            set(commits.mapped("sha")), {f"{i:040x}" for i in range(1, 101)}
+        )
+        self.assertEqual(delivery.omitted_commit_count, 50)
+        self.assertEqual(
+            delivery.commit_omission_reason,
+            "Only the first 100 commits in a push are retained.",
+        )
+        self.assertFalse(delivery.error_summary)
+        self.assertEqual(len(json.loads(delivery.retained_payload)["commits"]), 100)
+        links = self.env["project.git.task.association"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(len(links), 100)
+        self.assertEqual(links.task_id, task)
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual(len(audits), 100)
+        replay = self._post(payload, "sample-push")
+        self.assertEqual(replay.status_code, 202)
+        self.env.invalidate_all()
+        self.assertEqual(self._delivery_count(), 1)
+        self.assertEqual(
+            (delivery.state, delivery.omitted_commit_count), ("processed", 50)
+        )
+        self.assertTrue(delivery.commit_omission_reason)
+        self.assertEqual(
+            delivery.payload_sha256,
+            hashlib.sha256(
+                json.dumps(payload, separators=(",", ":")).encode()
+            ).hexdigest(),
+        )
+        # Reprocessing is another settlement; it must not clear the notice or
+        # duplicate facts/decisions even when associations already exist.
+        delivery.state = "failed"
+        delivery.action_reprocess_github_delivery()
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.env.invalidate_all()
+        self.assertEqual(
+            (delivery.state, delivery.omitted_commit_count), ("processed", 50)
+        )
+        self.assertTrue(delivery.commit_omission_reason)
+        self.assertEqual(
+            self.env["project.git.commit"].search_count(
+                [("repository_id", "=", self.repository.id)]
+            ),
+            100,
+        )
+        self.assertEqual(
+            self.env["project.git.association.audit"].search_count(
+                [("delivery_id", "=", delivery.id)]
+            ),
+            100,
+        )
+
+    def test_compact_sources_preserve_invalid_excessive_and_deduplicated_audits(self):
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/main"
+            messages = [
+                "GHI-01",
+                " ".join(f"GHI-{index}" for index in range(1, 22)),
+                key + " " + key + " GHI-01",
+                "é" + key + " _" + key + " " + key + "_",
+            ]
+            payload["commits"] = [
+                {"id": f"{index:040x}", "message": "x" * 5000 + " " + message}
+                for index, message in enumerate(messages, 1)
+            ]
+
+        _payload, delivery, task = self._sample_delivery("push", adapt)
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual(len(audits), 4)
+        self.assertEqual(
+            {audit.source_provider_id: audit.reason for audit in audits},
+            {
+                f"{1:040x}": "invalid_key",
+                f"{2:040x}": "too_many_keys",
+                f"{3:040x}": "exact_key",
+                f"{4:040x}": "invalid_key",
+            },
+        )
+        self.assertEqual(set(audits.mapped("source_field")), {"message"})
+        self._assert_sample_link(task, "commit", f"{3:040x}")
+        self.assertEqual(
+            self.env["project.git.task.association"].search_count(
+                [("repository_id", "=", self.repository.id)]
+            ),
+            1,
+        )

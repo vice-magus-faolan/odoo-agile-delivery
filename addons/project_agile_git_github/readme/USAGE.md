@@ -10,8 +10,11 @@ For example, use branch `feature/ENG-142-oauth` or commit message
 `ENG-142: Add OAuth callback`. Keys use an uppercase prefix of 2 to 10 letters
 or digits starting with a letter, a hyphen, and a positive decimal suffix.
 Separate the key from surrounding word characters. Matching is limited to
-active tasks in the configured repository Project and company. Source text is
-bounded to 4,096 characters with at most 20 distinct keys per source field.
+active tasks in the configured repository Project and company. Keys are matched
+throughout complete commit messages and PR bodies before text is discarded or
+shortened for display. Other source text is limited to 4,096 characters. Each
+source field allows at most 20 distinct keys, each at most 128 characters; more
+than 20 rejects associations for that field rather than linking only some keys.
 
 After scheduled processing, open the task and choose **Branches**, **Commits**,
 **Pull Requests** or **Checks** to inspect its linked facts. A missing link can
@@ -34,16 +37,18 @@ reuse of a delivery ID.
   another try. Malformed payloads fail without automatic retries; unsupported
   events with retained payloads become **Discarded**.
 - **Processed** means processing completed. Inspect task-linked facts to see
-  the observations and their source ordering.
+  the observations and their source ordering. A push retains at most its first
+  100 commits. **Omitted Commit Count** and **Commit Omission Reason** identify
+  any remainder; the branch head still reflects the push, subject to source
+  ordering. The notice survives successful processing and reprocessing.
 - After correcting the cause of a **Failed** or **Discarded** delivery, choose
   **Reprocess** if a retained payload is still available. It queues the same
   delivery again and keeps its attempt count, so a delivery that used its five
   attempts gets one more try.
 
-Digest-only, oversized-excerpt and purged deliveries have no payload to
+Digest-only, oversized-input and purged deliveries have no payload to
 reprocess. Arrange a new provider delivery after correcting configuration;
-exact redelivery of an old delivery does not fill its missing payload. Oversized
-payloads remain subject to the current limitation linked above.
+exact redelivery of an old delivery does not fill its missing payload.
 
 Retained excerpts receive a 30-day expiry. Daily cleanup removes expired
 excerpts only from **Processed** or **Discarded** deliveries, in batches of at

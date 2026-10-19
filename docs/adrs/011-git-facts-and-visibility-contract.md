@@ -90,11 +90,11 @@ delivered retained text shapes remain processable through the same association p
 The projection has explicit field limits, not a 4,096-character aggregate cap: ordinary
 text/ref/title/name fields 4,096 characters; identifiers/SHAs 128 (PR number 64);
 state-like scalars 32; timestamps 64; keys 128 with at most 20 distinct keys per source.
-More than 20 distinct keys rejects the field’s associations with `too_many_keys`, not
+More than 20 distinct keys rejects the field's associations with `too_many_keys`, not
 partial linking. No valid key but a key-like token retains the `invalid_key` decision.
 Malformed or oversized required fields fail without retaining a partial payload.
 
-A push retains its first 100 commit entries from GitHub’s at-most-2,048 collection and
+A push retains its first 100 commit entries from GitHub's at-most-2,048 collection and
 the exact omitted count. The scheduled processor still records the independently
 retained head SHA and timestamp with existing ordering rules. It persists both
 `omitted_commit_count` and `commit_omission_reason` on the delivery; successful
@@ -125,7 +125,7 @@ project keys with a positive decimal suffix. Tokens must be delimited from every
 word character, so embedded lowercase, underscore, and Unicode-word text is not
 authority. Bounded sources are push branch refs and commit messages; pull-request title,
 body, and head ref; and check-run name/output title. Key extraction and its
-association/audit decision always use the current delivery’s validated source key
+association/audit decision always use the current delivery's validated source key
 evidence (or previously retained source text), even if fact ordering retains a newer
 stored observation. Exact project-local task key matches create immutable association
 facts. Any non-local key is indistinguishable from an unknown key in the

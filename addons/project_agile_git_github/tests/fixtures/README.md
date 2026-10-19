@@ -10,5 +10,4 @@ commit `aa80c24a3f55354465b8b1438d33dd5602956d0d`:
 
 The upstream MIT license and copyright notice are reproduced in `LICENSE`. Tests adapt
 only the configured repository ID and append generated task keys to source text (and
-substitute the push branch ref). All surrounding provider metadata is preserved in the
-signed HTTP body, not replaced by a minimal synthetic payload.
+substitute the push branch ref).

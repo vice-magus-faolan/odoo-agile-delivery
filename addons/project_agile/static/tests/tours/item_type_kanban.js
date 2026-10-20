@@ -54,32 +54,8 @@ registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
   steps: () => [
     {trigger: ".o_cp_action_menus button", run: "click"},
     {
-      trigger: ".o-dropdown--menu",
-      run() {
-        const items = [
-          ...document.querySelectorAll(".o-dropdown--menu .dropdown-item"),
-        ];
-        console.log(
-          "PICKER native actions",
-          items.map((item) => item.textContent)
-        );
-        const convert = items.find((item) =>
-          /convert.*sub.?task/i.test(item.textContent)
-        );
-        if (!convert) {
-          throw new Error("Missing native convert-to-subtask action");
-        }
-        convert.click();
-      },
-    },
-    {
-      trigger: ".modal .o_form_view",
-      run() {
-        console.log(
-          "PICKER native dialog",
-          document.querySelector(".modal .o_form_view").outerHTML
-        );
-      },
+      trigger: ".o-dropdown--menu .dropdown-item:contains(Convert to Task/Sub-Task)",
+      run: "click",
     },
     {
       trigger: ".modal .o_field_widget[name='parent_id'] input",
@@ -93,6 +69,11 @@ registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
       trigger: ".modal .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-",
     },
-    {trigger: ".o-autocomplete--dropdown-item:contains([BOARD-1] Add approval)"},
+    {
+      trigger: ".o-autocomplete--dropdown-item:contains([BOARD-1] Add approval)",
+      run: "click",
+    },
+    {trigger: ".modal-footer .btn-primary", run: "click"},
+    {trigger: "body:not(:has(.modal)) .o_form_view"},
   ],
 });

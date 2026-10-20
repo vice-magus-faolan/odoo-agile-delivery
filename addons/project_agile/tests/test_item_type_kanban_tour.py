@@ -1,5 +1,3 @@
-import logging
-
 from lxml import etree
 
 from odoo import Command
@@ -100,16 +98,10 @@ class TestItemTypeKanbanTour(HttpCase):
                 ).id,
             }
         )
-        for convert_action in self.env["ir.actions.server"].search(
-            [("model_id.model", "=", "project.task"), ("name", "ilike", "convert")]
-        ):
-            logging.getLogger(__name__).info(
-                "PICKER native conversion action: %s %s",
-                convert_action.name,
-                convert_action.code,
-            )
         self.start_tour(
             f"/odoo/action-{action.id}/{task.id}",
             "agile_task_key_parent_picker",
             login=user.login,
         )
+        task.invalidate_recordset(["parent_id"])
+        self.assertEqual(task.parent_id.agile_key, "BOARD-1")

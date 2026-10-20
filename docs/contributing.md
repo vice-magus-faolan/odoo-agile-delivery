@@ -16,13 +16,35 @@ pre-commit run --all-files --show-diff-on-failure
 ./scripts/verify
 ```
 
-CI runs lint and module tests on every pull request. Both must pass on the current PR
-revision before merge. Use local checks for focused development feedback and failure
-diagnosis.
+CI retains the required `lint` and `modules` jobs. Both must pass on the current PR
+revision before merge. PR verification tests GitHub's merge of the PR into the current
+base branch. It compares that merge commit against `PR_BASE` to select standalone unit
+suites for changed addons and their transitive manifest and Python import dependents.
+Prerequisites are installed independently of test selection. The combined installation
+always runs every supported addon suite: addons can override the same ORM model without
+depending on one another. Default-branch pushes and `./scripts/verify` without arguments
+also run every standalone suite; ordinary topic pushes do not duplicate PR runs.
 
-Until issue #7, `prefer-env-translation` (`W8161`) remains advisory in the optional
-pylint hook, with all other mandatory checks blocking. Issue #7 must assess language
-fallbacks and multilingual compatibility before restoring mandatory gating.
+Use `./scripts/verify --pr BASE_SHA MERGE_SHA` with the merge commit checked out to
+reproduce PR selection, or `./scripts/verify --addons project_scrum_analytics` to focus
+standalone tests on those addons and affected dependents. Both commands keep the full
+combined suite. `python3 scripts/ci_selection.py --pr BASE_SHA MERGE_SHA` prints the
+standalone selection without starting Docker. Selector regression tests run with
+`python3 -m unittest discover -s scripts/tests -v` and through the canonical verifier.
+Commit source changes before using selection, which reads the checked-out Git revision.
+
+Shared tooling, unknown paths, manifest changes, deletions, renames and failed
+comparison analysis run every suite. An invalid supported dependency graph stops
+verification with an error. A docs-only PR runs the selector tests, skips Odoo
+verification and passes the job. The Community verifier excludes Document Page bridges
+while their optional backend is unavailable. Native test failures fail the job. All
+standalone installations, populated upgrades, external concurrency probes and
+uninstall/reinstall checks run in both full and focused modes.
+
+Use local checks for focused development feedback and failure diagnosis. Until issue #7,
+`prefer-env-translation` (`W8161`) remains advisory in the optional pylint hook, with
+all other mandatory checks blocking. Issue #7 must assess language fallbacks and
+multilingual compatibility before restoring mandatory gating.
 
 External process/lifecycle checks, including the planning races run by
 `./scripts/verify`, are documented in [the probe guide](../scripts/probes/README.md).

@@ -15,8 +15,20 @@ DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
-MODULES=project_agile,project_scrum,project_scrum_analytics,project_agile_ui,project_agile_git,project_agile_git_github,project_agile_git_automation,project_agile_solution,project_agile_solution_scrum,hr_timesheet
-TEST_TAGS=/project_agile,/project_scrum,/project_scrum_analytics,/project_agile_ui,/project_agile_git,/project_agile_git_github,/project_agile_git_automation,/project_agile_solution,/project_agile_solution_scrum
+# No arguments runs every supported suite.
+# Analysis errors fall back to full; an invalid supported graph fails visibly.
+SELECTION=$(python3 "$ROOT/scripts/ci_selection.py" --format lines "$@")
+mapfile -t PLAN <<< "$SELECTION"
+MODE=${PLAN[0]}
+SELECTED=${PLAN[1]}
+MODULES=${PLAN[2]}
+printf "Verification mode: %s\nSelected standalone unit addons: %s\nReason: %s\nExcluded unavailable bridges: %s\n" "$MODE" "$SELECTED" "${PLAN[3]}" "${PLAN[4]:-}"
+python3 -m unittest discover -s scripts/tests -v
+if [[ $MODE == none ]]; then
+    printf "%s\n" "Documentation-only changes; skipping Odoo verification."
+    exit 0
+fi
+
 
 source "$ROOT/scripts/lib/compose-teardown.sh"
 
@@ -47,6 +59,25 @@ reset_verification_database() {
 
 run_odoo() {
     "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"
+}
+
+# Select tests only in standalone registries, without testing every prerequisite.
+run_unit_install() {
+    local database=$1 modules=$2 module tags=""
+    local -a suites
+    IFS=, read -ra suites <<< "${3:-$modules}"
+    for module in "${suites[@]}"; do
+        if [[ ,$SELECTED, == *,"$module",* ]]; then
+            tags+="${tags:+,}/$module"
+        fi
+    done
+    if [[ -n $tags ]]; then
+        printf "Native unit discovery: install=%s tags=%s\n" "$modules" "$tags"
+        run_odoo --database "$database" --init "$modules" --test-enable --test-tags "$tags"
+    else
+        printf "No selected unit suites in standalone install: %s\n" "$modules"
+        run_odoo --database "$database" --init "$modules"
+    fi
 }
 
 uninstall_module() {
@@ -101,10 +132,10 @@ run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"
 { printf "PHASE = \"check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_INSTALL"
-run_odoo --database "$DATABASE_INSTALL" --init project_agile_git_automation --test-enable --test-tags /project_agile_git_automation
+run_unit_install "$DATABASE_INSTALL" project_agile_git_automation
 printf "%s\n" "Independent optional Git policy install passed (without GitHub or Scrum)."
 reset_verification_database "$DATABASE_INSTALL"
-run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution --test-enable --test-tags /project_agile_solution
+run_unit_install "$DATABASE_INSTALL" project_agile_solution
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/probes/solution_concurrency_probe.py"
@@ -118,7 +149,7 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution
 solution_lifecycle reinstalled_core
 printf "%s\n" "Independent solution persisted-data upgrade and uninstall/reinstall preserve native work; uninstall destroys solution history."
 reset_verification_database "$DATABASE_INSTALL"
-run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --test-enable --test-tags /project_agile_solution,/project_agile_solution_scrum
+run_unit_install "$DATABASE_INSTALL" project_agile_solution_scrum project_agile_solution,project_agile_solution_scrum
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
     < "$ROOT/scripts/probes/solution_scrum_probe.py"
@@ -132,6 +163,11 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --up
 solution_lifecycle reinstalled_bridge
 printf "%s\n" "Independent bridge persisted-data upgrade and uninstall/reinstall preserve native history without fabricated backfill."
 reset_verification_database "$DATABASE_INSTALL"
+# All addons share this registry: unrelated addons can override the same model.
+# The selector appends hr_timesheet for installation, not its upstream test suite.
+COMBINED_ADDONS=${MODULES%,hr_timesheet}
+TEST_TAGS=/${COMBINED_ADDONS//,/,/}
+printf "Combined unit suites: %s\n" "$TEST_TAGS"
 run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T odoo \

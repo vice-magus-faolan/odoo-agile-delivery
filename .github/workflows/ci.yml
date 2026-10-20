@@ -35,14 +35,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The populated upgrade installs the pinned prior source first.
+          # PR comparison and populated upgrade both require source history.
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Run canonical native Odoo verification
-        run: timeout 3600 ./scripts/verify > verification.log 2>&1
-      - name: Retain native results and owned teardown evidence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            timeout 3600 ./scripts/verify --pr "$PR_BASE" "$GITHUB_SHA" > verification.log 2>&1
+          else
+            timeout 3600 ./scripts/verify > verification.log 2>&1
+          fi
+      - name: Retain native verification log
         if: always()
         uses: actions/upload-artifact@v4
         with:

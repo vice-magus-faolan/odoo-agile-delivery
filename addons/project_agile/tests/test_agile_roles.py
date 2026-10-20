@@ -57,13 +57,16 @@ class TestAgileRoles(TransactionCase):
             {"agile_estimation_method": "none"},
             {"agile_default_item_type_id": False},
         ):
-            for record in (caller, caller.sudo()):
+            for record in (caller, caller.with_context(sudo=True)):
                 with self.assertRaises(AccessError):
                     record.write(values)
-        with self.assertRaises(AccessError):
-            caller.create({"name": "Forged", "agile_key": "FORGED"})
-        with self.assertRaises(AccessError):
-            caller.with_context(default_agile_enabled=True).create({"name": "Forged"})
+        for record in (caller, caller.with_context(sudo=True)):
+            with self.assertRaises(AccessError):
+                record.create({"name": "Forged", "agile_key": "FORGED"})
+            with self.assertRaises(AccessError):
+                record.with_context(default_agile_enabled=True).create(
+                    {"name": "Forged"}
+                )
         task = (
             self.env["project.task"]
             .with_user(member)
@@ -94,3 +97,34 @@ class TestAgileRoles(TransactionCase):
         )
         caller.write({"agile_estimation_method": "none"})
         self.assertTrue(member.has_group("project.group_project_manager"))
+
+    def test_non_admin_sudo_plain_project_copy(self):
+        user = mail_new_test_user(
+            self.env, "agile_sudo_copy_user", groups="project.group_project_user"
+        )
+        self.assertFalse(user.has_group("project.group_project_manager"))
+        self.assertFalse(user.has_group("base.group_system"))
+        project = self.env["project.project"].create(
+            {"name": "Plain template", "privacy_visibility": "employees"}
+        )
+        caller = project.with_user(user)
+        self.assertFalse(caller.env.su)
+        with self.assertRaises(AccessError):
+            caller.write({"name": "No native Project write authority"})
+        trusted = caller.sudo()
+        self.assertTrue(trusted.env.su)
+        self.assertEqual(trusted.env.uid, user.id)
+        # Native copies carry defaulted Agile fields even for plain Projects.
+        copied = trusted.copy()
+        self.assertNotEqual(copied.id, project.id)
+        self.assertTrue(copied.name)
+        self.assertEqual(copied.privacy_visibility, project.privacy_visibility)
+        self.assertEqual(copied.company_id, project.company_id)
+        self.assertFalse(copied.agile_enabled)
+        self.assertFalse(copied.agile_key)
+        self.assertEqual(copied.agile_estimation_method, "none")
+        self.assertEqual(
+            copied.agile_default_item_type_id, project.agile_default_item_type_id
+        )
+        copied.write({"agile_estimation_method": "fibonacci"})
+        self.assertEqual(copied.agile_estimation_method, "fibonacci")

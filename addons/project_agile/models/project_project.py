@@ -100,7 +100,7 @@ class ProjectProject(models.Model):
             "agile_default_item_type_id",
             "agile_estimation_method",
         }
-        if self.env.su and self.env.uid == SUPERUSER_ID:
+        if self.env.su:
             return
         if protected & values.keys() and not self.sudo(False).env.user.has_group(
             "project.group_project_manager"

@@ -9,8 +9,9 @@ Use only disposable databases; these probes commit synthetic data.
 - `task_concurrency.py`: duplicate-safe confirm/link and stale-source rejection races.
 - `solution_scrum_probe.py`: relink, Sprint transition and completion races.
 - `item_type_lifecycle_probe.py`: prior-source active-Sprint upgrade with 3/5/8 Story
-  points, preserved task audit/history, first point-change events, planning totals, BA
-  eligibility and quick-task defaults.
+  points, preserved task business/creation data and immutable events, native migration
+  write metadata, first point-change events, planning totals, BA eligibility and quick
+  defaults.
 - `solution_lifecycle_probe.py`: populated upgrade and uninstall/reinstall lifecycles.
 - `git_policy_concurrency_{probe,worker}.py`: cron claims, budget and crash recovery
   races.

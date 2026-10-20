@@ -25,8 +25,9 @@ Changing a task type keeps a compatible stage or selects the first compatible
 Project stage by sequence, then ID. If none exists, the task has no stage until
 a compatible stage is configured. An incompatible drag or explicit stage is refused.
 
-Switching to hours preserves previous story points without converting them to hours.
-They contribute zero current planning points; existing Sprint history is unchanged.
-Switching back validates the retained estimate. In an active Sprint, task type changes
-record reestimation. Change active work individually before changing its shared
-item-type estimation policy.
+If you switch a type to hours, its tasks keep their story points but stop counting
+toward Sprint totals. Enter hours separately in **Allocated Time**. Switching back to
+points checks the saved estimate against the Project estimation method. In an active
+Sprint, changing a task type records the point change; earlier history stays unchanged.
+To change a shared type to hours while its tasks are in active Sprints, first change
+those tasks to an hour-based type, or finish their Sprints.

@@ -67,7 +67,7 @@ class TestItemTypePolicy(TransactionCase):
         )
         self.assertEqual(configuration.allocated_hours, 4)
         self.assertEqual(configuration.agile_effective_story_points, 0)
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError), self.cr.savepoint():
             configuration.write({"agile_item_type_id": self.story.id})
         self.assertEqual(configuration.agile_item_type_id, self.configuration)
         self.assertEqual(configuration.agile_story_points, 4)
@@ -79,7 +79,7 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(configuration.agile_story_points, 5)
         self.assertEqual(configuration.allocated_hours, 4)
         self.assertEqual(configuration.agile_effective_story_points, 0)
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError), self.cr.savepoint():
             self._task(self.story, agile_story_points=4)
         with self.assertRaises(AccessError):
             self.configuration.with_user(self.user).write({"uses_story_points": True})
@@ -89,9 +89,9 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(story.stage_id, self.development)
         configuration = self._task(self.configuration)
         self.assertEqual(configuration.stage_id, self.business)
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError), self.cr.savepoint():
             self._task(self.configuration, stage_id=self.development.id)
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError), self.cr.savepoint():
             (story | configuration).write(
                 {"stage_id": self.development.id, "name": "Must rollback"}
             )
@@ -104,7 +104,7 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(story.stage_id, self.shared)
         self.assertFalse(self.tasks.search_count([("name", "=", "Must rollback")]))
         before = self.tasks.search_count([("project_id", "=", self.project.id)])
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError), self.cr.savepoint():
             self.tasks.create(
                 [
                     {
@@ -124,7 +124,7 @@ class TestItemTypePolicy(TransactionCase):
             self.tasks.search_count([("project_id", "=", self.project.id)]), before
         )
 
-    def test_stage_policy_archived_work_and_foreign_project(self):
+    def test_stage_policy_archived_work_and_native_project_links(self):
         task = self._task(self.configuration)
         task.write({"active": False})
         with self.assertRaises(ValidationError), self.cr.savepoint():
@@ -133,8 +133,10 @@ class TestItemTypePolicy(TransactionCase):
         foreign = self.env["project.task.type"].create(
             {"name": "Foreign", "project_ids": [Command.set(other.ids)]}
         )
-        with self.assertRaises(ValidationError):
-            task.write({"stage_id": foreign.id})
+        task.write({"stage_id": foreign.id})
+        self.assertEqual(task.stage_id, foreign)
+        foreign.write({"project_ids": [Command.clear()]})
+        self.assertEqual(task.stage_id, foreign)
 
     def test_no_compatible_stage_and_native_untyped_work(self):
         self.shared.write({"agile_item_type_ids": [Command.set(self.story.ids)]})
@@ -263,3 +265,53 @@ class TestItemTypePolicy(TransactionCase):
             ],
         )
         self.assertIn(self.development, native_union)
+
+    def test_enabling_existing_projects_defaults_only_missing_choices(self):
+        manager = mail_new_test_user(
+            self.env, "enable_agile_manager", groups="project.group_project_manager"
+        )
+        task_type = self.env.ref("project_agile.project_agile_item_type_task")
+        projects = (
+            self.env["project.project"]
+            .with_user(manager)
+            .create(
+                [
+                    {"name": "Enable missing", "agile_key": "ENABLEMISSING"},
+                    {
+                        "name": "Enable chosen",
+                        "agile_key": "ENABLECHOSEN",
+                        "agile_default_item_type_id": self.story.id,
+                    },
+                ]
+            )
+        )
+        projects.write({"agile_enabled": True})
+        self.assertEqual(projects[0].agile_default_item_type_id, task_type)
+        self.assertEqual(projects[1].agile_default_item_type_id, self.story)
+        quick = self.tasks.with_context(default_project_id=projects[0].id).create(
+            {"name": "Quick after enabling"}
+        )
+        self.assertEqual(quick.agile_item_type_id, task_type)
+        explicit = self.env["project.project"].create(
+            {"name": "Explicit none", "agile_key": "ENABLENONE"}
+        )
+        explicit.write({"agile_enabled": True, "agile_default_item_type_id": False})
+        self.assertFalse(explicit.agile_default_item_type_id)
+        explicit.write({"agile_enabled": True})
+        self.assertFalse(explicit.agile_default_item_type_id)
+        self.story.active = False
+        retained = self.env["project.project"].create(
+            {
+                "name": "Archived choice",
+                "agile_key": "ENABLEARCHIVED",
+                "agile_default_item_type_id": self.story.id,
+            }
+        )
+        retained.write({"agile_enabled": True})
+        self.assertEqual(retained.agile_default_item_type_id, self.story)
+        task_type.active = False
+        missing = self.env["project.project"].create(
+            {"name": "Archived seed", "agile_key": "ENABLEARCHIVEDSEED"}
+        )
+        missing.write({"agile_enabled": True})
+        self.assertFalse(missing.agile_default_item_type_id)

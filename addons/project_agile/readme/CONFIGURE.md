@@ -19,8 +19,8 @@ Native Project visibility, task permissions and company access still apply.
    In **Agile**, enable **Agile Enabled**.
 2. Set **Agile Key** to a unique prefix such as `ENG`, starting with an uppercase
    letter and containing only uppercase letters and digits. Save the Project.
-3. Choose **Default Agile Item Type** and **Estimation Method**. New Agile Projects
-   default to active Task; an administrator can choose another type or none.
+3. Choose **Default Agile Item Type** and **Estimation Method**. Enabling Agile
+   defaults a missing choice to active Task; an administrator can choose another type or none.
    For point-using types, **None** accepts only zero story points; **Fibonacci** accepts
    `0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89`.
 4. Open Project **Configuration > Agile Item Types** to review Epic, Feature,

@@ -873,3 +873,39 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(self.task.agile_story_points, 5)
         with self.assertRaises(ValidationError):
             configuration.write({"uses_story_points": True})
+
+    def test_existing_project_enablement_quick_task_can_join_sprint(self):
+        manager = mail_new_test_user(
+            self.env, "enable_scrum_manager", groups="project.group_project_manager"
+        )
+        project = (
+            self.env["project.project"]
+            .with_user(manager)
+            .create(
+                {
+                    "name": "Existing native client",
+                    "privacy_visibility": "employees",
+                    "agile_key": "ENABLESCRUM",
+                }
+            )
+        )
+        self.assertFalse(project.agile_default_item_type_id)
+        project.write({"agile_enabled": True})
+        team = self.env["project.agile.team"].create(
+            {"name": "Existing client team", "project_id": project.id}
+        )
+        sprint = self.env["project.sprint"].create(
+            {"name": "Enabled Sprint", "project_id": project.id, "team_id": team.id}
+        )
+        quick = (
+            self.env["project.task"]
+            .with_user(manager)
+            .with_context(default_project_id=project.id)
+            .create({"name": "Quick after enabling"})
+        )
+        self.assertEqual(
+            quick.agile_item_type_id,
+            self.env.ref("project_agile.project_agile_item_type_task"),
+        )
+        quick.assign_product_backlog_to_sprint(sprint, draft_only=True)
+        self.assertEqual(quick.sprint_id, sprint)

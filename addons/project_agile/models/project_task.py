@@ -71,11 +71,7 @@ class ProjectTask(models.Model):
             task = self.new(
                 {"project_id": project.id, "agile_item_type_id": item_type_id}
             )
-            values["stage_id"] = (
-                self.env["project.task.type"]
-                .search(task._agile_stage_domain(), order="sequence, id", limit=1)
-                .id
-            )
+            values["stage_id"] = task._first_agile_stage().id
         return values
 
     @api.model_create_multi
@@ -117,17 +113,10 @@ class ProjectTask(models.Model):
                     task = self.new(
                         {"project_id": project.id, "agile_item_type_id": item_type_id}
                     )
-                    values["stage_id"] = (
-                        self.env["project.task.type"]
-                        .search(
-                            task._agile_stage_domain(), order="sequence, id", limit=1
-                        )
-                        .id
-                    )
+                    values["stage_id"] = task._first_agile_stage().id
             else:
                 values.pop("agile_key", None)
-        with self.env.cr.savepoint():
-            return super().create(values_list)
+        return super().create(values_list)
 
     def write(self, values):
         if "agile_key" in values:
@@ -143,8 +132,7 @@ class ProjectTask(models.Model):
                             "Copy it into the target project instead."
                         )
                     )
-        with self.env.cr.savepoint():
-            return super().write(values)
+        return super().write(values)
 
     @api.constrains("parent_id", "project_id", "agile_item_type_id")
     def _check_agile_parent_policy(self):
@@ -213,6 +201,12 @@ class ProjectTask(models.Model):
             ("agile_item_type_ids", "in", self.agile_item_type_id.ids),
         ]
 
+    def _first_agile_stage(self):
+        self.ensure_one()
+        return self.env["project.task.type"].search(
+            self._agile_stage_domain(), order="sequence, id", limit=1
+        )
+
     @api.depends("project_id", "agile_item_type_id")
     def _compute_stage_id(self):
         result = super()._compute_stage_id()
@@ -224,9 +218,7 @@ class ProjectTask(models.Model):
                 stage.agile_item_type_ids
                 and task.agile_item_type_id not in stage.agile_item_type_ids
             ):
-                task.stage_id = self.env["project.task.type"].search(
-                    task._agile_stage_domain(), order="sequence, id", limit=1
-                )
+                task.stage_id = task._first_agile_stage()
 
         return result
 
@@ -240,12 +232,12 @@ class ProjectTask(models.Model):
             ):
                 continue
             stage = task.stage_id
-            if task.project_id not in stage.project_ids or (
+            if (
                 stage.agile_item_type_ids
                 and task.agile_item_type_id not in stage.agile_item_type_ids
             ):
                 raise ValidationError(
-                    _("Choose a stage compatible with the Agile item type and Project.")
+                    _("Choose a stage compatible with the Agile item type.")
                 )
 
     @api.model

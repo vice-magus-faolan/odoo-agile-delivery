@@ -14,7 +14,7 @@ class ProjectTaskType(models.Model):
         ),
     )
 
-    @api.constrains("agile_item_type_ids", "project_ids")
+    @api.constrains("agile_item_type_ids")
     def _check_agile_stage_policy(self):
         tasks = (
             self.env["project.task"]

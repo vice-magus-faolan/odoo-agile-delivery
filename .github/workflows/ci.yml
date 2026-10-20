@@ -34,6 +34,9 @@ jobs:
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The populated upgrade installs the pinned prior source first.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

@@ -147,6 +147,18 @@ class ProjectProject(models.Model):
                             "have been assigned."
                         )
                     )
+        projects_to_default = self.browse()
+        if values.get("agile_enabled") and "agile_default_item_type_id" not in values:
+            projects_to_default = self.filtered(
+                lambda project: not project.agile_enabled
+                and not project.agile_default_item_type_id
+            )
         result = super().write(values)
+        if projects_to_default:
+            item_type = self.env.ref(
+                "project_agile.project_agile_item_type_task", raise_if_not_found=False
+            )
+            if item_type and item_type.active:
+                projects_to_default.write({"agile_default_item_type_id": item_type.id})
         self._ensure_agile_sequence()
         return result

@@ -128,3 +128,8 @@ class TestAgileRoles(TransactionCase):
         )
         copied.write({"agile_estimation_method": "fibonacci"})
         self.assertEqual(copied.agile_estimation_method, "fibonacci")
+        copied.write({"agile_enabled": True, "agile_key": "TRUSTEDENABLE"})
+        self.assertEqual(
+            copied.agile_default_item_type_id,
+            self.env.ref("project_agile.project_agile_item_type_task"),
+        )

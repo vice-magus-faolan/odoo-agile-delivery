@@ -5,6 +5,8 @@ from odoo.exceptions import ValidationError
 
 from odoo.addons.project_agile.utils import claim_records
 
+from .project_agile_team import check_scrum_project
+
 
 class ProjectSprint(models.Model):
     """A team time-box with an immutable original commitment."""
@@ -57,9 +59,14 @@ class ProjectSprint(models.Model):
     def create(self, vals_list):
         if any(values.get("state", "draft") != "draft" for values in vals_list):
             raise ValidationError(_("Sprints must be created in draft state."))
-        return super().create(vals_list)
+        with self.env.cr.savepoint():
+            sprints = super().create(vals_list)
+            check_scrum_project(sprints.project_id)
+            sprints.team_id.sudo(False).check_access("read")
+            return sprints
 
     def write(self, values):
+        self._check_lifecycle_access()
         if "closed_at" in values and not self.env.is_superuser():
             raise ValidationError(
                 _("Only superuser recovery can correct the close timestamp.")
@@ -81,7 +88,11 @@ class ProjectSprint(models.Model):
                     "Superuser recovery is explicit administration."
                 )
             )
-        return super().write(values)
+        with self.env.cr.savepoint():
+            result = super().write(values)
+            check_scrum_project(self.project_id)
+            self.team_id.sudo(False).check_access("read")
+            return result
 
     @api.constrains("project_id", "team_id", "date_start", "date_end")
     def _check_sprint_consistency(self):
@@ -146,7 +157,8 @@ class ProjectSprint(models.Model):
         return super(ProjectSprint, self.with_user(SUPERUSER_ID)).write(values)
 
     def _check_lifecycle_access(self):
-        self.check_access("write")
+        self.sudo(False).check_access("write")
+        check_scrum_project(self.project_id)
 
     def _activate(self):
         # Translation can read the user's language. Resolve it before SQL can

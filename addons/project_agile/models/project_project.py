@@ -1,7 +1,7 @@
 import re
 
-from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo import SUPERUSER_ID, _, api, fields, models
+from odoo.exceptions import AccessError, ValidationError
 
 _AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*$")
 
@@ -79,13 +79,49 @@ class ProjectProject(models.Model):
         )
         return sequence.next_by_id()
 
+    def _check_agile_project_access(self):
+        # Child author/operator ACLs do not grant native Project configuration.
+        # Preserve the existing administrator write check; other roles need
+        # current native visibility, including custom rules and company scope.
+        if self.env.su and self.env.uid == SUPERUSER_ID:
+            return self
+        caller = self.sudo(False)
+        if not caller.env.user.active:
+            raise AccessError(_("An active internal Agile user is required."))
+        caller.check_access("read")
+        if caller.env.user.has_group("project.group_project_manager"):
+            caller.check_access("write")
+        return caller
+
+    def _check_agile_configuration(self, values):
+        protected = {
+            "agile_enabled",
+            "agile_key",
+            "agile_default_item_type_id",
+            "agile_estimation_method",
+        }
+        if self.env.su:
+            return
+        if protected & values.keys() and not self.sudo(False).env.user.has_group(
+            "project.group_project_manager"
+        ):
+            raise AccessError(_("Only a Project administrator may configure Agile."))
+
     @api.model_create_multi
     def create(self, vals_list):
+        defaults = {
+            name.removeprefix("default_"): value
+            for name, value in self.env.context.items()
+            if name.startswith("default_agile_")
+        }
+        for values in vals_list:
+            self._check_agile_configuration(defaults | values)
         projects = super().create(vals_list)
         projects._ensure_agile_sequence()
         return projects
 
     def write(self, values):
+        self._check_agile_configuration(values)
         if "agile_key" in values:
             task_model = self.env["project.task"]
             for project in self:

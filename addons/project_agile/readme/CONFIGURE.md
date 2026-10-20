@@ -1,3 +1,20 @@
+As a Settings administrator, open **Settings > Users & Companies > Users**
+and select an existing internal user. On **Access Rights**, in **Services**,
+select **Agile member** in **Project** for ordinary typed work and estimates.
+It includes the native Project User role, not Administrator.
+
+With the optional addons installed, select **Business analyst** in **Agile
+Solution** for authoring, and **Scrum master** in **Agile Scrum** for team and
+Sprint management. These are separate controls alongside **Project**; select
+both for one person who performs both jobs. Both imply Agile member without
+granting Administrator. Save the user. Keep **Administrator** in **Project**
+only for users authorized to configure and approve; adding Agile roles does
+not remove that existing access.
+
+For the following setup, assign **Administrator** under **Project**. Agile
+configuration and shared item types remain Project administrator operations.
+Native Project visibility, task permissions and company access still apply.
+
 1. As a Project administrator, open the Project form and its **Settings** tab.
    In **Agile**, enable **Agile Enabled**.
 2. Set **Agile Key** to a unique prefix such as `ENG`, starting with an uppercase

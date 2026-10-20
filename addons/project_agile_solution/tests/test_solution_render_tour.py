@@ -206,3 +206,26 @@ class TestSolutionRenderTour(HttpCase):
                 )
                 self.assertNotIn(hidden_description, json.dumps(denied))
         self.assertEqual(baseline.state, "approved")
+
+    def test_business_analyst_native_submit_and_rpc_approval_refusal(self):
+        analyst = mail_new_test_user(
+            self.env,
+            "solution_tour_analyst",
+            groups="project_agile_solution.group_business_analyst",
+        )
+        self.assertFalse(analyst.has_group("project.group_project_manager"))
+        seeded = seed_scenario(
+            self.env, self.manager, self.env.company, self.scenarios[0]
+        )
+        draft = seeded["spec"].browse(seeded["spec"].action_new_revision()["res_id"])
+        action_id = self.env.ref("project_agile_solution.action_solution_revision").id
+        self.start_tour(
+            f"/odoo/action-{action_id}/{draft.id}",
+            "solution_author_roles",
+            login=analyst.login,
+        )
+        self.authenticate(analyst.login, analyst.login)
+        denied = self._rpc(draft._name, "action_approve", [draft.ids])
+        self.assertEqual(denied["error"]["data"]["name"], "odoo.exceptions.AccessError")
+        draft.invalidate_recordset()
+        self.assertEqual(draft.state, "review")

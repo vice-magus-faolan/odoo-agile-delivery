@@ -123,7 +123,7 @@ class ProjectAgileSolution(models.Model):
             raise ValidationError(_("Select an available Agile Project."))
         project = self.env["project.project"].browse(project_id).exists()
         project.check_access("read")
-        project.check_access("write")
+        project._check_agile_project_access()
         if not project or not project.active or not project.agile_enabled:
             raise ValidationError(_("Select an active Agile Project."))
         return project
@@ -138,7 +138,7 @@ class ProjectAgileSolution(models.Model):
             raise ValidationError(
                 _("A solution lineage cannot change Project or company.")
             )
-        self.project_id.check_access("write")
+        self.project_id._check_agile_project_access()
         return super().write(values)
 
     def unlink(self):
@@ -146,5 +146,5 @@ class ProjectAgileSolution(models.Model):
         deletion.
         """
         self.check_access("unlink")
-        self.project_id.check_access("write")
+        self.project_id._check_agile_project_access()
         return super().unlink()

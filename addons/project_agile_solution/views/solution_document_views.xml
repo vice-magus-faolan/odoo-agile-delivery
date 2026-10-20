@@ -23,7 +23,7 @@
             name="action_new_revision"
             type="object"
             string="Open / New Working Revision"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
         <sheet>
@@ -77,7 +77,7 @@
             type="object"
             string="Submit for Review"
             invisible="state != 'draft'"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
             class="oe_highlight"
           />
           <button
@@ -93,21 +93,21 @@
             type="object"
             string="Return with Reason"
             invisible="state != 'review'"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
           <button
             name="action_new_revision"
             type="object"
             string="New Working Revision"
             invisible="state != 'approved'"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
           <button
             name="action_request_template"
             type="object"
             string="Copy Template Sections"
             invisible="state != 'draft'"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
           <field
             name="state"

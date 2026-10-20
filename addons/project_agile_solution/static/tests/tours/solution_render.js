@@ -72,3 +72,25 @@ registry.category("web_tour.tours").add("solution_exact_preview", {
     },
   ],
 });
+
+registry.category("web_tour.tours").add("solution_author_roles", {
+  steps: () => [
+    {
+      trigger: 'button[name="action_submit"]',
+      run() {
+        if (!document.querySelector('button[name="action_request_template"]')) {
+          throw new Error("Business analyst cannot author the working revision");
+        }
+      },
+    },
+    {trigger: 'button[name="action_submit"]', run: "click"},
+    {
+      trigger: 'button[name="action_request_return"]',
+      run() {
+        if (document.querySelector('button[name="action_approve"]')) {
+          throw new Error("Business analyst was offered approval authority");
+        }
+      },
+    },
+  ],
+});

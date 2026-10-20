@@ -1,7 +1,7 @@
 """Native explicit return reason and template selection; never context authority."""
 
 from odoo import _, fields, models
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import ValidationError
 
 
 # Preserve existing native wizard imports/layout during tooling-only adoption.
@@ -24,10 +24,6 @@ class SolutionRevisionWizard(models.TransientModel):
         self.ensure_one()
         caller = self.sudo(False)
         caller.check_access("write")
-        if not caller.env.user.active or not caller.env.user.has_group(
-            "project.group_project_manager"
-        ):
-            raise AccessError(_("An active Project Manager is required."))
         revision = caller.revision_id.exists()
         if not revision:
             raise ValidationError(_("Select an available revision."))

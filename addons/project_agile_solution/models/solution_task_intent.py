@@ -117,13 +117,12 @@ class SolutionTaskIntent(models.Model):
             "project.agile.solution", values.get("solution_id")
         )
         solution.check_access("write")
-        solution.project_id.check_access("write")
-        if not self.env.user.active or not self.env.user.has_group(
-            "project.group_project_manager"
+        solution.project_id._check_agile_project_access()
+        if not self.env.user.active or not (
+            self.env.user.has_group("project.group_project_manager")
+            or self.env.user.has_group("project_agile_solution.group_business_analyst")
         ):
-            raise AccessError(
-                _("An active authorized Project Manager must preview work.")
-            )
+            raise AccessError(_("An active Solution author must preview work."))
         commands = values.get("requirement_revision_ids", [])
         check_reference_commands(commands)
         if len(commands) == 1 and commands[0][0] == Command.SET:

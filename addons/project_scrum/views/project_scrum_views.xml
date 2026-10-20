@@ -60,26 +60,26 @@
             type="object"
             class="btn-primary"
             invisible="state != &apos;draft&apos;"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_scrum.group_scrum_master"
           />
           <button
             name="action_close"
             string="Close Sprint"
             type="object"
             invisible="state != &apos;active&apos;"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_scrum.group_scrum_master"
           />
           <button
             name="action_open_product_backlog"
             string="Product Backlog"
             type="object"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_scrum.group_scrum_master"
           />
           <button
             name="action_open_sprint_backlog"
             string="Sprint Backlog"
             type="object"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_scrum.group_scrum_master"
           />
           <field
             name="state"
@@ -281,9 +281,9 @@
   <menuitem
     id="menu_project_agile_team"
     name="Agile Teams"
-    parent="project.menu_project_config"
+    parent="project.menu_main_pm"
     action="action_project_agile_team"
-    groups="project.group_project_manager"
+    groups="project.group_project_manager,project_scrum.group_scrum_master"
     sequence="35"
   />
 </odoo>

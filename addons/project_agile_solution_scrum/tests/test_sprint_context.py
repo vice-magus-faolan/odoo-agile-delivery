@@ -309,3 +309,70 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
         self.assertFalse(task.sprint_id)
         self.assertFalse(self._events(task, "added"))
         self.assertFalse(model.search([("task_id", "=", task.id)]))
+
+    def test_native_combined_role_assignment_keeps_approval_separate(self):
+        analyst = self.env.ref("project_agile_solution.group_business_analyst")
+        master = self.env.ref("project_scrum.group_scrum_master")
+        hierarchy = self.env["res.groups"]._get_view_group_hierarchy()
+        for group in (analyst, master):
+            privilege = group.privilege_id
+            self.assertEqual(
+                hierarchy["groups"][group.id]["privilege_id"], privilege.id
+            )
+            self.assertIn(group.id, hierarchy["privileges"][privilege.id]["group_ids"])
+        self.user.write(
+            {"group_ids": [Command.link(analyst.id), Command.link(master.id)]}
+        )
+        self.assertTrue(
+            self.user.has_group("project_agile_solution.group_business_analyst")
+        )
+        self.assertTrue(self.user.has_group("project_scrum.group_scrum_master"))
+        self.assertFalse(self.user.has_group("project.group_project_manager"))
+        requirement, task = self._requirement(), self._task()
+        self._link(requirement, task)
+        requirement.requirement_id.with_user(self.user).write(
+            {"name": "Combined author"}
+        )
+        team = (
+            self.env["project.agile.team"]
+            .with_user(self.user)
+            .create(
+                {
+                    "name": "Combined team",
+                    "project_id": self.project.id,
+                }
+            )
+        )
+        sprint = (
+            self.env["project.sprint"]
+            .with_user(self.user)
+            .create(
+                {
+                    "name": "Combined Sprint",
+                    "project_id": self.project.id,
+                    "team_id": team.id,
+                }
+            )
+        )
+        task.with_user(self.user).write({"sprint_id": sprint.id})
+        sprint.action_start()
+        events = self._events(task, "committed")
+        self.assertEqual(events.solution_capture_status, "captured")
+        task.with_user(self.user).write({"state": "1_done"})
+        sprint.action_close()
+        self.assertEqual(sprint.state, "closed")
+        revision = self._revision()
+        revision.with_user(self.user).action_submit()
+        with self.assertRaises(AccessError):
+            revision.with_user(self.user).action_approve()
+        self.user.write(
+            {
+                "group_ids": [
+                    Command.link(self.env.ref("project.group_project_manager").id)
+                ]
+            }
+        )
+        self.assertTrue(self.user.has_group("project.group_project_manager"))
+        revision.document_id.write({"approver_id": self.user.id})
+        revision.with_user(self.user).action_approve()
+        self.assertEqual(revision.approved_by_id, self.user)

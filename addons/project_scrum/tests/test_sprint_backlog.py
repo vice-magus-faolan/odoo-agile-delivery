@@ -224,16 +224,64 @@ class TestProjectSprintBacklog(TransactionCase):
 
         self.assertTrue(self.eligible_type.can_schedule_in_sprint)
 
-    def test_project_user_cannot_create_the_assignment_wizard(self):
+    def test_project_user_can_assign_and_remove_editable_tasks(self):
         user = mail_new_test_user(
             self.env, "Scrum user", groups="project.group_project_user"
         )
+        self.assertFalse(user.has_group("project.group_project_manager"))
+        sprint = self._create_sprint()
+        wizard_model = self.env["project.sprint.task.assignment.wizard"].with_user(user)
 
+        wizard_model.create(
+            {
+                "task_ids": [Command.set(self.task.ids)],
+                "project_id": self.project.id,
+                "operation": "assign",
+                "sprint_id": sprint.id,
+            }
+        ).action_confirm()
+        self.task.invalidate_recordset(["sprint_id"])
+        self.assertEqual(self.task.sprint_id, sprint)
+
+        wizard_model.create(
+            {
+                "task_ids": [Command.set(self.task.ids)],
+                "project_id": self.project.id,
+                "operation": "remove",
+            }
+        ).action_confirm()
+        self.task.invalidate_recordset(["sprint_id"])
+        self.assertFalse(self.task.sprint_id)
+
+    def test_project_user_cannot_mutate_private_tasks_through_assignment_wizard(self):
+        user = mail_new_test_user(
+            self.env, "Scrum outsider", groups="project.group_project_user"
+        )
+        self.assertFalse(user.has_group("project.group_project_manager"))
+        sprint = self._create_sprint()
+        self.project.write({"privacy_visibility": "followers"})
         with self.assertRaises(AccessError):
-            self.env["project.sprint.task.assignment.wizard"].with_user(user).create(
-                {
+            self.task.with_user(user).check_access("write")
+
+        for operation in ("assign", "remove"):
+            with self.subTest(operation=operation):
+                original_sprint = sprint if operation == "remove" else False
+                self.task.write(
+                    {"sprint_id": original_sprint.id if original_sprint else False}
+                )
+                values = {
                     "task_ids": [Command.set(self.task.ids)],
                     "project_id": self.project.id,
-                    "operation": "remove",
+                    "operation": operation,
                 }
-            )
+                if operation == "assign":
+                    values["sprint_id"] = sprint.id
+                with self.assertRaises(AccessError), self.cr.savepoint():
+                    self.env["project.sprint.task.assignment.wizard"].with_user(
+                        user
+                    ).create(values).action_confirm()
+                self.task.invalidate_recordset(["sprint_id"])
+                self.assertEqual(
+                    self.task.sprint_id,
+                    sprint if original_sprint else self.env["project.sprint"],
+                )

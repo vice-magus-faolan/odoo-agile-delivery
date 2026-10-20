@@ -161,7 +161,7 @@
             type="object"
             string="Retire Working Link"
             invisible="not active"
-            groups="project.group_project_manager"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
       </xpath>
@@ -197,7 +197,7 @@
     name="Deliberate Task Previews"
     parent="project.menu_main_pm"
     action="action_solution_task_intent"
-    groups="project.group_project_manager"
+    groups="project.group_project_manager,project_agile_solution.group_business_analyst"
     sequence="88"
   />
   <menuitem

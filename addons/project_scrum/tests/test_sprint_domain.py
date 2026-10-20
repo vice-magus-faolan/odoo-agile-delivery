@@ -823,3 +823,53 @@ class TestProjectScrumDomain(TransactionCase):
             private_sprint.with_user(company_a_manager).write(
                 {"goal": "cross-company write"}
             )
+
+    def test_mixed_hours_quick_tasks_and_type_changes_keep_point_history_honest(self):
+        member = mail_new_test_user(
+            self.env, "mixed_sprint_member", groups="project_agile.group_agile_member"
+        )
+        configuration = self.env.ref(
+            "project_agile.project_agile_item_type_configuration"
+        )
+        data_import = self.env.ref("project_agile.project_agile_item_type_data_import")
+        self.assertTrue(configuration.can_schedule_in_sprint)
+        self.assertTrue(data_import.can_schedule_in_sprint)
+        sprint = self._create_sprint(
+            "Mixed Sprint", task_ids=[Command.set(self.task.ids)]
+        )
+        quick = (
+            self.env["project.task"]
+            .with_user(member)
+            .with_context(default_project_id=self.project.id)
+            .create({"name": "Quick native task"})
+        )
+        quick.write({"sprint_id": sprint.id})
+        self.assertEqual(
+            quick.agile_item_type_id,
+            self.env.ref("project_agile.project_agile_item_type_task"),
+        )
+        hours = (
+            self.env["project.task"]
+            .with_user(member)
+            .create(
+                {
+                    "name": "Configure taxes",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": configuration.id,
+                    "allocated_hours": 4,
+                    "sprint_id": sprint.id,
+                }
+            )
+        )
+        sprint.action_start()
+        self.assertEqual(hours.agile_effective_story_points, 0)
+        self.task.with_user(member).write({"agile_item_type_id": configuration.id})
+        events = sprint.scope_event_ids.filtered(
+            lambda event: event.task_id == self.task
+        )
+        self.assertEqual(events.mapped("event_type"), ["committed", "reestimated"])
+        self.assertEqual(events.mapped("story_points"), [5, 0])
+        self.assertEqual(events[-1].previous_story_points, 5)
+        self.assertEqual(self.task.agile_story_points, 5)
+        with self.assertRaises(ValidationError):
+            configuration.write({"uses_story_points": True})

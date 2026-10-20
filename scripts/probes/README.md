@@ -8,6 +8,8 @@ Use only disposable databases; these probes commit synthetic data.
 - `requirement_concurrency.py`: stable-key/content allocation and frozen-baseline races.
 - `task_concurrency.py`: duplicate-safe confirm/link and stale-source rejection races.
 - `solution_scrum_probe.py`: relink, Sprint transition and completion races.
+- `item_type_lifecycle_probe.py`: populated-update BA seeds, preserved type
+  customizations and client work, and new quick-task defaults.
 - `solution_lifecycle_probe.py`: populated upgrade and uninstall/reinstall lifecycles.
 - `git_policy_concurrency_{probe,worker}.py`: cron claims, budget and crash recovery
   races.

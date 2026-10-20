@@ -128,9 +128,9 @@ class ProjectSprint(models.Model):
                 "task_id": task.id,
                 "event_type": event_type,
                 "story_points": (
-                    story_points_by_task.get(task.id, task.agile_story_points)
+                    story_points_by_task.get(task.id, task.agile_effective_story_points)
                     if story_points_by_task
-                    else task.agile_story_points
+                    else task.agile_effective_story_points
                 ),
                 "previous_story_points": (
                     previous_story_points_by_task.get(task.id, 0.0)

@@ -55,4 +55,16 @@
       eval="[(6, 0, [ref(&apos;project_agile_item_type_feature&apos;), ref(&apos;project_agile_item_type_story&apos;), ref(&apos;project_agile_item_type_bug&apos;), ref(&apos;project_agile_item_type_spike&apos;)])]"
     />
   </record>
+  <record id="project_agile_item_type_configuration" model="project.agile.item.type">
+    <field name="name">Configuration</field>
+    <field name="code">configuration</field>
+    <field name="sequence">80</field>
+    <field name="uses_story_points" eval="False" />
+  </record>
+  <record id="project_agile_item_type_data_import" model="project.agile.item.type">
+    <field name="name">Data import</field>
+    <field name="code">data_import</field>
+    <field name="sequence">90</field>
+    <field name="uses_story_points" eval="False" />
+  </record>
 </odoo>

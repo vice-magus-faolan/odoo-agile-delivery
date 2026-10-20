@@ -13,7 +13,21 @@
           invisible="not agile_project_enabled"
           domain="[(&apos;active&apos;, &apos;=&apos;, True)]"
         />
-        <field name="agile_story_points" invisible="not agile_project_enabled" />
+        <field name="agile_uses_story_points" invisible="1" />
+        <field
+          name="agile_story_points"
+          invisible="not agile_project_enabled or (agile_item_type_id and not agile_uses_story_points)"
+        />
+        <field
+          name="allocated_hours"
+          widget="float_time"
+          invisible="not agile_project_enabled or not agile_item_type_id or agile_uses_story_points"
+        />
+      </xpath>
+      <xpath expr="//field[@name=&apos;stage_id&apos;]" position="attributes">
+        <attribute
+          name="domain"
+        >[(&quot;project_ids&quot;, &quot;=&quot;, project_id), &quot;|&quot;, (&quot;agile_item_type_ids&quot;, &quot;=&quot;, False), (&quot;agile_item_type_ids&quot;, &quot;in&quot;, [agile_item_type_id])] if agile_project_enabled and agile_item_type_id else [(&quot;project_ids&quot;, &quot;=&quot;, project_id)]</attribute>
       </xpath>
       <xpath expr="//page[@name=&apos;description_page&apos;]" position="after">
         <page name="agile" string="Agile" invisible="not agile_project_enabled">
@@ -44,8 +58,10 @@
         <field
           name="agile_story_points"
           optional="hide"
-          invisible="not agile_project_enabled"
+          invisible="not agile_project_enabled or (agile_item_type_id and not agile_uses_story_points)"
         />
+        <field name="agile_uses_story_points" column_invisible="True" />
+        <field name="allocated_hours" optional="hide" widget="float_time" />
         <field
           name="agile_backlog_sequence"
           optional="hide"
@@ -82,6 +98,8 @@
         <field name="agile_key" />
         <field name="agile_item_type_id" />
         <field name="agile_story_points" />
+        <field name="agile_uses_story_points" />
+        <field name="allocated_hours" />
       </xpath>
       <xpath
         expr="//templates/t[@t-name=&apos;card&apos;]//field[@name=&apos;name&apos;]"
@@ -93,9 +111,17 @@
         >
           <field name="agile_key" />
           <field name="agile_item_type_id" />
-          <span t-if="record.agile_story_points.raw_value">
+          <span
+            t-if="(!record.agile_item_type_id.raw_value or record.agile_uses_story_points.raw_value) and record.agile_story_points.raw_value"
+          >
                         <field name="agile_story_points" /> pts
                     </span>
+        </div>
+        <div
+          t-if="record.agile_project_enabled.raw_value and record.agile_item_type_id.raw_value and !record.agile_uses_story_points.raw_value"
+          class="text-muted"
+        >
+          <field name="allocated_hours" widget="float_time" /> h
         </div>
       </xpath>
     </field>
@@ -109,6 +135,17 @@
       <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
         <field name="agile_key" />
         <field name="agile_item_type_id" />
+        <filter
+          string="Points work"
+          name="agile_points_work"
+          domain="[(&quot;project_id.agile_enabled&quot;, &quot;=&quot;, True), (&quot;agile_item_type_id&quot;, &quot;!=&quot;, False), (&quot;agile_uses_story_points&quot;, &quot;=&quot;, True)]"
+        />
+        <filter
+          string="Hours work"
+          name="agile_hours_work"
+          domain="[(&quot;project_id.agile_enabled&quot;, &quot;=&quot;, True), (&quot;agile_item_type_id&quot;, &quot;!=&quot;, False), (&quot;agile_uses_story_points&quot;, &quot;=&quot;, False)]"
+        />
+        <separator />
         <filter
           string="Agile Work"
           name="agile_work"

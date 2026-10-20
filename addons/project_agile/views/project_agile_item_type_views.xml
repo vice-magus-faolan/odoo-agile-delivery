@@ -9,6 +9,7 @@
         <field name="name" />
         <field name="code" />
         <field name="active" />
+        <field name="uses_story_points" />
       </list>
     </field>
   </record>
@@ -24,6 +25,7 @@
             <field name="code" />
             <field name="sequence" />
             <field name="active" />
+            <field name="uses_story_points" />
           </group>
           <group string="Hierarchy Policy">
             <field name="allowed_child_type_ids" widget="many2many_tags" />

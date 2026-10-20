@@ -19,17 +19,28 @@ Native Project visibility, task permissions and company access still apply.
    In **Agile**, enable **Agile Enabled**.
 2. Set **Agile Key** to a unique prefix such as `ENG`, starting with an uppercase
    letter and containing only uppercase letters and digits. Save the Project.
-3. Choose **Default Agile Item Type** and **Estimation Method**. **None** accepts
-   only zero story points; **Fibonacci** accepts
+3. Choose **Default Agile Item Type** and **Estimation Method**. New Agile Projects
+   default to active Task; an administrator can choose another type or none.
+   For point-using types, **None** accepts only zero story points; **Fibonacci** accepts
    `0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89`.
 4. Open Project **Configuration > Agile Item Types** to review Epic, Feature,
-   Story, Bug, Task, Spike and Subtask. Configure **Allowed Child Item Types**;
+   Story, Bug, Task, Spike, Subtask, Configuration and Data import. Configure
+   **Allowed Child Item Types**;
    Story initially allows Task and Subtask. Types are shared across Projects.
    Odoo rejects a policy change that breaks an existing parent/child pair.
+5. Set **Uses Story Points** per item type. Configuration and Data import start
+   unchecked and are Sprint-eligible when Scrum is installed. The Project estimation
+   method applies only to point-using types.
+6. Enable developer mode to open Project **Configuration > Task Stages**.
+   Set optional **Agile Item Types**.
+   Empty means unrestricted. Stage restrictions do not affect ordinary non-Agile
+   or explicitly untyped tasks. Move existing incompatible work before restricting
+   a stage; Odoo refuses invalidating active or archived work.
 
 Project users can read item types; Project administrators can manage them.
 New tasks in an enabled Project receive keys such as `ENG-1` and the default item
-type when none is supplied. Enabling Agile does not backfill existing tasks.
+type when omitted. Explicit choices, including none, are preserved. An archived
+default is not assigned to new work. Enabling Agile does not backfill existing tasks.
 An assigned task key and its Project cannot change; copy the task to move work to
 another Project. The Project prefix cannot change after keys have been assigned.
 Seeded item types preserve administrator customizations on module updates.

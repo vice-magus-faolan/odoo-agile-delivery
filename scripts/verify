@@ -123,7 +123,9 @@ printf "%s\n" "Native Git policy scheduling, budget interruption, independent-pr
 printf "%s\n" "Current-delivery association proof and independent-process duplicate recovery passed."
 reset_verification_database "$DATABASE_UPGRADE"
 run_odoo --database "$DATABASE_UPGRADE" --init "$MODULES"
+{ printf "PHASE = \"seed\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"
+{ printf "PHASE = \"check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
 printf "%s\n" "Upgrade smoke test passed for $MODULES."
 reset_verification_database "$DATABASE_REINSTALL"
 run_odoo --database "$DATABASE_REINSTALL" --init "$MODULES"

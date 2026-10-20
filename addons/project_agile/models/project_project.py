@@ -116,6 +116,19 @@ class ProjectProject(models.Model):
         }
         for values in vals_list:
             self._check_agile_configuration(defaults | values)
+        vals_list = [dict(values) for values in vals_list]
+        for values in vals_list:
+            if (
+                values.get("agile_enabled", defaults.get("agile_enabled"))
+                and "agile_default_item_type_id" not in values
+                and "agile_default_item_type_id" not in defaults
+            ):
+                item_type = self.env.ref(
+                    "project_agile.project_agile_item_type_task",
+                    raise_if_not_found=False,
+                )
+                if item_type and item_type.active:
+                    values["agile_default_item_type_id"] = item_type.id
         projects = super().create(vals_list)
         projects._ensure_agile_sequence()
         return projects

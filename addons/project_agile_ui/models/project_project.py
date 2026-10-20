@@ -195,7 +195,7 @@ class ProjectProject(models.Model):
                 "name",
                 "agile_key",
                 "agile_item_type_id",
-                "agile_story_points",
+                "agile_effective_story_points",
                 "agile_backlog_sequence",
             ],
             limit=_SPRINT_TASK_LIMIT,
@@ -210,7 +210,7 @@ class ProjectProject(models.Model):
         rows = self.env["project.task"]._read_group(
             [("sprint_id", "in", sprints.ids)],
             ["sprint_id"],
-            ["agile_story_points:sum"],
+            ["agile_effective_story_points:sum"],
         )
         return {sprint.id: points or 0.0 for sprint, points in rows}
 
@@ -252,7 +252,7 @@ class ProjectProject(models.Model):
                 "name",
                 "agile_key",
                 "agile_item_type_id",
-                "agile_story_points",
+                "agile_effective_story_points",
                 "agile_backlog_sequence",
                 "parent_id",
             ],
@@ -282,7 +282,7 @@ class ProjectProject(models.Model):
             "name": task.name,
             "agile_key": task.agile_key,
             "item_type": task.agile_item_type_id.display_name,
-            "story_points": task.agile_story_points,
+            "story_points": task.agile_effective_story_points,
             "parent": task.parent_id.display_name or None,
             "version": self._agile_planning_record_version(task),
         }

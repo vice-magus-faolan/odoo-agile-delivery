@@ -3,7 +3,7 @@
 import json
 import logging
 
-from odoo import Command
+from odoo import SUPERUSER_ID, Command, fields
 
 PHASE = globals()["PHASE"]
 env = globals()["env"]
@@ -16,9 +16,8 @@ TASK_FIELDS = [
     "sprint_id",
     "create_uid",
     "create_date",
-    "write_uid",
-    "write_date",
 ]
+TASK_WRITE_FIELDS = ["write_uid", "write_date"]
 EVENT_FIELDS = [
     "sprint_id",
     "task_id",
@@ -97,6 +96,7 @@ if PHASE == "seed":
                 "sprint": sprint.id,
                 "untyped": untyped.id,
                 "tasks": snapshot(tasks, TASK_FIELDS),
+                "task_writes": snapshot(tasks, TASK_WRITE_FIELDS),
                 "events": snapshot(sprint.scope_event_ids, EVENT_FIELDS),
             }
         ),
@@ -118,6 +118,21 @@ elif PHASE == "check":
         "task preservation",
         saved["tasks"],
         snapshot(tasks, TASK_FIELDS),
+    )
+    # Stored-field migration is a real native write, not an unchanged task save.
+    task_writes = snapshot(tasks, TASK_WRITE_FIELDS)
+    for before, after in zip(saved["task_writes"], task_writes, strict=True):
+        assert after["id"] == before["id"]
+        assert after["write_uid"][0] == SUPERUSER_ID
+        assert (
+            fields.Datetime.to_datetime(before["write_date"])
+            < fields.Datetime.to_datetime(after["write_date"])
+            <= env.cr.now()
+        ), ("migration write time", before, after)
+    logging.getLogger(__name__).info(
+        "Native migration write metadata (server update uid=%s): %s",
+        SUPERUSER_ID,
+        task_writes,
     )
     assert snapshot(sprint.scope_event_ids, EVENT_FIELDS) == saved["events"], (
         "event preservation",
@@ -172,7 +187,9 @@ elif PHASE == "check":
     assert quick.agile_item_type_id == task_type
     logging.getLogger(__name__).info(
         "REAL prior-source populated upgrade passed: immediate effective points 3/5/8, "
-        "unchanged task audit/history, UI totals 16/18/13, first reestimate 3-to-5 "
+        "preserved task business/creation data and frozen events, "
+        "valid native migration write metadata, UI totals 16/18/13, "
+        "first reestimate 3-to-5 "
         "and hours transition 5-to-0; BA eligibility and quick defaults passed."
     )
 else:

@@ -52,19 +52,37 @@ registry.category("web_tour.tours").add("agile_mixed_type_columns", {
 
 registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
   steps: () => [
+    {trigger: ".o_cp_action_menus button", run: "click"},
     {
-      trigger: ".o_form_view",
+      trigger: ".o-dropdown--menu",
       run() {
-        const form = document.querySelector(".o_form_view");
+        const items = [
+          ...document.querySelectorAll(".o-dropdown--menu .dropdown-item"),
+        ];
         console.log(
-          "PICKER native parent DOM",
-          form.querySelector("[name='parent_id']")?.outerHTML
+          "PICKER native actions",
+          items.map((item) => item.textContent)
         );
-        console.log("PICKER native form text", form.textContent);
+        const convert = items.find((item) =>
+          /convert.*sub.?task/i.test(item.textContent)
+        );
+        if (!convert) {
+          throw new Error("Missing native convert-to-subtask action");
+        }
+        convert.click();
       },
     },
     {
-      trigger: ".o_form_view .o_field_widget[name='parent_id'] input",
+      trigger: ".modal .o_form_view",
+      run() {
+        console.log(
+          "PICKER native dialog",
+          document.querySelector(".modal .o_form_view").outerHTML
+        );
+      },
+    },
+    {
+      trigger: ".modal .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-1",
     },
     {
@@ -72,7 +90,7 @@ registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
       run: "click",
     },
     {
-      trigger: ".o_form_view .o_field_widget[name='parent_id'] input",
+      trigger: ".modal .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-",
     },
     {trigger: ".o-autocomplete--dropdown-item:contains([BOARD-1] Add approval)"},

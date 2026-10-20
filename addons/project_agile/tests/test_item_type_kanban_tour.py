@@ -42,19 +42,17 @@ class TestItemTypeKanbanTour(HttpCase):
                 }
             )
         tasks = self.env["project.task"].with_user(user)
-        approval, _configuration = tasks.create(
-            [
+        for name, item_type in (
+            ("Add approval", story),
+            ("Configure taxes", configuration),
+        ):
+            tasks.create(
                 {
                     "name": name,
                     "project_id": project.id,
                     "agile_item_type_id": item_type.id,
                 }
-                for name, item_type in (
-                    ("Add approval", story),
-                    ("Configure taxes", configuration),
-                )
-            ]
-        )
+            )
         # Native search facets OR selections in the same section. Numeric IDs
         # distinguish this contract from filtering task names or copied core JS.
         search = etree.Element("search")
@@ -91,28 +89,27 @@ class TestItemTypeKanbanTour(HttpCase):
         self.start_tour(
             f"/odoo/action-{action.id}", "agile_mixed_type_columns", login=user.login
         )
-        # The native parent picker belongs to a child task's form. Keep this
-        # fixture out of the board journey's item-type/column expectations.
-        child = tasks.create(
+        # Use a valid Task-to-Story conversion, outside the board journey's
+        # item-type/column expectations, through the native conversion dialog.
+        task = tasks.create(
             {
                 "name": "Implement approval",
                 "project_id": project.id,
-                "parent_id": approval.id,
                 "agile_item_type_id": self.env.ref(
                     "project_agile.project_agile_item_type_task"
                 ).id,
             }
         )
-        native_form = etree.fromstring(
-            tasks.get_view(view_type="form")["arch"].encode()
-        )
-        for parent_field in native_form.xpath("//field[@name='parent_id']"):
+        for convert_action in self.env["ir.actions.server"].search(
+            [("model_id.model", "=", "project.task"), ("name", "ilike", "convert")]
+        ):
             logging.getLogger(__name__).info(
-                "PICKER native parent view: %s",
-                etree.tostring(parent_field.getparent(), encoding="unicode"),
+                "PICKER native conversion action: %s %s",
+                convert_action.name,
+                convert_action.code,
             )
         self.start_tour(
-            f"/odoo/action-{action.id}/{child.id}",
+            f"/odoo/action-{action.id}/{task.id}",
             "agile_task_key_parent_picker",
             login=user.login,
         )

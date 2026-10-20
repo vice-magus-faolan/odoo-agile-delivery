@@ -1,3 +1,5 @@
+import logging
+
 from lxml import etree
 
 from odoo import Command
@@ -101,6 +103,14 @@ class TestItemTypeKanbanTour(HttpCase):
                 ).id,
             }
         )
+        native_form = etree.fromstring(
+            tasks.get_view(view_type="form")["arch"].encode()
+        )
+        for parent_field in native_form.xpath("//field[@name='parent_id']"):
+            logging.getLogger(__name__).info(
+                "PICKER native parent view: %s",
+                etree.tostring(parent_field.getparent(), encoding="unicode"),
+            )
         self.start_tour(
             f"/odoo/action-{action.id}/{child.id}",
             "agile_task_key_parent_picker",

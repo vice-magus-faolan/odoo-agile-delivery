@@ -53,10 +53,24 @@ registry.category("web_tour.tours").add("agile_mixed_type_columns", {
 registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
   steps: () => [
     {
+      trigger: ".o_form_view",
+      run() {
+        const form = document.querySelector(".o_form_view");
+        console.log(
+          "PICKER native parent DOM",
+          form.querySelector("[name='parent_id']")?.outerHTML
+        );
+        console.log("PICKER native form text", form.textContent);
+      },
+    },
+    {
       trigger: ".o_form_view .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-1",
     },
-    {trigger: ".o-autocomplete--dropdown-item:contains([BOARD-1] Add approval)"},
+    {
+      trigger: ".o-autocomplete--dropdown-item:contains([BOARD-1] Add approval)",
+      run: "click",
+    },
     {
       trigger: ".o_form_view .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-",

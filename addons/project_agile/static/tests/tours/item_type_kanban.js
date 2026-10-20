@@ -46,7 +46,12 @@ registry.category("web_tour.tours").add("agile_mixed_type_columns", {
     {trigger: ".o_kanban_record:contains(Configure taxes)"},
     {trigger: ".o_kanban_renderer:not(:has(.o_kanban_record:contains(Add approval)))"},
     {trigger: ".o_switch_view.o_list", run: "click"},
-    {trigger: ".o_data_row:contains(Configure taxes):contains(BOARD-2)", run: "click"},
+    {trigger: ".o_data_row:contains(Configure taxes):contains(BOARD-2)"},
+  ],
+});
+
+registry.category("web_tour.tours").add("agile_task_key_parent_picker", {
+  steps: () => [
     {
       trigger: ".o_form_view .o_field_widget[name='parent_id'] input",
       run: "edit BOARD-1",

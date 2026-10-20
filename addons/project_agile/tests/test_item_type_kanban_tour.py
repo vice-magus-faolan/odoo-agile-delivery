@@ -40,17 +40,19 @@ class TestItemTypeKanbanTour(HttpCase):
                 }
             )
         tasks = self.env["project.task"].with_user(user)
-        for name, item_type in (
-            ("Add approval", story),
-            ("Configure taxes", configuration),
-        ):
-            tasks.create(
+        approval, _configuration = tasks.create(
+            [
                 {
                     "name": name,
                     "project_id": project.id,
                     "agile_item_type_id": item_type.id,
                 }
-            )
+                for name, item_type in (
+                    ("Add approval", story),
+                    ("Configure taxes", configuration),
+                )
+            ]
+        )
         # Native search facets OR selections in the same section. Numeric IDs
         # distinguish this contract from filtering task names or copied core JS.
         search = etree.Element("search")
@@ -86,4 +88,21 @@ class TestItemTypeKanbanTour(HttpCase):
         )
         self.start_tour(
             f"/odoo/action-{action.id}", "agile_mixed_type_columns", login=user.login
+        )
+        # The native parent picker belongs to a child task's form. Keep this
+        # fixture out of the board journey's item-type/column expectations.
+        child = tasks.create(
+            {
+                "name": "Implement approval",
+                "project_id": project.id,
+                "parent_id": approval.id,
+                "agile_item_type_id": self.env.ref(
+                    "project_agile.project_agile_item_type_task"
+                ).id,
+            }
+        )
+        self.start_tour(
+            f"/odoo/action-{action.id}/{child.id}",
+            "agile_task_key_parent_picker",
+            login=user.login,
         )

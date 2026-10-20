@@ -76,7 +76,7 @@ class TestItemTypeKanbanTour(HttpCase):
             {
                 "name": "Mixed client board",
                 "res_model": "project.task",
-                "view_mode": "kanban,form",
+                "view_mode": "kanban,list,form",
                 "search_view_id": view.id,
                 "domain": repr([("project_id", "=", project.id)]),
                 "context": repr(

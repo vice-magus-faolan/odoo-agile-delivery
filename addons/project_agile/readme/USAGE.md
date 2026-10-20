@@ -6,6 +6,14 @@ is read-only. Use native subtasks for hierarchy and dependencies for blocking
 relationships. Agile parent and child tasks must belong to the same Project and
 follow the parent type policy.
 
+Task selectors show `[KEY] Task name` and accept a full key or key prefix.
+Enabling Agile assigns keys to existing non-template tasks, including archived
+work, in creation order. Existing item types remain unchanged. If you cannot
+update every eligible task, enablement is refused without changing the Project.
+Moving unkeyed work into an Agile Project assigns a key and the Project's default
+item type unless you explicitly choose another type. Assigned keys stay fixed;
+copy keyed work instead of moving it to another Project.
+
 Open Project **Tasks > Product Backlog** and prioritize tasks with the list drag
 handle (**Agile Backlog Sequence**). Filter by Project when managing several Agile
 Projects. This backlog includes all Agile item types, not only unscheduled work.

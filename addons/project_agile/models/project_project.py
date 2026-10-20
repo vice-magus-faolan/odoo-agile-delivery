@@ -133,13 +133,35 @@ class ProjectProject(models.Model):
         projects._ensure_agile_sequence()
         return projects
 
+    def _agile_unkeyed_tasks(self):
+        # Discover the complete onboarding set, not just caller-visible work.
+        tasks = (
+            self.env["project.task"]
+            .sudo()
+            .with_context(active_test=False)
+            .search(
+                [
+                    ("project_id", "in", self.ids),
+                    ("project_id.is_template", "=", False),
+                    ("has_template_ancestor", "=", False),
+                    ("agile_key", "=", False),
+                ],
+                order="create_date, id",
+            )
+            .with_env(self.env)
+        )
+        tasks.check_access("write")
+        return tasks
+
     def write(self, values):
         self._check_agile_configuration(values)
         if "agile_key" in values:
-            task_model = self.env["project.task"]
+            # Existence only: archived or inaccessible identities also pin the key.
+            task_model = self.env["project.task"].sudo().with_context(active_test=False)
             for project in self:
                 if values["agile_key"] != project.agile_key and task_model.search_count(
-                    [("project_id", "=", project.id), ("agile_key", "!=", False)]
+                    [("project_id", "=", project.id), ("agile_key", "!=", False)],
+                    limit=1,
                 ):
                     raise ValidationError(
                         _(
@@ -153,6 +175,11 @@ class ProjectProject(models.Model):
                 lambda project: not project.agile_enabled
                 and not project.agile_default_item_type_id
             )
+        tasks_to_key = self.env["project.task"]
+        if values.get("agile_enabled"):
+            tasks_to_key = self.filtered(
+                lambda p: not p.agile_enabled
+            )._agile_unkeyed_tasks()
         result = super().write(values)
         if projects_to_default:
             item_type = self.env.ref(
@@ -161,4 +188,5 @@ class ProjectProject(models.Model):
             if item_type and item_type.active:
                 projects_to_default.write({"agile_default_item_type_id": item_type.id})
         self._ensure_agile_sequence()
+        tasks_to_key._assign_agile_keys()
         return result

@@ -227,3 +227,189 @@ class TestProjectAgileDomain(TransactionCase):
 
         self.assertLess(backlog.ids.index(earlier.id), backlog.ids.index(later.id))
         self.assertNotIn(ordinary, backlog)
+
+    def test_native_key_name_search_and_display(self):
+        member = mail_new_test_user(
+            self.env, "key_search_member", groups="project_agile.group_agile_member"
+        )
+        task = self._create_task("Selectable work")
+        model = self.env["project.task"].with_user(member)
+        self.assertEqual(
+            model.name_search("ENG-1", operator="="),
+            [(task.id, "[ENG-1] Selectable work")],
+        )
+        self.assertIn(task.id, dict(model.name_search("ENG-")))
+        self.assertIn(task.id, dict(model.name_search("Selectable")))
+        task.write({"name": "Renamed work"})
+        self.assertEqual(task.display_name, "[ENG-1] Renamed work")
+        plain = model.create({"name": "Plain selectable"})
+        self.assertEqual(plain.display_name, "Plain selectable")
+        self.assertIn(plain.id, dict(model.name_search("Plain selectable")))
+
+    def test_enable_keys_existing_archived_and_template_work_in_order(self):
+        project = self.env["project.project"].create(
+            {"name": "Existing", "agile_key": "EXIST"}
+        )
+        model = self.env["project.task"]
+        tasks = model.create(
+            [
+                {
+                    "name": "Later",
+                    "project_id": project.id,
+                    "create_date": "2026-01-02 00:00:00",
+                    "agile_item_type_id": self.story_type.id,
+                },
+                {
+                    "name": "Earlier archived",
+                    "project_id": project.id,
+                    "create_date": "2026-01-01 00:00:00",
+                    "active": False,
+                },
+                {
+                    "name": "Same date",
+                    "project_id": project.id,
+                    "create_date": "2026-01-02 00:00:00",
+                },
+            ]
+        )
+        template = model.create(
+            {"name": "Template", "project_id": project.id, "is_template": True}
+        )
+        child = model.create(
+            {
+                "name": "Template child",
+                "project_id": project.id,
+                "parent_id": template.id,
+            }
+        )
+        project.write({"agile_enabled": True})
+        self.assertEqual(tasks.mapped("agile_key"), ["EXIST-2", "EXIST-1", "EXIST-3"])
+        self.assertEqual(tasks[0].agile_item_type_id, self.story_type)
+        self.assertFalse(tasks[1].agile_item_type_id)
+        self.assertFalse(template.agile_key)
+        self.assertFalse(child.agile_key)
+        keys = tasks.mapped("agile_key")
+        project.write({"agile_enabled": False})
+        project.write({"agile_enabled": True})
+        self.assertEqual(tasks.mapped("agile_key"), keys)
+        fresh = model.create({"name": "Next", "project_id": project.id})
+        self.assertEqual(fresh.agile_key, "EXIST-4")
+        fresh.active = False
+        tasks.write({"active": False})
+        with self.assertRaises(ValidationError):
+            project.write({"agile_key": "REKEY"})
+        template_project = self.env["project.project"].create(
+            {
+                "name": "Project template",
+                "is_template": True,
+                "agile_enabled": True,
+                "agile_key": "TEMPLATE",
+            }
+        )
+        project_task = model.create(
+            {"name": "Template project task", "project_id": template_project.id}
+        )
+        self.assertFalse(project_task.agile_key)
+
+    def test_move_defaults_preserve_same_project_choices_and_batch_identity(self):
+        ordinary = self.env["project.project"].create({"name": "Move source"})
+        self.project.write({"agile_default_item_type_id": self.story_type.id})
+        model = self.env["project.task"]
+        incoming = model.create(
+            [
+                {"name": "Incoming one", "project_id": ordinary.id},
+                {"name": "Incoming two", "project_id": ordinary.id},
+            ]
+        )
+        existing = self._create_task("Deliberate type", self.task_type)
+        (incoming | existing).write({"project_id": self.project.id})
+        self.assertEqual(incoming.mapped("agile_key"), ["ENG-2", "ENG-3"])
+        self.assertEqual(incoming.agile_item_type_id, self.story_type)
+        self.assertEqual(existing.agile_item_type_id, self.task_type)
+        existing.write({"project_id": self.project.id})
+        self.assertEqual(existing.agile_item_type_id, self.task_type)
+        explicit = model.create({"name": "Explicit move", "project_id": ordinary.id})
+        explicit.write({"project_id": self.project.id, "agile_item_type_id": False})
+        self.assertFalse(explicit.agile_item_type_id)
+        self.assertTrue(explicit.agile_key)
+        waiting = model.create({"name": "Wait", "project_id": ordinary.id})
+        with self.assertRaises(ValidationError):
+            (waiting | existing).write({"project_id": self.other_project.id})
+        self.assertEqual(waiting.project_id, ordinary)
+        self.assertFalse(waiting.agile_key)
+        with self.assertRaises(ValidationError):
+            waiting.with_context(agile_assign_key=True).write({"agile_key": "FORGED-1"})
+
+    def test_complete_onboarding_rejects_hidden_archived_work_before_mutation(self):
+        manager = mail_new_test_user(
+            self.env, "key_onboarding_manager", groups="project.group_project_manager"
+        )
+        project = self.env["project.project"].create(
+            {
+                "name": "Restricted onboarding",
+                "privacy_visibility": "employees",
+                "agile_key": "HIDDEN",
+            }
+        )
+        tasks = self.env["project.task"].create(
+            [
+                {"name": "Visible", "project_id": project.id},
+                {"name": "Hidden archived", "project_id": project.id, "active": False},
+            ]
+        )
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide onboarding task",
+                "model_id": self.env.ref("project.model_project_task").id,
+                "domain_force": repr([("id", "!=", tasks[1].id)]),
+            }
+        )
+        caller_tasks = (
+            self.env["project.task"].with_user(manager).with_context(active_test=False)
+        )
+        self.assertNotIn(
+            tasks[1].id, caller_tasks.search([("project_id", "=", project.id)]).ids
+        )
+        with self.assertRaises(AccessError):
+            project.with_user(manager).write({"agile_enabled": True})
+        self.assertFalse(project.agile_enabled)
+        self.assertFalse(any(tasks.mapped("agile_key")))
+        self.assertFalse(
+            self.env["ir.sequence"]
+            .sudo()
+            .search_count([("code", "=", project._agile_sequence_code())])
+        )
+
+    def test_key_search_respects_record_rules_and_company_scope(self):
+        member = mail_new_test_user(
+            self.env, "restricted_key_member", groups="project_agile.group_agile_member"
+        )
+        visible = self._create_task("Visible key")
+        hidden = self._create_task("Hidden key")
+        company = self.env["res.company"].create({"name": "Foreign key company"})
+        foreign_project = self._create_agile_project(
+            "Foreign", "FOREIGN", company_id=company.id
+        )
+        foreign = self.env["project.task"].create(
+            {"name": "Foreign work", "project_id": foreign_project.id}
+        )
+        self.env["ir.rule"].create(
+            {
+                "name": "Hidden key",
+                "model_id": self.env.ref("project.model_project_task").id,
+                "domain_force": repr([("id", "!=", hidden.id)]),
+            }
+        )
+        model = (
+            self.env["project.task"]
+            .with_user(member)
+            .with_context(allowed_company_ids=[self.env.company.id])
+        )
+        self.assertIn(visible.id, dict(model.name_search("ENG-")))
+        self.assertNotIn(hidden.id, dict(model.name_search("ENG-")))
+        self.assertEqual(model.name_search(hidden.agile_key, operator="="), [])
+        self.assertEqual(model.name_search(foreign.agile_key, operator="="), [])
+        with self.assertRaises(AccessError):
+            foreign.with_user(member).with_context(
+                allowed_company_ids=[self.env.company.id]
+            ).read(["display_name"])

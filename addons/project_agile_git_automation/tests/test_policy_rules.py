@@ -561,12 +561,12 @@ class TestGitPolicyRules(TransactionCase):
 
     def test_bulk_mixed_project_edits_and_scope_move_revoke_old_and_new(self):
         project, task, rule, revision = self._second_scope()
-        movable = self.env["project.task"].create(
-            {"name": "Native unkeyed Task", "project_id": False}
+        ordinary = self.env["project.project"].create(
+            {"name": "Incoming work", "privacy_visibility": "employees"}
         )
-        # Simulate pre#44 unkeyed work; restore assignment before tested actions.
-        with patch.object(type(movable), "_assign_agile_keys", return_value=movable):
-            movable.write({"project_id": self.project.id})
+        movable = self.env["project.task"].create(
+            {"name": "Native unkeyed Task", "project_id": ordinary.id}
+        )
         self.assertFalse(movable.agile_key)
         first, second = self._activate(), self._approve(revision)
         (self.task | task).with_user(self.author).write(
@@ -588,54 +588,56 @@ class TestGitPolicyRules(TransactionCase):
         assigned_key = movable.agile_key
         self.assertTrue(assigned_key.startswith("SEC-"))
         self.assertEqual(movable.project_id, project)
-        self.assertTrue(first.revocation_ids)
+        self.assertFalse(first.revocation_ids)
         self.assertTrue(second.revocation_ids)
-        self.assertFalse(self.rule.activation_id)
+        self.assertEqual(self.rule.activation_id, first)
         self.assertFalse(rule.activation_id)
         with self.assertRaises(ValidationError):
             movable.with_user(self.author).write({"project_id": self.project.id})
         self.assertEqual(movable.agile_key, assigned_key)
         self.assertEqual(movable.project_id, project)
-        self.assertFalse(first._validate_current_authority())
+        self.assertTrue(first._validate_current_authority())
         self.assertFalse(second._validate_current_authority())
 
-    def test_parent_scope_propagation_revokes_descendant_project(self):
+    def test_incoming_parent_scope_propagation_revokes_destination_project(self):
         project, task, rule, revision = self._second_scope()
         task_type = self.env.ref("project_agile.project_agile_item_type_task")
         subtask_type = self.env.ref("project_agile.project_agile_item_type_subtask")
         tasks = self.env["project.task"]
-        # Simulate a valid pre#44 unkeyed hierarchy, not the propagation itself.
-        with patch.object(type(tasks), "_assign_agile_keys", return_value=tasks):
-            parent = tasks.create(
-                {
-                    "name": "Native parent",
-                    "project_id": self.project.id,
-                    "agile_item_type_id": task_type.id,
-                }
-            )
-            child = tasks.create(
-                {
-                    "name": "Child",
-                    "parent_id": parent.id,
-                    "agile_item_type_id": subtask_type.id,
-                }
-            )
-        self.assertEqual(child.project_id, self.project)
+        ordinary = self.env["project.project"].create(
+            {"name": "Incoming hierarchy", "privacy_visibility": "employees"}
+        )
+        parent = tasks.create(
+            {
+                "name": "Native parent",
+                "project_id": ordinary.id,
+                "agile_item_type_id": task_type.id,
+            }
+        )
+        child = tasks.create(
+            {
+                "name": "Child",
+                "parent_id": parent.id,
+                "agile_item_type_id": subtask_type.id,
+            }
+        )
+        self.assertEqual(child.project_id, ordinary)
         self.assertFalse(parent.agile_key)
         self.assertFalse(child.agile_key)
         first, second = self._activate(), self._approve(revision)
         parent.with_user(self.author).write({"project_id": project.id})
         self.assertTrue(parent.agile_key.startswith("SEC-"))
+        self.assertTrue(child.agile_key.startswith("SEC-"))
         self.assertEqual(parent.project_id, project)
         self.assertEqual(child.project_id, project)
         self.assertEqual(child.parent_id, parent)
         self.assertEqual(parent.agile_item_type_id, task_type)
         self.assertEqual(child.agile_item_type_id, subtask_type)
-        self.assertTrue(first.revocation_ids)
+        self.assertFalse(first.revocation_ids)
         self.assertTrue(second.revocation_ids)
-        self.assertFalse(self.rule.activation_id)
+        self.assertEqual(self.rule.activation_id, first)
         self.assertFalse(rule.activation_id)
-        self.assertFalse(first._validate_current_authority())
+        self.assertTrue(first._validate_current_authority())
         self.assertFalse(second._validate_current_authority())
 
     def test_cross_company_denial_is_atomic_and_multi_company_edit_is_terminal(self):

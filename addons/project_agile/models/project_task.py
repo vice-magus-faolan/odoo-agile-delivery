@@ -48,11 +48,31 @@ class ProjectTask(models.Model):
     )
 
     @api.depends("name", "agile_key")
+    # Compute methods assign fields, not return values.
+    # pylint: disable-next=missing-return
     def _compute_display_name(self):
-        result = super()._compute_display_name()
+        super()._compute_display_name()
         for task in self.filtered("agile_key"):
             task.display_name = f"[{task.agile_key}] {task.display_name}"
-        return result
+
+    @api.model
+    @api.readonly
+    def name_search(self, name="", domain=None, operator="ilike", limit=100):
+        if not name or operator not in ("=", "like", "ilike", "=like", "=ilike"):
+            return super().name_search(name, domain, operator, limit)
+        scope = Domain(domain or Domain.TRUE)
+        key = name.upper() if operator in ("ilike", "=ilike") else name
+        exact = super().name_search(
+            name, scope & Domain("agile_key", "=", key), operator, limit
+        )
+        if not exact:
+            return super().name_search(name, domain, operator, limit)
+        if limit and len(exact) >= limit:
+            return exact
+        remaining = scope & Domain("id", "not in", [task_id for task_id, _ in exact])
+        return exact + super().name_search(
+            name, remaining, operator, limit - len(exact) if limit else limit
+        )
 
     @api.model
     def default_get(self, fields_list):
@@ -138,8 +158,7 @@ class ProjectTask(models.Model):
         tasks.check_access("write")
         tasks.project_id.check_access("read")
         for task in tasks:
-            # Only server-owned first assignment skips our immutable-input guard.
-            # No context flag can expose this key-only internal write to RPC.
+            # Write the key below our own write, which refuses key changes.
             super(ProjectTask, task).write(
                 {"agile_key": task.project_id._next_agile_task_key()}
             )
@@ -170,11 +189,15 @@ class ProjectTask(models.Model):
                     and not task.agile_key
                     and not task.has_template_ancestor
                 )
-        if moving:
+        for task in moving:
             prepared = dict(values)
+            if task.agile_item_type_id:
+                prepared.setdefault("agile_item_type_id", task.agile_item_type_id.id)
             self._prepare_agile_task_values(project, prepared)
-            super(ProjectTask, moving).write(prepared)
-            moving._assign_agile_keys()
+            super(ProjectTask, task).write(prepared)
+        if moving:
+            # Native parent moves recompute descendant Projects without write().
+            project._agile_unkeyed_tasks()._assign_agile_keys()
         return super(ProjectTask, self - moving).write(values)
 
     @api.constrains("parent_id", "project_id", "agile_item_type_id")

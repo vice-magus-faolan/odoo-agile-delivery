@@ -67,7 +67,7 @@ class TestItemTypePolicy(TransactionCase):
         )
         self.assertEqual(configuration.allocated_hours, 4)
         self.assertEqual(configuration.agile_effective_story_points, 0)
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             configuration.write({"agile_item_type_id": self.story.id})
         self.assertEqual(configuration.agile_item_type_id, self.configuration)
         self.assertEqual(configuration.agile_story_points, 4)
@@ -79,7 +79,7 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(configuration.agile_story_points, 5)
         self.assertEqual(configuration.allocated_hours, 4)
         self.assertEqual(configuration.agile_effective_story_points, 0)
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             self._task(self.story, agile_story_points=4)
         with self.assertRaises(AccessError):
             self.configuration.with_user(self.user).write({"uses_story_points": True})
@@ -89,9 +89,9 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(story.stage_id, self.development)
         configuration = self._task(self.configuration)
         self.assertEqual(configuration.stage_id, self.business)
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             self._task(self.configuration, stage_id=self.development.id)
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             (story | configuration).write(
                 {"stage_id": self.development.id, "name": "Must rollback"}
             )
@@ -104,7 +104,7 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(story.stage_id, self.shared)
         self.assertFalse(self.tasks.search_count([("name", "=", "Must rollback")]))
         before = self.tasks.search_count([("project_id", "=", self.project.id)])
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             self.tasks.create(
                 [
                     {
@@ -127,7 +127,7 @@ class TestItemTypePolicy(TransactionCase):
     def test_stage_policy_archived_work_and_native_project_links(self):
         task = self._task(self.configuration)
         task.write({"active": False})
-        with self.assertRaises(ValidationError), self.cr.savepoint():
+        with self.assertRaises(ValidationError):
             self.business.write({"agile_item_type_ids": [Command.set(self.story.ids)]})
         other = self.env["project.project"].create({"name": "Other"})
         foreign = self.env["project.task.type"].create(

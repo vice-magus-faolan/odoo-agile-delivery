@@ -21,9 +21,7 @@ An empty stage item-type selection allows all types. Typed Agile tasks cannot be
 in a stage restricted to other types. Changing a task type keeps a compatible stage,
 otherwise chooses the first compatible Project stage by sequence and ID. Without one,
 the task has no stage. Stage policy edits cannot invalidate existing or archived work.
-Project links on stages retain native behavior; they are not an added task constraint.
-Non-Agile and untyped tasks remain unrestricted. Request rollback, or the caller’s own
-recovery savepoint, handles rejected operations; generic task create/write adds none.
+Non-Agile and untyped tasks remain unrestricted.
 
 Extend Odoo 19
 [Project hooks](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/addons/project/models/project_task.py),

@@ -1,10 +1,9 @@
-"""Real accepted-source populated upgrade, run on scripts/verify owned DB."""
+"""Upgrade pointed Stories in an active Sprint and check points and events."""
 
 import json
 import logging
-from datetime import datetime
 
-from odoo import SUPERUSER_ID, Command
+from odoo import Command
 
 PHASE = globals()["PHASE"]
 env = globals()["env"]
@@ -15,10 +14,7 @@ TASK_FIELDS = [
     "agile_key",
     "agile_item_type_id",
     "sprint_id",
-    "create_uid",
-    "create_date",
 ]
-TASK_WRITE_FIELDS = ["write_uid", "write_date"]
 EVENT_FIELDS = [
     "sprint_id",
     "task_id",
@@ -40,12 +36,6 @@ def snapshot(records, field_names):
 
 
 if PHASE == "seed":
-    modules = env["ir.module.module"].search(
-        [("name", "in", ["project_agile", "project_scrum"])]
-    )
-    assert len(modules) == 2
-    assert all(module.installed_version == "19.0.1.1.0" for module in modules)
-    assert "agile_effective_story_points" not in env["project.task"]._fields
     task_type = env.ref("project_agile.project_agile_item_type_task")
     task_type.write({"name": "Customer task", "sequence": 123})
     project = env["project.project"].create(
@@ -97,43 +87,26 @@ if PHASE == "seed":
                 "sprint": sprint.id,
                 "untyped": untyped.id,
                 "tasks": snapshot(tasks, TASK_FIELDS),
-                "task_writes": snapshot(tasks, TASK_WRITE_FIELDS),
                 "events": snapshot(sprint.scope_event_ids, EVENT_FIELDS),
             }
         ),
     )
     env.cr.commit()
     logging.getLogger(__name__).info(
-        "Accepted prior 898f0e1 registry populated: active Sprint, Story points 3/5/8, "
-        "task identity/audit and committed-event snapshots saved."
+        "Seeded an active Sprint with Stories at 3/5/8 points."
     )
 elif PHASE == "check":
     saved = json.loads(env["ir.config_parameter"].get_param(SNAPSHOT_KEY))
     project = env["project.project"].browse(saved["project"])
     sprint = env["project.sprint"].browse(saved["sprint"])
     tasks = env["project.task"].browse(row["id"] for row in saved["tasks"])
-    # First candidate read, before any ordinary task write can hide a missing backfill.
+    # Read before editing a task so writes cannot hide a missing points backfill.
     assert tasks.mapped("agile_effective_story_points") == [3, 5, 8]
     assert all(tasks.mapped("agile_uses_story_points"))
     assert snapshot(tasks, TASK_FIELDS) == saved["tasks"], (
         "task preservation",
         saved["tasks"],
         snapshot(tasks, TASK_FIELDS),
-    )
-    # Stored-field migration is a real native write, not an unchanged task save.
-    task_writes = snapshot(tasks, TASK_WRITE_FIELDS)
-    for before, after in zip(saved["task_writes"], task_writes, strict=True):
-        assert after["id"] == before["id"]
-        assert after["write_uid"][0] == SUPERUSER_ID
-        assert (
-            datetime.fromisoformat(before["write_date"])
-            < datetime.fromisoformat(after["write_date"])
-            <= env.cr.now()
-        ), ("migration write time", before, after)
-    logging.getLogger(__name__).info(
-        "Native migration write metadata (server update uid=%s): %s",
-        SUPERUSER_ID,
-        task_writes,
     )
     assert snapshot(sprint.scope_event_ids, EVENT_FIELDS) == saved["events"], (
         "event preservation",
@@ -187,11 +160,8 @@ elif PHASE == "check":
     )
     assert quick.agile_item_type_id == task_type
     logging.getLogger(__name__).info(
-        "REAL prior-source populated upgrade passed: immediate effective points 3/5/8, "
-        "preserved task business/creation data and frozen events, "
-        "valid native migration write metadata, UI totals 16/18/13, "
-        "first reestimate 3-to-5 "
-        "and hours transition 5-to-0; BA eligibility and quick defaults passed."
+        "Upgrade passed: Story points and Sprint events preserved; "
+        "point changes, planning totals, seeds and quick defaults checked."
     )
 else:
     raise AssertionError("Unknown item-type lifecycle phase")

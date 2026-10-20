@@ -8,10 +8,8 @@ Use only disposable databases; these probes commit synthetic data.
 - `requirement_concurrency.py`: stable-key/content allocation and frozen-baseline races.
 - `task_concurrency.py`: duplicate-safe confirm/link and stale-source rejection races.
 - `solution_scrum_probe.py`: relink, Sprint transition and completion races.
-- `item_type_lifecycle_probe.py`: prior-source active-Sprint upgrade with 3/5/8 Story
-  points, preserved task business/creation data and immutable events, native migration
-  write metadata, first point-change events, planning totals, BA eligibility and quick
-  defaults.
+- `item_type_lifecycle_probe.py`: upgrades pointed Stories in an active Sprint and
+  checks their points, Sprint events, planning totals, seeds and quick defaults.
 - `solution_lifecycle_probe.py`: populated upgrade and uninstall/reinstall lifecycles.
 - `git_policy_concurrency_{probe,worker}.py`: cron claims, budget and crash recovery
   races.
@@ -24,7 +22,6 @@ Run from the repository root with Docker Compose v2 available:
 `./scripts/verify` runs the core probes, including planning races, after ordinary addon
 installation in its disposable database.
 
-The item-type upgrade uses the retained Git history at
-`898f0e105aed33aaeb6815fdc56edb10892f6165`. Use a full checkout (not a shallow clone).
-The verifier creates and removes one temporary detached prior-source worktree and
-updates the same populated disposable database with the current checkout.
+The item-type upgrade needs the prior Git revision selected in `scripts/verify`. The
+verifier extracts its addons into a temporary directory and updates the same populated
+disposable database with the current checkout.

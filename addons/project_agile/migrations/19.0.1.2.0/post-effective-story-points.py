@@ -6,4 +6,4 @@ def migrate(cr, version):
     tasks = env["project.task"].with_context(active_test=False).search([])
     field = tasks._fields["agile_effective_story_points"]
     env.add_to_compute(field, tasks)
-    tasks._recompute_recordset([field.name])
+    env.flush_all()

@@ -10,6 +10,7 @@ export COMPOSE_PROJECT_NAME
 VERIFY_IMAGE_TAG=$(printf '%s' "$ROOT" | sha256sum | cut -d ' ' -f 1)
 export VERIFY_IMAGE_TAG
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.yaml -f compose.verify.yaml)
+PRIOR_SOURCE_COMMIT=898f0e105aed33aaeb6815fdc56edb10892f6165
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
@@ -77,27 +78,24 @@ solution_lifecycle() {
 "${COMPOSE[@]}" up -d --wait db
 reset_verification_database "$DATABASE_UPGRADE"
 # Install the accepted prior source into the same owned DB used for the update.
-PRIOR_SOURCE_ROOT="${ROOT%/*}/.prior-$COMPOSE_PROJECT_NAME"
-cleanup_prior_source() {
-    local status=$?
-    if ! git -C "$ROOT" worktree remove "$PRIOR_SOURCE_ROOT"; then
-        printf "Prior-source worktree cleanup failed: %s\n" "$PRIOR_SOURCE_ROOT" >&2
-        (( status != 0 )) || status=1
-    fi
-    set +e
-    (exit "$status")
-    cleanup_verification_resources
-}
-git -C "$ROOT" worktree add --detach "$PRIOR_SOURCE_ROOT" 898f0e105aed33aaeb6815fdc56edb10892f6165
-trap cleanup_prior_source EXIT
-chmod -R a+rX "$PRIOR_SOURCE_ROOT/addons"
-printf "Prior-source install: %s\n" "$(git -C "$PRIOR_SOURCE_ROOT" rev-parse HEAD)"
-"${COMPOSE[@]}" run --rm -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo \
-    odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True \
-    --database "$DATABASE_UPGRADE" --init "$MODULES"
-{ printf "PHASE = \"seed\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
-git -C "$ROOT" worktree remove "$PRIOR_SOURCE_ROOT"
-trap cleanup_verification_resources EXIT
+(
+    PRIOR_SOURCE_ROOT=$(mktemp -d)
+    trap 'status=$?
+        if ! rm -rf -- "$PRIOR_SOURCE_ROOT"; then
+            printf "Prior-source cleanup failed: %s\n" "$PRIOR_SOURCE_ROOT" >&2
+            (( status != 0 )) || status=1
+        fi
+        exit "$status"' EXIT
+    printf "Owning temporary prior-source directory: %s\n" "$PRIOR_SOURCE_ROOT"
+    git -C "$ROOT" archive "$PRIOR_SOURCE_COMMIT" addons | tar -x -C "$PRIOR_SOURCE_ROOT"
+    chmod a+rx "$PRIOR_SOURCE_ROOT"
+    chmod -R a+rX "$PRIOR_SOURCE_ROOT/addons"
+    printf "Prior-source install: %s\n" "$PRIOR_SOURCE_COMMIT"
+    "${COMPOSE[@]}" run --rm -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo \
+        odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True \
+        --database "$DATABASE_UPGRADE" --init "$MODULES"
+    { printf "PHASE = \"seed\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+)
 printf "%s\n" "Prior-source population complete; updating the same database with candidate source."
 run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"
 { printf "PHASE = \"check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http

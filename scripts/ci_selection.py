@@ -1,4 +1,4 @@
-"""Conservative native unit selection for the supported Community verifier."""
+"""Select standalone unit suites for the supported Community verifier."""
 
 # This CLI's stdout is the verifier's machine-readable selection protocol.
 # pylint: disable=print-used
@@ -133,7 +133,7 @@ def decide(root, base=None, head=None, addons=None):
     supported = topological(graph)
     result = {
         "mode": "full",
-        "reason": "complete developer/default-branch suite",
+        "reason": "all supported standalone suites",
         "selected": sorted(graph),
         "install": supported + ["hr_timesheet"],
         "excluded": sorted(excluded),
@@ -154,7 +154,7 @@ def decide(root, base=None, head=None, addons=None):
         if git(root, "rev-parse", "--verify", f"{head}^{{commit}}").strip() != current:
             raise ValueError("comparison head is not the checked-out candidate")
         ancestor = git(root, "merge-base", base, head).strip()
-        old_graph, old_excluded, _ = graph_at(root, ancestor)
+
         if git(
             root,
             "diff",
@@ -165,14 +165,12 @@ def decide(root, base=None, head=None, addons=None):
             head,
             "--",
         ).strip():
-            result["reason"] = "deleted or renamed paths; full assurance"
+            result["reason"] = "deleted or renamed paths; running all suites"
             return result
         changed = git(
             root, "diff", "--no-renames", "--name-only", "-z", ancestor, head, "--"
         ).split("\0")[:-1]
-        if graph != old_graph or excluded != old_excluded:
-            result["reason"] = "addon availability/dependency graph changed"
-            return result
+
         if any(path.endswith("/__manifest__.py") for path in changed):
             result["reason"] = "manifest changed"
             return result
@@ -191,7 +189,7 @@ def decide(root, base=None, head=None, addons=None):
             mode="selected" if selected else "none",
             reason="changed addons and transitive manifest/import dependents"
             if selected
-            else "no unit/runtime impact (documentation only)",
+            else "documentation only",
             selected=sorted(selected),
         )
     except (

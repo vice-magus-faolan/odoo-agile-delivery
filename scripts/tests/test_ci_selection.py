@@ -158,6 +158,23 @@ class SelectionCase(unittest.TestCase):
         self.assertEqual(result["mode"], "selected")
         self.assertEqual(result["selected"], ["other"])
 
+    def test_merge_checkout_compares_against_advanced_base(self):
+        self.write("addons/core/models.py", "VALUE = 2\n")
+        advanced_base = self.commit()
+        self.git("checkout", "-q", "--detach", self.base)
+        self.write("addons/other/models.py", "VALUE = 2\n")
+        feature_head = self.commit()
+        self.git("checkout", "-q", "--detach", advanced_base)
+        self.git("merge", "--no-ff", "-qm", "PR merge", feature_head)
+        merged_head = self.git("rev-parse", "HEAD")
+        self.assertEqual(self.git("rev-parse", "HEAD^1"), advanced_base)
+        self.assertEqual(self.git("rev-parse", "HEAD^2"), feature_head)
+        self.assertEqual(self.git("show", "HEAD:addons/core/models.py"), "VALUE = 2")
+        result = selection.decide(self.root, advanced_base, merged_head)
+        self.assertEqual(result["mode"], "selected")
+        self.assertEqual(result["selected"], ["other"])
+        self.assertNotIn("analysis unavailable", result["reason"])
+
     def test_invalid_graph_cannot_be_full_or_empty_green(self):
         for depends in (["missing_dependency"], ["leaf"]):
             with self.subTest(depends=depends):

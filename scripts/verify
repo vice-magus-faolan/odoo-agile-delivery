@@ -15,20 +15,20 @@ DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
 VERIFICATION_DATABASES=("$DATABASE_INSTALL" "$DATABASE_UPGRADE" "$DATABASE_REINSTALL")
-# No arguments means complete developer/default-branch assurance.
+# No arguments runs every supported suite.
 # Analysis errors fall back to full; an invalid supported graph fails visibly.
 SELECTION=$(python3 "$ROOT/scripts/ci_selection.py" --format lines "$@")
 mapfile -t PLAN <<< "$SELECTION"
 MODE=${PLAN[0]}
 SELECTED=${PLAN[1]}
 MODULES=${PLAN[2]}
-printf "Verification mode: %s\nSelected unit addons: %s\nReason: %s\nExcluded unavailable bridges: %s\n" "$MODE" "$SELECTED" "${PLAN[3]}" "${PLAN[4]:-}"
+printf "Verification mode: %s\nSelected standalone unit addons: %s\nReason: %s\nExcluded unavailable bridges: %s\n" "$MODE" "$SELECTED" "${PLAN[3]}" "${PLAN[4]:-}"
 python3 -m unittest discover -s scripts/tests -v
 if [[ $MODE == none ]]; then
-    printf "%s\n" "No unit/runtime impact; native verification intentionally not needed."
+    printf "%s\n" "Documentation-only changes; skipping Odoo verification."
     exit 0
 fi
-[[ $MODE == full || $MODE == selected ]] && [[ -n $SELECTED && -n $MODULES ]]
+
 
 source "$ROOT/scripts/lib/compose-teardown.sh"
 
@@ -61,8 +61,7 @@ run_odoo() {
     "${COMPOSE[@]}" run --rm odoo odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True --log-level test "$@"
 }
 
-# Preserve each standalone suite's existing contract; combined installation runs
-# every selected addon, without automatically testing prerequisite suites.
+# Select tests only in standalone registries, without testing every prerequisite.
 run_unit_install() {
     local database=$1 modules=$2 module tags=""
     local -a suites
@@ -164,7 +163,12 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution_scrum --up
 solution_lifecycle reinstalled_bridge
 printf "%s\n" "Independent bridge persisted-data upgrade and uninstall/reinstall preserve native history without fabricated backfill."
 reset_verification_database "$DATABASE_INSTALL"
-run_unit_install "$DATABASE_INSTALL" "$MODULES"
+# All addons share this registry: unrelated addons can override the same model.
+# The selector appends hr_timesheet for installation, not its upstream test suite.
+COMBINED_ADDONS=${MODULES%,hr_timesheet}
+TEST_TAGS=/${COMBINED_ADDONS//,/,/}
+printf "Combined unit suites: %s\n" "$TEST_TAGS"
+run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \

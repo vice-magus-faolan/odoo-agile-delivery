@@ -35,7 +35,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # PR comparison and populated upgrade both require source history.
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -45,14 +44,13 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           if [[ "$EVENT_NAME" == pull_request ]]; then
-            timeout 3600 ./scripts/verify --pr "$PR_BASE" "$PR_HEAD" > verification.log 2>&1
+            timeout 3600 ./scripts/verify --pr "$PR_BASE" "$GITHUB_SHA" > verification.log 2>&1
           else
             timeout 3600 ./scripts/verify > verification.log 2>&1
           fi
-      - name: Retain native results and owned teardown evidence
+      - name: Retain native verification log
         if: always()
         uses: actions/upload-artifact@v4
         with:

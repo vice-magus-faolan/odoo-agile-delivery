@@ -2,8 +2,9 @@
 
 import json
 import logging
+from datetime import datetime
 
-from odoo import SUPERUSER_ID, Command, fields
+from odoo import SUPERUSER_ID, Command
 
 PHASE = globals()["PHASE"]
 env = globals()["env"]
@@ -125,8 +126,8 @@ elif PHASE == "check":
         assert after["id"] == before["id"]
         assert after["write_uid"][0] == SUPERUSER_ID
         assert (
-            fields.Datetime.to_datetime(before["write_date"])
-            < fields.Datetime.to_datetime(after["write_date"])
+            datetime.fromisoformat(before["write_date"])
+            < datetime.fromisoformat(after["write_date"])
             <= env.cr.now()
         ), ("migration write time", before, after)
     logging.getLogger(__name__).info(

@@ -32,7 +32,8 @@ SNAPSHOT_KEY = "project_agile.item_type_upgrade_snapshot"
 
 
 def snapshot(records, field_names):
-    return json.loads(json.dumps(records.read(field_names), default=str))
+    # Preserve relational identities, not their changeable display labels.
+    return json.loads(json.dumps(records.read(field_names, load=None), default=str))
 
 
 if PHASE == "seed":

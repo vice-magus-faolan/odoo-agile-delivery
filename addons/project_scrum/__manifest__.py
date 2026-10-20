@@ -1,7 +1,7 @@
 {
     "name": "Scrum Project Foundation",
     "summary": "Sprint lifecycle and historical scope foundations for Agile Project",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",

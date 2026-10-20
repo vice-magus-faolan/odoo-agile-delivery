@@ -132,7 +132,7 @@ class ProjectTask(models.Model):
             if (
                 original_sprints[task.id] == sprint
                 and sprint.state == "active"
-                and original_story_points[task.id] != task.agile_story_points
+                and original_story_points[task.id] != task.agile_effective_story_points
             ):
                 sprint._append_scope_events(
                     "reestimated",
@@ -162,14 +162,16 @@ class ProjectTask(models.Model):
 
     def write(self, values):
         track_sprint_assignment = "sprint_id" in values
-        track_story_points = "agile_story_points" in values
+        track_story_points = bool(
+            {"agile_story_points", "agile_item_type_id"} & values.keys()
+        )
         track_completion = "state" in values
         track_scope_context = track_sprint_assignment or track_story_points
         original_sprints = (
             {task.id: task.sprint_id for task in self} if track_scope_context else {}
         )
         original_story_points = (
-            {task.id: task.agile_story_points for task in self}
+            {task.id: task.agile_effective_story_points for task in self}
             if track_scope_context
             else {}
         )

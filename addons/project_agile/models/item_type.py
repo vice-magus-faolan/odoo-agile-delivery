@@ -11,6 +11,7 @@ class ProjectAgileItemType(models.Model):
     code = fields.Char(required=True, index=True)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
+    uses_story_points = fields.Boolean(default=True)
     allowed_child_type_ids = fields.Many2many(
         "project.agile.item.type",
         "project_agile_item_type_child_rel",
@@ -48,3 +49,16 @@ class ProjectAgileItemType(models.Model):
                             error=error,
                         )
                     ) from error
+
+    @api.constrains("uses_story_points")
+    def _check_point_policy(self):
+        # Configuration must not invalidate hidden or archived client work.
+        tasks = (
+            self.env["project.task"]
+            .sudo()
+            .with_context(active_test=False)
+            .search(
+                [("agile_item_type_id", "in", self.filtered("uses_story_points").ids)]
+            )
+        )
+        tasks._check_agile_story_points()

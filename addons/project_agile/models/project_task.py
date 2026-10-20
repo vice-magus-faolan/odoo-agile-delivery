@@ -1,5 +1,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.fields import Domain
 
 _FIBONACCI_STORY_POINTS = {0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89}
 
@@ -20,6 +21,19 @@ class ProjectTask(models.Model):
     # pylint: disable-next=attribute-string-redundant
     agile_key = fields.Char(string="Agile Key", copy=False, readonly=True, index=True)
     agile_story_points = fields.Float(string="Story Points")
+    agile_effective_story_points = fields.Float(
+        compute="_compute_agile_effective_story_points",
+        store=True,
+        help=(
+            "Story points used for planning. Retained estimates on hour-based "
+            "work contribute zero."
+        ),
+    )
+    agile_uses_story_points = fields.Boolean(
+        related="agile_item_type_id.uses_story_points",
+        string="Uses Story Points",
+        store=True,
+    )
     agile_acceptance_criteria = fields.Html(string="Acceptance Criteria")
     # Preserve the existing explicit field label.
     # pylint: disable-next=attribute-string-redundant
@@ -32,9 +46,41 @@ class ProjectTask(models.Model):
         "The Agile task key must be unique.",
     )
 
+    @api.model
+    def default_get(self, fields_list):
+        values = super().default_get(fields_list)
+        project_id = values.get(
+            "project_id", self.env.context.get("default_project_id")
+        )
+        if not project_id:
+            return values
+        project = self.env["project.project"].browse(project_id)
+        if not project.agile_enabled:
+            return values
+        item_type_id = self.env.context.get("default_agile_item_type_id")
+        if "default_agile_item_type_id" not in self.env.context:
+            default_type = project.agile_default_item_type_id
+            item_type_id = default_type.id if default_type.active else False
+            if "agile_item_type_id" in fields_list:
+                values["agile_item_type_id"] = item_type_id
+        if (
+            item_type_id
+            and "stage_id" in fields_list
+            and "default_stage_id" not in self.env.context
+        ):
+            task = self.new(
+                {"project_id": project.id, "agile_item_type_id": item_type_id}
+            )
+            values["stage_id"] = task._first_agile_stage().id
+        return values
+
     @api.model_create_multi
     def create(self, vals_list):
         values_list = [dict(values) for values in vals_list]
+        defaults = self.default_get(["project_id", "agile_item_type_id"])
+        for values in values_list:
+            if defaults.get("project_id"):
+                values.setdefault("project_id", defaults["project_id"])
         project_ids = [
             values.get("project_id")
             for values in values_list
@@ -49,10 +95,25 @@ class ProjectTask(models.Model):
             if project and project.agile_enabled:
                 values["agile_key"] = project._next_agile_task_key()
                 if (
-                    not values.get("agile_item_type_id")
-                    and project.agile_default_item_type_id.active
+                    "agile_item_type_id" not in values
+                    and "default_agile_item_type_id" not in self.env.context
                 ):
-                    values["agile_item_type_id"] = project.agile_default_item_type_id.id
+                    item_type = project.agile_default_item_type_id
+                    values["agile_item_type_id"] = (
+                        item_type.id if item_type.active else False
+                    )
+                item_type_id = values.get(
+                    "agile_item_type_id", defaults.get("agile_item_type_id")
+                )
+                if (
+                    item_type_id
+                    and "stage_id" not in values
+                    and "default_stage_id" not in self.env.context
+                ):
+                    task = self.new(
+                        {"project_id": project.id, "agile_item_type_id": item_type_id}
+                    )
+                    values["stage_id"] = task._first_agile_stage().id
             else:
                 values.pop("agile_key", None)
         return super().create(values_list)
@@ -97,9 +158,11 @@ class ProjectTask(models.Model):
                     _("The parent Agile item type does not allow this child item type.")
                 )
 
-    @api.constrains("agile_story_points", "project_id")
+    @api.constrains("agile_story_points", "project_id", "agile_item_type_id")
     def _check_agile_story_points(self):
         for task in self.filtered(lambda task: task.project_id.agile_enabled):
+            if task.agile_item_type_id and not task.agile_uses_story_points:
+                continue
             method = task.project_id.agile_estimation_method
             if method == "none" and task.agile_story_points:
                 raise ValidationError(
@@ -112,3 +175,169 @@ class ProjectTask(models.Model):
                 raise ValidationError(
                     _("Story points must use the configured Fibonacci values.")
                 )
+
+    @api.depends(
+        "agile_story_points",
+        "agile_item_type_id.uses_story_points",
+        "project_id.agile_enabled",
+    )
+    def _compute_agile_effective_story_points(self):
+        for task in self:
+            hour_based = (
+                task.project_id.agile_enabled
+                and task.agile_item_type_id
+                and not task.agile_uses_story_points
+            )
+            task.agile_effective_story_points = (
+                0 if hour_based else task.agile_story_points
+            )
+
+    def _agile_stage_domain(self):
+        self.ensure_one()
+        return [
+            ("project_ids", "=", self.project_id.id),
+            "|",
+            ("agile_item_type_ids", "=", False),
+            ("agile_item_type_ids", "in", self.agile_item_type_id.ids),
+        ]
+
+    def _first_agile_stage(self):
+        self.ensure_one()
+        return self.env["project.task.type"].search(
+            self._agile_stage_domain(), order="sequence, id", limit=1
+        )
+
+    @api.depends("project_id", "agile_item_type_id")
+    def _compute_stage_id(self):
+        result = super()._compute_stage_id()
+        for task in self:
+            if not (task.project_id.agile_enabled and task.agile_item_type_id):
+                continue
+            stage = task.stage_id
+            if not stage or (
+                stage.agile_item_type_ids
+                and task.agile_item_type_id not in stage.agile_item_type_ids
+            ):
+                task.stage_id = task._first_agile_stage()
+
+        return result
+
+    @api.constrains("stage_id", "agile_item_type_id", "project_id")
+    def _check_agile_stage(self):
+        for task in self:
+            if not (
+                task.project_id.agile_enabled
+                and task.agile_item_type_id
+                and task.stage_id
+            ):
+                continue
+            stage = task.stage_id
+            if (
+                stage.agile_item_type_ids
+                and task.agile_item_type_id not in stage.agile_item_type_ids
+            ):
+                raise ValidationError(
+                    _("Choose a stage compatible with the Agile item type.")
+                )
+
+    @api.model
+    def _agile_column_types(self, domain):
+        # Conservative abstraction: unknown task predicates allow every type.
+        # Negation of an unknown predicate cannot safely narrow columns.
+        if "!" in domain:
+            return None
+        conditions = list(Domain(domain).iter_conditions())
+        supported = {"agile_item_type_id", "agile_uses_story_points"}
+        if not any(condition.field_expr in supported for condition in conditions):
+            return None
+        # Native grouping normalizes Boolean False to not in [True].
+        if any(
+            condition.field_expr in supported
+            and condition.operator not in ("=", "in")
+            and not (condition.operator == "!=" and condition.value is False)
+            and not (
+                condition.operator == "not in"
+                and (
+                    tuple(condition.value) == (False,)
+                    or (
+                        condition.field_expr == "agile_uses_story_points"
+                        and tuple(condition.value) == (True,)
+                    )
+                )
+            )
+            for condition in conditions
+        ):
+            return None
+
+        def untyped_condition(condition):
+            if condition.field_expr not in supported:
+                return Domain.TRUE
+            if condition.operator == "!=":
+                matches = condition.value is not False
+            elif condition.operator == "in":
+                matches = False in condition.value
+            elif condition.operator == "not in":
+                matches = False not in condition.value
+            else:
+                matches = condition.value is False
+            return Domain.TRUE if matches else Domain.FALSE
+
+        if not Domain(domain).map_conditions(untyped_condition).is_false():
+            return None
+
+        def type_condition(condition):
+            if condition.field_expr not in supported:
+                return Domain.TRUE
+            field = (
+                "id"
+                if condition.field_expr == "agile_item_type_id"
+                else "uses_story_points"
+            )
+            return Domain(field, condition.operator, condition.value)
+
+        return (
+            self.env["project.agile.item.type"]
+            .with_context(active_test=False)
+            .search(Domain(domain).map_conditions(type_condition))
+        )
+
+    @api.model
+    def _read_group_stage_ids(self, stages, domain):
+        expanded = super()._read_group_stage_ids(stages, domain)
+        project_id = self.env.context.get("default_project_id")
+        project = (
+            self.env["project.project"].browse(project_id) if project_id else False
+        )
+        if "!" in domain:
+            return expanded
+
+        def outside_agile(condition):
+            if condition.field_expr == "project_id.agile_enabled" and (
+                (condition.operator == "=" and condition.value is True)
+                or (condition.operator == "in" and tuple(condition.value) == (True,))
+            ):
+                return Domain.FALSE
+            if (
+                project
+                and project.agile_enabled
+                and condition.field_expr == "project_id"
+                and (
+                    (condition.operator == "=" and condition.value == project.id)
+                    or (
+                        condition.operator == "in"
+                        and tuple(condition.value) == (project.id,)
+                    )
+                )
+            ):
+                return Domain.FALSE
+            return Domain.TRUE
+
+        if not Domain(domain).map_conditions(outside_agile).is_false():
+            return expanded
+        item_types = self._agile_column_types(domain)
+        if item_types is None:
+            return expanded
+        return expanded.filtered(
+            lambda stage: not stage.agile_item_type_ids
+            or bool(stage.agile_item_type_ids & item_types)
+        )

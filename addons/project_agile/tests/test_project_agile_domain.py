@@ -43,7 +43,7 @@ class TestProjectAgileDomain(TransactionCase):
             {
                 "name": name,
                 "project_id": self.project.id,
-                "agile_item_type_id": item_type.id if item_type else False,
+                **({"agile_item_type_id": item_type.id} if item_type else {}),
                 **values,
             }
         )
@@ -124,8 +124,10 @@ class TestProjectAgileDomain(TransactionCase):
         self.assertIn(self.story_type, self.epic_type.allowed_child_type_ids)
 
     def test_native_task_cycle_protection_remains_active(self):
-        parent = self._create_task("Untyped parent")
-        child = self._create_task("Untyped child", parent_id=parent.id)
+        parent = self._create_task("Untyped parent", agile_item_type_id=False)
+        child = self._create_task(
+            "Untyped child", parent_id=parent.id, agile_item_type_id=False
+        )
 
         with self.assertRaises(ValidationError):
             parent.write({"parent_id": child.id})

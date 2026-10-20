@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="view_task_type_form_agile" model="ir.ui.view">
+    <field name="name">project.task.type.form.agile</field>
+    <field name="model">project.task.type</field>
+    <field name="inherit_id" ref="project.task_type_edit" />
+    <field name="arch" type="xml">
+      <field name="project_ids" position="after">
+        <field name="agile_item_type_ids" widget="many2many_tags" />
+      </field>
+    </field>
+  </record>
+</odoo>

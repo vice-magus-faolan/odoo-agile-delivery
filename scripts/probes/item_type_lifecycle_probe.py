@@ -114,8 +114,16 @@ elif PHASE == "check":
     # First candidate read, before any ordinary task write can hide a missing backfill.
     assert tasks.mapped("agile_effective_story_points") == [3, 5, 8]
     assert all(tasks.mapped("agile_uses_story_points"))
-    assert snapshot(tasks, TASK_FIELDS) == saved["tasks"]
-    assert snapshot(sprint.scope_event_ids, EVENT_FIELDS) == saved["events"]
+    assert snapshot(tasks, TASK_FIELDS) == saved["tasks"], (
+        "task preservation",
+        saved["tasks"],
+        snapshot(tasks, TASK_FIELDS),
+    )
+    assert snapshot(sprint.scope_event_ids, EVENT_FIELDS) == saved["events"], (
+        "event preservation",
+        saved["events"],
+        snapshot(sprint.scope_event_ids, EVENT_FIELDS),
+    )
     assert sprint.state == "active" and sprint.committed_task_ids == tasks
     assert not project.agile_default_item_type_id
     assert not env["project.task"].browse(saved["untyped"]).agile_item_type_id

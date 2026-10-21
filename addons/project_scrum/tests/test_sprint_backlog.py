@@ -351,6 +351,30 @@ class TestProjectSprintBacklog(TransactionCase):
     def test_project_template_clears_source_team_and_sprint_placement(self):
         self._check_project_copy_placement(from_template=True)
 
+    def test_plain_project_copy_keeps_a_subtask_in_its_other_project(self):
+        projects = self.env["project.project"].create(
+            [{"name": "Plain source"}, {"name": "Other plain Project"}]
+        )
+        root = self.env["project.task"].create(
+            {"name": "Plain parent", "project_id": projects[0].id}
+        )
+        child = self.env["project.task"].create(
+            {
+                "name": "Other Project subtask",
+                "project_id": projects[1].id,
+                "parent_id": root.id,
+            }
+        )
+        copied = projects[0].copy()
+        copied_root = self.env["project.task"].search([("project_id", "=", copied.id)])
+        self.assertEqual(len(copied_root), 1)
+        self.assertNotEqual(copied_root, root)
+        self.assertEqual(len(copied_root.child_ids), 1)
+        self.assertNotEqual(copied_root.child_ids, child)
+        self.assertEqual(copied_root.child_ids.project_id, projects[1])
+        self.assertEqual(child.parent_id, root)
+        self.assertEqual(child.project_id, projects[1])
+
     def test_same_project_task_copy_keeps_team_and_sprint(self):
         self.task.agile_team_id = self.team
         scheduled = self._create_task(

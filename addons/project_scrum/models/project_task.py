@@ -39,9 +39,11 @@ class ProjectTask(models.Model):
 
     def copy_data(self, default=None):
         default = dict(default or {})
-        if self.env.context.get("copy_project"):
-            # Native recursion drops root defaults; create children in the destination
-            # directly, before Agile hierarchy checks and immutable key assignment.
+        if self.env.context.get("copy_project") and any(
+            task.project_id.agile_enabled for task in self
+        ):
+            # Native recursion drops root defaults. Agile children need the destination
+            # before hierarchy/key checks; leave plain cross-Project subtasks native.
             project_id = default.get(
                 "project_id", self.env.context.get("default_project_id")
             )

@@ -46,10 +46,12 @@ sequence then ID. A cursor names sequence, ID, Project backlog revision and the 
 team, if any; a different revision or team rejects the old cursor.
 
 Reads use batched current-user ORM queries and grouped sums rather than per-card
-queries. Keep the native payload/query-budget regression; its representative snapshot is
-bounded to ten SQL queries, not a full-render or deployment latency SLA. Native Sprint
-and planning-scoped backlog lists remain read/navigation fallbacks with the same
-permissions.
+queries. Fetch the fields consumed by card and version serialization together, including
+Task team and Sprint identity and write timestamps, instead of implicit full-record
+reads. Keep the native payload/query-budget regressions, including increased team/card
+counts with empty ORM caches; representative snapshots remain bounded to ten SQL
+queries, not a full-render or deployment latency SLA. Native Sprint and planning-scoped
+backlog lists remain read/navigation fallbacks with the same permissions.
 
 ## Explicit planning changes
 

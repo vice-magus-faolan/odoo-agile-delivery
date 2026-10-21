@@ -281,6 +281,33 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.assertEqual(len(snapshot["backlog"]["items"]), 50)
         self.assertTrue(snapshot["backlog"]["next_cursor"])
 
+    def test_query_budget_with_more_teams_and_persisted_cards(self):
+        """Creation caches must not hide per-team or per-card serialization reads."""
+        for index in range(8):
+            team = self.env["project.agile.team"].create(
+                {"name": f"Budget Team {index}", "project_id": self.project.id}
+            )
+            sprint = self._create_sprint(f"Team Budget Sprint {index}", team=team)
+            for card in range(10):
+                self._create_task(f"Team {index} card {card}", sprint_id=sprint.id)
+        for index in range(80):
+            self._create_task(f"Large backlog item {index}")
+        self.env.flush_all()
+        self.env.invalidate_all()
+
+        query_count = self.cr.sql_log_count
+        snapshot = self._snapshot()
+        query_count = self.cr.sql_log_count - query_count
+
+        self.assertLessEqual(query_count, 10)
+        self.assertEqual(len(snapshot["teams"]), 9)
+        self.assertEqual(len(snapshot["sprints"]), 8)
+        self.assertEqual(
+            sum(len(sprint["items"]) for sprint in snapshot["sprints"]), 80
+        )
+        self.assertEqual(len(snapshot["backlog"]["items"]), 50)
+        self.assertTrue(snapshot["backlog"]["next_cursor"])
+
     def test_planning_action_is_project_scoped_and_read_only(self):
         action = self.project.action_open_agile_planning()
 

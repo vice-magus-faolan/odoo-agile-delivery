@@ -15,5 +15,5 @@ def migrate(cr, version):
             ]
         )
     )
-    for team, assigned in tasks.grouped("sprint_id.team_id").items():
+    for team, assigned in tasks.grouped(lambda task: task.sprint_id.team_id).items():
         assigned.write({"agile_team_id": team.id})

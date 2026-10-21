@@ -15,6 +15,7 @@ TASK_FIELDS = [
     "agile_item_type_id",
     "sprint_id",
 ]
+UNKEYED_TASK_FIELDS = [field for field in TASK_FIELDS if field != "agile_key"]
 EVENT_FIELDS = [
     "sprint_id",
     "task_id",
@@ -32,12 +33,62 @@ SNAPSHOT_KEY = "project_agile.item_type_upgrade_snapshot"
 
 
 def snapshot(records, field_names):
-    return json.loads(json.dumps(records.read(field_names), default=str))
+    # Preserve relational identities, not their changeable display labels.
+    return json.loads(json.dumps(records.read(field_names, load=None), default=str))
 
 
 if PHASE == "seed":
     task_type = env.ref("project_agile.project_agile_item_type_task")
     task_type.write({"name": "Customer task", "sequence": 123})
+    legacy_project = env["project.project"].create(
+        {"name": "Already Agile before update", "agile_key": "BACKFILL"}
+    )
+    legacy_tasks = env["project.task"].create(
+        [
+            {
+                "name": "Pre-enable typed work",
+                "project_id": legacy_project.id,
+                "agile_item_type_id": task_type.id,
+            },
+            {
+                "name": "Pre-enable archived work",
+                "project_id": legacy_project.id,
+                "active": False,
+                "agile_story_points": 5,
+            },
+        ]
+    )
+    template = env["project.task"].create(
+        {
+            "name": "Pre-enable template",
+            "project_id": legacy_project.id,
+            "is_template": True,
+        }
+    )
+    template_child = env["project.task"].create(
+        {
+            "name": "Template child",
+            "project_id": legacy_project.id,
+            "parent_id": template.id,
+        }
+    )
+    legacy_project.write(
+        {
+            "agile_enabled": True,
+            "agile_estimation_method": "fibonacci",
+            "agile_default_item_type_id": False,
+        }
+    )
+    assert not any(legacy_tasks.mapped("agile_key"))
+    keyed = env["project.task"].create(
+        {
+            "name": "Already keyed work",
+            "project_id": legacy_project.id,
+            "agile_item_type_id": task_type.id,
+        }
+    )
+    assert keyed.agile_key == "BACKFILL-1"
+    legacy_project.active = False
     project = env["project.project"].create(
         {
             "name": "Item policy upgrade client",
@@ -88,6 +139,10 @@ if PHASE == "seed":
                 "untyped": untyped.id,
                 "tasks": snapshot(tasks, TASK_FIELDS),
                 "events": snapshot(sprint.scope_event_ids, EVENT_FIELDS),
+                "legacy_project": legacy_project.id,
+                "legacy_tasks": snapshot(legacy_tasks, UNKEYED_TASK_FIELDS),
+                "legacy_excluded": (template | template_child).ids,
+                "legacy_keyed": snapshot(keyed, TASK_FIELDS),
             }
         ),
     )
@@ -97,6 +152,17 @@ if PHASE == "seed":
     )
 elif PHASE == "check":
     saved = json.loads(env["ir.config_parameter"].get_param(SNAPSHOT_KEY))
+    legacy_tasks = env["project.task"].browse(
+        row["id"] for row in saved["legacy_tasks"]
+    )
+    # Inspect immediately after update, before any write could assign missing keys.
+    assert legacy_tasks.mapped("agile_key") == ["BACKFILL-2", "BACKFILL-3"]
+    assert snapshot(legacy_tasks, UNKEYED_TASK_FIELDS) == saved["legacy_tasks"]
+    assert not any(
+        env["project.task"].browse(saved["legacy_excluded"]).mapped("agile_key")
+    )
+    keyed = env["project.task"].browse(saved["legacy_keyed"][0]["id"])
+    assert snapshot(keyed, TASK_FIELDS) == saved["legacy_keyed"]
     project = env["project.project"].browse(saved["project"])
     sprint = env["project.sprint"].browse(saved["sprint"])
     tasks = env["project.task"].browse(row["id"] for row in saved["tasks"])
@@ -116,6 +182,10 @@ elif PHASE == "check":
     assert sprint.state == "active" and sprint.committed_task_ids == tasks
     assert not project.agile_default_item_type_id
     assert not env["project.task"].browse(saved["untyped"]).agile_item_type_id
+    next_legacy = env["project.task"].create(
+        {"name": "After backfill", "project_id": saved["legacy_project"]}
+    )
+    assert next_legacy.agile_key == "BACKFILL-4"
     task_type = env.ref("project_agile.project_agile_item_type_task")
     assert task_type.name == "Customer task" and task_type.sequence == 123
     for code in ("configuration", "data_import"):
@@ -160,7 +230,9 @@ elif PHASE == "check":
     )
     assert quick.agile_item_type_id == task_type
     logging.getLogger(__name__).info(
-        "Upgrade passed: Story points and Sprint events preserved; "
+        "Upgrade passed: already-Agile pre-enable tasks keyed, archived work included, "
+        "templates excluded and sequence continued; "
+        "Story points and Sprint events preserved; "
         "point changes, planning totals, seeds and quick defaults checked."
     )
 else:

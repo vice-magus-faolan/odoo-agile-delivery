@@ -7,6 +7,7 @@ _FIBONACCI_STORY_POINTS = {0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89}
 
 class ProjectTask(models.Model):
     _inherit = "project.task"
+    _rec_names_search = ["agile_key", "name"]
 
     agile_project_enabled = fields.Boolean(
         related="project_id.agile_enabled",
@@ -45,6 +46,33 @@ class ProjectTask(models.Model):
         "UNIQUE(agile_key)",
         "The Agile task key must be unique.",
     )
+
+    @api.depends("name", "agile_key")
+    # Compute methods assign fields, not return values.
+    # pylint: disable-next=missing-return
+    def _compute_display_name(self):
+        super()._compute_display_name()
+        for task in self.filtered("agile_key"):
+            task.display_name = f"[{task.agile_key}] {task.display_name}"
+
+    @api.model
+    @api.readonly
+    def name_search(self, name="", domain=None, operator="ilike", limit=100):
+        if not name or operator not in ("=", "like", "ilike", "=like", "=ilike"):
+            return super().name_search(name, domain, operator, limit)
+        scope = Domain(domain or Domain.TRUE)
+        key = name.upper() if operator in ("ilike", "=ilike") else name
+        exact = super().name_search(
+            name, scope & Domain("agile_key", "=", key), operator, limit
+        )
+        if not exact:
+            return super().name_search(name, domain, operator, limit)
+        if limit and len(exact) >= limit:
+            return exact
+        remaining = scope & Domain("id", "not in", [task_id for task_id, _ in exact])
+        return exact + super().name_search(
+            name, remaining, operator, limit - len(exact) if limit else limit
+        )
 
     @api.model
     def default_get(self, fields_list):
@@ -92,31 +120,49 @@ class ProjectTask(models.Model):
         }
         for values in values_list:
             project = projects_by_id.get(values.get("project_id"))
+            values["agile_key"] = False
             if project and project.agile_enabled:
-                values["agile_key"] = project._next_agile_task_key()
-                if (
-                    "agile_item_type_id" not in values
-                    and "default_agile_item_type_id" not in self.env.context
-                ):
-                    item_type = project.agile_default_item_type_id
-                    values["agile_item_type_id"] = (
-                        item_type.id if item_type.active else False
-                    )
-                item_type_id = values.get(
-                    "agile_item_type_id", defaults.get("agile_item_type_id")
-                )
-                if (
-                    item_type_id
-                    and "stage_id" not in values
-                    and "default_stage_id" not in self.env.context
-                ):
-                    task = self.new(
-                        {"project_id": project.id, "agile_item_type_id": item_type_id}
-                    )
-                    values["stage_id"] = task._first_agile_stage().id
-            else:
-                values.pop("agile_key", None)
-        return super().create(values_list)
+                self._prepare_agile_task_values(project, values)
+        tasks = super().create(values_list)
+        tasks._assign_agile_keys()
+        return tasks
+
+    @api.model
+    def _prepare_agile_task_values(self, project, values):
+        if "agile_item_type_id" not in values:
+            default_type = project.agile_default_item_type_id
+            values["agile_item_type_id"] = self.env.context.get(
+                "default_agile_item_type_id",
+                default_type.id if default_type.active else False,
+            )
+        if (
+            values["agile_item_type_id"]
+            and "stage_id" not in values
+            and "default_stage_id" not in self.env.context
+        ):
+            task = self.new(
+                {
+                    "project_id": project.id,
+                    "agile_item_type_id": values["agile_item_type_id"],
+                }
+            )
+            values["stage_id"] = task._first_agile_stage().id
+
+    def _assign_agile_keys(self):
+        tasks = self.filtered(
+            lambda task: task.project_id.agile_enabled
+            and not task.project_id.is_template
+            and not task.has_template_ancestor
+            and not task.agile_key
+        )
+        tasks.check_access("write")
+        tasks.project_id.check_access("read")
+        for task in tasks:
+            # Write the key below our own write, which refuses key changes.
+            super(ProjectTask, task).write(
+                {"agile_key": task.project_id._next_agile_task_key()}
+            )
+        return tasks
 
     def write(self, values):
         if "agile_key" in values:
@@ -132,7 +178,38 @@ class ProjectTask(models.Model):
                             "Copy it into the target project instead."
                         )
                     )
-        return super().write(values)
+        moving = self.browse()
+        project = self.env["project.project"]
+        if values.get("project_id"):
+            project = self.env["project.project"].browse(values["project_id"])
+            project.check_access("read")
+            if project.agile_enabled and not project.is_template:
+                moving = self.filtered(
+                    lambda task: task.project_id != project
+                    and not task.agile_key
+                    and not task.has_template_ancestor
+                )
+        if moving:
+            defaults = dict(values)
+            self._prepare_agile_task_values(project, defaults)
+            groups = moving.grouped(
+                lambda task: values.get(
+                    "agile_item_type_id",
+                    task.agile_item_type_id.id or defaults["agile_item_type_id"],
+                )
+            )
+            for item_type_id, tasks in groups.items():
+                prepared = dict(values, agile_item_type_id=item_type_id)
+                self._prepare_agile_task_values(project, prepared)
+                super(ProjectTask, tasks).write(prepared)
+        result = super(ProjectTask, self - moving).write(values)
+        restoring = values.get("is_template", True) is False
+        if moving or restoring:
+            # Native parent changes recompute descendant eligibility without write().
+            affected = moving | self if restoring else moving
+            affected = affected.with_context(active_test=False)
+            (affected | affected._get_all_subtasks())._assign_agile_keys()
+        return result
 
     @api.constrains("parent_id", "project_id", "agile_item_type_id")
     def _check_agile_parent_policy(self):

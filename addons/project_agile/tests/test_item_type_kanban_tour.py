@@ -76,7 +76,7 @@ class TestItemTypeKanbanTour(HttpCase):
             {
                 "name": "Mixed client board",
                 "res_model": "project.task",
-                "view_mode": "kanban,form",
+                "view_mode": "kanban,list,form",
                 "search_view_id": view.id,
                 "domain": repr([("project_id", "=", project.id)]),
                 "context": repr(
@@ -87,3 +87,21 @@ class TestItemTypeKanbanTour(HttpCase):
         self.start_tour(
             f"/odoo/action-{action.id}", "agile_mixed_type_columns", login=user.login
         )
+        # Use a valid Task-to-Story conversion, outside the board journey's
+        # item-type/column expectations, through the native conversion dialog.
+        task = tasks.create(
+            {
+                "name": "Implement approval",
+                "project_id": project.id,
+                "agile_item_type_id": self.env.ref(
+                    "project_agile.project_agile_item_type_task"
+                ).id,
+            }
+        )
+        self.start_tour(
+            f"/odoo/action-{action.id}/{task.id}",
+            "agile_task_key_parent_picker",
+            login=user.login,
+        )
+        task.invalidate_recordset(["parent_id"])
+        self.assertEqual(task.parent_id.agile_key, "BOARD-1")

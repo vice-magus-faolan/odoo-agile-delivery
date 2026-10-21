@@ -181,6 +181,9 @@ class ProjectProject(models.Model):
                 lambda p: not p.agile_enabled
             )._agile_unkeyed_tasks()
         result = super().write(values)
+        if values.get("is_template", True) is False:
+            # Discover restored work only after the Project template exclusion clears.
+            tasks_to_key |= self.filtered("agile_enabled")._agile_unkeyed_tasks()
         if projects_to_default:
             item_type = self.env.ref(
                 "project_agile.project_agile_item_type_task", raise_if_not_found=False

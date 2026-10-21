@@ -203,11 +203,10 @@ class ProjectTask(models.Model):
                 self._prepare_agile_task_values(project, prepared)
                 super(ProjectTask, tasks).write(prepared)
         result = super(ProjectTask, self - moving).write(values)
-        if moving or values.get("is_template", True) is False:
+        restoring = values.get("is_template", True) is False
+        if moving or restoring:
             # Native parent changes recompute descendant eligibility without write().
-            affected = (
-                moving | self if values.get("is_template", True) is False else moving
-            )
+            affected = moving | self if restoring else moving
             affected = affected.with_context(active_test=False)
             (affected | affected._get_all_subtasks())._assign_agile_keys()
         return result

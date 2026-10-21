@@ -1,6 +1,9 @@
+from lxml import etree
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -84,6 +87,8 @@ class TestProjectSprintBacklog(TransactionCase):
             "Unschedulable work", agile_item_type_id=self.ineligible_type.id
         )
         scheduled_task = self._create_task("Scheduled work", sprint_id=sprint.id)
+        self._create_task("Done work", state="1_done")
+        self._create_task("Canceled work", state="1_canceled")
 
         action = sprint.action_open_product_backlog()
         task_ids = self.env["project.task"].search(action["domain"])
@@ -93,6 +98,123 @@ class TestProjectSprintBacklog(TransactionCase):
         self.assertNotIn(ineligible_task, task_ids)
         self.assertNotIn(scheduled_task, task_ids)
         self.assertEqual(action["context"]["default_project_id"], self.project.id)
+
+    def test_two_team_assignment_inherits_and_rejects_a_mixed_batch_as_caller(self):
+        user = mail_new_test_user(
+            self.env, "Team planner", groups="project.group_project_user"
+        )
+        sprint = self._create_sprint()
+        second_team = self.env["project.agile.team"].create(
+            {"name": "BA", "project_id": self.project.id}
+        )
+        ba = self._create_task("BA work", agile_team_id=second_team.id)
+        unteamed = self._create_task("Unteamed work")
+        sprint.action_start()
+        caller_tasks = (self.task | ba | unteamed).with_user(user)
+        for operation in ("write", "wizard"):
+            with self.subTest(operation=operation), self.assertRaises(ValidationError):
+                if operation == "write":
+                    caller_tasks.write({"sprint_id": sprint.id})
+                else:
+                    self._create_wizard(caller_tasks, "assign", sprint).with_user(
+                        user
+                    ).action_confirm()
+            self.assertFalse((self.task | ba | unteamed).sprint_id)
+            self.assertFalse((self.task | unteamed).agile_team_id)
+            self.assertFalse(sprint.scope_event_ids)
+        self.task.with_user(user).write({"sprint_id": sprint.id})
+        self.assertEqual(self.task.agile_team_id, self.team)
+        self.assertEqual(sprint.scope_event_ids.mapped("event_type"), ["added"])
+        self.task.with_user(user).write({"sprint_id": False})
+        self.assertEqual(self.task.agile_team_id, self.team)
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["added", "removed"]
+        )
+
+    def test_create_defaults_explicit_mismatch_and_ownership_edits(self):
+        sprint = self._create_sprint()
+        team = self.env["project.agile.team"].create(
+            {"name": "BA", "project_id": self.project.id}
+        )
+        created = (
+            self.env["project.task"]
+            .with_context(
+                default_project_id=self.project.id, default_sprint_id=sprint.id
+            )
+            .create({"name": "Quick assigned work"})
+        )
+        self.assertEqual(created.agile_team_id, self.team)
+        with self.assertRaises(ValidationError):
+            self.env["project.task"].create(
+                [
+                    {
+                        "name": "Compatible",
+                        "project_id": self.project.id,
+                        "sprint_id": sprint.id,
+                    },
+                    {
+                        "name": "Mismatch",
+                        "project_id": self.project.id,
+                        "sprint_id": sprint.id,
+                        "agile_team_id": team.id,
+                    },
+                ]
+            )
+        self.assertFalse(
+            self.env["project.task"].search(
+                [("name", "in", ["Compatible", "Mismatch"])]
+            )
+        )
+        with self.assertRaises(ValidationError):
+            created.write({"agile_team_id": team.id})
+        with self.assertRaises(ValidationError):
+            created.write({"agile_team_id": False})
+        with self.assertRaises(ValidationError):
+            sprint.write({"team_id": team.id})
+        other = self.env["project.project"].create(
+            {"name": "Other", "agile_enabled": True, "agile_key": "TEAMOTHER"}
+        )
+        with self.assertRaises(ValidationError):
+            self.team.write({"project_id": other.id})
+        with self.assertRaises(ValidationError):
+            self._create_task(
+                "Foreign team", project_id=other.id, agile_team_id=team.id
+            )
+
+    def test_native_backlog_team_filter_and_active_sprint_action(self):
+        sprint = self._create_sprint()
+        active_task = self._create_task("Active work", sprint_id=sprint.id)
+        sprint.action_start()
+        draft = self._create_sprint("Draft")
+        draft_task = self._create_task("Draft work", sprint_id=draft.id)
+        closed = self._create_sprint("Closed")
+        closed._set_lifecycle_state("closed")
+        action = self.env.ref("project_scrum.action_project_active_sprint")
+        self.assertEqual(action.view_mode.split(",")[0], "kanban")
+        self.assertEqual(safe_eval(action.context)["group_by"], "stage_id")
+        self.assertEqual(
+            self.env["project.task"].search(safe_eval(action.domain)), active_task
+        )
+        model = self.env["project.task"]
+        search = etree.fromstring(
+            model.get_view(
+                self.env.ref("project_scrum.view_task_search_scrum").id, "search"
+            )["arch"].encode()
+        )
+        active_domain = safe_eval(
+            search.xpath("//filter[@name='active_sprint']")[0].get("domain")
+        )
+        self.assertEqual(model.search(active_domain), active_task)
+        self.assertNotIn(draft_task, model.search(active_domain))
+        self.task.agile_team_id = self.team
+        product_action = self.env.ref("project_agile.action_project_agile_backlog")
+        self.assertEqual(
+            model.search(
+                safe_eval(product_action.domain)
+                + [("agile_team_id", "=", self.team.id)]
+            ),
+            self.task,
+        )
 
     def test_sprint_backlog_action_returns_only_the_selected_sprint_tasks(self):
         sprint = self._create_sprint()

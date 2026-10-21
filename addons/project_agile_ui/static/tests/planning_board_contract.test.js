@@ -20,6 +20,10 @@ defineModels(mailModels);
 
 const snapshot = {
   project: {id: 42, name: "Planning Project"},
+  teams: [
+    {id: 3, name: "Delivery Team"},
+    {id: 4, name: "BA Team"},
+  ],
   sprints: [
     {
       id: 7,
@@ -417,4 +421,74 @@ test("project_agile_ui does not submit no-op keyboard reorders at backlog edges"
   expect(calls).toEqual([
     ["project.project", "get_agile_planning_snapshot", [42, false]],
   ]);
+});
+
+test("project_agile_ui team selector binds pages, mutations and the native fallback", async () => {
+  const calls = [];
+  const cursor = {id: 11, sequence: 10, revision: 0, team_id: 3};
+  const component = await setupPlanningBoard({
+    call: async (...args) => {
+      calls.push(args);
+      return {...draftSnapshot, backlog: {...snapshot.backlog, next_cursor: cursor}};
+    },
+  });
+  await contains("#agile-planning-team").select("3");
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "get_agile_planning_snapshot",
+    [42, false],
+    {team_id: 3},
+  ]);
+  await component.loadMore();
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "get_agile_planning_snapshot",
+    [42, cursor],
+    {team_id: 3},
+  ]);
+  await component.dropOnSprint(draftSnapshot.sprints[0], dragEvent(11));
+  expect(calls.at(-1)[3].team_id).toBe(3);
+  await component.openBacklogFallback();
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "action_open_agile_planning_backlog",
+    [[42]],
+    {team_id: 3},
+  ]);
+  await contains("#agile-planning-team").select("");
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "get_agile_planning_snapshot",
+    [42, false],
+  ]);
+});
+
+test("project_agile_ui discards a late page after team reset and project change", async () => {
+  let resolvePage = null;
+  const cursor = {id: 11, sequence: 10, revision: 0};
+  const component = await setupPlanningBoard({
+    call: async (model, method, args, kwargs) => {
+      if (args[1]) {
+        return new Promise((resolve) => {
+          resolvePage = resolve;
+        });
+      }
+      return kwargs?.team_id
+        ? {...snapshot, backlog: {items: [], next_cursor: false}}
+        : snapshot;
+    },
+  });
+  component.state.assignmentTargets[11] = 7;
+  const oldPage = component.load(cursor);
+  await component.selectTeam({target: {value: "4"}});
+  expect(component.state.assignmentTargets).toEqual({});
+  expect(component.state.retryCursor).toBe(false);
+  expect(component.state.backlog.items).toEqual([]);
+  component.projectId = 43;
+  await component.load();
+  resolvePage(snapshot);
+  await oldPage;
+  await animationFrame();
+  expect(component.state.backlog.items).toEqual([]);
+  expect(".o_agile_planning_board__backlog-task").toHaveCount(0);
 });

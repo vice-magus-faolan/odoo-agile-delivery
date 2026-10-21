@@ -198,6 +198,50 @@ class TestProjectAgilePlanningActions(TransactionCase):
         self.assertEqual(self.first_task.sprint_id, self.sprint)
         self.assertEqual(self.second_task.sprint_id, self.sprint)
 
+    def test_planning_rejects_mixed_teams_and_stale_team_tokens(self):
+        other_team = self.env["project.agile.team"].create(
+            {"name": "BA", "project_id": self.project.id}
+        )
+        self.second_task.agile_team_id = other_team
+        snapshot = self._snapshot()
+        versions = {
+            "tasks": {
+                str(task.id): self._backlog_item(snapshot, task)["version"]
+                for task in self.first_task | self.second_task
+            },
+            "sprints": {
+                str(self.sprint.id): self._sprint_item(snapshot, self.sprint)["version"]
+            },
+        }
+        revision = self.project.agile_planning_backlog_revision
+        with self.assertRaises(ValidationError):
+            self._change(
+                "assign",
+                (self.first_task | self.second_task).ids,
+                sprint_id=self.sprint.id,
+                versions=versions,
+            )
+        self.assertFalse((self.first_task | self.second_task).sprint_id)
+        self.assertFalse(self.first_task.agile_team_id)
+        self.assertEqual(self.second_task.agile_team_id, other_team)
+        self.assertFalse(self.sprint.scope_event_ids)
+        self.assertEqual(self.project.agile_planning_backlog_revision, revision)
+        self.first_task.agile_team_id = self.team
+        with self.assertRaises(ValidationError):
+            self._change(
+                "assign",
+                self.first_task.ids,
+                sprint_id=self.sprint.id,
+                versions={
+                    "tasks": {
+                        str(self.first_task.id): versions["tasks"][
+                            str(self.first_task.id)
+                        ]
+                    },
+                    "sprints": versions["sprints"],
+                },
+            )
+
     def test_rejects_active_sprint_assignment_without_partial_write(self):
         self.sprint.action_start()
         snapshot = self._snapshot()

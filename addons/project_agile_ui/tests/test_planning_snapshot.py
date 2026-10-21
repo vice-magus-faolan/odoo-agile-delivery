@@ -118,6 +118,84 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
             {first_sprint.id, second_sprint.id},
         )
 
+    def test_team_filter_pages_and_fallback_exclude_closed_and_foreign_work(self):
+        second_team = self.env["project.agile.team"].create(
+            {"name": "BA Team", "project_id": self.project.id}
+        )
+        chosen = self._create_sprint()
+        self._create_sprint("BA Sprint", team=second_team)
+        expected = self.env["project.task"]
+        for index in range(51):
+            expected |= self._create_task(f"Dev {index}", agile_team_id=self.team.id)
+            self._create_task(f"BA {index}", agile_team_id=second_team.id)
+        self._create_task("Done", agile_team_id=self.team.id, state="1_done")
+        self._create_task("Canceled", agile_team_id=self.team.id, state="1_canceled")
+        user = mail_new_test_user(
+            self.env, "Team snapshot planner", groups="project.group_project_user"
+        )
+        model = self.env["project.project"].with_user(user)
+        first = model.get_agile_planning_snapshot(self.project.id, team_id=self.team.id)
+        cursor = first["backlog"]["next_cursor"]
+        second = model.get_agile_planning_snapshot(
+            self.project.id, cursor, team_id=self.team.id
+        )
+        self.assertEqual(len(first["backlog"]["items"]), 50)
+        self.assertEqual(len(second["backlog"]["items"]), 1)
+        self.assertEqual(
+            {
+                row["id"]
+                for row in first["backlog"]["items"] + second["backlog"]["items"]
+            },
+            set(expected.ids),
+        )
+        self.assertEqual([row["id"] for row in first["sprints"]], chosen.ids)
+        self.assertEqual(
+            {row["id"] for row in first["teams"]}, {self.team.id, second_team.id}
+        )
+        action = self.project.with_user(user).action_open_agile_planning_backlog(
+            team_id=self.team.id
+        )
+        self.assertEqual(
+            set(self.env["project.task"].with_user(user).search(action["domain"]).ids),
+            set(expected.ids),
+        )
+        for team_id in (False, second_team.id):
+            with self.assertRaises(ValidationError):
+                model.get_agile_planning_snapshot(
+                    self.project.id, cursor, team_id=team_id
+                )
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(self.project.id, team_id=True)
+        self.team.active = False
+        with self.assertRaises(AccessError):
+            model.get_agile_planning_snapshot(self.project.id, team_id=self.team.id)
+
+    def test_team_selection_cannot_resolve_a_team_from_another_project(self):
+        other = self.env["project.project"].create(
+            {
+                "name": "Private team project",
+                "privacy_visibility": "followers",
+                "agile_enabled": True,
+                "agile_key": "HIDDENTEAM",
+            }
+        )
+        team = self.env["project.agile.team"].create(
+            {"name": "Hidden team", "project_id": other.id}
+        )
+        user = mail_new_test_user(
+            self.env, "Team outsider", groups="project.group_project_user"
+        )
+        model = self.env["project.project"].with_user(user)
+        with self.assertRaises(AccessError):
+            model.get_agile_planning_snapshot(self.project.id, team_id=team.id)
+        self.assertNotIn(
+            team.id,
+            [
+                row["id"]
+                for row in model.get_agile_planning_snapshot(self.project.id)["teams"]
+            ],
+        )
+
     def test_snapshot_rejects_invalid_or_unavailable_projects_without_metadata(self):
         outsider = mail_new_test_user(self.env, "Planning outsider")
 

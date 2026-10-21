@@ -185,6 +185,11 @@
       <xpath expr="//field[@name=&apos;project_id&apos;]" position="after">
         <field name="agile_project_enabled" invisible="1" />
         <field
+          name="agile_team_id"
+          invisible="not agile_project_enabled"
+          domain="[('project_id', '=', project_id)]"
+        />
+        <field
           name="sprint_id"
           invisible="not agile_project_enabled"
           domain="[(&apos;project_id&apos;, &apos;=&apos;, project_id), (&apos;state&apos;, &apos;in&apos;, [&apos;draft&apos;, &apos;active&apos;])]"
@@ -200,6 +205,7 @@
     <field name="arch" type="xml">
       <xpath expr="//field[@name=&apos;name&apos;]" position="after">
         <field name="sprint_id" optional="hide" />
+        <field name="agile_team_id" optional="show" />
       </xpath>
     </field>
   </record>
@@ -207,10 +213,17 @@
   <record id="view_task_search_scrum" model="ir.ui.view">
     <field name="name">project.task.search.scrum</field>
     <field name="model">project.task</field>
-    <field name="inherit_id" ref="project.view_task_search_form" />
+    <field name="inherit_id" ref="project_agile.view_task_search_agile" />
     <field name="arch" type="xml">
       <xpath expr="//filter[@name=&apos;my_tasks&apos;]" position="before">
         <field name="sprint_id" />
+        <field name="agile_team_id" />
+        <filter
+          string="Active Sprint"
+          name="active_sprint"
+          domain="[('sprint_id.state', '=', 'active')]"
+        />
+        <separator />
         <filter
           string="Sprint Backlog"
           name="sprint_backlog"
@@ -218,6 +231,11 @@
         />
       </xpath>
       <xpath expr="//group" position="inside">
+        <filter
+          string="Agile Team"
+          name="group_by_agile_team"
+          context="{'group_by': 'agile_team_id'}"
+        />
         <filter
           string="Sprint"
           name="group_by_sprint"
@@ -263,6 +281,24 @@
     <field name="view_id" ref="view_project_sprint_list" />
     <field name="search_view_id" ref="view_project_sprint_search" />
   </record>
+
+  <record id="action_project_active_sprint" model="ir.actions.act_window">
+    <field name="name">Active Sprint</field>
+    <field name="res_model">project.task</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="search_view_id" ref="view_task_search_scrum" />
+    <field
+      name="domain"
+    >[('sprint_id.state', '=', 'active'), ('project_id.agile_enabled', '=', True), ('has_template_ancestor', '=', False), ('has_project_template', '=', False)]</field>
+    <field name="context">{'group_by': 'stage_id'}</field>
+  </record>
+  <menuitem
+    id="menu_project_active_sprint"
+    name="Active Sprint"
+    parent="project.menu_project_management"
+    action="action_project_active_sprint"
+    sequence="24"
+  />
 
   <record id="action_project_agile_team" model="ir.actions.act_window">
     <field name="name">Agile Teams</field>

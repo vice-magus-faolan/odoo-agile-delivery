@@ -154,7 +154,7 @@
         <filter
           string="Product Backlog"
           name="agile_backlog"
-          domain="[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True)]"
+          domain="[('agile_is_product_backlog', '=', True)]"
         />
       </xpath>
       <xpath expr="//group" position="inside">
@@ -178,9 +178,7 @@
     <field name="view_mode">list,kanban,form</field>
     <field name="view_id" ref="view_task_list_agile_backlog" />
     <field name="search_view_id" ref="view_task_search_agile" />
-    <field
-      name="domain"
-    >[(&apos;project_id.agile_enabled&apos;, &apos;=&apos;, True), (&apos;has_template_ancestor&apos;, &apos;=&apos;, False), (&apos;has_project_template&apos;, &apos;=&apos;, False)]</field>
+    <field name="domain">[('agile_is_product_backlog', '=', True)]</field>
     <field name="context">{&quot;search_default_agile_backlog&quot;: 1}</field>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">No Agile backlog items found.</p>

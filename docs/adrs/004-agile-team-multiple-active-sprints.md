@@ -27,7 +27,12 @@ parallel teams. Unlimited Sprints without teams obscure ownership. The selected 
 instead requires Project/team/company compatibility and reports which team owns each
 Sprint.
 
+Tasks optionally reference this same team in `project_scrum`; core Agile does not depend
+on Scrum. Assignment inherits the Sprint team only for unteamed work and rejects
+incompatible teams through caller-bound create/write, wizard and planning paths.
+Returning work retains its team. Project/company compatibility is enforced, and
+ownership edits cannot invalidate assigned work. A versioned ORM update assigns existing
+Sprint work its owning team without rewriting scope history.
+
 Team membership, a configurable per-team concurrency policy and no-team Sprints are not
-supplied by this model. Carry-over targets must be compatible Draft Sprints for the same
-team; this does not establish a general cross-team transfer policy. Such changes need
-their own Task ownership and scope-history decisions.
+supplied. Carry-over targets remain compatible Draft Sprints for the same team.

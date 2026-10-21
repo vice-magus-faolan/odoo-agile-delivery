@@ -23,25 +23,33 @@ class ProjectProject(models.Model):
     )
 
     @api.model
-    def get_agile_planning_snapshot(self, project_id, cursor=False):
+    def get_agile_planning_snapshot(self, project_id, cursor=False, team_id=False):
         """Return the current user's bounded read-only planning data for one project."""
         project = self._get_available_agile_planning_project(project_id)
+        team = self._get_agile_planning_team(project, team_id)
         cursor_values = self._parse_agile_planning_cursor(cursor)
-        if (
-            cursor_values
-            and cursor_values["revision"] != project.agile_planning_backlog_revision
+        if cursor_values and (
+            cursor_values["revision"] != project.agile_planning_backlog_revision
+            or cursor_values.get("team_id", False) != (team.id or False)
         ):
             raise ValidationError(
                 self.env._("The Product Backlog changed. Refresh and retry.")
             )
-        sprints = self._get_agile_planning_sprints(project)
+        sprints = self._get_agile_planning_sprints(project, team)
         sprint_tasks = self._get_agile_planning_sprint_tasks(sprints)
         current_points = self._get_current_sprint_points(sprints)
         committed_points = self._get_committed_sprint_points(sprints)
-        backlog = self._get_agile_planning_backlog(project, cursor_values)
+        backlog = self._get_agile_planning_backlog(project, cursor_values, team)
+        teams = (
+            self.env["project.agile.team"].search_fetch(
+                [("project_id", "=", project.id)], ["name"], limit=100
+            )
+            | team
+        )
 
         return {
             "project": {"id": project.id, "name": project.display_name},
+            "teams": [{"id": row.id, "name": row.name} for row in teams],
             "sprints": [
                 {
                     "id": sprint.id,
@@ -90,9 +98,10 @@ class ProjectProject(models.Model):
             "context": {"default_project_id": self.id},
         }
 
-    def action_open_agile_planning_backlog(self):
+    def action_open_agile_planning_backlog(self, team_id=False):
         """Open the standard Product Backlog list scoped to this planning project."""
         self._check_agile_planning_project()
+        team = self._get_agile_planning_team(self, team_id)
         return {
             "type": "ir.actions.act_window",
             "name": self.env._("Product Backlog"),
@@ -104,9 +113,27 @@ class ProjectProject(models.Model):
                 (False, "form"),
             ],
             "search_view_id": self.env.ref("project_scrum.view_task_search_scrum").id,
-            "domain": self._agile_planning_backlog_domain(),
+            "domain": self._agile_planning_backlog_domain(team=team),
             "context": {"default_project_id": self.id},
         }
+
+    @api.model
+    def _get_agile_planning_team(self, project, team_id):
+        if team_id is False or team_id is None:
+            return self.env["project.agile.team"]
+        if not isinstance(team_id, int) or isinstance(team_id, bool) or team_id <= 0:
+            raise ValidationError(self.env._("Choose a valid Agile team."))
+        team = self.env["project.agile.team"].search(
+            [
+                ("id", "=", team_id),
+                ("project_id", "=", project.id),
+                ("company_id", "in", [False, *self.env.companies.ids]),
+            ],
+            limit=1,
+        )
+        if not team:
+            raise AccessError(self.env._("The Agile planning team is unavailable."))
+        return team
 
     @api.model
     def _get_available_agile_planning_project(self, project_id):
@@ -138,7 +165,10 @@ class ProjectProject(models.Model):
     def _parse_agile_planning_cursor(self, cursor):
         if cursor in (False, None):
             return False
-        if not isinstance(cursor, dict) or set(cursor) != _CURSOR_FIELDS:
+        if not isinstance(cursor, dict) or set(cursor) not in (
+            _CURSOR_FIELDS,
+            _CURSOR_FIELDS | {"team_id"},
+        ):
             raise ValidationError(self.env._("The Product Backlog cursor is invalid."))
         sequence = cursor["sequence"]
         record_id = cursor["id"]
@@ -154,7 +184,12 @@ class ProjectProject(models.Model):
             or revision < 0
         ):
             raise ValidationError(self.env._("The Product Backlog cursor is invalid."))
-        return {"sequence": sequence, "id": record_id, "revision": revision}
+        team_id = cursor.get("team_id", False)
+        if team_id is not False and (
+            not isinstance(team_id, int) or isinstance(team_id, bool) or team_id <= 0
+        ):
+            raise ValidationError(self.env._("The Product Backlog cursor is invalid."))
+        return dict(cursor)
 
     def _check_agile_planning_project(self):
         self.ensure_one()
@@ -171,14 +206,15 @@ class ProjectProject(models.Model):
             )
         return self
 
-    def _get_agile_planning_sprints(self, project):
+    def _get_agile_planning_sprints(self, project, team=False):
         return self.env["project.sprint"].search_fetch(
             [
                 ("project_id", "=", project.id),
                 ("company_id", "in", [False, *self.env.companies.ids]),
                 ("state", "in", ["draft", "active"]),
                 ("team_id.active", "=", True),
-            ],
+            ]
+            + ([("team_id", "=", team.id)] if team else []),
             ["name", "team_id", "state", "goal"],
             limit=_SPRINT_LIMIT,
             order="state, date_start desc, id desc",
@@ -222,17 +258,14 @@ class ProjectProject(models.Model):
         )
         return {sprint.id: points or 0.0 for sprint, points in rows}
 
-    def _agile_planning_backlog_domain(self, cursor=False):
+    def _agile_planning_backlog_domain(self, cursor=False, team=False):
         self.ensure_one()
-        domain = [
+        domain = self.env["project.task"]._product_backlog_domain() + [
             ("project_id", "=", self.id),
             ("company_id", "in", [False, *self.env.companies.ids]),
-            ("active", "=", True),
-            ("agile_item_type_id.can_schedule_in_sprint", "=", True),
-            ("sprint_id", "=", False),
-            ("has_template_ancestor", "=", False),
-            ("has_project_template", "=", False),
         ]
+        if team:
+            domain.append(("agile_team_id", "=", team.id))
         if cursor:
             domain.extend(
                 [
@@ -245,9 +278,9 @@ class ProjectProject(models.Model):
             )
         return domain
 
-    def _get_agile_planning_backlog(self, project, cursor):
+    def _get_agile_planning_backlog(self, project, cursor, team=False):
         tasks = self.env["project.task"].search_fetch(
-            project._agile_planning_backlog_domain(cursor),
+            project._agile_planning_backlog_domain(cursor, team),
             [
                 "name",
                 "agile_key",
@@ -270,6 +303,7 @@ class ProjectProject(models.Model):
                     "sequence": visible_tasks[-1].agile_backlog_sequence,
                     "id": visible_tasks[-1].id,
                     "revision": project.agile_planning_backlog_revision,
+                    **({"team_id": team.id} if team else {}),
                 }
                 if has_next_page
                 else False
@@ -297,6 +331,7 @@ class ProjectProject(models.Model):
         sprint_id=False,
         before_task_id=False,
         expected_versions=False,
+        team_id=False,
     ):
         """Apply one current-user planning intent then return a reconciled snapshot.
 
@@ -306,11 +341,16 @@ class ProjectProject(models.Model):
         the savepoint flushes, rolling back the losing intent before returning.
         """
         project = self._get_available_agile_planning_project(project_id)
+        team = self._get_agile_planning_team(project, team_id)
         if operation not in {"assign", "return", "reorder"}:
             raise ValidationError(
                 self.env._("Choose a valid Sprint Planning operation.")
             )
         tasks = self._get_agile_planning_change_tasks(project, task_ids)
+        if team and any(task.agile_team_id != team for task in tasks):
+            raise ValidationError(
+                self.env._("Refresh the selected team's work before changing it.")
+            )
         expected_versions = self._parse_agile_planning_versions(expected_versions)
         try:
             with self.env.cr.savepoint():
@@ -322,13 +362,13 @@ class ProjectProject(models.Model):
                     self._apply_agile_planning_return(project, tasks, expected_versions)
                 else:
                     self._apply_agile_planning_reorder(
-                        project, tasks, before_task_id, expected_versions
+                        project, tasks, before_task_id, expected_versions, team
                     )
         except SerializationFailure as error:
             raise ValidationError(
                 self.env._("Sprint Planning changed. Refresh and retry your action.")
             ) from error
-        return self.get_agile_planning_snapshot(project.id)
+        return self.get_agile_planning_snapshot(project.id, team_id=team.id or False)
 
     @api.model
     def _get_agile_planning_change_tasks(self, project, task_ids):
@@ -399,9 +439,13 @@ class ProjectProject(models.Model):
         if record._name == "project.task":
             return (
                 f"{record.id}:{write_date}:{record.sprint_id.id or 0}:"
-                f"{record.agile_backlog_sequence}:{record.name}"
+                f"{record.agile_backlog_sequence}:{record.name}:"
+                f"{record.agile_team_id.id or 0}"
             )
-        return f"{record.id}:{write_date}:{record.state}:{record.team_id.active}"
+        return (
+            f"{record.id}:{write_date}:{record.state}:"
+            f"{record.team_id.active}:{record.team_id.id}"
+        )
 
     @api.model
     def _check_agile_planning_versions(self, records, expected_versions, namespace):
@@ -491,7 +535,7 @@ class ProjectProject(models.Model):
 
     @api.model
     def _apply_agile_planning_reorder(
-        self, project, tasks, before_task_id, expected_versions
+        self, project, tasks, before_task_id, expected_versions, team=False
     ):
         if len(tasks) != 1:
             raise ValidationError(
@@ -506,7 +550,9 @@ class ProjectProject(models.Model):
                 self.env._("The Product Backlog ordering target is invalid.")
             )
         task = tasks
-        domain = project._agile_planning_backlog_domain() + [("id", "!=", task.id)]
+        domain = project._agile_planning_backlog_domain(team=team) + [
+            ("id", "!=", task.id)
+        ]
         before_task = self.env["project.task"]
         if before_task_id:
             before_task = self.env["project.task"].search(

@@ -23,11 +23,13 @@ historical finding does not pin future verifier builds.
 
 ## Snapshot and authority
 
-`project.project.get_agile_planning_snapshot(project_id, cursor=False)` resolves one
-active, non-template Agile Project as the current user with current company and native
-record permissions. It rejects unavailable Projects and invalid typed IDs/cursors
-without exposing hidden metadata. Context does not grant authority; there is no
-caller-selected model, method, field set, company or team.
+`project.project.get_agile_planning_snapshot(project_id, cursor=False, team_id=False)`
+resolves one active, non-template Agile Project as the current user with current company
+and native record permissions. It rejects unavailable Projects and invalid typed
+IDs/cursors without exposing hidden metadata. Context does not grant authority; there is
+no caller-selected model, method, field set or company. An optional team identity is
+resolved by current-user ORM within that Project/company; it narrows selection, never
+grants authority. The selector returns at most 100 active teams.
 
 The snapshot returns at most 20 visible Draft/Active Sprints with active teams, 100
 assigned items across those Sprints and 50 Product Backlog items per page. Native Task
@@ -37,11 +39,11 @@ events, not browser arithmetic. Totals may include work omitted from the capped 
 list.
 
 Backlog eligibility is active, unscheduled, Sprint-eligible, non-template work in that
-Project/company. Ordering is sequence then ID. A cursor names sequence, ID and the
-Project backlog revision; a changed revision rejects the old cursor. Done and Canceled
-Tasks are not excluded by the current domain, a known
-[#46 limitation](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/46),
-not a shipped fix.
+Project/company, excluding native Done and Canceled states. Native action/search, Sprint
+fallback and planning use the same extensible Task domain; the core searchable
+membership field never references optional Scrum fields after uninstall. Ordering is
+sequence then ID. A cursor names sequence, ID, Project backlog revision and the selected
+team, if any; a different revision or team rejects the old cursor.
 
 Reads use batched current-user ORM queries and grouped sums rather than per-card
 queries. Keep the native payload/query-budget regression; its representative snapshot is
@@ -70,9 +72,9 @@ requirements, alter analytics formulas or automatically plan work from Git or do
 ## Client behavior and accessibility
 
 The action owns request sequencing/cancellation, rendering and native navigation;
-presentation components receive narrow data. Ignore stale responses after Project, page
-or lifecycle changes. Cached content is not mutation authority. Show loading, empty,
-error and stale states distinctly; retry and standard-view fallbacks do not widen
+presentation components receive narrow data. Ignore stale responses after Project, team,
+page or lifecycle changes. Cached content is not mutation authority. Show loading,
+empty, error and stale states distinctly; retry and standard-view fallbacks do not widen
 access. An unavailable Project exposes no hidden metadata.
 
 Use labeled Sprint and Product Backlog regions, logical headings, semantic

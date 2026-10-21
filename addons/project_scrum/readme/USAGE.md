@@ -11,12 +11,22 @@ records added scope. Alternatively, users with task write access can edit the
 **Sprint** field. Tasks can join only a Draft or Active Sprint in their own Project
 and company.
 
+Set **Agile Team** on a task to separate BA and development work within one
+Project. Leave it empty when ownership is not yet known. Assignment gives an
+unteamed task the Sprint's team; work already owned by another team is refused.
+When assigning a selection, either every task moves or none does. Returning work
+to Product Backlog keeps its team. Filter or group the backlog by **Agile Team**.
+
 As a Scrum master or Project administrator, choose **Sprint Backlog** to review assigned work.
 Select tasks and use **Actions > Remove from Sprint**, then **Apply**, to return
-work to the backlog. Project **Tasks > Product Backlog** is the Agile core backlog,
-not the Sprint-specific unscheduled queue.
+work to the backlog. Project **Tasks > Product Backlog** also shows open,
+unscheduled, Sprint-eligible work. Done and Canceled tasks stay out of both queues.
 
 ## Start and work
+
+Open Project **Tasks > Active Sprint** for current work grouped by stage.
+Use **Agile Team** in search to focus on your team. The **Active Sprint** search
+filter excludes Draft and Closed Sprints; **Sprint Backlog** still includes history.
 
 As a Scrum master or Project administrator, choose **Start Sprint**. Close any Active Sprint for
 the same Project/team first. Starting freezes the committed task set and records

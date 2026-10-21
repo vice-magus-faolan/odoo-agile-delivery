@@ -35,6 +35,23 @@ class ProjectAgileTeam(models.Model):
     def write(self, values):
         self.sudo(False).check_access("write")
         check_scrum_project(self.project_id)
+        if "project_id" in values:
+            changing = self.filtered(
+                lambda team: team.project_id.id != values["project_id"]
+            )
+            # Complete enumeration only; never silently skip hidden or archived owners.
+            if changing and (
+                self.env["project.sprint"]
+                .sudo()
+                .search_count([("team_id", "in", changing.ids)], limit=1)
+                or self.env["project.task"]
+                .sudo()
+                .with_context(active_test=False)
+                .search_count([("agile_team_id", "in", changing.ids)], limit=1)
+            ):
+                raise ValidationError(
+                    self.env._("A team used by tasks or Sprints cannot change Project.")
+                )
         with self.env.cr.savepoint():
             result = super().write(values)
             check_scrum_project(self.project_id)

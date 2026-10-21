@@ -264,7 +264,7 @@ class ProjectProject(models.Model):
 
     def _agile_planning_backlog_domain(self, cursor=False, team=False):
         self.ensure_one()
-        domain = self.env["project.task"]._product_backlog_domain() + [
+        domain = self.env["project.task"]._sprint_eligible_backlog_domain() + [
             ("project_id", "=", self.id),
             ("company_id", "in", [False, *self.env.companies.ids]),
         ]

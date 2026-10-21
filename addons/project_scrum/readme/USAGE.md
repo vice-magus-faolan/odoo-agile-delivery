@@ -19,8 +19,10 @@ to Product Backlog keeps its team. Filter or group the backlog by **Agile Team**
 
 As a Scrum master or Project administrator, choose **Sprint Backlog** to review assigned work.
 Select tasks and use **Actions > Remove from Sprint**, then **Apply**, to return
-work to the backlog. Project **Tasks > Product Backlog** also shows open,
-unscheduled, Sprint-eligible work. Done and Canceled tasks stay out of both queues.
+work to the backlog. Project **Tasks > Product Backlog** shows all open,
+unscheduled work, including unschedulable item types and tasks without an item type.
+The Sprint button and Sprint Planning board show only Sprint-eligible work.
+Done, Canceled, archived and template tasks stay out of both backlog queues.
 
 ## Start and work
 

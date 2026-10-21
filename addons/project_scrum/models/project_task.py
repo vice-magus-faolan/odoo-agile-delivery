@@ -22,12 +22,16 @@ class ProjectTask(models.Model):
 
     @api.model
     def _product_backlog_domain(self):
-        return super()._product_backlog_domain() + [
+        return super()._product_backlog_domain() + [("sprint_id", "=", False)]
+
+    @api.model
+    def _sprint_eligible_backlog_domain(self):
+        """Narrow the general backlog to work selectable for Sprint planning."""
+        return self._product_backlog_domain() + [
             ("agile_item_type_id.can_schedule_in_sprint", "=", True),
-            ("sprint_id", "=", False),
         ]
 
-    @api.depends("sprint_id", "agile_item_type_id.can_schedule_in_sprint")
+    @api.depends("sprint_id")
     def _compute_agile_is_product_backlog(self):
         return super()._compute_agile_is_product_backlog()
 

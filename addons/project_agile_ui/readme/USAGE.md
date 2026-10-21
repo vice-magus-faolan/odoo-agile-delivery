@@ -1,11 +1,14 @@
 1. Open **Project > Projects**, open the Project form and choose **Sprint
    Planning**. The board shows visible Draft and Active Sprints with active teams.
-2. Find work in **Product Backlog**. This queue includes active, unscheduled
+2. Find work in the board's **Product Backlog**. This queue includes active, unscheduled
    tasks whose item type permits Sprint scheduling, excluding templates.
    Typeless, Done and Canceled tasks are not eligible. Choose **Agile Team** to
    filter the backlog and Sprints, or **All teams** to include unteamed work.
    Changing teams starts from the first page. Use **Load more backlog items** for
    additional work from the same team.
+   Project **Tasks > Product Backlog** is the general queue: it also includes
+   unschedulable item types and tasks without an item type, which cannot be assigned
+   to a Sprint.
 3. Choose a **Draft Sprint**, then **Assign to Sprint**. Alternatively, drag the
    item onto a Draft Sprint. The board does not assign to Active Sprints; use
    the [Scrum workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#usage)
@@ -16,7 +19,7 @@
    prioritize work. Buttons provide the same actions without dragging.
 5. Choose a Sprint name or backlog task key to open its form. **Open Sprints
    list** and **Open Product Backlog list** offer ordinary list and form views.
-   The latter keeps the selected team and the same open, unscheduled queue.
+   The latter keeps the selected team and the board's Sprint-eligible queue.
 
 The board displays at most 20 Sprints and 100 assigned items across them, with
 50 backlog items per page. Use the standard lists when the board is incomplete;

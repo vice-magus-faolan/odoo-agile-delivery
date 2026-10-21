@@ -20,13 +20,15 @@ copy keyed work instead of moving it to another Project.
 Open Project **Tasks > Product Backlog** and prioritize tasks with the list drag
 handle (**Agile Backlog Sequence**). Filter by Project when managing several Agile
 Projects. The backlog contains open, active work, excluding Done, Canceled and
-templates. With Scrum installed it includes only unscheduled, Sprint-eligible work.
+templates. With Scrum installed it includes only unscheduled work, including tasks
+whose item type does not allow Sprint scheduling and tasks without an item type.
 Task search provides **Agile Work**, **Agile Item Type** and **Agile Project** filters
 or groupings.
 
 For Sprint planning, configure
 [project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum).
-The **Product Backlog** button on a Sprint shows the same queue for its Project.
+The **Product Backlog** button on a Sprint narrows this queue to its Project's
+Sprint-eligible work.
 
 On a Project kanban board, filter **Agile Item Type**, **Points work** or
 **Hours work** to see matching tasks and applicable columns. Selecting several

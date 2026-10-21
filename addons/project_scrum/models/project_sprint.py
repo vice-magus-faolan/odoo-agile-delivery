@@ -306,7 +306,7 @@ class ProjectSprint(models.Model):
         self.ensure_one()
         return self._task_backlog_action(
             _("Product Backlog"),
-            self.env["project.task"]._product_backlog_domain()
+            self.env["project.task"]._sprint_eligible_backlog_domain()
             + [("project_id", "=", self.project_id.id)],
         )
 

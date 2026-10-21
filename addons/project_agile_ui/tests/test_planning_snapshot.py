@@ -130,6 +130,18 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
             self._create_task(f"BA {index}", agile_team_id=second_team.id)
         self._create_task("Done", agile_team_id=self.team.id, state="1_done")
         self._create_task("Canceled", agile_team_id=self.team.id, state="1_canceled")
+        for item_type_id in (self.ineligible_type.id, False):
+            self._create_task(
+                "Not Sprint-eligible",
+                agile_item_type_id=item_type_id,
+                agile_team_id=self.team.id,
+            )
+        self._create_task(
+            "Template",
+            is_template=True,
+            agile_item_type_id=False,
+            agile_team_id=self.team.id,
+        )
         user = mail_new_test_user(
             self.env, "Team snapshot planner", groups="project.group_project_user"
         )

@@ -86,6 +86,7 @@ class TestProjectSprintBacklog(TransactionCase):
         ineligible_task = self._create_task(
             "Unschedulable work", agile_item_type_id=self.ineligible_type.id
         )
+        typeless_task = self._create_task("Untyped work", agile_item_type_id=False)
         scheduled_task = self._create_task("Scheduled work", sprint_id=sprint.id)
         self._create_task("Done work", state="1_done")
         self._create_task("Canceled work", state="1_canceled")
@@ -96,8 +97,59 @@ class TestProjectSprintBacklog(TransactionCase):
         self.assertEqual(task_ids, self.task)
         self.assertNotIn(foreign_task, task_ids)
         self.assertNotIn(ineligible_task, task_ids)
+        self.assertNotIn(typeless_task, task_ids)
         self.assertNotIn(scheduled_task, task_ids)
         self.assertEqual(action["context"]["default_project_id"], self.project.id)
+
+    def test_general_backlog_keeps_unschedulable_and_untyped_work_as_caller(self):
+        user = mail_new_test_user(
+            self.env, "General backlog user", groups="project.group_project_user"
+        )
+        self.task.agile_team_id = self.team
+        ineligible = self._create_task(
+            "Unschedulable backlog",
+            agile_item_type_id=self.ineligible_type.id,
+            agile_team_id=self.team.id,
+        )
+        untyped = self._create_task(
+            "Untyped backlog", agile_item_type_id=False, agile_team_id=self.team.id
+        )
+        unteamed = self._create_task("Unteamed backlog", agile_item_type_id=False)
+        for state in ("1_done", "1_canceled"):
+            self._create_task(state, state=state, agile_team_id=self.team.id)
+        self._create_task("Archived backlog", active=False, agile_team_id=self.team.id)
+        self._create_task(
+            "Template backlog",
+            is_template=True,
+            agile_item_type_id=False,
+            agile_team_id=self.team.id,
+        )
+        self._create_task("Assigned backlog", sprint_id=self._create_sprint().id)
+        model = self.env["project.task"].with_user(user)
+        action = self.env.ref("project_agile.action_project_agile_backlog")
+        search = etree.fromstring(
+            model.get_view(
+                self.env.ref("project_scrum.view_task_search_scrum").id, "search"
+            )["arch"].encode()
+        )
+        filter_domain = safe_eval(
+            search.xpath("//filter[@name='agile_backlog']")[0].get("domain")
+        )
+        expected = self.task | ineligible | untyped | unteamed
+        for domain in (safe_eval(action.domain), filter_domain):
+            with self.subTest(domain=domain):
+                self.assertEqual(set(model.search(domain).ids), set(expected.ids))
+                self.assertEqual(
+                    set(
+                        model.search(
+                            domain + [("agile_team_id", "=", self.team.id)]
+                        ).ids
+                    ),
+                    set((expected - unteamed).ids),
+                )
+        self.assertTrue(
+            all(expected.with_user(user).mapped("agile_is_product_backlog"))
+        )
 
     def test_two_team_assignment_inherits_and_rejects_a_mixed_batch_as_caller(self):
         user = mail_new_test_user(
@@ -275,14 +327,14 @@ class TestProjectSprintBacklog(TransactionCase):
 
     def test_assign_wizard_rejects_an_ineligible_item_type(self):
         sprint = self._create_sprint()
-        task = self._create_task(
-            "Ineligible work", agile_item_type_id=self.ineligible_type.id
-        )
-
-        with self.assertRaises(ValidationError):
-            self._create_wizard(task, "assign", sprint).action_confirm()
-
-        self.assertFalse(task.sprint_id)
+        for item_type_id in (self.ineligible_type.id, False):
+            task = self._create_task("Ineligible work", agile_item_type_id=item_type_id)
+            with (
+                self.subTest(item_type_id=item_type_id),
+                self.assertRaises(ValidationError),
+            ):
+                self._create_wizard(task, "assign", sprint).action_confirm()
+            self.assertFalse(task.sprint_id)
 
     def test_assign_wizard_rejects_a_closed_sprint(self):
         sprint = self._create_sprint()

@@ -38,12 +38,15 @@ Current points come from Task assignment; committed points come from immutable c
 events, not browser arithmetic. Totals may include work omitted from the capped item
 list.
 
-Backlog eligibility is active, unscheduled, Sprint-eligible, non-template work in that
-Project/company, excluding native Done and Canceled states. Native action/search, Sprint
-fallback and planning use the same extensible Task domain; the core searchable
-membership field never references optional Scrum fields after uninstall. Ordering is
-sequence then ID. A cursor names sequence, ID, Project backlog revision and the selected
-team, if any; a different revision or team rejects the old cursor.
+The general native Product Backlog action/search includes active, unscheduled,
+non-template Agile work, excluding native Done and Canceled states, irrespective of item
+type or Sprint eligibility. Scrum extends that Task domain with Sprint-type eligibility
+for the Sprint's Product Backlog button, planning snapshot, planning changes and
+planning-scoped native fallback. Project/company/caller and optional team scope still
+apply; sharing those predicates does not make the two queues equivalent. The core
+searchable membership field never references optional Scrum fields after uninstall.
+Ordering is sequence then ID. A cursor names sequence, ID, Project backlog revision and
+the selected team, if any; a different revision or team rejects the old cursor.
 
 Reads use batched current-user ORM queries and grouped sums rather than per-card
 queries. Fetch the fields consumed by card and version serialization together, including

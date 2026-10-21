@@ -34,6 +34,21 @@ planning board. Returning work retains its team. Project/company compatibility i
 enforced, and ownership edits cannot invalidate assigned work. A versioned ORM update
 assigns existing Sprint work its owning team without rewriting scope history.
 
+Task placement, Sprint creation and Sprint ownership changes advance a private team
+membership revision through the ORM. Sprint ownership changes include both the old and
+requested team; carry-over registers its target team too. Team Project changes write
+that same team row. These shared writes make an older ownership snapshot conflict even
+after a concurrent placement has committed. Claims alone would protect only the overlap,
+not a later edit using the earlier repeatable-read snapshot.
+
+Native nonwaiting claims raise the existing retryable concurrency error on contention;
+stale row versions use native transaction retry. A fresh transaction rechecks membership
+and compatibility. Coordination is team-scoped and can serialize simultaneous placement
+changes for one team. Caller Task, Sprint, Project and company checks remain in force;
+only the private revision write is elevated after team/Project read checks. This
+revision is a conflict marker, not membership history or permission, and does not alter
+Sprint scope events or require the optional planning UI.
+
 Copying a Project or creating one from a template clears the copied tasks' source team
 and Sprint, including subtasks. Copying a task into another Project also clears implicit
 placement while accepting valid destination defaults. Ordinary task duplicates in the

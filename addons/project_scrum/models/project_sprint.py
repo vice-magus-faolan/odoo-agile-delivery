@@ -63,6 +63,7 @@ class ProjectSprint(models.Model):
             sprints = super().create(vals_list)
             check_scrum_project(sprints.project_id)
             sprints.team_id.sudo(False).check_access("read")
+            sprints.team_id._register_membership()
             return sprints
 
     def write(self, values):
@@ -117,6 +118,12 @@ class ProjectSprint(models.Model):
     def _check_task_ownership_change(self, values):
         if not {"project_id", "team_id"}.intersection(values):
             return
+        teams = self.team_id | self.env["project.agile.team"].browse(
+            values.get("team_id")
+        )
+        # Membership writers touch the same team rows. A released claim alone
+        # would not invalidate this transaction's earlier membership snapshot.
+        teams._register_membership()
         tasks = self.env["project.task"].with_context(active_test=False)
         # Enumerate the complete membership, then restore caller authority.
         assigned = (

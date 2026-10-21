@@ -207,6 +207,7 @@ class ProjectTask(models.Model):
             for values in vals_list
         ]
         tasks = super().create(values_list)
+        tasks.agile_team_id._register_membership()
         for task in tasks.filtered(lambda record: record.sprint_id.state == "active"):
             task.sprint_id._append_scope_events("added", task)
             if task.state == "1_done":
@@ -301,6 +302,8 @@ class ProjectTask(models.Model):
             else {}
         )
         result = super().write(values)
+        if values.get("agile_team_id") or values.get("sprint_id"):
+            self.agile_team_id._register_membership()
         if track_sprint_assignment:
             self._track_active_sprint_assignment_changes(
                 original_sprints, original_story_points
@@ -317,6 +320,8 @@ class ProjectTask(models.Model):
 
     def _write_sprint_close_assignment(self, target_sprint=False):
         """Move unfinished work without converting close into ordinary scope removal."""
+        if target_sprint:
+            target_sprint.team_id._register_membership()
         return super().write(
             {"sprint_id": target_sprint.id if target_sprint else False}
         )

@@ -233,6 +233,58 @@ class TestProjectSprintBacklog(TransactionCase):
                 "Foreign team", project_id=other.id, agile_team_id=team.id
             )
 
+    def test_membership_coordination_keeps_task_and_team_authority_separate(self):
+        user = mail_new_test_user(
+            self.env, "Membership user", groups="project.group_project_user"
+        )
+        manager = mail_new_test_user(
+            self.env, "Membership manager", groups="project.group_project_manager"
+        )
+        sprint = self._create_sprint()
+        self.task.with_user(user).write({"sprint_id": sprint.id})
+        self.assertEqual(self.task.agile_team_id, self.team)
+        with self.assertRaises(AccessError):
+            self.team.with_user(user).write({"name": "Unauthorized team edit"})
+        with self.assertRaises(AccessError):
+            self.team.with_user(manager).write({"membership_revision": 0})
+        with self.assertRaises(AccessError):
+            self.env["project.agile.team"].with_user(manager).create(
+                {
+                    "name": "Forged revision",
+                    "project_id": self.project.id,
+                    "membership_revision": 100,
+                }
+            )
+        self.assertEqual(self.task.sprint_id, sprint)
+
+    def test_team_coordination_preserves_archived_project_task_writes(self):
+        user = mail_new_test_user(
+            self.env, "Archived membership user", groups="project.group_project_user"
+        )
+        sprint = self._create_sprint()
+        self.project.active = False
+        self.task.with_user(user).write({"sprint_id": sprint.id})
+        self.assertEqual(self.task.agile_team_id, self.team)
+        self.task.with_user(user).return_sprint_tasks_to_product_backlog()
+        self.assertFalse(self.task.sprint_id)
+        self.assertEqual(self.task.agile_team_id, self.team)
+
+    def test_unused_team_and_empty_sprint_can_still_change_ownership(self):
+        other_project = self.env["project.project"].create(
+            {"name": "Unused destination", "agile_enabled": True, "agile_key": "UNUSED"}
+        )
+        unused_team = self.env["project.agile.team"].create(
+            {"name": "Unused", "project_id": self.project.id}
+        )
+        unused_team.write({"project_id": other_project.id})
+        self.assertEqual(unused_team.project_id, other_project)
+        sprint = self._create_sprint()
+        second_team = self.env["project.agile.team"].create(
+            {"name": "BA", "project_id": self.project.id}
+        )
+        sprint.write({"team_id": second_team.id})
+        self.assertEqual(sprint.team_id, second_team)
+
     def test_native_backlog_team_filter_and_active_sprint_action(self):
         sprint = self._create_sprint()
         active_task = self._create_task("Active work", sprint_id=sprint.id)

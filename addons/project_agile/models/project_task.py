@@ -189,16 +189,28 @@ class ProjectTask(models.Model):
                     and not task.agile_key
                     and not task.has_template_ancestor
                 )
-        for task in moving:
-            prepared = dict(values)
-            if task.agile_item_type_id:
-                prepared.setdefault("agile_item_type_id", task.agile_item_type_id.id)
-            self._prepare_agile_task_values(project, prepared)
-            super(ProjectTask, task).write(prepared)
         if moving:
-            # Native parent moves recompute descendant Projects without write().
-            project._agile_unkeyed_tasks()._assign_agile_keys()
-        return super(ProjectTask, self - moving).write(values)
+            defaults = dict(values)
+            self._prepare_agile_task_values(project, defaults)
+            groups = moving.grouped(
+                lambda task: values.get(
+                    "agile_item_type_id",
+                    task.agile_item_type_id.id or defaults["agile_item_type_id"],
+                )
+            )
+            for item_type_id, tasks in groups.items():
+                prepared = dict(values, agile_item_type_id=item_type_id)
+                self._prepare_agile_task_values(project, prepared)
+                super(ProjectTask, tasks).write(prepared)
+        result = super(ProjectTask, self - moving).write(values)
+        if moving or values.get("is_template", True) is False:
+            # Native parent changes recompute descendant eligibility without write().
+            affected = (
+                moving | self if values.get("is_template", True) is False else moving
+            )
+            affected = affected.with_context(active_test=False)
+            (affected | affected._get_all_subtasks())._assign_agile_keys()
+        return result
 
     @api.constrains("parent_id", "project_id", "agile_item_type_id")
     def _check_agile_parent_policy(self):

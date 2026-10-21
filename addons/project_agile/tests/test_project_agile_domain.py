@@ -1,10 +1,15 @@
+from datetime import datetime
+from unittest.mock import patch
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tests.common import TransactionCase
+from odoo.tests.common import TransactionCase, tagged
 
 from odoo.addons.mail.tests.common import mail_new_test_user
+from odoo.addons.project.models.project_task import ProjectTask as NativeProjectTask
 
 
+@tagged("post_install", "-at_install")
 class TestProjectAgileDomain(TransactionCase):
     def setUp(self):
         super().setUp()
@@ -311,27 +316,26 @@ class TestProjectAgileDomain(TransactionCase):
             {"name": "Existing", "agile_key": "EXIST"}
         )
         model = self.env["project.task"]
-        tasks = model.create(
-            [
-                {
-                    "name": "Later",
-                    "project_id": project.id,
-                    "create_date": "2026-01-02 00:00:00",
-                    "agile_item_type_id": self.story_type.id,
-                },
-                {
-                    "name": "Earlier archived",
-                    "project_id": project.id,
-                    "create_date": "2026-01-01 00:00:00",
-                    "active": False,
-                },
-                {
-                    "name": "Same date",
-                    "project_id": project.id,
-                    "create_date": "2026-01-02 00:00:00",
-                },
-            ]
-        )
+        # Native ORM ignores supplied access metadata after registry loading.
+        # Seed chronology through its clock, without mocking allocation or writes.
+        with patch.object(self.cr, "now", return_value=datetime(2026, 1, 2)):
+            later = model.create(
+                [
+                    {
+                        "name": "Later",
+                        "project_id": project.id,
+                        "agile_item_type_id": self.story_type.id,
+                    },
+                    {"name": "Same date", "project_id": project.id},
+                ]
+            )
+        with patch.object(self.cr, "now", return_value=datetime(2026, 1, 1)):
+            earlier = model.create(
+                {"name": "Earlier archived", "project_id": project.id, "active": False}
+            )
+        tasks = later[0] | earlier | later[1]
+        self.assertLess(tasks[1].create_date, tasks[0].create_date)
+        self.assertEqual(tasks[0].create_date, tasks[2].create_date)
         template = model.create(
             {"name": "Template", "project_id": project.id, "is_template": True}
         )
@@ -370,6 +374,174 @@ class TestProjectAgileDomain(TransactionCase):
             {"name": "Template project task", "project_id": template_project.id}
         )
         self.assertFalse(project_task.agile_key)
+
+    def test_native_template_undo_keys_restored_subtree_and_preserves_identity(self):
+        manager = mail_new_test_user(
+            self.env, "template_key_manager", groups="project.group_project_manager"
+        )
+        parent = self._create_task(
+            "Template", is_template=True, agile_item_type_id=False
+        )
+        child = self._create_task(
+            "Child", parent_id=parent.id, active=False, agile_item_type_id=False
+        )
+        nested = self._create_task(
+            "Still template",
+            parent_id=parent.id,
+            is_template=True,
+            agile_item_type_id=False,
+        )
+        excluded = self._create_task(
+            "Still excluded", parent_id=nested.id, agile_item_type_id=False
+        )
+        self.assertFalse(any((parent | child | nested | excluded).mapped("agile_key")))
+        parent.with_user(manager).action_undo_convert_to_template()
+        self.assertTrue(parent.agile_key)
+        self.assertTrue(child.agile_key)
+        self.assertNotEqual(parent.agile_key, child.agile_key)
+        self.assertFalse(any((nested | excluded).mapped("agile_key")))
+        keys = (parent | child).mapped("agile_key")
+        parent.with_user(manager).action_convert_to_template()
+        parent.with_user(manager).action_undo_convert_to_template()
+        self.assertEqual((parent | child).mapped("agile_key"), keys)
+
+    def test_bulk_template_restoration_keeps_ineligible_work_unkeyed(self):
+        ordinary = self.env["project.project"].create({"name": "Ordinary templates"})
+        project_template = self._create_agile_project(
+            "Project template", "TPL", is_template=True
+        )
+        eligible = self._create_task("Eligible template", is_template=True)
+        ordinary_task = self.env["project.task"].create(
+            {
+                "name": "Ordinary template",
+                "project_id": ordinary.id,
+                "is_template": True,
+            }
+        )
+        project_task = self.env["project.task"].create(
+            {
+                "name": "Project template task",
+                "project_id": project_template.id,
+                "is_template": True,
+            }
+        )
+        keyed = self._create_task("Existing identity")
+        key = keyed.agile_key
+        keyed.action_convert_to_template()
+        (eligible | ordinary_task | project_task | keyed).write({"is_template": False})
+        self.assertTrue(eligible.agile_key)
+        self.assertEqual(keyed.agile_key, key)
+        self.assertFalse(ordinary_task.agile_key)
+        self.assertFalse(project_task.agile_key)
+
+    def test_move_does_not_sweep_unrelated_restored_destination_work(self):
+        manager = mail_new_test_user(
+            self.env, "scoped_move_manager", groups="project.group_project_manager"
+        )
+        ordinary = self.env["project.project"].create(
+            {"name": "Scope source", "privacy_visibility": "employees"}
+        )
+        for denied in (False, True):
+            with self.subTest(unrelated_write_denied=denied):
+                # Task undo under a Project template is still ineligible. Native
+                # Project undo then leaves reachable unrelated unkeyed work.
+                self.project.write({"is_template": True})
+                unrelated = self._create_task(
+                    "Unrelated restored template", is_template=True
+                )
+                unrelated.action_undo_convert_to_template()
+                self.project.action_undo_convert_to_template()
+                self.assertFalse(unrelated.has_template_ancestor)
+                self.assertFalse(unrelated.agile_key)
+                before = unrelated.read(
+                    ["agile_key", "write_date", "write_uid"], load=None
+                )
+                if denied:
+                    self.env["ir.rule"].create(
+                        {
+                            "name": "Unrelated task write denied",
+                            "model_id": self.env.ref("project.model_project_task").id,
+                            "domain_force": repr([("id", "!=", unrelated.id)]),
+                            "perm_read": False,
+                            "perm_write": True,
+                            "perm_create": False,
+                            "perm_unlink": False,
+                        }
+                    )
+                    with self.assertRaises(AccessError):
+                        unrelated.with_user(manager).check_access("write")
+                incoming = self.env["project.task"].create(
+                    {"name": "Incoming parent", "project_id": ordinary.id}
+                )
+                child = self.env["project.task"].create(
+                    {
+                        "name": "Archived incoming child",
+                        "parent_id": incoming.id,
+                        "active": False,
+                    }
+                )
+                incoming.with_user(manager).write({"project_id": self.project.id})
+                self.assertEqual((incoming | child).project_id, self.project)
+                self.assertTrue(all((incoming | child).mapped("agile_key")))
+                self.assertEqual(
+                    unrelated.read(["agile_key", "write_date", "write_uid"], load=None),
+                    before,
+                )
+
+    def test_incoming_native_write_dispatch_is_grouped_by_resulting_type(self):
+        ordinary = self.env["project.project"].create(
+            {"name": "Batch source", "privacy_visibility": "employees"}
+        )
+        manager = mail_new_test_user(
+            self.env, "batch_move_manager", groups="project.group_project_manager"
+        )
+        self.project.write({"agile_default_item_type_id": self.story_type.id})
+        native_write = NativeProjectTask.write
+        dispatches = []
+
+        def observe_native_write(records, values):
+            if records and values.get("project_id") == self.project.id:
+                dispatches.append(
+                    (frozenset(records.ids), values.get("agile_item_type_id"))
+                )
+            return native_write(records, values)
+
+        for explicit in (
+            {},
+            {"agile_item_type_id": False},
+            {"agile_item_type_id": self.story_type.id},
+        ):
+            with self.subTest(explicit=explicit):
+                tasks = self.env["project.task"].create(
+                    [
+                        {
+                            "name": f"Batch {index}",
+                            "project_id": ordinary.id,
+                            "agile_item_type_id": item_type,
+                        }
+                        for index, item_type in enumerate(
+                            [self.task_type.id, False, self.story_type.id] * 2
+                        )
+                    ]
+                )
+                dispatches.clear()
+                with patch.object(NativeProjectTask, "write", observe_native_write):
+                    tasks.with_user(manager).write(
+                        {"project_id": self.project.id, **explicit}
+                    )
+                expected = (
+                    [(frozenset(tasks.ids), explicit["agile_item_type_id"])]
+                    if explicit
+                    else [
+                        (frozenset((tasks[0] | tasks[3]).ids), self.task_type.id),
+                        (
+                            frozenset((tasks - tasks[0] - tasks[3]).ids),
+                            self.story_type.id,
+                        ),
+                    ]
+                )
+                self.assertCountEqual(dispatches, expected)
+                self.assertTrue(all(tasks.mapped("agile_key")))
 
     def test_move_defaults_preserve_same_project_choices_and_batch_identity(self):
         ordinary = self.env["project.project"].create({"name": "Move source"})

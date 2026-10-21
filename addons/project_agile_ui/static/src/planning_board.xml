@@ -9,6 +9,24 @@
         <div>
           <h1>Sprint Planning</h1>
           <p t-if="state.project" t-esc="state.project.name" />
+          <label t-if="state.project" for="agile-planning-team">Agile Team</label>
+          <select
+            t-if="state.project"
+            id="agile-planning-team"
+            class="form-select o_agile_planning_board__team"
+            t-on-change="selectTeam"
+            t-att-disabled="state.mutating"
+          >
+            <option value="" t-att-selected="!state.teamId">All teams</option>
+            <option
+              t-foreach="state.teams"
+              t-as="team"
+              t-key="team.id"
+              t-att-value="team.id"
+              t-att-selected="state.teamId === team.id"
+              t-esc="team.name"
+            />
+          </select>
         </div>
         <div class="o_agile_planning_board__fallbacks">
           <button
@@ -112,7 +130,7 @@
                                     <button
                   type="button"
                   class="btn btn-link"
-                  t-att-disabled="state.mutating"
+                  t-att-disabled="planningUnavailable"
                   t-on-click="() => this.returnTask(task, sprint)"
                 >
                                         Return to Product Backlog
@@ -183,19 +201,19 @@
                 <button
                   type="button"
                   class="btn btn-secondary"
-                  t-att-disabled="state.mutating"
+                  t-att-disabled="planningUnavailable"
                   t-on-click="() => this.assignTask(task)"
                 >Assign to Sprint</button>
                 <button
                   type="button"
                   class="btn btn-link"
-                  t-att-disabled="state.mutating"
+                  t-att-disabled="planningUnavailable"
                   t-on-click="() => this.moveTask(task, 'up')"
                 >Move earlier</button>
                 <button
                   type="button"
                   class="btn btn-link"
-                  t-att-disabled="state.mutating"
+                  t-att-disabled="planningUnavailable"
                   t-on-click="() => this.moveTask(task, 'down')"
                 >Move later</button>
               </div>

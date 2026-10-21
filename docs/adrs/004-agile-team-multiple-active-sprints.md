@@ -27,7 +27,33 @@ parallel teams. Unlimited Sprints without teams obscure ownership. The selected 
 instead requires Project/team/company compatibility and reports which team owns each
 Sprint.
 
+Tasks optionally reference this same team in `project_scrum`; core Agile does not depend
+on Scrum. Assignment inherits the Sprint team only for unteamed work and rejects
+incompatible teams through task creation, task updates, the assignment wizard and the
+planning board. Returning work retains its team. Project/company compatibility is
+enforced, and ownership edits cannot invalidate assigned work. A versioned ORM update
+assigns existing Sprint work its owning team without rewriting scope history.
+
+Task placement, Sprint creation and Sprint team changes bump a private team revision
+through the ORM. Sprint team changes write both the old and requested teams; carry-over
+writes its target team too. Changing a team's Project writes the same team row. When
+these operations conflict, one retries in a fresh transaction and rechecks membership
+and compatibility. This also rejects an ownership edit using an old repeatable-read
+snapshot after placement has committed; a claim alone covers only overlapping
+operations.
+
+Native nonwaiting claims raise the existing retryable concurrency error on contention;
+stale row versions also use native transaction retry. Simultaneous placement changes for
+one team can therefore make one another retry. Caller Task, Sprint, Project and company
+checks remain in force. Only the private revision write is elevated, after team/Project
+read checks. The revision marks conflicts, not membership history or permission. Sprint
+scope events are unchanged, and the optional planning UI is not required.
+
+Copying a Project or creating one from a template clears the copied tasks' source team
+and Sprint, including subtasks. Copying a task into another Project also clears implicit
+placement while accepting valid destination defaults. Ordinary task duplicates in the
+same Project keep their team and Sprint. Original tasks and Sprint history are
+unchanged.
+
 Team membership, a configurable per-team concurrency policy and no-team Sprints are not
-supplied by this model. Carry-over targets must be compatible Draft Sprints for the same
-team; this does not establish a general cross-team transfer policy. Such changes need
-their own Task ownership and scope-history decisions.
+supplied. Carry-over targets remain compatible Draft Sprints for the same team.

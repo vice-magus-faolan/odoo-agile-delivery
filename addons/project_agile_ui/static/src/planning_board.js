@@ -55,6 +55,8 @@ function emptyState() {
     assignmentTargets: {},
     mutating: false,
     draggedTaskId: false,
+    teams: [],
+    teamId: false,
   };
 }
 
@@ -92,7 +94,8 @@ export class AgilePlanningBoard extends Component {
       const snapshot = await this.orm.call(
         "project.project",
         "get_agile_planning_snapshot",
-        [this.projectId, cursor]
+        [this.projectId, cursor],
+        ...(this.state.teamId ? [{team_id: this.state.teamId}] : [])
       );
       if (requestSequence !== this.requestSequence) {
         return false;
@@ -128,6 +131,7 @@ export class AgilePlanningBoard extends Component {
 
   applySnapshot(snapshot, cursor = false) {
     this.state.project = snapshot.project;
+    this.state.teams = snapshot.teams || [];
     this.state.sprints = snapshot.sprints;
     if (!cursor) {
       this.state.backlog = snapshot.backlog;
@@ -145,13 +149,18 @@ export class AgilePlanningBoard extends Component {
     };
   }
 
+  get planningUnavailable() {
+    return this.state.mutating || this.state.loading || this.state.stale;
+  }
+
   async changePlanning(task, operation, options = {}) {
-    if (this.state.mutating) {
+    if (this.planningUnavailable) {
       return;
     }
     this.state.mutating = true;
     this.state.error = false;
     this.state.status = _t("Updating Sprint Planning");
+    const requestSequence = ++this.requestSequence;
     const versions = {sprints: {}, tasks: {[task.id]: task.version}};
     if (options.sprint) {
       versions.sprints[options.sprint.id] = options.sprint.version;
@@ -168,12 +177,19 @@ export class AgilePlanningBoard extends Component {
           before_task_id: options.beforeTask?.id || false,
           expected_versions: versions,
           sprint_id: operation === "assign" ? options.sprint?.id || false : false,
+          ...(this.state.teamId ? {team_id: this.state.teamId} : {}),
         }
       );
+      if (requestSequence !== this.requestSequence) {
+        return;
+      }
       this.applySnapshot(snapshot);
       this.state.stale = false;
       this.state.status = _t("Sprint Planning updated");
     } catch {
+      if (requestSequence !== this.requestSequence) {
+        return;
+      }
       const refreshed = await this.load();
       if (refreshed) {
         this.state.failure = "rejected";
@@ -230,14 +246,14 @@ export class AgilePlanningBoard extends Component {
   }
 
   prepareDrag(task) {
-    if (!this.state.mutating) {
+    if (!this.planningUnavailable) {
       this.state.draggedTaskId = task.id;
     }
   }
 
   startDrag(task, event) {
     this.prepareDrag(task);
-    if (this.state.mutating || !event.dataTransfer) {
+    if (this.planningUnavailable || !event.dataTransfer) {
       return;
     }
     event.dataTransfer.effectAllowed = "move";
@@ -313,6 +329,19 @@ export class AgilePlanningBoard extends Component {
     return this.load(this.state.retryCursor);
   }
 
+  selectTeam(event) {
+    if (this.state.mutating) {
+      return;
+    }
+    this.state.teamId = Number(event.target.value) || false;
+    this.state.backlog = {items: [], next_cursor: false};
+    this.state.sprints = [];
+    this.state.assignmentTargets = {};
+    this.state.retryCursor = false;
+    this.endDrag();
+    return this.load();
+  }
+
   loadMore() {
     return this.load(this.state.backlog.next_cursor);
   }
@@ -338,7 +367,14 @@ export class AgilePlanningBoard extends Component {
   }
 
   async openFallback(method) {
-    const action = await this.orm.call("project.project", method, [[this.projectId]]);
+    const action = await this.orm.call(
+      "project.project",
+      method,
+      [[this.projectId]],
+      ...(method === "action_open_agile_planning_backlog" && this.state.teamId
+        ? [{team_id: this.state.teamId}]
+        : [])
+    );
     return this.actionService.doAction(action);
   }
 

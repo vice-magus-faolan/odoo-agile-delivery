@@ -7,6 +7,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from odoo.addons.mail.tests.common import mail_new_test_user
+
 assert env.cr.dbname == "odoo_agile_verify_install"
 project = env["project.project"].create(
     {
@@ -134,9 +136,11 @@ def wait_for_ready(directory, workers):
         time.sleep(0.05)
 
 
-def run_scenario(directory, workers):
+def run_scenario(directory, workers, data=None):
     directory.mkdir()
-    (directory / "scenario.json").write_text(json.dumps(scenario, sort_keys=True))
+    (directory / "scenario.json").write_text(
+        json.dumps(scenario if data is None else data, sort_keys=True)
+    )
     processes = []
     results = {}
     try:
@@ -235,3 +239,227 @@ all_orders = all_backlog.ids
 expected_backlog = orders + ([] if assign_won else [assign_task.id, return_task.id])
 assert all_orders == expected_backlog, (all_orders, expected_backlog)
 assert len(set(all_orders)) == len(all_orders)
+
+# Hold one completed public planning mutation until the other action has observed
+# its claim. Both Tasks and the Sprint were independently valid at the rendezvous.
+competing_tasks = env["project.task"].create(
+    [
+        {"name": name, "project_id": project.id, "agile_item_type_id": item_type.id}
+        for name in ("Concurrent assignment first", "Concurrent assignment second")
+    ]
+)
+scenario["assign_task_id"], scenario["other_assign_task_id"] = competing_tasks.ids
+scenario["contended_assign"] = True
+scenario["assign_return_versions"] = {
+    "tasks": {
+        str(task.id): planning._agile_planning_record_version(task)
+        for task in competing_tasks | return_task
+    },
+    "sprints": {str(sprint.id): planning._agile_planning_record_version(sprint)},
+}
+env.cr.commit()
+with tempfile.TemporaryDirectory(prefix="planning-assign-") as temporary:
+    assignment_results = run_scenario(
+        Path(temporary) / "contended", ("assign", "assign_other")
+    )
+assert assignment_results["assign"]["outcome"] == "success", assignment_results
+assert assignment_results["assign_other"]["outcome"] == "rejected", assignment_results
+assert assignment_results["assign_other"]["error_type"] == "ValidationError"
+assert assignment_results["assign_other"]["error"] == stale_message
+env.cr.rollback()
+env.invalidate_all()
+assert competing_tasks[0].sprint_id == sprint
+assert not competing_tasks[1].sprint_id
+assert not competing_tasks[1].agile_team_id
+assert (
+    planning._agile_planning_record_version(competing_tasks[1])
+    == scenario["assign_return_versions"]["tasks"][str(competing_tasks[1].id)]
+)
+print("PLANNING_CONTENDED_ASSIGN_OK", flush=True)  # pylint: disable=print-used
+
+
+def ownership_scenario(action, key, first="member", contended=False):
+    projects = env["project.project"].create(
+        [
+            {
+                "name": "Ownership race " + key + suffix,
+                "privacy_visibility": "employees",
+                "company_id": env.company.id,
+                "agile_enabled": True,
+                "agile_key": key + suffix,
+            }
+            for suffix in ("A", "B")
+        ]
+    )
+    teams = env["project.agile.team"].create(
+        [{"name": name, "project_id": projects[0].id} for name in ("Dev", "BA")]
+    )
+    target = env["project.sprint"]
+    if action in {"task_sprint", "create_task_sprint", "wizard", "carryover"}:
+        target = env["project.sprint"].create(
+            {
+                "name": "Empty Draft",
+                "project_id": projects[0].id,
+                "team_id": teams[0].id,
+            }
+        )
+    task = env["project.task"].create(
+        {
+            "name": "Ownership race work",
+            "project_id": projects[0].id,
+            "agile_item_type_id": item_type.id,
+        }
+    )
+    source_sprint = env["project.sprint"]
+    if action == "carryover":
+        source_sprint = target.copy({"name": "Carry-over source"})
+        task.write({"sprint_id": source_sprint.id})
+        source_sprint.action_start()
+    data = {
+        "ownership": True,
+        "action": action,
+        "first": first,
+        "contended": contended,
+        "project_id": projects[0].id,
+        "other_project_id": projects[1].id,
+        "team_id": teams[0].id,
+        "other_team_id": teams[1].id,
+        "sprint_id": target.id,
+        "source_sprint_id": source_sprint.id,
+        "task_id": task.id,
+        "item_type_id": item_type.id,
+        "member_uid": member_user.id,
+        "editor_uid": editor_user.id,
+    }
+    env.cr.commit()
+    return data
+
+
+def check_ownership_race(directory, data):
+    results = run_scenario(directory, ("member", "editor"), data)
+    print(  # pylint: disable=print-used
+        "OWNERSHIP_RACE_RESULT "
+        + json.dumps(
+            {"action": data["action"], "first": data["first"], "workers": results},
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+    assert sorted(row["outcome"] for row in results.values()) == [
+        "rejected",
+        "success",
+    ], results
+    first = data["first"]
+    second = "editor" if first == "member" else "member"
+    assert results[first]["outcome"] == "success", results
+    assert results[first]["retries"] == 0, results
+    assert results[second]["outcome"] == "rejected", results
+    assert results[second]["retries"] == 1, results
+    assert results[second]["error_type"] == "ValidationError", results
+    assert results[second]["conflict_type"] == (
+        "ConcurrencyError" if data["contended"] else "SerializationFailure"
+    ), results
+    if second == "editor":
+        expected_error = (
+            "Assigned tasks must keep their Project and Sprint team."
+            if data["sprint_id"]
+            else "A team used by tasks or Sprints cannot change Project."
+        )
+    else:
+        expected_error = {
+            "task_sprint": "The task team must match the Sprint team.",
+            "create_task_sprint": "The task team must match the Sprint team.",
+            "task_team": "The task team must belong to its Agile Project and company.",
+            "create_task_team": (
+                "The task team must belong to its Agile Project and company."
+            ),
+            "create_sprint": "The Agile team must belong to the Sprint project.",
+            "carryover": (
+                "Carry-over requires a different draft Sprint "
+                "for the same project, company, and Agile team."
+            ),
+        }[data["action"]]
+    assert results[second]["error"] == expected_error, results
+    assert results["member"]["backend"] != results["editor"]["backend"], results
+    assert results["member"]["pid"] != results["editor"]["pid"], results
+    env.cr.rollback()
+    env.invalidate_all()
+    team = env["project.agile.team"].browse(data["team_id"])
+    sprint = env["project.sprint"].browse(data["sprint_id"])
+    tasks = env["project.task"].search([("project_id", "=", data["project_id"])])
+    assert all(
+        task.agile_team_id.project_id == task.project_id
+        for task in tasks
+        if task.agile_team_id
+    )
+    assert all(
+        task.agile_team_id == task.sprint_id.team_id for task in tasks if task.sprint_id
+    )
+    assert len(tasks) == 1 + (
+        data["action"].startswith("create_task") and first == "member"
+    )
+    sprints = env["project.sprint"].search([("project_id", "=", data["project_id"])])
+    assert all(row.team_id.project_id == row.project_id for row in sprints)
+    if data["action"] == "create_sprint":
+        assert len(sprints) == (1 if first == "member" else 0)
+    if data["action"] == "carryover":
+        source = env["project.sprint"].browse(data["source_sprint_id"])
+        task = env["project.task"].browse(data["task_id"])
+        assert source.state == ("closed" if first == "member" else "active")
+        assert task.sprint_id == (sprint if first == "member" else source)
+        assert source.scope_event_ids.mapped("event_type") == (
+            ["committed", "carried_to_sprint"] if first == "member" else ["committed"]
+        )
+    if sprint:
+        assert sprint.team_id.id == (
+            data["team_id"] if first == "member" else data["other_team_id"]
+        )
+    else:
+        assert team.project_id.id == (
+            data["project_id"] if first == "member" else data["other_project_id"]
+        )
+    print(  # pylint: disable=print-used
+        "OWNERSHIP_RACE_OK "
+        + json.dumps(
+            {"action": data["action"], "first": first, "workers": results},
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
+member_user = mail_new_test_user(
+    env, "ownership_member", groups="project.group_project_user"
+)
+editor_user = mail_new_test_user(
+    env, "ownership_editor", groups="project.group_project_manager"
+)
+with tempfile.TemporaryDirectory(
+    prefix="planning-ownership-", dir="/var/lib/odoo"
+) as temporary:
+    failures = []
+    cases = [
+        (action, first, False)
+        for action in (
+            "task_sprint",
+            "task_team",
+            "create_task_sprint",
+            "create_task_team",
+            "create_sprint",
+            "wizard",
+            "carryover",
+        )
+        for first in ("member", "editor")
+        if action != "wizard" or first == "member"
+    ] + [
+        (action, first, True)
+        for action in ("task_sprint", "task_team")
+        for first in ("member", "editor")
+    ]
+    for index, (action, first, contended) in enumerate(cases):
+        data = ownership_scenario(action, "OWNRACE" + str(index), first, contended)
+        try:
+            check_ownership_race(Path(temporary) / str(index), data)
+        except AssertionError as error:
+            failures.append((action, str(error)))
+    assert not failures, failures

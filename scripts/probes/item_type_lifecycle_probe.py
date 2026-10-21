@@ -180,6 +180,8 @@ elif PHASE == "check":
         snapshot(sprint.scope_event_ids, EVENT_FIELDS),
     )
     assert sprint.state == "active" and sprint.committed_task_ids == tasks
+    assert tasks.agile_team_id == sprint.team_id
+    assert not env["project.task"].browse(saved["untyped"]).agile_team_id
     assert not project.agile_default_item_type_id
     assert not env["project.task"].browse(saved["untyped"]).agile_item_type_id
     next_legacy = env["project.task"].create(

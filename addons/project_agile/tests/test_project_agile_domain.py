@@ -1,6 +1,9 @@
+from lxml import etree
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -204,7 +207,6 @@ class TestProjectAgileDomain(TransactionCase):
 
         backlog_action = self.env.ref("project_agile.action_project_agile_backlog")
         self.assertEqual(backlog_action.res_model, "project.task")
-        self.assertIn("project_id.agile_enabled", backlog_action.domain)
 
     def test_backlog_ordering_respects_explicit_sequence_and_opt_in(self):
         later = self._create_task("Later backlog item", agile_backlog_sequence=30)
@@ -221,12 +223,55 @@ class TestProjectAgileDomain(TransactionCase):
         )
 
         backlog = self.env["project.task"].search(
-            [("project_id.agile_enabled", "=", True)],
+            safe_eval(
+                self.env.ref("project_agile.action_project_agile_backlog").domain
+            ),
             order="agile_backlog_sequence, id",
         )
 
         self.assertLess(backlog.ids.index(earlier.id), backlog.ids.index(later.id))
         self.assertNotIn(ordinary, backlog)
+
+    def test_backlog_action_and_search_exclude_closed_archived_and_template_work(self):
+        opened = self._create_task("Open work")
+        done = self._create_task("Finished work", state="1_done")
+        canceled = self._create_task("Canceled work", state="1_canceled")
+        archived = self._create_task("Archived work", active=False)
+        template = self._create_task(
+            "Template work", is_template=True, agile_item_type_id=False
+        )
+        child = self._create_task("Template descendant", parent_id=template.id)
+        folded = self.env["project.task.type"].create(
+            {
+                "name": "Folded but open",
+                "fold": True,
+                "project_ids": [Command.set(self.project.ids)],
+            }
+        )
+        opened.stage_id = folded
+        tasks = opened | done | canceled | archived | template | child
+        model = self.env["project.task"].with_context(active_test=False)
+        action = self.env.ref("project_agile.action_project_agile_backlog")
+        view = model.get_view(
+            self.env.ref("project_agile.view_task_search_agile").id, "search"
+        )
+        search = etree.fromstring(view["arch"].encode())
+        filter_domain = safe_eval(
+            search.xpath("//filter[@name='agile_backlog']")[0].get("domain")
+        )
+        for domain in (safe_eval(action.domain), filter_domain):
+            self.assertEqual(model.search(domain + [("id", "in", tasks.ids)]), opened)
+        self.assertTrue(opened.agile_is_product_backlog)
+        opened.state = "1_done"
+        self.assertFalse(opened.agile_is_product_backlog)
+        self.assertEqual(
+            set(
+                model.search(
+                    [("agile_is_product_backlog", "=", False), ("id", "in", tasks.ids)]
+                ).ids
+            ),
+            set(tasks.ids),
+        )
 
     def test_native_key_name_search_and_display(self):
         member = mail_new_test_user(

@@ -9,6 +9,44 @@ class ProjectTask(models.Model):
     _inherit = "project.task"
     _rec_names_search = ["agile_key", "name"]
 
+    agile_is_product_backlog = fields.Boolean(
+        compute="_compute_agile_is_product_backlog",
+        search="_search_agile_is_product_backlog",
+        string="Product Backlog",
+    )
+
+    @api.model
+    def _product_backlog_domain(self):
+        return [
+            ("project_id.agile_enabled", "=", True),
+            ("project_id.active", "=", True),
+            ("active", "=", True),
+            ("state", "not in", ["1_done", "1_canceled"]),
+            ("has_template_ancestor", "=", False),
+            ("has_project_template", "=", False),
+        ]
+
+    @api.depends(
+        "project_id.agile_enabled",
+        "project_id.active",
+        "active",
+        "state",
+        "has_template_ancestor",
+        "has_project_template",
+    )
+    def _compute_agile_is_product_backlog(self):
+        backlog = self.filtered_domain(self._product_backlog_domain())
+        for task in self:
+            task.agile_is_product_backlog = task in backlog
+
+    @api.model
+    def _search_agile_is_product_backlog(self, operator, value):
+        if operator not in {"in", "not in"}:
+            return NotImplemented
+        domain = Domain(self._product_backlog_domain())
+        matches = Domain.OR(domain if flag else ~domain for flag in value)
+        return matches if operator == "in" else ~matches
+
     agile_project_enabled = fields.Boolean(
         related="project_id.agile_enabled",
         string="Agile Project Enabled",

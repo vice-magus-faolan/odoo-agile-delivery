@@ -63,10 +63,12 @@ class ProjectSprint(models.Model):
             sprints = super().create(vals_list)
             check_scrum_project(sprints.project_id)
             sprints.team_id.sudo(False).check_access("read")
+            sprints.team_id._register_membership()
             return sprints
 
     def write(self, values):
         self._check_lifecycle_access()
+        self._check_task_ownership_change(values)
         if "closed_at" in values and not self.env.is_superuser():
             raise ValidationError(
                 _("Only superuser recovery can correct the close timestamp.")
@@ -103,6 +105,7 @@ class ProjectSprint(models.Model):
                 raise ValidationError(
                     _("The Agile team must belong to the Sprint project.")
                 )
+
             if (
                 sprint.date_start
                 and sprint.date_end
@@ -111,6 +114,30 @@ class ProjectSprint(models.Model):
                 raise ValidationError(
                     _("The Sprint end date cannot precede its start date.")
                 )
+
+    def _check_task_ownership_change(self, values):
+        if not {"project_id", "team_id"}.intersection(values):
+            return
+        teams = self.team_id | self.env["project.agile.team"].browse(
+            values.get("team_id")
+        )
+        # Membership writers touch the same team rows. A released claim alone
+        # would not invalidate this transaction's earlier membership snapshot.
+        teams._register_membership()
+        tasks = self.env["project.task"].with_context(active_test=False)
+        # Enumerate the complete membership, then restore caller authority.
+        assigned = (
+            tasks.sudo().search([("sprint_id", "in", self.ids)]).with_env(tasks.env)
+        )
+        assigned.check_access("read")
+        if any(
+            task.project_id.id != values.get("project_id", task.sprint_id.project_id.id)
+            or task.agile_team_id.id != values.get("team_id", task.sprint_id.team_id.id)
+            for task in assigned
+        ):
+            raise ValidationError(
+                self.env._("Assigned tasks must keep their Project and Sprint team.")
+            )
 
     def _append_scope_events(
         self,
@@ -286,13 +313,8 @@ class ProjectSprint(models.Model):
         self.ensure_one()
         return self._task_backlog_action(
             _("Product Backlog"),
-            [
-                ("project_id", "=", self.project_id.id),
-                ("agile_item_type_id.can_schedule_in_sprint", "=", True),
-                ("sprint_id", "=", False),
-                ("has_template_ancestor", "=", False),
-                ("has_project_template", "=", False),
-            ],
+            self.env["project.task"]._sprint_eligible_backlog_domain()
+            + [("project_id", "=", self.project_id.id)],
         )
 
     def action_open_sprint_backlog(self):

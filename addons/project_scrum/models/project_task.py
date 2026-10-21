@@ -10,6 +10,103 @@ class ProjectTask(models.Model):
     sprint_id = fields.Many2one(
         "project.sprint", string="Sprint", ondelete="set null", index=True
     )
+    agile_team_id = fields.Many2one(
+        "project.agile.team",
+        ondelete="restrict",
+        index=True,
+        help=(
+            "Optional backlog ownership. Unteamed work inherits "
+            "the assigned Sprint's team."
+        ),
+    )
+
+    @api.model
+    def _product_backlog_domain(self):
+        return super()._product_backlog_domain() + [("sprint_id", "=", False)]
+
+    @api.model
+    def _sprint_eligible_backlog_domain(self):
+        """Narrow the general backlog to work selectable for Sprint planning."""
+        return self._product_backlog_domain() + [
+            ("agile_item_type_id.can_schedule_in_sprint", "=", True),
+        ]
+
+    @api.depends("sprint_id")
+    # Compute methods assign fields, not return values.
+    # pylint: disable-next=missing-return
+    def _compute_agile_is_product_backlog(self):
+        super()._compute_agile_is_product_backlog()
+
+    def copy_data(self, default=None):
+        default = dict(default or {})
+        if self.env.context.get("copy_project") and any(
+            task.project_id.agile_enabled for task in self
+        ):
+            # Odoo drops root defaults when copying children. Set the destination before
+            # Agile hierarchy/key checks; keep plain cross-Project subtasks unchanged.
+            project_id = default.get(
+                "project_id", self.env.context.get("default_project_id")
+            )
+            if project_id:
+                default["project_id"] = project_id
+                self = self.with_context(default_project_id=project_id)
+        values_list = super().copy_data(default=default)
+        for task, values in zip(self, values_list, strict=False):
+            # Project copying also calls this hook for children with narrowed defaults.
+            if (
+                self.env.context.get("copy_project")
+                or values.get("project_id") != task.project_id.id
+            ):
+                values["agile_team_id"] = default.get("agile_team_id", False)
+                values["sprint_id"] = default.get("sprint_id", False)
+        return values_list
+
+    @api.model
+    def _prepare_sprint_team(self, values, current_teams):
+        """Validate the whole requested team set before inheriting one Sprint team."""
+        sprint = self.env["project.sprint"].browse(values.get("sprint_id")).exists()
+        if not sprint:
+            return values
+        sprint.check_access("read")
+        team = sprint.team_id
+        team.check_access("read")
+        requested = (
+            self.env["project.agile.team"].browse(values["agile_team_id"])
+            if "agile_team_id" in values
+            else current_teams
+        )
+        requested.check_access("read")
+        if requested - team:
+            raise ValidationError(
+                self.env._("The task team must match the Sprint team.")
+            )
+        return dict(values, agile_team_id=team.id)
+
+    @api.constrains("agile_team_id", "sprint_id", "project_id", "company_id")
+    def _check_agile_team(self):
+        for task in self:
+            team = task.agile_team_id
+            if not team:
+                if task.sprint_id:
+                    raise ValidationError(
+                        self.env._("Assigned work needs its Sprint team.")
+                    )
+                continue
+            team.check_access("read")
+            if (
+                not task.project_id.agile_enabled
+                or team.project_id != task.project_id
+                or team.company_id != task.company_id
+            ):
+                raise ValidationError(
+                    self.env._(
+                        "The task team must belong to its Agile Project and company."
+                    )
+                )
+            if task.sprint_id and team != task.sprint_id.team_id:
+                raise ValidationError(
+                    self.env._("The task team must match the Sprint team.")
+                )
 
     def _validate_sprint_assignment(self, sprint):
         sprint.ensure_one()
@@ -102,7 +199,15 @@ class ProjectTask(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        tasks = super().create(vals_list)
+        defaults = self.default_get(["sprint_id", "agile_team_id"])
+        values_list = [
+            self._prepare_sprint_team(
+                dict(defaults, **values), self.env["project.agile.team"]
+            )
+            for values in vals_list
+        ]
+        tasks = super().create(values_list)
+        tasks.agile_team_id._register_membership()
         for task in tasks.filtered(lambda record: record.sprint_id.state == "active"):
             task.sprint_id._append_scope_events("added", task)
             if task.state == "1_done":
@@ -161,6 +266,9 @@ class ProjectTask(models.Model):
             sprint._append_scope_events("completed" if is_done else "reopened", task)
 
     def write(self, values):
+        self.check_access("write")
+        if values.get("sprint_id"):
+            values = self._prepare_sprint_team(values, self.agile_team_id)
         track_sprint_assignment = "sprint_id" in values
         track_story_points = bool(
             {"agile_story_points", "agile_item_type_id"} & values.keys()
@@ -194,6 +302,8 @@ class ProjectTask(models.Model):
             else {}
         )
         result = super().write(values)
+        if values.get("agile_team_id") or values.get("sprint_id"):
+            self.agile_team_id._register_membership()
         if track_sprint_assignment:
             self._track_active_sprint_assignment_changes(
                 original_sprints, original_story_points
@@ -210,6 +320,8 @@ class ProjectTask(models.Model):
 
     def _write_sprint_close_assignment(self, target_sprint=False):
         """Move unfinished work without converting close into ordinary scope removal."""
+        if target_sprint:
+            target_sprint.team_id._register_membership()
         return super().write(
             {"sprint_id": target_sprint.id if target_sprint else False}
         )

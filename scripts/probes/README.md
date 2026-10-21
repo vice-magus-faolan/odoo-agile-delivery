@@ -15,7 +15,8 @@ Use only disposable databases; these probes commit synthetic data.
   races.
 - `github_association_concurrency_{probe,worker}.py`: duplicate normalization and audit
   continuity.
-- `planning_concurrency_{probe,worker}.py`: assign/return and reorder races.
+- `planning_concurrency_{probe,worker}.py`: assign/return, reorder and team/Sprint
+  ownership versus Task placement races with established transaction snapshots.
 
 Run from the repository root with Docker Compose v2 available:
 

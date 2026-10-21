@@ -42,7 +42,7 @@ class ProjectProject(models.Model):
         backlog = self._get_agile_planning_backlog(project, cursor_values, team)
         teams = (
             self.env["project.agile.team"].search_fetch(
-                [("project_id", "=", project.id)], ["name"], limit=100
+                [("project_id", "=", project.id)], ["name", "active"], limit=100
             )
             | team
         )

@@ -3,7 +3,7 @@
 from psycopg2.errors import SerializationFailure
 
 from odoo import api, fields, models
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
 
 _BACKLOG_PAGE_SIZE = 50
 _MAX_MUTATION_TASKS = 20
@@ -371,7 +371,7 @@ class ProjectProject(models.Model):
                     self._apply_agile_planning_reorder(
                         project, tasks, before_task_id, expected_versions, team
                     )
-        except SerializationFailure as error:
+        except (SerializationFailure, ConcurrencyError) as error:
             raise ValidationError(
                 self.env._("Sprint Planning changed. Refresh and retry your action.")
             ) from error

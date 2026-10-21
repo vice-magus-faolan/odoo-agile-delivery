@@ -123,17 +123,22 @@ if scenario.get("ownership"):
     ownership_worker(env, output_directory, worker, scenario)
     raise SystemExit(0)
 reorder_first, reorder_second, reorder_third = scenario["reorder_task_ids"]
+assignment_task_id = (
+    scenario["other_assign_task_id"]
+    if worker == "assign_other"
+    else scenario["assign_task_id"]
+)
 operations = {
     "assign": (
         "assign",
-        [scenario["assign_task_id"]],
+        [assignment_task_id],
         {
             "sprint_id": scenario["sprint_id"],
             "expected_versions": {
                 "tasks": {
-                    str(scenario["assign_task_id"]): scenario["assign_return_versions"][
+                    str(assignment_task_id): scenario["assign_return_versions"][
                         "tasks"
-                    ][str(scenario["assign_task_id"])]
+                    ][str(assignment_task_id)]
                 },
                 "sprints": scenario["assign_return_versions"]["sprints"],
             },
@@ -190,7 +195,7 @@ operations = {
         },
     ),
 }
-operation, task_ids, options = operations[worker]
+operation, task_ids, options = operations[worker.removesuffix("_other")]
 # Read the actual project and frozen records before releasing either action.
 # These ORM reads establish both repeatable-read snapshots without a shared write.
 planning = env["project.project"]
@@ -217,6 +222,8 @@ while not (output_directory / "start").exists():
         raise RuntimeError(f"{worker} did not receive a start signal")
     time.sleep(0.02)
 
+if worker == "assign_other":
+    wait_for(output_directory / "assign.mutated")
 result = {"worker": worker}
 try:
     env.cr.execute("SET LOCAL lock_timeout = '2s'")
@@ -224,6 +231,10 @@ try:
     env["project.project"].apply_agile_planning_change(
         scenario["project_id"], operation, task_ids, **options
     )
+    if worker == "assign" and scenario.get("contended_assign"):
+        env.flush_all()
+        (output_directory / "assign.mutated").touch()
+        wait_for(output_directory / "assign_other.json")
     env.cr.commit()
     result["outcome"] = "success"
 except (AccessError, ValidationError) as error:

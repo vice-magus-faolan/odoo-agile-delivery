@@ -240,6 +240,43 @@ expected_backlog = orders + ([] if assign_won else [assign_task.id, return_task.
 assert all_orders == expected_backlog, (all_orders, expected_backlog)
 assert len(set(all_orders)) == len(all_orders)
 
+# Hold one completed public planning mutation until the other action has observed
+# its claim. Both Tasks and the Sprint were independently valid at the rendezvous.
+competing_tasks = env["project.task"].create(
+    [
+        {"name": name, "project_id": project.id, "agile_item_type_id": item_type.id}
+        for name in ("Concurrent assignment first", "Concurrent assignment second")
+    ]
+)
+scenario["assign_task_id"], scenario["other_assign_task_id"] = competing_tasks.ids
+scenario["contended_assign"] = True
+scenario["assign_return_versions"] = {
+    "tasks": {
+        str(task.id): planning._agile_planning_record_version(task)
+        for task in competing_tasks | return_task
+    },
+    "sprints": {str(sprint.id): planning._agile_planning_record_version(sprint)},
+}
+env.cr.commit()
+with tempfile.TemporaryDirectory(prefix="planning-assign-") as temporary:
+    assignment_results = run_scenario(
+        Path(temporary) / "contended", ("assign", "assign_other")
+    )
+assert assignment_results["assign"]["outcome"] == "success", assignment_results
+assert assignment_results["assign_other"]["outcome"] == "rejected", assignment_results
+assert assignment_results["assign_other"]["error_type"] == "ValidationError"
+assert assignment_results["assign_other"]["error"] == stale_message
+env.cr.rollback()
+env.invalidate_all()
+assert competing_tasks[0].sprint_id == sprint
+assert not competing_tasks[1].sprint_id
+assert not competing_tasks[1].agile_team_id
+assert (
+    planning._agile_planning_record_version(competing_tasks[1])
+    == scenario["assign_return_versions"]["tasks"][str(competing_tasks[1].id)]
+)
+print("PLANNING_CONTENDED_ASSIGN_OK", flush=True)  # pylint: disable=print-used
+
 
 def ownership_scenario(action, key, first="member", contended=False):
     projects = env["project.project"].create(

@@ -351,6 +351,10 @@ class TestProjectSprintBacklog(TransactionCase):
             "sprint_id",
         ]
         original_tasks = tasks.read(task_fields, load=None)
+        original_project_key = self.project.agile_key
+        original_task_keys = set(tasks.mapped("agile_key"))
+        self.assertTrue(original_project_key)
+        self.assertNotIn(False, original_task_keys)
         event_fields = [
             "sprint_id",
             "task_id",
@@ -372,8 +376,7 @@ class TestProjectSprintBacklog(TransactionCase):
         )
         self.assertNotEqual(copied, caller)
         self.assertFalse(copied.is_template)
-        self.assertFalse(copied.agile_enabled)  # Configuration inheritance is #67.
-        self.assertFalse(copied.agile_key)
+        self.assertNotEqual(copied.agile_key, original_project_key)
         self.assertEqual(copied.company_id, self.project.company_id)
         copied_tasks = self.env["project.task"].search([("project_id", "=", copied.id)])
         self.assertEqual(len(copied_tasks), len(tasks))
@@ -381,11 +384,14 @@ class TestProjectSprintBacklog(TransactionCase):
         self.assertFalse(copied_tasks & tasks)
         self.assertFalse(copied_tasks.agile_team_id)
         self.assertFalse(copied_tasks.sprint_id)
-        self.assertFalse(any(copied_tasks.mapped("agile_key")))
+        self.assertFalse(
+            original_task_keys.intersection(copied_tasks.mapped("agile_key"))
+        )
         copied_child = copied_tasks.filtered(lambda task: task.name == child.name)
         self.assertEqual(copied_child.parent_id.name, self.task.name)
         self.assertIn(copied_child.parent_id, copied_tasks)
         self.assertEqual(tasks.read(task_fields, load=None), original_tasks)
+        self.assertEqual(self.project.agile_key, original_project_key)
         self.assertEqual(
             sprint.scope_event_ids.read(event_fields, load=None), original_events
         )

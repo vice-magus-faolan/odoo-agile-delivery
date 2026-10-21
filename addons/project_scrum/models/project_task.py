@@ -42,8 +42,8 @@ class ProjectTask(models.Model):
         if self.env.context.get("copy_project") and any(
             task.project_id.agile_enabled for task in self
         ):
-            # Native recursion drops root defaults. Agile children need the destination
-            # before hierarchy/key checks; leave plain cross-Project subtasks native.
+            # Odoo drops root defaults when copying children. Set the destination before
+            # Agile hierarchy/key checks; keep plain cross-Project subtasks unchanged.
             project_id = default.get(
                 "project_id", self.env.context.get("default_project_id")
             )

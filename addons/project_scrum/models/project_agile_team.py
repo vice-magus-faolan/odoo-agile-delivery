@@ -38,7 +38,7 @@ class ProjectAgileTeam(models.Model):
     )
 
     def _register_membership(self):
-        """Invalidate old ownership snapshots at the shared team boundary."""
+        """Bump the team revision so placement conflicts with ownership edits."""
         if not self:
             return
         self.check_access("read")

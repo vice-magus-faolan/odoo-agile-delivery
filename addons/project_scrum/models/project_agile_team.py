@@ -39,7 +39,7 @@ class ProjectAgileTeam(models.Model):
             changing = self.filtered(
                 lambda team: team.project_id.id != values["project_id"]
             )
-            # Complete enumeration only; never silently skip hidden or archived owners.
+            # Search as superuser so hidden and archived tasks still block the change.
             if changing and (
                 self.env["project.sprint"]
                 .sudo()

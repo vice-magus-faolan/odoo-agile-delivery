@@ -268,6 +268,132 @@ class TestProjectSprintBacklog(TransactionCase):
             self.task,
         )
 
+    def _check_project_copy_placement(self, from_template):
+        manager = mail_new_test_user(
+            self.env, "Project copy manager", groups="project.group_project_manager"
+        )
+        self.eligible_type.allowed_child_type_ids = [
+            Command.link(self.eligible_type.id)
+        ]
+        self.task.agile_team_id = self.team
+        child = self._create_task(
+            "Teamed child", parent_id=self.task.id, agile_team_id=self.team.id
+        )
+        sprint = self._create_sprint()
+        sprint.action_start()
+        scheduled = self._create_task("Sprint work", sprint_id=sprint.id)
+        returned = self._create_task("Returned work", sprint_id=sprint.id)
+        returned.return_sprint_tasks_to_product_backlog()
+        self.assertEqual(returned.agile_team_id, self.team)
+        if from_template:
+            self.project.is_template = True
+        tasks = self.task | child | scheduled | returned
+        task_fields = [
+            "name",
+            "project_id",
+            "company_id",
+            "parent_id",
+            "agile_key",
+            "agile_item_type_id",
+            "agile_team_id",
+            "sprint_id",
+        ]
+        original_tasks = tasks.read(task_fields, load=None)
+        event_fields = [
+            "sprint_id",
+            "task_id",
+            "event_type",
+            "story_points",
+            "previous_story_points",
+            "actor_id",
+            "event_at",
+            "reason",
+            "carryover_target_sprint_id",
+        ]
+        original_events = sprint.scope_event_ids.read(event_fields, load=None)
+        original_team = self.team.read(["name", "project_id", "company_id"], load=None)
+        original_sprint = sprint.read(["project_id", "team_id", "state"], load=None)
+        caller = self.project.with_user(manager)
+        self.assertFalse(caller.env.su)
+        copied = (
+            caller.action_create_from_template() if from_template else caller.copy()
+        )
+        self.assertNotEqual(copied, caller)
+        self.assertFalse(copied.is_template)
+        self.assertFalse(copied.agile_enabled)  # Configuration inheritance is #67.
+        self.assertFalse(copied.agile_key)
+        self.assertEqual(copied.company_id, self.project.company_id)
+        copied_tasks = self.env["project.task"].search([("project_id", "=", copied.id)])
+        self.assertEqual(len(copied_tasks), len(tasks))
+        self.assertEqual(set(copied_tasks.mapped("name")), set(tasks.mapped("name")))
+        self.assertFalse(copied_tasks & tasks)
+        self.assertFalse(copied_tasks.agile_team_id)
+        self.assertFalse(copied_tasks.sprint_id)
+        self.assertFalse(any(copied_tasks.mapped("agile_key")))
+        copied_child = copied_tasks.filtered(lambda task: task.name == child.name)
+        self.assertEqual(copied_child.parent_id.name, self.task.name)
+        self.assertIn(copied_child.parent_id, copied_tasks)
+        self.assertEqual(tasks.read(task_fields, load=None), original_tasks)
+        self.assertEqual(
+            sprint.scope_event_ids.read(event_fields, load=None), original_events
+        )
+        self.assertEqual(
+            self.team.read(["name", "project_id", "company_id"], load=None),
+            original_team,
+        )
+        self.assertEqual(
+            sprint.read(["project_id", "team_id", "state"], load=None), original_sprint
+        )
+
+    def test_project_copy_clears_source_team_and_sprint_placement(self):
+        self._check_project_copy_placement(from_template=False)
+
+    def test_project_template_clears_source_team_and_sprint_placement(self):
+        self._check_project_copy_placement(from_template=True)
+
+    def test_same_project_task_copy_keeps_team_and_sprint(self):
+        self.task.agile_team_id = self.team
+        scheduled = self._create_task(
+            "Scheduled duplicate", sprint_id=self._create_sprint().id
+        )
+        for task in (self.task, scheduled):
+            with self.subTest(task=task.name):
+                copied = task.copy()
+                self.assertEqual(copied.project_id, task.project_id)
+                self.assertEqual(copied.agile_team_id, task.agile_team_id)
+                self.assertEqual(copied.sprint_id, task.sprint_id)
+                self.assertTrue(copied.agile_key)
+                self.assertNotEqual(copied.agile_key, task.agile_key)
+
+    def test_cross_project_task_copy_keeps_explicit_destination_placement(self):
+        self.task.write({"sprint_id": self._create_sprint().id})
+        destination = self.env["project.project"].create(
+            {"name": "Copy destination", "agile_enabled": True, "agile_key": "COPY"}
+        )
+        team = self.env["project.agile.team"].create(
+            {"name": "Destination team", "project_id": destination.id}
+        )
+        sprint = self.env["project.sprint"].create(
+            {
+                "name": "Destination Sprint",
+                "project_id": destination.id,
+                "team_id": team.id,
+            }
+        )
+        copied = self.task.copy({"project_id": destination.id})
+        self.assertFalse(copied.agile_team_id)
+        self.assertFalse(copied.sprint_id)
+        self.assertTrue(copied.agile_key.startswith("COPY-"))
+        placed = self.task.copy(
+            {
+                "project_id": destination.id,
+                "agile_team_id": team.id,
+                "sprint_id": sprint.id,
+            }
+        )
+        self.assertEqual(placed.agile_team_id, team)
+        self.assertEqual(placed.sprint_id, sprint)
+
     def test_sprint_backlog_action_returns_only_the_selected_sprint_tasks(self):
         sprint = self._create_sprint()
         other_sprint = self._create_sprint("Sprint 2")

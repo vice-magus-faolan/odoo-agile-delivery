@@ -29,10 +29,16 @@ Sprint.
 
 Tasks optionally reference this same team in `project_scrum`; core Agile does not depend
 on Scrum. Assignment inherits the Sprint team only for unteamed work and rejects
-incompatible teams through caller-bound create/write, wizard and planning paths.
-Returning work retains its team. Project/company compatibility is enforced, and
-ownership edits cannot invalidate assigned work. A versioned ORM update assigns existing
-Sprint work its owning team without rewriting scope history.
+incompatible teams through task creation, task updates, the assignment wizard and the
+planning board. Returning work retains its team. Project/company compatibility is
+enforced, and ownership edits cannot invalidate assigned work. A versioned ORM update
+assigns existing Sprint work its owning team without rewriting scope history.
+
+Copying a Project or creating one from a template clears the copied tasks' source team
+and Sprint, including subtasks. Copying a task into another Project also clears implicit
+placement while accepting valid destination defaults. Ordinary task duplicates in the
+same Project keep their team and Sprint. Original tasks and Sprint history are
+unchanged.
 
 Team membership, a configurable per-team concurrency policy and no-team Sprints are not
 supplied. Carry-over targets remain compatible Draft Sprints for the same team.

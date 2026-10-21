@@ -32,8 +32,32 @@ class ProjectTask(models.Model):
         ]
 
     @api.depends("sprint_id")
+    # Compute methods assign fields, not return values.
+    # pylint: disable-next=missing-return
     def _compute_agile_is_product_backlog(self):
-        return super()._compute_agile_is_product_backlog()
+        super()._compute_agile_is_product_backlog()
+
+    def copy_data(self, default=None):
+        default = dict(default or {})
+        if self.env.context.get("copy_project"):
+            # Native recursion drops root defaults; create children in the destination
+            # directly, before Agile hierarchy checks and immutable key assignment.
+            project_id = default.get(
+                "project_id", self.env.context.get("default_project_id")
+            )
+            if project_id:
+                default["project_id"] = project_id
+                self = self.with_context(default_project_id=project_id)
+        values_list = super().copy_data(default=default)
+        for task, values in zip(self, values_list, strict=False):
+            # Project copying also calls this hook for children with narrowed defaults.
+            if (
+                self.env.context.get("copy_project")
+                or values.get("project_id") != task.project_id.id
+            ):
+                values["agile_team_id"] = default.get("agile_team_id", False)
+                values["sprint_id"] = default.get("sprint_id", False)
+        return values_list
 
     @api.model
     def _prepare_sprint_team(self, values, current_teams):

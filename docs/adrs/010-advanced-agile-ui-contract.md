@@ -40,13 +40,13 @@ list.
 
 The general native Product Backlog action/search includes active, unscheduled,
 non-template Agile work, excluding native Done and Canceled states, irrespective of item
-type or Sprint eligibility. Scrum extends that Task domain with Sprint-type eligibility
-for the Sprint's Product Backlog button, planning snapshot, planning changes and
-planning-scoped native fallback. Project/company/caller and optional team scope still
-apply; sharing those predicates does not make the two queues equivalent. The core
-searchable membership field never references optional Scrum fields after uninstall.
-Ordering is sequence then ID. A cursor names sequence, ID, Project backlog revision and
-the selected team, if any; a different revision or team rejects the old cursor.
+type or Sprint eligibility. The Sprint queue is the Product Backlog plus Sprint
+eligibility. It serves the Sprint's Product Backlog button, planning snapshot, planning
+changes and planning-scoped native fallback. Project, company, caller and optional team
+scope still apply. The Product Backlog field doesn't read any Scrum field, so
+uninstalling Scrum doesn't break it. Ordering is sequence then ID. A cursor names
+sequence, ID, Project backlog revision and the selected team, if any; a different
+revision or team rejects the old cursor.
 
 Reads use batched current-user ORM queries and grouped sums rather than per-card
 queries. Fetch the fields consumed by card and version serialization together, including

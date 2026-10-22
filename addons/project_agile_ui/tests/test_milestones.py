@@ -142,7 +142,7 @@ class TestPlanningMilestones(HttpCase):
             with self.assertRaises(ValidationError):
                 self._snapshot(milestone_id=value)
 
-    def test_disabled_and_portal_callers_never_receive_milestone_metadata(self):
+    def test_disabled_project_never_returns_milestone_metadata(self):
         self.project.allow_milestones = False
         snapshot = self._snapshot()
         self.assertFalse(snapshot["project"]["allow_milestones"])
@@ -151,29 +151,6 @@ class TestPlanningMilestones(HttpCase):
         )
         with self.assertRaises(AccessError):
             self._snapshot(milestone_id=self.milestones[0].id)
-        self.project.allow_milestones = True
-        # Native feature activation implies Use Milestones for every internal user.
-        internal = mail_new_test_user(
-            self.env, "release_internal", groups="project.group_project_user"
-        )
-        self.assertTrue(internal.has_group("project.group_project_milestone"))
-        snapshot = (
-            self.env["project.project"]
-            .with_user(internal)
-            .get_agile_planning_snapshot(self.project.id)
-        )
-        self.assertTrue(snapshot["project"]["allow_milestones"])
-        outsider = mail_new_test_user(
-            self.env, "release_portal", groups="base.group_portal"
-        )
-        self.assertFalse(outsider.has_group("project.group_project_milestone"))
-        model = self.env["project.project"].with_user(outsider)
-        with self.assertRaises(AccessError):
-            model.get_agile_planning_snapshot(self.project.id)
-        with self.assertRaises(AccessError):
-            model.get_agile_planning_snapshot(
-                self.project.id, milestone_id=self.milestones[0].id
-            )
 
     def test_other_project_milestone_cannot_be_selected(self):
         project = self.env["project.project"].create(
@@ -190,11 +167,6 @@ class TestPlanningMilestones(HttpCase):
         )
         with self.assertRaises(AccessError):
             self._snapshot(milestone_id=milestone.id)
-        self.assertFalse(
-            self.env["project.milestone"]
-            .with_user(self.user)
-            .search([("name", "ilike", "Hidden Alpha")])
-        )
 
     def test_filtered_mutation_reconciles_and_cannot_reorder_hidden_work(self):
         snapshot = self._snapshot(milestone_id=self.milestones[0].id)

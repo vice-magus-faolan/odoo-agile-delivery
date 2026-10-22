@@ -24,6 +24,9 @@ class ProjectSprint(models.Model):
     project_id = fields.Many2one(
         "project.project", required=True, ondelete="restrict", index=True
     )
+    project_allow_milestones = fields.Boolean(
+        related="project_id.allow_milestones", compute_sudo=False
+    )
     company_id = fields.Many2one(
         related="project_id.company_id", store=True, readonly=True, index=True
     )

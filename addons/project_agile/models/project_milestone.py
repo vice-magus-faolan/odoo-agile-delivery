@@ -11,7 +11,10 @@ class ProjectMilestone(models.Model):
     )
 
     def action_view_tasks(self):
-        """Keep native navigation outside opted-in Agile milestone Projects."""
+        """Open Release contents for Agile Projects.
+
+        Other Projects get the native action.
+        """
         self.ensure_one()
         self.check_access("read")
         project = self.project_id

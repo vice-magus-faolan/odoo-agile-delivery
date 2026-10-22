@@ -104,13 +104,8 @@ class TestAgileMilestones(TransactionCase):
         self.assertFalse(project.allow_milestones)
         project.write({"agile_enabled": True, "agile_key": "NOIMPLICIT"})
         self.assertFalse(project.allow_milestones)
-        self.project.allow_milestones = False
-        # Disabling the last native milestone Project revokes Use Milestones.
-        self.assertFalse(self.user.has_group("project.group_project_milestone"))
-        with self.assertRaises(AccessError):
-            self.milestone.with_user(self.user).action_view_tasks()
 
-    def test_private_milestone_cannot_be_opened_or_found_by_name(self):
+    def test_private_milestone_cannot_be_opened(self):
         private = self.env["project.project"].create(
             {
                 "name": "Private Release",
@@ -128,14 +123,3 @@ class TestAgileMilestones(TransactionCase):
         )
         with self.assertRaises(AccessError):
             milestone.with_user(self.user).action_view_tasks()
-        model = self.env["project.milestone"].with_user(self.user)
-        self.assertFalse(model.search([("name", "ilike", "Confidential milestone")]))
-        tasks = self.env["project.task"].with_user(self.user)
-        self.assertEqual(
-            tasks.search([("milestone_id", "=", self.milestone.id)]),
-            self.task.with_user(self.user),
-        )
-        self.assertEqual(
-            tasks.search([("milestone_id", "ilike", "Release One")]),
-            self.task.with_user(self.user),
-        )

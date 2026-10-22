@@ -111,6 +111,7 @@
           </group>
           <notebook>
             <page string="Sprint Backlog">
+              <field name="project_allow_milestones" invisible="1" />
               <field
                 name="task_ids"
                 context="{&quot;default_project_id&quot;: project_id}"
@@ -121,6 +122,12 @@
                   <field name="name" />
                   <field name="agile_item_type_id" />
                   <field name="agile_story_points" />
+                  <field
+                    name="milestone_id"
+                    optional="show"
+                    groups="project.group_project_milestone"
+                    column_invisible="not parent.project_allow_milestones"
+                  />
                 </list>
               </field>
             </page>

@@ -29,8 +29,7 @@ For Projects using native **Milestones**, the backlog shows each task's mileston
 Use the native **Milestone** search field and grouping to focus on a release across
 Projects. Agile does not turn milestones on. Open a milestone's **View Tasks** or
 **Release contents** button to see its tasks grouped by Agile item type and task
-state, including Done work. This is native milestone membership, not a separate
-release lifecycle; ordinary non-Agile milestone navigation is unchanged.
+state, including Done work. Projects without Agile keep the native View Tasks.
 
 For Sprint planning, configure
 [project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum).

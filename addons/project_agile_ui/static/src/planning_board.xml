@@ -61,7 +61,7 @@
               t-on-click="openReleaseContents"
             >Release contents</button>
             <p
-            >Groups contain loaded planning items only. Release contents includes completed and scheduled work. Sprint point totals remain unfiltered.</p>
+            >Grouping covers only the cards loaded so far. Sprint point totals count every task in the Sprint.</p>
           </div>
         </div>
         <div class="o_agile_planning_board__fallbacks">
@@ -218,7 +218,8 @@
             />
             <ol
               t-if="milestoneGroup.items.length"
-              class="list-group list-group-numbered"
+              class="list-group"
+              t-att-class="{'list-group-numbered': !state.groupMilestones}"
             >
               <li
                 t-foreach="milestoneGroup.items"

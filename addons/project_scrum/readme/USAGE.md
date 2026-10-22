@@ -19,8 +19,8 @@ to Product Backlog keeps its team. Filter or group the backlog by **Agile Team**
 
 As a Scrum master or Project administrator, choose **Sprint Backlog** to review assigned work.
 When the Project uses milestones, this task list shows **Milestone** and supports
-native milestone search and grouping. The Active Sprint kanban also retains native
-milestone badges. Use the milestone's **Release contents** to inspect work across
+native milestone search and grouping. Active Sprint cards show the milestone.
+Use the milestone's **Release contents** to inspect work across
 Sprints, including completed tasks; a release is not limited to the current Sprint.
 Select tasks and use **Actions > Remove from Sprint**, then **Apply**, to return
 work to the backlog. Project **Tasks > Product Backlog** shows all open,

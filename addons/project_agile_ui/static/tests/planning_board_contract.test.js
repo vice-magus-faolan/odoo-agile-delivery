@@ -520,11 +520,43 @@ test("project_agile_ui milestone grouping is loaded-only and disables reorder, n
     },
   });
   expect(".o_agile_planning_board__milestone").toHaveCount(2);
+  expect(".o_agile_planning_board__backlog-dropzone .list-group-numbered").toHaveCount(
+    1
+  );
+  expect(
+    getComputedStyle(
+      document.querySelector(".o_agile_planning_board__backlog-task"),
+      "::before"
+    ).content === "none"
+  ).toBe(false);
   await contains(".o_agile_planning_board__group-milestones").click();
   expect(".o_agile_planning_board__milestone-group").toHaveCount(3);
-  expect(".o_agile_planning_board__milestones").toHaveText(
-    /loaded planning items only/
+  expect(".o_agile_planning_board__milestone-group:contains(No milestone)").toHaveCount(
+    1
   );
+  expect(".o_agile_planning_board__milestones").toHaveText(
+    /Grouping covers only the cards loaded so far\. Sprint point totals count every task in the Sprint\./
+  );
+  expect(".o_agile_planning_board__backlog-dropzone .list-group-numbered").toHaveCount(
+    0
+  );
+  expect(
+    getComputedStyle(
+      document.querySelector(".o_agile_planning_board__backlog-task"),
+      "::before"
+    ).content
+  ).toBe("none");
+  expect(
+    Array.from(
+      document.querySelectorAll(".o_agile_planning_board__backlog-task > button"),
+      (button) => button.textContent.replace(/\s+/g, " ").trim()
+    )
+  ).toEqual(["PLAN-11 · Planning workspace", "PLAN-11 · Other work"]);
+  await contains(".o_agile_planning_board__group-milestones").click();
+  expect(".o_agile_planning_board__backlog-dropzone .list-group-numbered").toHaveCount(
+    1
+  );
+  await contains(".o_agile_planning_board__group-milestones").click();
   expect(".o_agile_planning_board__task-actions button:disabled").toHaveCount(4);
   await component.moveTask(enabled.backlog.items[1], "up");
   await component.dropOnBacklog(enabled.backlog.items[0], dragEvent(12));

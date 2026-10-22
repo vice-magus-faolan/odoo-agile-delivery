@@ -205,7 +205,7 @@ export class AgilePlanningBoard extends Component {
       if (!groups.has(id)) {
         groups.set(id, {
           id,
-          name: task.milestone?.name || _t("No visible milestone"),
+          name: task.milestone?.name || _t("No milestone"),
           items: [],
         });
       }

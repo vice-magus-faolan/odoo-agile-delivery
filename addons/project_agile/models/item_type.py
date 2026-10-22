@@ -12,6 +12,7 @@ class ProjectAgileItemType(models.Model):
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
     uses_story_points = fields.Boolean(default=True)
+    tracks_environments = fields.Boolean()
     allowed_child_type_ids = fields.Many2many(
         "project.agile.item.type",
         "project_agile_item_type_child_rel",
@@ -62,3 +63,22 @@ class ProjectAgileItemType(models.Model):
             )
         )
         tasks._check_agile_story_points()
+
+    def write(self, values):
+        result = super().write(values)
+        if values.get("tracks_environments"):
+            tasks = (
+                self.env["project.task"]
+                .sudo()
+                .search(
+                    [
+                        ("agile_item_type_id", "in", self.ids),
+                        ("agile_tracks_environments", "=", True),
+                        ("active", "=", True),
+                        ("state", "not in", ["1_done", "1_canceled"]),
+                    ]
+                )
+                .with_env(self.env)
+            )
+            tasks._sync_environment_statuses()
+        return result

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <!-- Search hooks restore caller authority during native sudo rule compilation. -->
+  <record id="environment_project_access" model="ir.rule">
+    <field name="name">Environment: native Project visibility and company</field>
+    <field name="model_id" ref="model_project_agile_environment" />
+    <field
+      name="domain_force"
+    >[("native_access", "=", True), ("company_id", "in", company_ids + [False])]</field>
+  </record>
+  <record id="environment_status_task_access" model="ir.rule">
+    <field name="name">Environment status: native Task visibility and company</field>
+    <field name="model_id" ref="model_project_task_environment_status" />
+    <field
+      name="domain_force"
+    >[("native_access", "=", True), ("company_id", "in", company_ids + [False])]</field>
+  </record>
+</odoo>

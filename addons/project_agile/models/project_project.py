@@ -22,6 +22,13 @@ class ProjectProject(models.Model):
         default="none",
         string="Estimation Method",
     )
+    agile_environment_ids = fields.One2many(
+        "project.agile.environment",
+        "project_id",
+        string="Environments",
+        copy=False,
+        context={"active_test": False},
+    )
 
     _agile_key_unique = models.Constraint(
         "UNIQUE(agile_key)",
@@ -99,6 +106,7 @@ class ProjectProject(models.Model):
             "agile_key",
             "agile_default_item_type_id",
             "agile_estimation_method",
+            "agile_environment_ids",
         }
         if self.env.su:
             return
@@ -153,6 +161,24 @@ class ProjectProject(models.Model):
         tasks.check_access("write")
         return tasks
 
+    def _sync_open_environment_tasks(self):
+        # Find hidden tasks too, then check write access as the caller during sync.
+        # The settings relation includes archived environments, not archived tasks.
+        tasks = (
+            self.env["project.task"]
+            .sudo()
+            .search(
+                [
+                    ("project_id", "in", self.ids),
+                    ("agile_tracks_environments", "=", True),
+                    ("active", "=", True),
+                    ("state", "not in", ["1_done", "1_canceled"]),
+                ]
+            )
+            .with_env(self.env)
+        )
+        tasks._sync_environment_statuses()
+
     def write(self, values):
         self._check_agile_configuration(values)
         if "agile_key" in values:
@@ -180,9 +206,10 @@ class ProjectProject(models.Model):
             tasks_to_key = self.filtered(
                 lambda p: not p.agile_enabled
             )._agile_unkeyed_tasks()
+        restoring_from_template = values.get("is_template", True) is False
         result = super().write(values)
-        if values.get("is_template", True) is False:
-            # Discover restored work only after the Project template exclusion clears.
+        if restoring_from_template:
+            # Discover restored work after the Project template exclusion clears.
             tasks_to_key |= self.filtered("agile_enabled")._agile_unkeyed_tasks()
         if projects_to_default:
             item_type = self.env.ref(
@@ -192,4 +219,6 @@ class ProjectProject(models.Model):
                 projects_to_default.write({"agile_default_item_type_id": item_type.id})
         self._ensure_agile_sequence()
         tasks_to_key._assign_agile_keys()
+        if values.get("agile_enabled") or restoring_from_template:
+            self._sync_open_environment_tasks()
         return result

@@ -1,3 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_project_agile_item_type_user,project.agile.item.type user,model_project_agile_item_type,project.group_project_user,1,0,0,0
 access_project_agile_item_type_manager,project.agile.item.type manager,model_project_agile_item_type,project.group_project_manager,1,1,1,1
+access_project_agile_environment_user,project.agile.environment user,model_project_agile_environment,project.group_project_user,1,0,0,0
+access_project_agile_environment_manager,project.agile.environment manager,model_project_agile_environment,project.group_project_manager,1,1,1,1
+access_project_task_environment_status_user,project.task.environment.status user,model_project_task_environment_status,project.group_project_user,1,1,1,0

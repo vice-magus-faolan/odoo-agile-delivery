@@ -4,3 +4,4 @@ from . import test_item_type_policy
 from . import test_item_type_kanban_tour
 from . import test_environment_status
 from . import test_environment_tour
+from . import test_milestones

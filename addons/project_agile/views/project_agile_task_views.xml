@@ -85,6 +85,9 @@
         <attribute name="optional">show</attribute>
         <attribute name="invisible">0</attribute>
       </field>
+      <field name="milestone_id" position="attributes">
+        <attribute name="optional">show</attribute>
+      </field>
     </field>
   </record>
 
@@ -193,4 +196,31 @@
     action="action_project_agile_backlog"
     sequence="20"
   />
+  <record id="view_milestone_form_agile" model="ir.ui.view">
+    <field name="name">project.milestone.form.agile</field>
+    <field name="model">project.milestone</field>
+    <field name="inherit_id" ref="project.project_milestone_view_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name=&quot;name&quot;]" position="before">
+        <field name="agile_project_enabled" invisible="1" />
+      </xpath>
+      <xpath expr="//button[@type=&quot;action&quot;]" position="attributes">
+        <attribute
+          name="invisible"
+        >not project_allow_milestones or agile_project_enabled</attribute>
+      </xpath>
+      <xpath expr="//div[@name=&quot;button_box&quot;]" position="inside">
+        <button
+          name="action_view_tasks"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-tasks"
+          groups="project.group_project_milestone"
+          invisible="not project_allow_milestones or not agile_project_enabled"
+        >
+          <field name="task_count" widget="statinfo" string="Release contents" />
+        </button>
+      </xpath>
+    </field>
+  </record>
 </odoo>

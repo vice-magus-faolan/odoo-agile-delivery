@@ -24,6 +24,9 @@ class ProjectSprint(models.Model):
     project_id = fields.Many2one(
         "project.project", required=True, ondelete="restrict", index=True
     )
+    project_allow_milestones = fields.Boolean(
+        related="project_id.allow_milestones", compute_sudo=False
+    )
     company_id = fields.Many2one(
         related="project_id.company_id", store=True, readonly=True, index=True
     )
@@ -306,7 +309,10 @@ class ProjectSprint(models.Model):
             ],
             "search_view_id": self.env.ref("project_scrum.view_task_search_scrum").id,
             "domain": domain,
-            "context": {"default_project_id": self.project_id.id},
+            "context": {
+                "default_project_id": self.project_id.id,
+                "allow_milestones": self.project_id.allow_milestones,
+            },
         }
 
     def action_open_product_backlog(self):

@@ -44,3 +44,18 @@ points checks the saved estimate against the Project estimation method. In an ac
 Sprint, changing a task type records the point change; earlier history stays unchanged.
 To change a shared type to hours while its tasks are in active Sprints, first change
 those tasks to an hour-based type, or finish their Sprints.
+
+For Configuration, Data import or another tracking type, open the task's **Agile**
+tab. Set each environment row to **To do**, **Done** or **Verified** and save.
+**Set by** and **Set on** show who last changed the line and when. Task write
+permission is sufficient; configuring environments remains a Project administrator
+operation. There is no required completion order: urgent Production work may be
+marked Done before UAT. These are manual work statuses, not deployment evidence.
+
+In task search, choose **Done in environment** and select UAT, then choose
+**Not done in environment** and select that client's Production. Verified counts
+as done. This finds the gap on the same task without combining different clients'
+environments. Select **Environment history** on the Agile tab to inspect all lines,
+including archived environments; open a line to see its status changes in chatter.
+Changing to a nontracking type or converting a task to a template hides active
+lines without discarding history. Task copies start with fresh To do statuses.

@@ -38,6 +38,19 @@ Native Project visibility, task permissions and company access still apply.
    a stage; Odoo refuses invalidating active or archived work.
 
 Project users can read item types; Project administrators can manage them.
+For each client's Agile Project, open **Settings > Agile > Environments**.
+Add named rows in the required order, for example E2E, UAT and Production for one
+client and Staging and Production for another. Drag the sequence handle to reorder
+them and check **Production** on the production environment. Lists start empty;
+new and copied Projects need their own client configuration.
+
+In **Configuration > Agile Item Types**, enable **Tracks Environments** on types
+that need per-environment work. Configuration and Data import start enabled.
+Adding or reactivating an environment adds To do lines to open active tasks of
+tracking types. The operation is refused if you cannot update every affected task.
+Uncheck **Active** on an environment to hide its status lines while retaining
+history. Reactivating it restores the recorded statuses rather than resetting them.
+
 New tasks in an enabled Project receive keys such as `ENG-1` and the default item
 type when omitted. Explicit choices, including none, are preserved. An archived
 default is not assigned to new work. Enabling Agile does not backfill existing tasks.

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <function model="project.agile.item.type" name="write">
+    <value
+      eval="[ref('project_agile_item_type_configuration'), ref('project_agile_item_type_data_import')]"
+    />
+    <value eval="{'tracks_environments': True}" />
+  </function>
+</odoo>

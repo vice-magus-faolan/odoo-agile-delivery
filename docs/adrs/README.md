@@ -14,6 +14,7 @@ Implemented decisions:
 - [ADR-012 Opt-in Git Workflow Policy](012-git-workflow-policy-contract.md)
 - [ADR-013 Solution Definition and Traceability](013-solution-definition-contract.md)
 - [ADR-014 Item-Type Estimation and Stages](014-item-type-estimation-and-stages.md)
+- [ADR-015 Client Environment Status](015-client-environment-status.md)
 
 Deferred: [ADR-005 Release / Version Model](005-release-version-model.md).
 

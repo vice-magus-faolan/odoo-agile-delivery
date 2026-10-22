@@ -79,7 +79,7 @@ if PHASE == "seed":
             "agile_default_item_type_id": False,
         }
     )
-    assert not any(legacy_tasks.mapped("agile_key"))
+    legacy_keys = legacy_tasks.mapped("agile_key")
     keyed = env["project.task"].create(
         {
             "name": "Already keyed work",
@@ -87,7 +87,7 @@ if PHASE == "seed":
             "agile_item_type_id": task_type.id,
         }
     )
-    assert keyed.agile_key == "BACKFILL-1"
+    assert keyed.agile_key == ("BACKFILL-3" if any(legacy_keys) else "BACKFILL-1")
     legacy_project.active = False
     project = env["project.project"].create(
         {
@@ -105,6 +105,18 @@ if PHASE == "seed":
             "agile_item_type_id": False,
         }
     )
+    configuration = env.ref(
+        "project_agile.project_agile_item_type_configuration", raise_if_not_found=False
+    )
+    existing_configuration = env["project.task"]
+    if configuration:
+        existing_configuration = env["project.task"].create(
+            {
+                "name": "Existing configuration before environment tracking",
+                "project_id": project.id,
+                "agile_item_type_id": configuration.id,
+            }
+        )
     story = env.ref("project_agile.project_agile_item_type_story")
     tasks = env["project.task"].create(
         [
@@ -137,9 +149,11 @@ if PHASE == "seed":
                 "project": project.id,
                 "sprint": sprint.id,
                 "untyped": untyped.id,
+                "existing_configuration": existing_configuration.id,
                 "tasks": snapshot(tasks, TASK_FIELDS),
                 "events": snapshot(sprint.scope_event_ids, EVENT_FIELDS),
                 "legacy_project": legacy_project.id,
+                "legacy_keys": legacy_keys,
                 "legacy_tasks": snapshot(legacy_tasks, UNKEYED_TASK_FIELDS),
                 "legacy_excluded": (template | template_child).ids,
                 "legacy_keyed": snapshot(keyed, TASK_FIELDS),
@@ -156,7 +170,11 @@ elif PHASE == "check":
         row["id"] for row in saved["legacy_tasks"]
     )
     # Inspect immediately after update, before any write could assign missing keys.
-    assert legacy_tasks.mapped("agile_key") == ["BACKFILL-2", "BACKFILL-3"]
+    assert legacy_tasks.mapped("agile_key") == (
+        saved["legacy_keys"]
+        if any(saved["legacy_keys"])
+        else ["BACKFILL-2", "BACKFILL-3"]
+    )
     assert snapshot(legacy_tasks, UNKEYED_TASK_FIELDS) == saved["legacy_tasks"]
     assert not any(
         env["project.task"].browse(saved["legacy_excluded"]).mapped("agile_key")
@@ -194,6 +212,32 @@ elif PHASE == "check":
         item_type = env.ref("project_agile.project_agile_item_type_" + code)
         assert item_type.active and not item_type.uses_story_points
         assert item_type.can_schedule_in_sprint
+        assert item_type.tracks_environments
+    configuration = env.ref("project_agile.project_agile_item_type_configuration")
+    imported = env["project.task"].create(
+        {
+            "name": "Import vendors after update",
+            "project_id": project.id,
+            "agile_item_type_id": configuration.id,
+        }
+    )
+    environment = env["project.agile.environment"].create(
+        {
+            "name": "UAT",
+            "project_id": project.id,
+        }
+    )
+    assert imported.agile_environment_status_ids.environment_id == environment
+    assert imported.agile_environment_status_ids.status == "todo"
+    if saved["existing_configuration"]:
+        existing_configuration = env["project.task"].browse(
+            saved["existing_configuration"]
+        )
+        assert existing_configuration.agile_tracks_environments
+        assert (
+            existing_configuration.agile_environment_status_ids.environment_id
+            == environment
+        )
 
     def ui_points(expected):
         planning = env["project.project"].get_agile_planning_snapshot(project.id)

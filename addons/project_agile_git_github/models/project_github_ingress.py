@@ -59,14 +59,23 @@ def _compact_message(value):
     return _compact_source(value, with_excerpt=True)
 
 
+def _push_head_commit(value):
+    """Retain a nullable push head; the normalizer validates deletion semantics."""
+
+    if value is None:
+        return None
+    return _project_payload_value(value, {"timestamp": 64})
+
+
 # Scalar limits count characters before JSON escaping. Missing fields stay
-# missing so native validation/defaults retain their meaning. Callable shapes
-# accept provider text only, never caller-supplied compact evidence.
+# missing so native validation/defaults retain their meaning. Source-text
+# callables accept provider text only, never caller-supplied compact evidence.
 _EVENT_INPUTS = {
     "push": {
         "ref": 4096,
         "after": 128,
-        "head_commit": {"timestamp": 64},
+        "deleted": 32,
+        "head_commit": _push_head_commit,
         "commits": [{"id": 128, "message": _compact_message, "timestamp": 64}],
     },
     "pull_request": {

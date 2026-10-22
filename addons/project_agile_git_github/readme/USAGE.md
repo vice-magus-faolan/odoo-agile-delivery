@@ -46,6 +46,16 @@ reuse of a delivery ID.
   delivery again and keeps its attempt count, so a delivery that used its five
   attempts gets one more try.
 
+Authenticated branch-deletion pushes (`deleted: true`, an all-zero deletion SHA,
+`head_commit: null` and no commits) become **Discarded** with a branch-deletion
+reason. They do not create, update or remove branch, commit, task-link or
+association-audit facts, and never record the deletion SHA as a live head.
+Existing facts, provenance and source-ordering timestamps remain last observed
+values, not proof that the branch still exists on GitHub. A later ordinary push
+uses the same source-ordering checks as before; deleting a branch does not reset
+those checks. Reprocessing a valid deletion discards it again without changing
+facts. Malformed deletion fields and unsafe branch refs remain **Failed**.
+
 Digest-only, oversized-input and purged deliveries have no payload to
 reprocess. After correcting configuration, push again or re-run the check so
 GitHub sends a new delivery; for a PR, send a new supported PR event. Exact

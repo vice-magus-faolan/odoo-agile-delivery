@@ -388,6 +388,203 @@ class TestGitHubWebhook(HttpCase):
         self.assertNotIn(credential, delivery.retained_payload)
         self.assertIn("[redacted]", delivery.retained_payload)
 
+    def _branch_deletion_payload(self, ref):
+        payload = json.loads(
+            (Path(__file__).parent / "fixtures" / "push.json").read_text()
+        )
+        payload["repository"]["id"] = 4242
+        payload.update(
+            ref=ref,
+            before=payload["after"],
+            after="0" * 40,
+            created=False,
+            deleted=True,
+            head_commit=None,
+            commits=[],
+        )
+        return payload
+
+    def _post_and_settle_push(self, payload, delivery_id):
+        self.assertEqual(self._post(payload, delivery_id).status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("provider_delivery_id", "=", delivery_id),
+                ("repository_id", "=", self.repository.id),
+            ]
+        )
+        self.assertEqual(delivery.state, "queued", delivery.error_summary)
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.env.invalidate_all()
+        return delivery
+
+    def _github_fact_snapshot(self):
+        return {
+            model: self.env[model]
+            .search([("repository_id", "=", self.repository.id)], order="id")
+            .read(load=None)
+            for model in (
+                "project.git.branch",
+                "project.git.commit",
+                "project.git.task.association",
+                "project.git.association.audit",
+            )
+        }
+
+    def test_branch_deletion_without_facts_is_discarded_with_safe_replay(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        task = self.env["project.task"].create(
+            {"name": "Deletion is not task activity", "project_id": self.project.id}
+        )
+        task_fields = ["stage_id", "message_partner_ids", "write_date"]
+        task_before = task.read(task_fields)
+        facts_before = self._github_fact_snapshot()
+        payload = self._branch_deletion_payload("refs/heads/feature/" + task.agile_key)
+        payload["repository"]["token"] = "must-not-be-retained"
+        raw = json.dumps(payload, separators=(",", ":")).encode()
+        self.assertEqual(self._post(payload, secret="wrong-secret").status_code, 401)
+        self.assertEqual(self._delivery_count(), 0)
+
+        delivery = self._post_and_settle_push(payload, "branch-deletion-absent")
+
+        self.assertEqual((delivery.state, delivery.attempt_count), ("discarded", 1))
+        self.assertIn("branch deletion", delivery.error_summary)
+        self.assertTrue(delivery.processed_at)
+        self.assertFalse(delivery.lease_token)
+        self.assertFalse(delivery.lease_expires_at)
+        self.assertEqual(delivery.payload_sha256, hashlib.sha256(raw).hexdigest())
+        self.assertEqual(delivery.payload_size, len(raw))
+        self.assertEqual(
+            json.loads(delivery.retained_payload),
+            {
+                "repository": {"id": 4242},
+                "ref": payload["ref"],
+                "after": "0" * 40,
+                "deleted": True,
+                "head_commit": None,
+                "commits": [],
+                "omitted_commit_count": 0,
+            },
+        )
+        self.assertNotIn("must-not-be-retained", delivery.retained_payload)
+        self.assertTrue(delivery.retained_until)
+        retained = delivery.retained_payload
+        self.assertEqual(
+            self._post(payload, delivery.provider_delivery_id).status_code, 202
+        )
+        changed = {**payload, "before": "a" * 40}
+        self.assertEqual(
+            self._post(changed, delivery.provider_delivery_id).status_code, 409
+        )
+        self.env.invalidate_all()
+        self.assertEqual(self._delivery_count(), 1)
+        self.assertEqual((delivery.state, delivery.attempt_count), ("discarded", 1))
+        self.assertEqual(delivery.replay_mismatch_count, 1)
+        self.assertEqual(delivery.retained_payload, retained)
+        self.assertEqual(self._github_fact_snapshot(), facts_before)
+        self.assertEqual(task.read(task_fields), task_before)
+        summary = delivery.error_summary
+        delivery.retained_until = "2000-01-01 00:00:00"
+        self.assertEqual(
+            self.env["project.git.delivery"]._purge_expired_github_payloads(), 1
+        )
+        self.assertFalse(delivery.retained_payload)
+        self.assertTrue(delivery.retained_payload_purged_at)
+        self.assertEqual(
+            (delivery.state, delivery.error_summary), ("discarded", summary)
+        )
+        self.assertEqual(delivery.payload_sha256, hashlib.sha256(raw).hexdigest())
+        self.assertEqual(self._github_fact_snapshot(), facts_before)
+
+    def test_branch_deletion_preserves_existing_facts_and_push_ordering(self):
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/feature/" + key
+            payload["commits"][0]["message"] += " " + key
+
+        normal, original, task = self._sample_delivery("push", adapt)
+        task_fields = ["stage_id", "message_partner_ids", "write_date"]
+        task_before = task.read(task_fields)
+        before = self._github_fact_snapshot()
+        deletion = self._post_and_settle_push(
+            self._branch_deletion_payload(normal["ref"]), "branch-deletion-existing"
+        )
+        self.assertEqual(deletion.state, "discarded", deletion.error_summary)
+        self.assertEqual(self._github_fact_snapshot(), before)
+        deletion.action_reprocess_github_delivery()
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, deletion)
+        claimed._settle_github_delivery()
+        self.env.invalidate_all()
+        self.assertEqual((deletion.state, deletion.attempt_count), ("discarded", 2))
+        self.assertEqual(self._github_fact_snapshot(), before)
+
+        normal["after"] = "a" * 40
+        normal["head_commit"]["timestamp"] = "2026-01-03T03:04:05Z"
+        normal["commits"] = []
+        later = self._post_and_settle_push(normal, "push-after-deletion")
+        self.assertEqual(later.state, "processed", later.error_summary)
+        branch = self.env["project.git.branch"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(
+            (branch.head_sha, branch.provenance_delivery_id), ("a" * 40, later)
+        )
+        self.assertEqual(branch.ordering_state, "known")
+        normal["after"] = "b" * 40
+        normal["head_commit"]["timestamp"] = "2026-01-01T03:04:05Z"
+        stale = self._post_and_settle_push(normal, "stale-push-after-deletion")
+        self.assertEqual(stale.state, "processed", stale.error_summary)
+        self.assertEqual(
+            (branch.head_sha, branch.provenance_delivery_id), ("a" * 40, later)
+        )
+        self.assertEqual(branch.ordering_state, "stale")
+        self.assertNotEqual(branch.provenance_delivery_id, original)
+        self.assertEqual(task.read(task_fields), task_before)
+
+    def test_malformed_or_nondeletion_null_heads_are_not_discarded(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        changes = (
+            None,
+            {"deleted": "true"},
+            {"deleted": 1},
+            {"deleted": 0},
+            {"deleted": None},
+            {"deleted": False, "head_commit": {}},
+            {"deleted": False},
+            {"after": "a" * 40},
+            {"head_commit": {}},
+            {"head_commit": []},
+            {"commits": [{"id": "a" * 40, "message": "GHI-1"}]},
+            {"ref": "refs/tags/v1"},
+            {"ref": "refs/heads/../../other-repository"},
+            {"ref": "refs/heads/%2e%2e/other-repository"},
+        )
+        before = self._github_fact_snapshot()
+        for index, change in enumerate(changes):
+            with self.subTest(change=change):
+                payload = self._branch_deletion_payload("refs/heads/feature/GHI-1")
+                if change is None:
+                    del payload["deleted"]
+                else:
+                    payload.update(change)
+                delivery_id = "invalid-deletion-" + str(index)
+                self.assertEqual(self._post(payload, delivery_id).status_code, 202)
+                delivery = self.env["project.git.delivery"].search(
+                    [
+                        ("repository_id", "=", self.repository.id),
+                        ("provider_delivery_id", "=", delivery_id),
+                    ]
+                )
+                if delivery.state == "queued":
+                    claimed = self.env["project.git.delivery"]._claim_github_delivery()
+                    self.assertEqual(claimed, delivery)
+                    claimed._settle_github_delivery()
+                    self.env.invalidate_all()
+                self.assertEqual(delivery.state, "failed", delivery.error_summary)
+                self.assertTrue(delivery.error_summary)
+                self.assertEqual(self._github_fact_snapshot(), before)
+
     def _sample_delivery(self, event, adapt):
         self.repository.retention_policy = "redacted_excerpt"
         task = self.env["project.task"].create(

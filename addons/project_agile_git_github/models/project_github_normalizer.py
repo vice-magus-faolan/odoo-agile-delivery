@@ -383,6 +383,21 @@ class ProjectGitDelivery(models.Model):
         branch_name = _github_branch_name(ref.removeprefix("refs/heads/"))
         head_sha = _text(payload.get("after"), 128)
         head_commit = payload.get("head_commit", {})
+        deleted = payload.get("deleted", False)
+        if not isinstance(deleted, bool):
+            raise GitHubPayloadError("The GitHub push deletion flag is malformed.")
+        if deleted:
+            if (
+                head_sha != "0" * 40
+                or head_commit is not None
+                or payload.get("commits") != []
+            ):
+                raise GitHubPayloadError("The GitHub branch deletion is malformed.")
+            raise GitHubDiscarded(
+                "GitHub branch deletion: existing facts remain last observed."
+            )
+        if head_sha == "0" * 40:
+            raise GitHubPayloadError("The GitHub push has no live branch head.")
         if not isinstance(head_commit, dict):
             raise GitHubPayloadError("The GitHub push head commit is malformed.")
         source_updated_at = _utc_datetime(head_commit.get("timestamp"))

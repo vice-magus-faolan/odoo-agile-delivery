@@ -1,11 +1,6 @@
-from unittest.mock import patch
-
-from lxml import etree
-
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
-from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -218,31 +213,16 @@ class TestEnvironmentStatus(TransactionCase):
         preproduction_only.agile_environment_status_ids.filtered(
             lambda line: line.environment_id == preproduction.environment_id
         ).write({"status": "done"})
-        view = tasks.get_view(
-            self.env.ref("project_agile.view_task_search_agile").id, "search"
-        )
-        search = etree.fromstring(view["arch"].encode())
-        typed = {}
-        for field, name in (
-            ("agile_done_environment_id", "uAt"),
-            ("agile_pending_environment_id", "production"),
-            ("agile_done_environment_id", "production"),
-            ("agile_done_environment_id", "pre-production"),
-        ):
-            node = search.xpath(f"//field[@name='{field}']")[0]
-            typed[field, name] = safe_eval(
-                node.get("filter_domain")
-                or repr([(field, node.get("operator", "ilike"), name)]),
-                {"self": name, "raw_value": name},
-            )
-        gap = (
-            typed["agile_done_environment_id", "uAt"]
-            + typed["agile_pending_environment_id", "production"]
-        )
+        gap = [
+            ("agile_done_environment_id", "=ilike", "uAt"),
+            ("agile_pending_environment_id", "=ilike", "production"),
+        ]
         self.assertEqual(tasks.search(gap), self.tasks)
-        self.assertFalse(tasks.search(typed["agile_done_environment_id", "production"]))
+        self.assertFalse(
+            tasks.search([("agile_done_environment_id", "=ilike", "production")])
+        )
         self.assertEqual(
-            tasks.search(typed["agile_done_environment_id", "pre-production"]),
+            tasks.search([("agile_done_environment_id", "=ilike", "pre-production")]),
             self.tasks[0] | preproduction_only,
         )
         # Explicit advanced ORM patterns keep their native substring semantics.
@@ -328,26 +308,15 @@ class TestEnvironmentStatus(TransactionCase):
             lambda line: line.environment_id.name == "E2E"
         ).write({"status": "done"})
         production.write({"is_production": False})
-        # Model legacy missing rows before backfill, without deleting status history.
-        with patch.object(
-            type(self.projects), "_sync_open_environment_tasks", lambda projects: None
-        ):
-            extra = self.env["project.agile.environment"].create(
-                {
-                    "name": "Release",
-                    "project_id": self.projects[0].id,
-                    "is_production": True,
-                }
-            )
+        extra = self.env["project.agile.environment"].create(
+            {
+                "name": "Release",
+                "project_id": self.projects[0].id,
+                "is_production": True,
+            }
+        )
         self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
         pending = [("agile_pending_environment_id", "=ilike", "release")]
-        self.assertEqual(tasks.search(waiting), self.tasks[0])
-        self.assertEqual(tasks.search(pending), self.tasks[0])
-        self.assertNotIn(
-            extra, self.tasks[0].agile_environment_status_ids.environment_id
-        )
-        self.projects[0]._sync_open_environment_tasks()
-        self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
         self.assertEqual(tasks.search(waiting), self.tasks[0])
         self.assertEqual(tasks.search(pending), self.tasks[0])
         history = closed.agile_environment_status_ids

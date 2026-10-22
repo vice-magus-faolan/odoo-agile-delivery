@@ -27,6 +27,42 @@
               t-esc="team.name"
             />
           </select>
+          <div
+            t-if="state.project?.allow_milestones"
+            class="o_agile_planning_board__milestones"
+          >
+            <label for="agile-planning-milestone">Milestone</label>
+            <Many2XAutocomplete
+              t-if="!state.mutating"
+              id="'agile-planning-milestone'"
+              resModel="'project.milestone'"
+              fieldString="'Milestone'"
+              value="state.milestone?.name || ''"
+              autoSelect="true"
+              activeActions="{create: false, createEdit: false, write: false}"
+              getDomain.bind="milestoneDomain"
+              update.bind="selectMilestone"
+              placeholder="'All milestones'"
+            />
+            <label>
+              <input
+              type="checkbox"
+              class="o_agile_planning_board__group-milestones"
+              t-model="state.groupMilestones"
+              t-att-disabled="state.mutating"
+            />
+              Group loaded items by milestone
+            </label>
+            <button
+              t-if="state.milestone"
+              type="button"
+              class="btn btn-link o_agile_planning_board__release-contents"
+              t-att-disabled="planningUnavailable"
+              t-on-click="openReleaseContents"
+            >Release contents</button>
+            <p
+            >Groups contain loaded planning items only. Release contents includes completed and scheduled work. Sprint point totals remain unfiltered.</p>
+          </div>
         </div>
         <div class="o_agile_planning_board__fallbacks">
           <button
@@ -113,30 +149,49 @@
                 t-esc="sprint.committed_points"
               /> points
                             </p>
-              <ul t-if="sprint.items.length" class="list-group list-group-flush">
-                <li
-                  t-foreach="sprint.items"
-                  t-as="task"
-                  t-key="task.id"
-                  class="list-group-item o_agile_planning_board__sprint-task"
-                  draggable="true"
-                  t-on-pointerdown="() => this.prepareDrag(task)"
-                  t-on-dragstart="(event) => this.startDrag(task, event)"
-                  t-on-dragend="endDrag"
-                >
-                                    <span t-esc="task.agile_key" /> · <span
-                  t-esc="task.name"
+              <t
+                t-foreach="groupTasks(sprint.items)"
+                t-as="milestoneGroup"
+                t-key="milestoneGroup.id"
+              >
+                <h3
+                  t-if="state.groupMilestones"
+                  class="h6 o_agile_planning_board__milestone-group"
+                  t-esc="milestoneGroup.name"
                 />
-                                    <button
-                  type="button"
-                  class="btn btn-link"
-                  t-att-disabled="planningUnavailable"
-                  t-on-click="() => this.returnTask(task, sprint)"
+                <ul
+                  t-if="milestoneGroup.items.length"
+                  class="list-group list-group-flush"
                 >
+                  <li
+                    t-foreach="milestoneGroup.items"
+                    t-as="task"
+                    t-key="task.id"
+                    class="list-group-item o_agile_planning_board__sprint-task"
+                    draggable="true"
+                    t-on-pointerdown="() => this.prepareDrag(task)"
+                    t-on-dragstart="(event) => this.startDrag(task, event)"
+                    t-on-dragend="endDrag"
+                  >
+                                    <span t-esc="task.agile_key" /> · <span
+                    t-esc="task.name"
+                  />
+                <span
+                    t-if="state.project.allow_milestones and task.milestone"
+                    class="badge text-bg-light o_agile_planning_board__milestone"
+                    t-esc="task.milestone.name"
+                  />
+                                    <button
+                    type="button"
+                    class="btn btn-link"
+                    t-att-disabled="planningUnavailable"
+                    t-on-click="() => this.returnTask(task, sprint)"
+                  >
                                         Return to Product Backlog
                                     </button>
                                 </li>
-              </ul>
+                </ul>
+              </t>
             </div>
           </div>
         </section>
@@ -151,74 +206,93 @@
           <p
             t-if="!state.backlog.items.length"
           >No visible unscheduled Product Backlog items.</p>
-          <ol t-if="state.backlog.items.length" class="list-group list-group-numbered">
-            <li
-              t-foreach="state.backlog.items"
-              t-as="task"
-              t-key="task.id"
-              class="list-group-item o_agile_planning_board__backlog-task"
-              draggable="true"
-              t-on-pointerdown="() => this.prepareDrag(task)"
-              t-on-dragstart="(event) => this.startDrag(task, event)"
-              t-on-dragend="endDrag"
-              t-on-dragover="allowPlanningDrop"
-              t-on-drop="(event) => this.dropOnBacklog(task, event)"
+          <t
+            t-foreach="groupTasks(state.backlog.items)"
+            t-as="milestoneGroup"
+            t-key="milestoneGroup.id"
+          >
+            <h3
+              t-if="state.groupMilestones"
+              class="h6 o_agile_planning_board__milestone-group"
+              t-esc="milestoneGroup.name"
+            />
+            <ol
+              t-if="milestoneGroup.items.length"
+              class="list-group list-group-numbered"
             >
-              <button
-                type="button"
-                class="btn btn-link p-0"
-                t-on-click="() => this.openTask(task)"
+              <li
+                t-foreach="milestoneGroup.items"
+                t-as="task"
+                t-key="task.id"
+                class="list-group-item o_agile_planning_board__backlog-task"
+                draggable="true"
+                t-on-pointerdown="() => this.prepareDrag(task)"
+                t-on-dragstart="(event) => this.startDrag(task, event)"
+                t-on-dragend="endDrag"
+                t-on-dragover="allowPlanningDrop"
+                t-on-drop="(event) => this.dropOnBacklog(task, event)"
               >
+                <button
+                  type="button"
+                  class="btn btn-link p-0"
+                  t-on-click="() => this.openTask(task)"
+                >
                                 <span t-esc="task.agile_key" /> · <span
-                t-esc="task.name"
-              />
+                  t-esc="task.name"
+                />
                             </button>
-              <span class="o_agile_planning_board__metadata">
+                <span class="o_agile_planning_board__metadata">
+                <span
+                  t-if="state.project.allow_milestones and task.milestone"
+                  class="badge text-bg-light o_agile_planning_board__milestone"
+                  t-esc="task.milestone.name"
+                />
                                 <span t-esc="task.item_type" /> · <span
-                t-esc="task.story_points"
-              /> points
+                  t-esc="task.story_points"
+                /> points
                                 <t t-if="task.parent"> · Parent: <span
-                t-esc="task.parent"
-              /></t>
+                  t-esc="task.parent"
+                /></t>
                             </span>
-              <div class="o_agile_planning_board__task-actions">
-                <label>
+                <div class="o_agile_planning_board__task-actions">
+                  <label>
                                     Draft Sprint
                                     <select
-                  t-on-change="(event) => this.assignmentTarget(task, event)"
-                  t-att-disabled="state.mutating"
-                >
-                  <option value="">Choose a draft Sprint</option>
-                  <option
-                    t-foreach="state.sprints.filter((sprint) => sprint.state === 'draft')"
-                    t-as="sprint"
-                    t-key="sprint.id"
-                    t-att-value="sprint.id"
-                    t-esc="sprint.name"
-                  />
-                </select>
+                    t-on-change="(event) => this.assignmentTarget(task, event)"
+                    t-att-disabled="state.mutating"
+                  >
+                    <option value="">Choose a draft Sprint</option>
+                    <option
+                      t-foreach="state.sprints.filter((sprint) => sprint.state === 'draft')"
+                      t-as="sprint"
+                      t-key="sprint.id"
+                      t-att-value="sprint.id"
+                      t-esc="sprint.name"
+                    />
+                  </select>
                                 </label>
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  t-att-disabled="planningUnavailable"
-                  t-on-click="() => this.assignTask(task)"
-                >Assign to Sprint</button>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  t-att-disabled="planningUnavailable"
-                  t-on-click="() => this.moveTask(task, 'up')"
-                >Move earlier</button>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  t-att-disabled="planningUnavailable"
-                  t-on-click="() => this.moveTask(task, 'down')"
-                >Move later</button>
-              </div>
-            </li>
-          </ol>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    t-att-disabled="planningUnavailable"
+                    t-on-click="() => this.assignTask(task)"
+                  >Assign to Sprint</button>
+                  <button
+                    type="button"
+                    class="btn btn-link"
+                    t-att-disabled="reorderUnavailable"
+                    t-on-click="() => this.moveTask(task, 'up')"
+                  >Move earlier</button>
+                  <button
+                    type="button"
+                    class="btn btn-link"
+                    t-att-disabled="reorderUnavailable"
+                    t-on-click="() => this.moveTask(task, 'down')"
+                  >Move later</button>
+                </div>
+              </li>
+            </ol>
+          </t>
           <button
             t-if="state.backlog.next_cursor"
             type="button"

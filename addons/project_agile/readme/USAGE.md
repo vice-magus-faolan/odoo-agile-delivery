@@ -25,6 +25,13 @@ whose item type does not allow Sprint scheduling and tasks without an item type.
 Task search provides **Agile Work**, **Agile Item Type** and **Agile Project** filters
 or groupings.
 
+For Projects using native **Milestones**, the backlog shows each task's milestone.
+Use the native **Milestone** search field and grouping to focus on a release across
+Projects. Agile does not turn milestones on. Open a milestone's **View Tasks** or
+**Release contents** button to see its tasks grouped by Agile item type and task
+state, including Done work. This is native milestone membership, not a separate
+release lifecycle; ordinary non-Agile milestone navigation is unchanged.
+
 For Sprint planning, configure
 [project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum).
 The **Product Backlog** button on a Sprint narrows this queue to its Project's

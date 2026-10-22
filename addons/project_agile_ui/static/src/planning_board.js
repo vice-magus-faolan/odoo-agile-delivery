@@ -4,6 +4,7 @@ import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
 import {useService} from "@web/core/utils/hooks";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
+import {Many2XAutocomplete} from "@web/views/fields/relational_utils";
 import {Component, onWillStart, onWillUnmount, useState} from "@odoo/owl";
 
 export const PLANNING_ACTION_TAG = "project_agile_ui.planning";
@@ -57,11 +58,14 @@ function emptyState() {
     draggedTaskId: false,
     teams: [],
     teamId: false,
+    milestone: false,
+    groupMilestones: false,
   };
 }
 
 export class AgilePlanningBoard extends Component {
   static template = "project_agile_ui.AgilePlanningBoard";
+  static components = {Many2XAutocomplete};
   static props = {...standardActionServiceProps};
 
   setup() {
@@ -95,7 +99,7 @@ export class AgilePlanningBoard extends Component {
         "project.project",
         "get_agile_planning_snapshot",
         [this.projectId, cursor],
-        ...(this.state.teamId ? [{team_id: this.state.teamId}] : [])
+        ...(Object.keys(this.selectionOptions).length ? [this.selectionOptions] : [])
       );
       if (requestSequence !== this.requestSequence) {
         return false;
@@ -131,6 +135,10 @@ export class AgilePlanningBoard extends Component {
 
   applySnapshot(snapshot, cursor = false) {
     this.state.project = snapshot.project;
+    this.state.milestone = snapshot.milestone || false;
+    if (!snapshot.project.allow_milestones) {
+      this.state.groupMilestones = false;
+    }
     this.state.teams = snapshot.teams || [];
     this.state.sprints = snapshot.sprints;
     if (!cursor) {
@@ -153,8 +161,74 @@ export class AgilePlanningBoard extends Component {
     return this.state.mutating || this.state.loading || this.state.stale;
   }
 
+  get selectionOptions() {
+    return {
+      ...(this.state.teamId ? {team_id: this.state.teamId} : {}),
+      ...(this.state.milestone ? {milestone_id: this.state.milestone.id} : {}),
+    };
+  }
+
+  get reorderUnavailable() {
+    return (
+      this.planningUnavailable ||
+      Boolean(this.state.milestone) ||
+      this.state.groupMilestones
+    );
+  }
+
+  milestoneDomain() {
+    return [["project_id", "=", this.projectId]];
+  }
+
+  selectMilestone(records) {
+    if (this.state.mutating) {
+      return;
+    }
+    this.state.milestone = records?.[0]
+      ? {id: records[0].id, name: records[0].display_name || ""}
+      : false;
+    this.state.backlog = {items: [], next_cursor: false};
+    this.state.sprints = [];
+    this.state.assignmentTargets = {};
+    this.state.retryCursor = false;
+    this.endDrag();
+    return this.load();
+  }
+
+  groupTasks(tasks) {
+    if (!this.state.groupMilestones) {
+      return [{id: "all", name: "", items: tasks}];
+    }
+    const groups = new Map();
+    for (const task of tasks) {
+      const id = task.milestone?.id || "none";
+      if (!groups.has(id)) {
+        groups.set(id, {
+          id,
+          name: task.milestone?.name || _t("No visible milestone"),
+          items: [],
+        });
+      }
+      groups.get(id).items.push(task);
+    }
+    return [...groups.values()];
+  }
+
+  async openReleaseContents() {
+    if (!this.state.milestone || this.planningUnavailable) {
+      return;
+    }
+    const action = await this.orm.call("project.milestone", "action_view_tasks", [
+      [this.state.milestone.id],
+    ]);
+    return this.actionService.doAction(action);
+  }
+
   async changePlanning(task, operation, options = {}) {
-    if (this.planningUnavailable) {
+    if (
+      this.planningUnavailable ||
+      (operation === "reorder" && this.reorderUnavailable)
+    ) {
       return;
     }
     this.state.mutating = true;
@@ -177,7 +251,7 @@ export class AgilePlanningBoard extends Component {
           before_task_id: options.beforeTask?.id || false,
           expected_versions: versions,
           sprint_id: operation === "assign" ? options.sprint?.id || false : false,
-          ...(this.state.teamId ? {team_id: this.state.teamId} : {}),
+          ...this.selectionOptions,
         }
       );
       if (requestSequence !== this.requestSequence) {
@@ -371,8 +445,9 @@ export class AgilePlanningBoard extends Component {
       "project.project",
       method,
       [[this.projectId]],
-      ...(method === "action_open_agile_planning_backlog" && this.state.teamId
-        ? [{team_id: this.state.teamId}]
+      ...(method === "action_open_agile_planning_backlog" &&
+      Object.keys(this.selectionOptions).length
+        ? [this.selectionOptions]
         : [])
     );
     return this.actionService.doAction(action);

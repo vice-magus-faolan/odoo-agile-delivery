@@ -28,6 +28,17 @@ The team selector lists up to 100 active teams for this Project; use native task
 search for other teams. Assignment inherits a Sprint team only for unteamed work;
 an incompatible team selection is refused without moving any work.
 
+For a Project using native milestones, choose **Milestone** to filter both backlog
+and Sprint cards. Type a name and select a suggestion or press Enter. Clearing the
+field restores all milestones. Changing milestones restarts backlog paging and
+keeps the selected team. **Group loaded items by milestone** groups only the cards
+already loaded, not the complete release. Sprint point totals remain unfiltered.
+Clear the milestone filter and grouping to reorder work; assignment and return
+remain available. **Open Product Backlog list** keeps the milestone and team.
+Choose **Release contents** for the selected milestone's full native task list,
+grouped by item type and task state, including completed and scheduled work.
+Milestone controls and badges are absent when the Project disables milestones.
+
 After a rejected change, the board refreshes. Review current placement before
 retrying. If a page load fails, **Retry** requests that page again; a changed
 backlog reloads the first page. If a stale-data warning appears, reload the page or reopen Sprint Planning

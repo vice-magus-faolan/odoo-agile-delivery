@@ -1,7 +1,7 @@
 {
     "name": "Agile Planning UI",
     "summary": "Optional Odoo frontend for authoritative Agile planning",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
@@ -16,6 +16,7 @@
         "web.assets_unit_tests": [
             "project_agile_ui/static/tests/**/*.test.js",
         ],
+        "web.assets_tests": ["project_agile_ui/static/tests/tours/milestones.js"],
     },
     "installable": True,
     "application": False,

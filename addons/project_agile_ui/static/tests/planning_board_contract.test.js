@@ -492,3 +492,104 @@ test("project_agile_ui discards a late page after team reset and project change"
   expect(component.state.backlog.items).toEqual([]);
   expect(".o_agile_planning_board__backlog-task").toHaveCount(0);
 });
+
+test("project_agile_ui milestone grouping is loaded-only and disables reorder, not assignment", async () => {
+  const release = {id: 8, name: "Release Alpha"};
+  const calls = [];
+  const enabled = {
+    ...draftSnapshot,
+    project: {...snapshot.project, allow_milestones: true},
+    backlog: {
+      items: [
+        {...snapshot.backlog.items[0], milestone: release},
+        {...snapshot.backlog.items[0], id: 12, name: "Other work", milestone: false},
+      ],
+      next_cursor: {id: 12, sequence: 20, revision: 0},
+    },
+    sprints: [
+      {
+        ...draftSnapshot.sprints[0],
+        items: [{...snapshot.backlog.items[0], milestone: release}],
+      },
+    ],
+  };
+  const component = await setupPlanningBoard({
+    call: async (...args) => {
+      calls.push(args);
+      return enabled;
+    },
+  });
+  expect(".o_agile_planning_board__milestone").toHaveCount(2);
+  await contains(".o_agile_planning_board__group-milestones").click();
+  expect(".o_agile_planning_board__milestone-group").toHaveCount(3);
+  expect(".o_agile_planning_board__milestones").toHaveText(
+    /loaded planning items only/
+  );
+  expect(".o_agile_planning_board__task-actions button:disabled").toHaveCount(4);
+  await component.moveTask(enabled.backlog.items[1], "up");
+  await component.dropOnBacklog(enabled.backlog.items[0], dragEvent(12));
+  expect(calls).toHaveLength(1);
+  await component.dropOnSprint(enabled.sprints[0], dragEvent(12));
+  expect(calls.at(-1)[1]).toBe("apply_agile_planning_change");
+  expect(calls.at(-1)[2][1]).toBe("assign");
+});
+
+test("project_agile_ui milestone selection binds team, paging, fallback and mutation reconciliation", async () => {
+  const calls = [];
+  const release = {id: 8, name: "Release Alpha"};
+  const component = await setupPlanningBoard({
+    call: async (...args) => {
+      calls.push(args);
+      return {
+        ...draftSnapshot,
+        project: {...snapshot.project, allow_milestones: true},
+        milestone: args[3]?.milestone_id ? release : false,
+      };
+    },
+  });
+  component.state.teamId = 3;
+  await component.selectMilestone([{id: 8, display_name: "Release Alpha"}]);
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "get_agile_planning_snapshot",
+    [42, false],
+    {team_id: 3, milestone_id: 8},
+  ]);
+  const cursor = {id: 11, sequence: 10, revision: 0, team_id: 3, milestone_id: 8};
+  await component.load(cursor);
+  expect(calls.at(-1)[3]).toEqual({team_id: 3, milestone_id: 8});
+  await component.openBacklogFallback();
+  expect(calls.at(-1)[3]).toEqual({team_id: 3, milestone_id: 8});
+  await component.dropOnSprint(draftSnapshot.sprints[0], dragEvent(11));
+  expect(calls.at(-1)[3].milestone_id).toBe(8);
+  await component.selectMilestone(false);
+  expect(calls.at(-1)[3]).toEqual({team_id: 3});
+  expect(component.state.milestone).toBe(false);
+});
+
+test("project_agile_ui ignores late milestone pages and removes disabled controls", async () => {
+  let resolvePage = null;
+  const component = await setupPlanningBoard({
+    call: async (model, method, args) => {
+      if (args[1]) {
+        return new Promise((resolve) => {
+          resolvePage = resolve;
+        });
+      }
+      return snapshot;
+    },
+  });
+  expect(".o_agile_planning_board__milestones").toHaveCount(0);
+  const oldPage = component.load({id: 11, sequence: 10, revision: 0});
+  await component.selectMilestone([{id: 8, display_name: "Release Alpha"}]);
+  resolvePage({
+    ...assignedSnapshot,
+    project: {...snapshot.project, allow_milestones: true},
+    milestone: {id: 9, name: "Old release"},
+  });
+  await oldPage;
+  await animationFrame();
+  expect(component.state.milestone).toBe(false);
+  expect(".o_agile_planning_board__milestones").toHaveCount(0);
+  expect(".o_agile_planning_board__milestone").toHaveCount(0);
+});

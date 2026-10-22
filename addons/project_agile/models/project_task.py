@@ -352,6 +352,15 @@ class ProjectTask(models.Model):
         )
         if not pending:
             return done
+        has_line = Domain(
+            "agile_environment_status_ids",
+            "any",
+            [("applicable", "=", True), ("environment_id", "in", environment_ids)],
+        )
+        # Missing lines are actionable only on the active, open work backfill reaches.
+        open_task = Domain("active", "=", True) & Domain(
+            "state", "not in", ["1_done", "1_canceled"]
+        )
         # Only tracking tasks whose Project has a matching active environment count.
         return (
             Domain("agile_tracks_environments", "=", True)
@@ -360,6 +369,7 @@ class ProjectTask(models.Model):
                 "any",
                 [("id", "in", environment_ids), ("active", "=", True)],
             )
+            & (has_line | open_task)
             & ~done
         )
 
@@ -382,7 +392,7 @@ class ProjectTask(models.Model):
         tasks.check_access("write")
         tasks.project_id.check_access("read")
         status_model = self.env["project.task.environment.status"]
-        # Include hidden identities so an existing line is never inserted twice.
+        # Search as superuser so a line the caller cannot see is not created twice.
         existing = status_model.sudo().search([("task_id", "in", tasks.ids)])
         pairs = {(line.task_id.id, line.environment_id.id) for line in existing}
         values = []

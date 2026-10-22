@@ -25,7 +25,9 @@ class TestEnvironmentTour(HttpCase):
                     "sequence": index * 10,
                     "is_production": name == "Production",
                 }
-                for index, name in enumerate(("E2E", "UAT", "Production"))
+                for index, name in enumerate(
+                    ("E2E", "UAT", "Pre-Production", "Production")
+                )
             ]
         )
         task = (
@@ -44,8 +46,12 @@ class TestEnvironmentTour(HttpCase):
         pending = task.copy({"name": "Awaiting production"})
         complete = task.copy({"name": "Complete in both"})
         (pending | complete).agile_environment_status_ids.filtered(
-            lambda line: line.environment_id.name == "UAT"
+            lambda line: line.environment_id.name in ("UAT", "Pre-Production")
         ).write({"status": "verified"})
+        preproduction_only = task.copy({"name": "Only pre-production done"})
+        preproduction_only.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.name == "Pre-Production"
+        ).write({"status": "done"})
         complete.agile_environment_status_ids.filtered(
             lambda line: line.environment_id.is_production
         ).write({"status": "done"})
@@ -59,6 +65,7 @@ class TestEnvironmentTour(HttpCase):
         )
         self.env["project.agile.environment"].create(
             [
+                {"name": "Staging", "project_id": second_project.id},
                 {"name": "UAT", "project_id": second_project.id},
                 {
                     "name": "Production",

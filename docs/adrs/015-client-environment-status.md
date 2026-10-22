@@ -30,12 +30,22 @@ then check write access as the caller before creating their lines. If two transa
 try to create the same Task/environment pair, the unique constraint rejects the
 duplicate and the affected administrator saves again.
 
-Search accepts selected environment IDs or name patterns resolved through the caller's
-ORM access. Negative operators reverse completion for those matching environments. Only
-tracking tasks whose Project has a matching active environment count as not done; a
-missing status line counts as not done. Waiting for Production requires completion
-somewhere applicable and no completion in any active environment flagged Production in
-the same Project. A Project with no active flagged environment is excluded.
+Typed names match the environments the caller can see. The native search view uses
+`=ilike` for typed names, matching the whole name ignoring case: Production does not
+include Pre-Production. Selecting a suggestion uses its exact environment ID instead.
+The view's `filter_domain` distinguishes the typed string from a selected numeric ID; an
+`operator` attribute alone would also apply the text operator to selected IDs. Explicit
+advanced ORM `like` and `ilike` searches keep their native pattern semantics. Not like
+and not ilike flip done and not done for the matching environments.
+
+Only tracking tasks whose Project has a matching active environment count as not done.
+An existing applicable To do line remains pending, even on Done or Canceled work. A
+missing line counts as pending only on active tasks outside those two closed states, the
+same work reached by open-task backfill. Closed tasks with missing lines are excluded;
+reopening synchronizes their missing lines without changing recorded history. Waiting
+for Production applies this same pending rule and requires completion somewhere
+applicable and no completion in any active environment flagged Production in the same
+Project. A Project with no active flagged environment is excluded.
 
 Task copies start fresh statuses. Environment lists and status history are not copied
 with a Project; configure its client environments explicitly. This does not change

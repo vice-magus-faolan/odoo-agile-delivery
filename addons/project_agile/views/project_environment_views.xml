@@ -73,8 +73,15 @@
     <field name="inherit_id" ref="view_task_search_agile" />
     <field name="arch" type="xml">
       <field name="agile_item_type_id" position="after">
-        <field name="agile_done_environment_id" />
-        <field name="agile_pending_environment_id" />
+        <!-- Typed raw_value is the name (self); a selected suggestion is an ID. -->
+        <field
+          name="agile_done_environment_id"
+          filter_domain="[('agile_done_environment_id', '=ilike' if raw_value == self else '=', raw_value)]"
+        />
+        <field
+          name="agile_pending_environment_id"
+          filter_domain="[('agile_pending_environment_id', '=ilike' if raw_value == self else '=', raw_value)]"
+        />
         <separator />
         <filter
           name="agile_waiting_for_production"

@@ -1,6 +1,11 @@
+from unittest.mock import patch
+
+from lxml import etree
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -41,7 +46,7 @@ class TestEnvironmentStatus(TransactionCase):
         cls.environments = cls.env["project.agile.environment"]
         for project, names in zip(
             cls.projects,
-            (("E2E", "UAT", "Production"), ("Staging", "Production")),
+            (("E2E", "UAT", "Pre-Production", "Production"), ("Staging", "Production")),
             strict=False,
         ):
             cls.environments |= (
@@ -79,13 +84,13 @@ class TestEnvironmentStatus(TransactionCase):
         self.assertTrue(self.data_import.tracks_environments)
         self.assertEqual(
             self.projects[0].agile_environment_ids.mapped("name"),
-            ["E2E", "UAT", "Production"],
+            ["E2E", "UAT", "Pre-Production", "Production"],
         )
         self.assertEqual(
             self.projects[1].agile_environment_ids.mapped("name"),
             ["Staging", "Production"],
         )
-        for task, expected in zip(self.tasks, (3, 2), strict=False):
+        for task, expected in zip(self.tasks, (4, 2), strict=False):
             self.assertEqual(len(task.agile_environment_status_ids), expected)
             self.assertEqual(
                 task.agile_environment_status_ids.mapped("status"), ["todo"] * expected
@@ -95,7 +100,7 @@ class TestEnvironmentStatus(TransactionCase):
         ordinary = self.tasks[0].copy({"agile_item_type_id": self.story.id})
         self.assertFalse(ordinary.agile_environment_status_ids)
         imported = self.tasks[0].copy({"agile_item_type_id": self.data_import.id})
-        self.assertEqual(len(imported.agile_environment_status_ids), 3)
+        self.assertEqual(len(imported.agile_environment_status_ids), 4)
         plain = self.env["project.project"].create({"name": "Plain"})
         native = self.env["project.task"].create(
             {
@@ -186,11 +191,47 @@ class TestEnvironmentStatus(TransactionCase):
         self.tasks.agile_environment_status_ids.filtered(
             lambda line: line.environment_id.name == "UAT"
         ).write({"status": "verified"})
-        gap = [
+        preproduction = self.tasks[0].agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.name == "Pre-Production"
+        )
+        preproduction.write({"status": "done"})
+        preproduction_only = self.tasks[0].copy({"name": "Only pre-production done"})
+        preproduction_only.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id == preproduction.environment_id
+        ).write({"status": "done"})
+        view = tasks.get_view(
+            self.env.ref("project_agile.view_task_search_agile").id, "search"
+        )
+        search = etree.fromstring(view["arch"].encode())
+        typed = {}
+        for field, name in (
+            ("agile_done_environment_id", "uAt"),
+            ("agile_pending_environment_id", "production"),
+            ("agile_done_environment_id", "production"),
+            ("agile_done_environment_id", "pre-production"),
+        ):
+            node = search.xpath(f"//field[@name='{field}']")[0]
+            typed[field, name] = safe_eval(
+                node.get("filter_domain")
+                or repr([(field, node.get("operator", "ilike"), name)]),
+                {"self": name, "raw_value": name},
+            )
+        gap = (
+            typed["agile_done_environment_id", "uAt"]
+            + typed["agile_pending_environment_id", "production"]
+        )
+        self.assertEqual(tasks.search(gap), self.tasks)
+        self.assertFalse(tasks.search(typed["agile_done_environment_id", "production"]))
+        self.assertEqual(
+            tasks.search(typed["agile_done_environment_id", "pre-production"]),
+            self.tasks[0] | preproduction_only,
+        )
+        # Explicit advanced ORM patterns keep their native substring semantics.
+        pattern_gap = [
             ("agile_done_environment_id", "ilike", "ua"),
             ("agile_pending_environment_id", "ilike", "pROd"),
         ]
-        self.assertEqual(tasks.search(gap), self.tasks)
+        self.assertEqual(tasks.search(pattern_gap), self.tasks[1])
         for operator, pattern in (
             ("ilike", "ua"),
             ("like", "UA"),
@@ -203,11 +244,12 @@ class TestEnvironmentStatus(TransactionCase):
             )
             self.assertEqual(
                 tasks.search([("agile_pending_environment_id", operator, pattern)]),
-                tasks.browse(),
+                preproduction_only,
             )
         for operator in ("not ilike", "not like"):
-            self.assertFalse(
-                tasks.search([("agile_done_environment_id", operator, "UAT")])
+            self.assertEqual(
+                tasks.search([("agile_done_environment_id", operator, "UAT")]),
+                preproduction_only,
             )
             self.assertEqual(
                 tasks.search([("agile_pending_environment_id", operator, "UAT")]),
@@ -259,28 +301,59 @@ class TestEnvironmentStatus(TransactionCase):
         self.assertEqual(tasks.search(waiting), self.tasks[0])
         ordinary = self.tasks[0].copy({"agile_item_type_id": self.story.id})
         self.assertNotIn(ordinary, tasks.search(waiting))
-        # Completed work does not receive a line when an environment is added.
-        closed = self.tasks[0].copy({"state": "1_done"})
-        closed.agile_environment_status_ids[0].write({"status": "done"})
+        # Done and canceled work do not receive newly added environment lines.
+        closed = self.tasks[0].copy({"state": "1_done"}) | self.tasks[0].copy(
+            {"state": "1_canceled"}
+        )
+        closed.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.name == "E2E"
+        ).write({"status": "done"})
         production.write({"is_production": False})
-        extra = self.env["project.agile.environment"].create(
-            {
-                "name": "Release",
-                "project_id": self.projects[0].id,
-                "is_production": True,
-            }
-        )
+        # Model legacy missing rows before backfill, without deleting status history.
+        with patch.object(
+            type(self.projects), "_sync_open_environment_tasks", lambda projects: None
+        ):
+            extra = self.env["project.agile.environment"].create(
+                {
+                    "name": "Release",
+                    "project_id": self.projects[0].id,
+                    "is_production": True,
+                }
+            )
         self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
-        self.assertIn(closed, tasks.search(waiting))
-        self.assertIn(
-            closed, tasks.search([("agile_pending_environment_id", "ilike", "Release")])
+        pending = [("agile_pending_environment_id", "=ilike", "release")]
+        self.assertEqual(tasks.search(waiting), self.tasks[0])
+        self.assertEqual(tasks.search(pending), self.tasks[0])
+        self.assertNotIn(
+            extra, self.tasks[0].agile_environment_status_ids.environment_id
         )
+        self.projects[0]._sync_open_environment_tasks()
+        self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
+        self.assertEqual(tasks.search(waiting), self.tasks[0])
+        self.assertEqual(tasks.search(pending), self.tasks[0])
+        history = closed.agile_environment_status_ids
+        snapshot = history.read(["status", "actor_id", "changed_at"])
+        closed.write({"state": "01_in_progress"})
+        release_lines = closed.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id == extra
+        )
+        self.assertEqual(len(release_lines), 2)
+        self.assertEqual(release_lines.mapped("status"), ["todo", "todo"])
+        self.assertEqual(history.read(["status", "actor_id", "changed_at"]), snapshot)
+        self.assertEqual(tasks.search(waiting), self.tasks[0] | closed)
+        self.assertEqual(tasks.search(pending), self.tasks[0] | closed)
+        closed[0].write({"state": "1_done"})
+        closed[1].write({"state": "1_canceled"})
+        self.assertEqual(tasks.search(pending), self.tasks[0] | closed)
+        release_lines.with_user(self.member).write({"status": "verified"})
+        self.assertEqual(tasks.search(waiting), self.tasks[0])
+        self.assertEqual(tasks.search(pending), self.tasks[0])
         self.tasks[0].agile_environment_status_ids.filtered(
             lambda line: line.environment_id == extra
         ).write({"status": "verified"})
         self.assertNotIn(self.tasks[0], tasks.search(waiting))
         extra.write({"is_production": False})
-        self.assertNotIn(closed, tasks.search(waiting))
+        self.assertFalse(closed & tasks.search(waiting))
         self.assertNotIn(self.tasks[0], tasks.search(waiting))
 
     def test_name_search_honors_environment_rules_without_picker_limit(self):
@@ -335,7 +408,7 @@ class TestEnvironmentStatus(TransactionCase):
         )
         self.assertFalse(template.agile_environment_status_ids)
         template.with_user(self.manager).action_undo_convert_to_template()
-        self.assertEqual(len(template.agile_environment_status_ids), 3)
+        self.assertEqual(len(template.agile_environment_status_ids), 4)
         project_copy = self.projects[0].copy(
             {"agile_enabled": True, "agile_key": "ENVCOPY"}
         )
@@ -384,7 +457,7 @@ class TestEnvironmentStatus(TransactionCase):
             )
             .create({"name": "Native defaulted client work"})
         )
-        self.assertEqual(len(quick.agile_environment_status_ids), 3)
+        self.assertEqual(len(quick.agile_environment_status_ids), 4)
         with self.assertRaises(AccessError):
             task.write({"agile_tracks_environments": False})
         with self.assertRaises(AccessError):
@@ -487,7 +560,7 @@ class TestEnvironmentStatus(TransactionCase):
         task = self.tasks[0].copy({"agile_item_type_id": custom_type.id})
         self.assertFalse(task.agile_environment_status_ids)
         custom_type.write({"tracks_environments": True})
-        self.assertEqual(len(task.agile_environment_status_ids), 3)
+        self.assertEqual(len(task.agile_environment_status_ids), 4)
         custom_type.write({"tracks_environments": False})
         self.assertFalse(any(task.agile_environment_status_ids.mapped("applicable")))
         project = self.env["project.project"].create(

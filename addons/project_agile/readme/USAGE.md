@@ -53,11 +53,16 @@ operation. There is no required completion order: urgent Production work may be
 marked Done before UAT. These are manual work statuses, not deployment evidence.
 
 In task search, type UAT and press Enter on **Done in environment**, then type
-Production and press Enter on **Not done in environment**. Names match across clients;
-select an indented environment suggestion instead to narrow to one client's environment.
+Production and press Enter on **Not done in environment**. Type the whole name;
+matching ignores case and spans clients. Production does not match Pre-Production;
+type Pre-Production to search that environment. To search one client's environment,
+select its indented suggestion instead.
 Verified counts as done. **Waiting for Production** finds tasks done somewhere but not
 done in any active environment flagged **Production** in that task's Project.
 Projects without an active Production environment are excluded.
+Both pending searches exclude missing lines on Done or Canceled tasks. Reopening a
+task adds its missing environment lines. Existing To do lines remain pending and can
+still be updated on closed tasks.
 Select **Environment history** on the Agile tab to inspect all lines,
 including archived environments; open a line to see its status changes in chatter.
 Changing to a nontracking type or converting a task to a template hides active

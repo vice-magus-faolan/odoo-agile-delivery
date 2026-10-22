@@ -306,7 +306,10 @@ class ProjectSprint(models.Model):
             ],
             "search_view_id": self.env.ref("project_scrum.view_task_search_scrum").id,
             "domain": domain,
-            "context": {"default_project_id": self.project_id.id},
+            "context": {
+                "default_project_id": self.project_id.id,
+                "allow_milestones": self.project_id.allow_milestones,
+            },
         }
 
     def action_open_product_backlog(self):

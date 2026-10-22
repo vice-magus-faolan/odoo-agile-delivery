@@ -250,6 +250,37 @@ class TestPlanningMilestones(HttpCase):
         self.assertTrue(snapshot["backlog"]["next_cursor"])
         self.assertTrue(all(row["milestone"] for row in snapshot["backlog"]["items"]))
 
+    def test_native_sprint_backlog_milestone_columns(self):
+        scrum_master = mail_new_test_user(
+            self.env,
+            "release_scrum_master",
+            groups="project_scrum.group_scrum_master",
+        )
+        self.assertFalse(scrum_master.has_group("base.group_system"))
+        self.assertFalse(scrum_master.has_group("project.group_project_manager"))
+        self.env["project.project"].create(
+            {"name": "Other milestone project", "allow_milestones": True}
+        )
+        action = self.env["ir.actions.act_window"].create(
+            {
+                "name": "Release Sprint",
+                "res_model": "project.sprint",
+                "res_id": self.sprint.id,
+                "view_mode": "form",
+            }
+        )
+        for enabled in (True, False):
+            self.project.allow_milestones = enabled
+            # Another Project keeps the native feature group enabled throughout.
+            self.assertTrue(scrum_master.has_group("project.group_project_milestone"))
+            for backlog in ("product", "sprint"):
+                with self.subTest(enabled=enabled, backlog=backlog):
+                    self.start_tour(
+                        f"/odoo/action-{action.id}",
+                        f"agile_{backlog}_backlog_milestones_{enabled}",
+                        login=scrum_master.login,
+                    )
+
     def test_native_planning_milestone_tour(self):
         action = self.env["ir.actions.client"].create(
             {

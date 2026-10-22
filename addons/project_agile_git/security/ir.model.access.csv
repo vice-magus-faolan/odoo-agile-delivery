@@ -14,3 +14,5 @@ access_project_git_check_manager,project.git.check manager,model_project_git_che
 access_project_git_task_association_user,project.git.task.association user,model_project_git_task_association,project.group_project_user,1,0,0,0
 access_project_git_task_association_manager,project.git.task.association manager,model_project_git_task_association,project.group_project_manager,1,0,0,0
 access_project_git_association_audit_manager,project.git.association.audit manager,model_project_git_association_audit,project.group_project_manager,1,0,0,0
+access_project_git_environment_branch_user,project.git.environment.branch user,model_project_git_environment_branch,project.group_project_user,1,0,0,0
+access_project_git_environment_branch_manager,project.git.environment.branch manager,model_project_git_environment_branch,project.group_project_manager,1,1,1,1

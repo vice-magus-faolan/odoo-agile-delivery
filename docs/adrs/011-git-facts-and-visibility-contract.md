@@ -175,3 +175,38 @@ verification.
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/service/model.py
 - Odoo 19 repeatable-read cursor and savepoints:
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/sql_db.py
+
+## Historical environment merge projection
+
+The optional Git facts addon owns `project.git.environment.branch`: one active or
+archived exact short branch mapping per environment/repository. Both links must share an
+Agile Project and company. Configuration reuses the native Project-administrator plus
+Project-write boundary from ADR-015; ownership fields are derived and protected. Native
+caller-bound environment and repository rule subqueries protect mapping visibility.
+Copies do not inherit mappings.
+
+Task evidence is a nonstored projection, not a second status ledger. One batched
+caller-context join resolves exact `(repository, provider PR ID)` associations. The sole
+positive predicate requires merged state, merge time, known ordering and exact mapped
+target branch. Counts, environment tags, details, PR navigation and searches use this
+predicate. Public reads refresh the projection to account for current record rules;
+ordinary dependency triggers invalidate fact and configuration changes. No elevated
+result contributes to a projection.
+
+Any qualifying linked PR establishes historical partial progress. UAT/no-production
+search requires the selected visible active environment and a production mapping in the
+same Project, and excludes any visible production positive across all mapped
+repositories. Its negative is qualified visible evidence, not completeness or code
+absence. Current mappings reinterpret retained observations. Reverts and branch
+operations do not establish current code placement or deployment.
+
+Known-only confidence is intentional: the retained normalizer can mark an equal-time
+conflict ambiguous and then an older event stale without reconciling its values. Stale
+therefore cannot restore a positive, including production exclusion. A strictly newer
+unambiguous observation can restore confidence; harmless late events may temporarily
+hide valid positives. No new confidence storage, source ordering semantics, scheduler or
+normalizer behavior is added. Retained normalized facts survive terminal payload purge;
+missing processing is not inferred. Manual environment status, audit and
+configuration/data-import lifecycle remain independent under ADR-015. This keeps a
+future mapping or confidence-rule change in one projection owner without coupling core
+Agile to Git.

@@ -915,3 +915,197 @@ class TestGitHubWebhook(HttpCase):
             ),
             1,
         )
+
+    def _post_environment_pr(
+        self, task, identity, branch, timestamp, suffix, merged=True
+    ):
+        payload = {
+            "repository": {"id": 4242},
+            "number": identity,
+            "pull_request": {
+                "id": identity,
+                "number": identity,
+                "title": task.agile_key,
+                "body": "",
+                "state": "closed" if merged else "open",
+                "merged": merged,
+                "head": {"ref": "feature/" + task.agile_key, "sha": "a" * 40},
+                "base": {"ref": branch},
+                "updated_at": timestamp,
+                "merged_at": "2026-10-20T11:00:00Z" if merged else None,
+            },
+        }
+        response = self._post(payload, suffix, **{"X-GitHub-Event": "pull_request"})
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", suffix),
+            ]
+        )
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        return payload, delivery
+
+    def _assert_environment_pr_evidence(self, task, uat, production, expected, gap):
+        values = task.read(["git_merge_environment_ids"])[0]
+        self.assertEqual(set(values["git_merge_environment_ids"]), set(expected))
+        found = task.search(
+            [
+                ("id", "=", task.id),
+                ("git_uat_without_production_id", "in", [uat.id]),
+            ]
+        )
+        self.assertEqual(bool(found), gap)
+        self.assertEqual(
+            bool(
+                task.search(
+                    [
+                        ("id", "=", task.id),
+                        ("git_merge_environment_ids", "in", [uat.id]),
+                    ]
+                )
+            ),
+            uat.id in expected,
+        )
+        self.assertEqual(
+            bool(
+                task.search(
+                    [
+                        ("id", "=", task.id),
+                        ("git_merge_environment_ids", "in", [production.id]),
+                    ]
+                )
+            ),
+            production.id in expected,
+        )
+
+    def test_signed_merge_conflict_recovery_replay_purge_and_manual_isolation(
+        self,
+    ):
+        self.repository.retention_policy = "redacted_excerpt"
+        uat, production = self.env["project.agile.environment"].create(
+            [
+                {"name": "UAT", "project_id": self.project.id},
+                {
+                    "name": "Production",
+                    "project_id": self.project.id,
+                    "is_production": True,
+                },
+            ]
+        )
+        self.env["project.git.environment.branch"].create(
+            [
+                {
+                    "environment_id": uat.id,
+                    "repository_id": self.repository.id,
+                    "branch_name": "uat",
+                },
+                {
+                    "environment_id": production.id,
+                    "repository_id": self.repository.id,
+                    "branch_name": "main",
+                },
+            ]
+        )
+        task = self.env["project.task"].create(
+            {
+                "name": "Manual configuration",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.env.ref(
+                    "project_agile.project_agile_item_type_configuration"
+                ).id,
+            }
+        )
+        lines = task.agile_environment_status_ids
+        lines[0].status = "verified"
+        task_fields = [
+            "stage_id",
+            "state",
+            "agile_item_type_id",
+            "write_date",
+            "message_ids",
+        ]
+        line_fields = ["status", "actor_id", "changed_at", "message_ids", "write_date"]
+        before_task, before_lines = task.read(task_fields), lines.read(line_fields)
+        timestamp = "2026-10-20T12:00:00Z"
+        self._post_environment_pr(task, 801, "uat", timestamp, "uat-known")
+        self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)
+        self._post_environment_pr(task, 802, "main", timestamp, "prod-known")
+        self._assert_environment_pr_evidence(
+            task, uat, production, [uat.id, production.id], False
+        )
+        for identity, branch, other_id in (
+            (801, "uat", production.id),
+            (802, "main", uat.id),
+        ):
+            with self.subTest(branch=branch):
+                self._post_environment_pr(
+                    task,
+                    identity,
+                    "other",
+                    timestamp,
+                    branch + "-conflict",
+                    merged=False,
+                )
+                self._assert_environment_pr_evidence(
+                    task, uat, production, [other_id], branch == "main"
+                )
+                self._post_environment_pr(
+                    task, identity, branch, "2026-10-19T12:00:00Z", branch + "-older"
+                )
+                self._assert_environment_pr_evidence(
+                    task, uat, production, [other_id], branch == "main"
+                )
+                self._post_environment_pr(
+                    task, identity, branch, timestamp, branch + "-same-time"
+                )
+                self._assert_environment_pr_evidence(
+                    task, uat, production, [other_id], branch == "main"
+                )
+                self._post_environment_pr(
+                    task, identity, branch, "2026-10-21T12:00:00Z", branch + "-recovery"
+                )
+                self._assert_environment_pr_evidence(
+                    task, uat, production, [uat.id, production.id], False
+                )
+        # Even a harmless late event demotes confidence; it does not prove absence.
+        self._post_environment_pr(task, 801, "uat", timestamp, "uat-harmless-late")
+        self._assert_environment_pr_evidence(
+            task, uat, production, [production.id], False
+        )
+        payload, delivery = self._post_environment_pr(
+            task, 801, "uat", "2026-10-22T12:00:00Z", "uat-final"
+        )
+        self._assert_environment_pr_evidence(
+            task, uat, production, [uat.id, production.id], False
+        )
+        self.assertEqual(
+            self._post(
+                payload, "uat-final", **{"X-GitHub-Event": "pull_request"}
+            ).status_code,
+            202,
+        )
+        delivery.retained_until = "2000-01-01 00:00:00"
+        self.env["project.git.delivery"]._purge_expired_github_payloads()
+        self.assertFalse(delivery.retained_payload)
+        self.assertTrue(delivery.retained_payload_purged_at)
+        self._assert_environment_pr_evidence(
+            task, uat, production, [uat.id, production.id], False
+        )
+        # Reverts are linked observations, not current-presence arithmetic.
+        self._post_environment_pr(task, 803, "uat", timestamp, "revert-observation")
+        self._assert_environment_pr_evidence(
+            task, uat, production, [uat.id, production.id], False
+        )
+        deleted = self._post_and_settle_push(
+            self._branch_deletion_payload("refs/heads/uat"), "uat-deleted"
+        )
+        self.assertEqual(deleted.state, "discarded")
+        self._assert_environment_pr_evidence(
+            task, uat, production, [uat.id, production.id], False
+        )
+        self.assertEqual(task.read(task_fields), before_task)
+        self.assertEqual(lines.read(line_fields), before_lines)

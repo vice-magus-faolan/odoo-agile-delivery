@@ -164,6 +164,11 @@ At** identify conflicting reuse of a delivery ID.
   queues the same delivery again and keeps its attempt count, so a
   delivery that used its five attempts gets one more try.
 
+When a branch is deleted on GitHub, its push delivery is **Discarded**.
+The branch, its commits and its task links stay as they were, so a
+deleted branch keeps its last known head. A later push to a branch with
+the same name goes through the usual ordering checks.
+
 Digest-only, oversized-input and purged deliveries have no payload to
 reprocess. After correcting configuration, push again or re-run the
 check so GitHub sends a new delivery; for a PR, send a new supported PR

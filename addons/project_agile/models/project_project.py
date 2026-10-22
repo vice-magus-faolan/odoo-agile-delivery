@@ -163,6 +163,7 @@ class ProjectProject(models.Model):
 
     def _sync_open_environment_tasks(self):
         # Find hidden tasks too, then check write access as the caller during sync.
+        # The settings relation includes archived environments, not archived tasks.
         tasks = (
             self.env["project.task"]
             .sudo()
@@ -170,6 +171,7 @@ class ProjectProject(models.Model):
                 [
                     ("project_id", "in", self.ids),
                     ("agile_tracks_environments", "=", True),
+                    ("active", "=", True),
                     ("state", "not in", ["1_done", "1_canceled"]),
                 ]
             )

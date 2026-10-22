@@ -74,6 +74,7 @@ class ProjectAgileItemType(models.Model):
                     [
                         ("agile_item_type_id", "in", self.ids),
                         ("agile_tracks_environments", "=", True),
+                        ("active", "=", True),
                         ("state", "not in", ["1_done", "1_canceled"]),
                     ]
                 )

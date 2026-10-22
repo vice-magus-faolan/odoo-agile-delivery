@@ -146,33 +146,52 @@ class TestEnvironmentStatus(TransactionCase):
 
     def test_add_archive_reactivate_and_type_history(self):
         task = self.tasks[0]
-        closed = task.copy({"name": "Finished", "state": "1_done"})
-        extra = (
-            self.env["project.agile.environment"]
-            .with_user(self.manager)
-            .create({"name": "Pilot", "project_id": task.project_id.id})
+        closed = task.copy({"name": "Finished", "state": "1_done"}) | task.copy(
+            {"name": "Canceled", "state": "1_canceled"}
         )
+        archived = task.copy({"name": "Archived open work", "active": False})
+        history = (closed | archived).agile_environment_status_ids
+        snapshot = history.read(["status", "actor_id", "changed_at"])
+        project = task.project_id.with_user(self.manager)
+        # The native settings relation passes active_test=False to its comodel.
+        project.write({"agile_environment_ids": [Command.create({"name": "Pilot"})]})
+        extra = project.agile_environment_ids.filtered(lambda e: e.name == "Pilot")
         line = task.agile_environment_status_ids.filtered(
             lambda line: line.environment_id == extra
         )
         self.assertEqual(line.status, "todo")
         self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
+        self.assertNotIn(extra, archived.agile_environment_status_ids.environment_id)
         self.assertNotIn(
             extra, self.tasks[1].agile_environment_status_ids.environment_id
         )
         line.with_user(self.member).write({"status": "done"})
         actor, changed_at, identity = line.actor_id, line.changed_at, line.id
-        extra.write({"active": False})
+        project.write(
+            {"agile_environment_ids": [Command.update(extra.id, {"active": False})]}
+        )
         self.assertFalse(line.applicable)
         self.assertEqual(
             (line.status, line.actor_id, line.changed_at), ("done", actor, changed_at)
         )
         with self.assertRaises(ValidationError):
             line.write({"status": "verified"})
-        extra.write({"active": True})
+        incoming = task.copy({"name": "Open work while Pilot is archived"})
+        self.assertNotIn(extra, incoming.agile_environment_status_ids.environment_id)
+        project.write(
+            {"agile_environment_ids": [Command.update(extra.id, {"active": True})]}
+        )
         self.assertTrue(line.applicable)
         self.assertEqual(line.id, identity)
-        self.assertEqual(line.status, "done")
+        self.assertEqual(
+            (line.status, line.actor_id, line.changed_at), ("done", actor, changed_at)
+        )
+        self.assertIn(extra, incoming.agile_environment_status_ids.environment_id)
+        self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
+        self.assertNotIn(extra, archived.agile_environment_status_ids.environment_id)
+        archived.with_user(self.member).write({"active": True})
+        self.assertIn(extra, archived.agile_environment_status_ids.environment_id)
+        self.assertEqual(history.read(["status", "actor_id", "changed_at"]), snapshot)
         task.write({"agile_item_type_id": self.story.id})
         self.assertFalse(line.applicable)
         task.write({"agile_item_type_id": self.configuration.id})
@@ -558,11 +577,23 @@ class TestEnvironmentStatus(TransactionCase):
             {"name": "Client setup", "code": "client_setup", "uses_story_points": False}
         )
         task = self.tasks[0].copy({"agile_item_type_id": custom_type.id})
+        archived = task.copy({"active": False})
+        closed = task.copy({"state": "1_done"}) | task.copy({"state": "1_canceled"})
         self.assertFalse(task.agile_environment_status_ids)
-        custom_type.write({"tracks_environments": True})
+        custom_type.with_context(active_test=False).write({"tracks_environments": True})
         self.assertEqual(len(task.agile_environment_status_ids), 4)
+        self.assertFalse((closed | archived).agile_environment_status_ids)
+        history = task.agile_environment_status_ids
+        history[0].with_user(self.member).write({"status": "done"})
+        snapshot = history.read(["status", "actor_id", "changed_at"])
         custom_type.write({"tracks_environments": False})
         self.assertFalse(any(task.agile_environment_status_ids.mapped("applicable")))
+        custom_type.with_context(active_test=False).write({"tracks_environments": True})
+        self.assertEqual(history.read(["status", "actor_id", "changed_at"]), snapshot)
+        self.assertEqual(task.agile_environment_status_ids, history)
+        self.assertFalse((closed | archived).agile_environment_status_ids)
+        archived.with_user(self.member).write({"active": True})
+        self.assertEqual(len(archived.agile_environment_status_ids), 4)
         project = self.env["project.project"].create(
             {"name": "Enable existing", "agile_key": "ENVENABLE"}
         )

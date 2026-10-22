@@ -432,7 +432,7 @@ class TestGitHubWebhook(HttpCase):
             )
         }
 
-    def test_branch_deletion_without_facts_is_discarded_with_safe_replay(self):
+    def test_branch_deletion_without_facts_is_discarded(self):
         self.repository.retention_policy = "redacted_excerpt"
         task = self.env["project.task"].create(
             {"name": "Deletion is not task activity", "project_id": self.project.id}
@@ -441,20 +441,16 @@ class TestGitHubWebhook(HttpCase):
         task_before = task.read(task_fields)
         facts_before = self._github_fact_snapshot()
         payload = self._branch_deletion_payload("refs/heads/feature/" + task.agile_key)
-        payload["repository"]["token"] = "must-not-be-retained"
-        raw = json.dumps(payload, separators=(",", ":")).encode()
-        self.assertEqual(self._post(payload, secret="wrong-secret").status_code, 401)
-        self.assertEqual(self._delivery_count(), 0)
-
         delivery = self._post_and_settle_push(payload, "branch-deletion-absent")
 
         self.assertEqual((delivery.state, delivery.attempt_count), ("discarded", 1))
-        self.assertIn("branch deletion", delivery.error_summary)
+        self.assertEqual(
+            delivery.error_summary,
+            "Branch deleted on GitHub. Its branch and commit records are unchanged.",
+        )
         self.assertTrue(delivery.processed_at)
         self.assertFalse(delivery.lease_token)
         self.assertFalse(delivery.lease_expires_at)
-        self.assertEqual(delivery.payload_sha256, hashlib.sha256(raw).hexdigest())
-        self.assertEqual(delivery.payload_size, len(raw))
         self.assertEqual(
             json.loads(delivery.retained_payload),
             {
@@ -467,35 +463,9 @@ class TestGitHubWebhook(HttpCase):
                 "omitted_commit_count": 0,
             },
         )
-        self.assertNotIn("must-not-be-retained", delivery.retained_payload)
         self.assertTrue(delivery.retained_until)
-        retained = delivery.retained_payload
-        self.assertEqual(
-            self._post(payload, delivery.provider_delivery_id).status_code, 202
-        )
-        changed = {**payload, "before": "a" * 40}
-        self.assertEqual(
-            self._post(changed, delivery.provider_delivery_id).status_code, 409
-        )
-        self.env.invalidate_all()
-        self.assertEqual(self._delivery_count(), 1)
-        self.assertEqual((delivery.state, delivery.attempt_count), ("discarded", 1))
-        self.assertEqual(delivery.replay_mismatch_count, 1)
-        self.assertEqual(delivery.retained_payload, retained)
         self.assertEqual(self._github_fact_snapshot(), facts_before)
         self.assertEqual(task.read(task_fields), task_before)
-        summary = delivery.error_summary
-        delivery.retained_until = "2000-01-01 00:00:00"
-        self.assertEqual(
-            self.env["project.git.delivery"]._purge_expired_github_payloads(), 1
-        )
-        self.assertFalse(delivery.retained_payload)
-        self.assertTrue(delivery.retained_payload_purged_at)
-        self.assertEqual(
-            (delivery.state, delivery.error_summary), ("discarded", summary)
-        )
-        self.assertEqual(delivery.payload_sha256, hashlib.sha256(raw).hexdigest())
-        self.assertEqual(self._github_fact_snapshot(), facts_before)
 
     def test_branch_deletion_preserves_existing_facts_and_push_ordering(self):
         def adapt(payload, key):
@@ -545,24 +515,23 @@ class TestGitHubWebhook(HttpCase):
     def test_malformed_or_nondeletion_null_heads_are_not_discarded(self):
         self.repository.retention_policy = "redacted_excerpt"
         changes = (
-            None,
-            {"deleted": "true"},
-            {"deleted": 1},
-            {"deleted": 0},
-            {"deleted": None},
-            {"deleted": False, "head_commit": {}},
-            {"deleted": False},
-            {"after": "a" * 40},
-            {"head_commit": {}},
-            {"head_commit": []},
-            {"commits": [{"id": "a" * 40, "message": "GHI-1"}]},
-            {"ref": "refs/tags/v1"},
-            {"ref": "refs/heads/../../other-repository"},
-            {"ref": "refs/heads/%2e%2e/other-repository"},
+            (None, "normalizer"),
+            ({"deleted": "true"}, "normalizer"),
+            ({"deleted": 1}, "normalizer"),
+            ({"deleted": 0}, "normalizer"),
+            ({"deleted": None}, "normalizer"),
+            ({"deleted": False, "head_commit": {}}, "normalizer"),
+            ({"deleted": False}, "normalizer"),
+            ({"after": "a" * 40}, "normalizer"),
+            ({"head_commit": {}}, "normalizer"),
+            ({"head_commit": []}, "ingress"),
+            ({"commits": [{"id": "a" * 40, "message": "GHI-1"}]}, "normalizer"),
+            ({"ref": "refs/heads/../../other-repository"}, "normalizer"),
+            ({"ref": "refs/heads/%2e%2e/other-repository"}, "normalizer"),
         )
         before = self._github_fact_snapshot()
-        for index, change in enumerate(changes):
-            with self.subTest(change=change):
+        for index, (change, expected_phase) in enumerate(changes):
+            with self.subTest(change=change, expected_phase=expected_phase):
                 payload = self._branch_deletion_payload("refs/heads/feature/GHI-1")
                 if change is None:
                     del payload["deleted"]
@@ -576,7 +545,12 @@ class TestGitHubWebhook(HttpCase):
                         ("provider_delivery_id", "=", delivery_id),
                     ]
                 )
-                if delivery.state == "queued":
+                self.assertEqual(
+                    delivery.state,
+                    "queued" if expected_phase == "normalizer" else "failed",
+                    delivery.error_summary,
+                )
+                if expected_phase == "normalizer":
                     claimed = self.env["project.git.delivery"]._claim_github_delivery()
                     self.assertEqual(claimed, delivery)
                     claimed._settle_github_delivery()

@@ -394,7 +394,7 @@ class ProjectGitDelivery(models.Model):
             ):
                 raise GitHubPayloadError("The GitHub branch deletion is malformed.")
             raise GitHubDiscarded(
-                "GitHub branch deletion: existing facts remain last observed."
+                "Branch deleted on GitHub. Its branch and commit records are unchanged."
             )
         if head_sha == "0" * 40:
             raise GitHubPayloadError("The GitHub push has no live branch head.")

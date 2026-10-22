@@ -218,6 +218,8 @@ class TestGitEnvironmentEvidence(TransactionCase):
             self._mapping(self.uat, "other")
         other_project = self.project.copy({"name": "Other", "agile_key": "OTH"})
         self.assertFalse(other_project.git_environment_branch_ids)
+        # Native Project copies disable Agile; configure the new client first.
+        other_project.agile_enabled = True
         other_repository = self._repository("elsewhere", other_project)
         with self.assertRaises(ValidationError):
             self.uat_mapping.write({"repository_id": other_repository.id})

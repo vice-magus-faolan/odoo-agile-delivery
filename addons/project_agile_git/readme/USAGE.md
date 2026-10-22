@@ -25,8 +25,8 @@ provider links and retained provenance. The details identify the repository,
 branch, PR, merge time, source time, last-seen time and confidence.
 
 One merged PR is partial task progress even if another is open, uncertain or
-in another repository. No links are unknown; no visible active mapping is
-unconfigured. A merge is historical evidence, not a deployment, current code
+in another repository. Without links, evidence is unknown; without a visible
+active mapping, it is unconfigured. A merge is historical evidence, not a deployment, current code
 presence or proof that all work for the task has arrived. Reverts, reapplications,
 cherry-picks, promotions, branch deletion, force-push and renames do not infer
 current presence or absence. A head SHA is not a merge SHA.

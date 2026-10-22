@@ -1,5 +1,7 @@
 """Native regression coverage of historical evidence and caller visibility."""
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 
@@ -212,7 +214,7 @@ class TestGitEnvironmentEvidence(TransactionCase):
         with self.assertRaises(AccessError):
             self.uat_mapping.with_user(self.reader).write({"branch_name": "other"})
         self.uat_mapping.with_user(self.manager).write({"branch_name": "release/UAT"})
-        with self.assertRaises(ValidationError):
+        with self.env.cr.savepoint(), self.assertRaises(IntegrityError):
             self._mapping(self.uat, "other")
         other_project = self.project.copy({"name": "Other", "agile_key": "OTH"})
         self.assertFalse(other_project.git_environment_branch_ids)
@@ -414,3 +416,54 @@ class TestGitEnvironmentEvidence(TransactionCase):
                     self.env["project.task"].with_context(
                         **{f"default_{field}": False}
                     ).create({"name": "Forged", "project_id": self.project.id})
+
+    def test_bulk_projection_and_archive_context_preserve_current_membership(self):
+        self._pr("91")
+        tasks = self.env["project.task"].create(
+            [
+                {"name": f"Bulk {index}", "project_id": self.project.id}
+                for index in range(20)
+            ]
+        )
+        self.env["project.git.task.association"].create(
+            [
+                {
+                    "repository_id": self.repository.id,
+                    "task_id": task.id,
+                    "source_type": "pull_request",
+                    "source_provider_id": "91",
+                }
+                for task in tasks
+            ]
+        )
+        tasks = tasks.with_user(self.reader).with_context(
+            active_test=False, allowed_company_ids=self.reader.company_ids.ids
+        )
+        fields = ["git_merge_environment_ids", "git_environment_merge_count"]
+        rows = tasks.read(fields)
+        self.assertEqual(len(rows), 20)
+        self.assertTrue(
+            all(row["git_merge_environment_ids"] == self.uat.ids for row in rows)
+        )
+        self.assertTrue(all(row["git_environment_merge_count"] == 1 for row in rows))
+        self.assertEqual(
+            tasks.search(
+                [
+                    ("id", "in", tasks.ids),
+                    ("git_uat_without_production_id", "in", self.uat.ids),
+                ]
+            ),
+            tasks,
+        )
+        self.uat.active = False
+        self.assertTrue(
+            all(not row["git_merge_environment_ids"] for row in tasks.read(fields))
+        )
+        self.assertFalse(
+            tasks.search(
+                [
+                    ("id", "in", tasks.ids),
+                    ("git_uat_without_production_id", "in", self.uat.ids),
+                ]
+            )
+        )

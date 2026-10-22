@@ -104,8 +104,10 @@ class ProjectTask(models.Model):
         )
         mappings = self._git_visible_mappings(projects.ids)
         by_repository = defaultdict(list)
+        by_project = defaultdict(list)
         for mapping in mappings:
             by_repository[mapping.repository_id.id].append(mapping)
+            by_project[mapping.project_id.id].append(mapping)
         associations = self.env["project.git.task.association"].search_fetch(
             [
                 ("task_id", "in", tasks.ids),
@@ -141,9 +143,7 @@ class ProjectTask(models.Model):
             for task in self
         }
         for task in tasks:
-            result[task.id]["mappings"] = [
-                mapping for mapping in mappings if mapping.project_id == task.project_id
-            ]
+            result[task.id]["mappings"] = by_project[task.project_id.id]
         for association in associations:
             pr = by_pair.get(
                 (association.repository_id.id, association.source_provider_id)
@@ -212,7 +212,9 @@ class ProjectTask(models.Model):
             ),
         )
 
-    @api.depends_context("uid", "allowed_company_ids", "active_test")
+    # Membership explicitly requires active records, independent of active_test.
+    # That cache-key special case only supports relational fields in Odoo 19.
+    @api.depends_context("uid", "allowed_company_ids")
     @api.depends(
         "active",
         "has_template_ancestor",
@@ -267,7 +269,13 @@ class ProjectTask(models.Model):
         environment_ids = self._git_selected_environment_ids(operator, value)
         if environment_ids is None:
             return NotImplemented
-        tasks = self.search(self._git_evidence_task_domain())
+        projects = (
+            self.env["project.agile.environment"].browse(environment_ids).project_id
+        )
+        tasks = self.search(
+            Domain(self._git_evidence_task_domain())
+            & Domain("project_id", "in", projects.ids)
+        )
         matches = []
         for task_id, evidence in tasks._git_merge_evidence().items():
             positive = {

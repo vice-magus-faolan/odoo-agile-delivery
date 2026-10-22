@@ -49,6 +49,34 @@ class TestEnvironmentTour(HttpCase):
         complete.agile_environment_status_ids.filtered(
             lambda line: line.environment_id.is_production
         ).write({"status": "done"})
+        second_project = self.env["project.project"].create(
+            {
+                "name": "Second environment tour client",
+                "agile_enabled": True,
+                "agile_key": "ENVTOURSECOND",
+                "privacy_visibility": "employees",
+            }
+        )
+        self.env["project.agile.environment"].create(
+            [
+                {"name": "UAT", "project_id": second_project.id},
+                {
+                    "name": "Production",
+                    "project_id": second_project.id,
+                    "is_production": True,
+                    "sequence": 100,
+                },
+            ]
+        )
+        second_pending = task.copy(
+            {
+                "name": "Second client waiting",
+                "project_id": second_project.id,
+            }
+        )
+        second_pending.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.name == "UAT"
+        ).write({"status": "done"})
         action = self.env["ir.actions.act_window"].create(
             {
                 "name": "Client work",
@@ -58,7 +86,7 @@ class TestEnvironmentTour(HttpCase):
                 "search_view_id": self.env.ref(
                     "project_agile.view_task_search_agile"
                 ).id,
-                "domain": repr([("project_id", "=", project.id)]),
+                "domain": repr([("project_id", "in", (project | second_project).ids)]),
             }
         )
         self.start_tour(

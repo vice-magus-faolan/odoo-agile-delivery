@@ -52,10 +52,13 @@ permission is sufficient; configuring environments remains a Project administrat
 operation. There is no required completion order: urgent Production work may be
 marked Done before UAT. These are manual work statuses, not deployment evidence.
 
-In task search, choose **Done in environment** and select UAT, then choose
-**Not done in environment** and select that client's Production. Verified counts
-as done. This finds the gap on the same task without combining different clients'
-environments. Select **Environment history** on the Agile tab to inspect all lines,
+In task search, type UAT and press Enter on **Done in environment**, then type
+Production and press Enter on **Not done in environment**. Names match across clients;
+select an indented environment suggestion instead to narrow to one client's environment.
+Verified counts as done. **Waiting for Production** finds tasks done somewhere but not
+done in any active environment flagged **Production** in that task's Project.
+Projects without an active Production environment are excluded.
+Select **Environment history** on the Agile tab to inspect all lines,
 including archived environments; open a line to see its status changes in chatter.
 Changing to a nontracking type or converting a task to a template hides active
 lines without discarding history. Task copies start with fresh To do statuses.

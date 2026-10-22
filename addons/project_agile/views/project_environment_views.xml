@@ -75,6 +75,12 @@
       <field name="agile_item_type_id" position="after">
         <field name="agile_done_environment_id" />
         <field name="agile_pending_environment_id" />
+        <separator />
+        <filter
+          name="agile_waiting_for_production"
+          string="Waiting for Production"
+          domain="[('agile_waiting_for_production', '=', True)]"
+        />
       </field>
     </field>
   </record>

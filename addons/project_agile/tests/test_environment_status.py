@@ -178,6 +178,137 @@ class TestEnvironmentStatus(TransactionCase):
         with self.assertRaises(AccessError):
             line.with_user(self.member).unlink()
 
+    def test_name_and_id_search_operators_across_clients(self):
+        tasks = self.env["project.task"].with_user(self.member)
+        uat = self.env["project.agile.environment"].create(
+            {"name": "UAT", "project_id": self.projects[1].id}
+        )
+        self.tasks.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.name == "UAT"
+        ).write({"status": "verified"})
+        gap = [
+            ("agile_done_environment_id", "ilike", "ua"),
+            ("agile_pending_environment_id", "ilike", "pROd"),
+        ]
+        self.assertEqual(tasks.search(gap), self.tasks)
+        for operator, pattern in (
+            ("ilike", "ua"),
+            ("like", "UA"),
+            ("=ilike", "uat"),
+            ("=like", "UAT"),
+        ):
+            self.assertEqual(
+                tasks.search([("agile_done_environment_id", operator, pattern)]),
+                self.tasks,
+            )
+            self.assertEqual(
+                tasks.search([("agile_pending_environment_id", operator, pattern)]),
+                tasks.browse(),
+            )
+        for operator in ("not ilike", "not like"):
+            self.assertFalse(
+                tasks.search([("agile_done_environment_id", operator, "UAT")])
+            )
+            self.assertEqual(
+                tasks.search([("agile_pending_environment_id", operator, "UAT")]),
+                self.tasks,
+            )
+        for field in ("agile_done_environment_id", "agile_pending_environment_id"):
+            for operator in ("ilike", "not ilike", "like", "not like"):
+                self.assertFalse(
+                    tasks.search([(field, operator, "No such environment")])
+                )
+        for operator, value in (("=", uat.id), ("in", uat.ids)):
+            self.assertEqual(
+                tasks.search([("agile_done_environment_id", operator, value)]),
+                self.tasks[1],
+            )
+        for operator, value in (("!=", uat.id), ("not in", uat.ids)):
+            self.assertFalse(
+                tasks.search([("agile_done_environment_id", operator, value)])
+            )
+            self.assertEqual(
+                tasks.search([("agile_pending_environment_id", operator, value)]),
+                self.tasks[1],
+            )
+        self.tasks[1].agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.is_production
+        ).write({"status": "done"})
+        self.assertEqual(tasks.search(gap), self.tasks[0])
+        self.projects[0].agile_environment_ids.filtered(
+            lambda environment: environment.name == "UAT"
+        ).write({"active": False})
+        self.assertFalse(tasks.search(gap))
+
+    def test_waiting_for_production_flags_and_missing_lines(self):
+        tasks = self.env["project.task"].with_user(self.member)
+        waiting = [("agile_waiting_for_production", "=", True)]
+        self.assertFalse(tasks.search(waiting))
+        self.tasks.agile_environment_status_ids.filtered(
+            lambda line: not line.environment_id.is_production
+        ).write({"status": "verified"})
+        self.assertEqual(tasks.search(waiting), self.tasks)
+        production = self.projects[0].agile_environment_ids.filtered("is_production")
+        production.write({"name": "Live client", "active": False})
+        self.assertEqual(tasks.search(waiting), self.tasks[1])
+        production.write({"active": True})
+        self.assertEqual(tasks.search(waiting), self.tasks)
+        self.tasks[1].agile_environment_status_ids.filtered(
+            lambda line: line.environment_id.is_production
+        ).write({"status": "done"})
+        self.assertEqual(tasks.search(waiting), self.tasks[0])
+        ordinary = self.tasks[0].copy({"agile_item_type_id": self.story.id})
+        self.assertNotIn(ordinary, tasks.search(waiting))
+        # Completed work does not receive a line when an environment is added.
+        closed = self.tasks[0].copy({"state": "1_done"})
+        closed.agile_environment_status_ids[0].write({"status": "done"})
+        production.write({"is_production": False})
+        extra = self.env["project.agile.environment"].create(
+            {
+                "name": "Release",
+                "project_id": self.projects[0].id,
+                "is_production": True,
+            }
+        )
+        self.assertNotIn(extra, closed.agile_environment_status_ids.environment_id)
+        self.assertIn(closed, tasks.search(waiting))
+        self.assertIn(
+            closed, tasks.search([("agile_pending_environment_id", "ilike", "Release")])
+        )
+        self.tasks[0].agile_environment_status_ids.filtered(
+            lambda line: line.environment_id == extra
+        ).write({"status": "verified"})
+        self.assertNotIn(self.tasks[0], tasks.search(waiting))
+        extra.write({"is_production": False})
+        self.assertNotIn(closed, tasks.search(waiting))
+        self.assertNotIn(self.tasks[0], tasks.search(waiting))
+
+    def test_name_search_honors_environment_rules_without_picker_limit(self):
+        environments = self.env["project.agile.environment"].create(
+            [
+                {"name": "Pilot", "project_id": self.projects[0].id}
+                for _index in range(12)
+            ]
+        )
+        task = self.tasks[0]
+        task.agile_environment_status_ids.filtered(
+            lambda line: line.environment_id == environments[-1]
+        ).write({"status": "done"})
+        tasks = self.env["project.task"].with_user(self.member)
+        done = [("agile_done_environment_id", "ilike", "pilot")]
+        self.assertEqual(tasks.search(done), task)
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide Pilot environments from search",
+                "model_id": self.env["ir.model"]._get_id("project.agile.environment"),
+                "domain_force": repr([("id", "not in", environments.ids)]),
+            }
+        )
+        self.assertFalse(tasks.search(done))
+        self.assertFalse(
+            tasks.search([("agile_pending_environment_id", "ilike", "pilot")])
+        )
+
     def test_task_and_project_template_restore_and_copies(self):
         task = self.tasks[0]
         original_ids = task.agile_environment_status_ids.ids

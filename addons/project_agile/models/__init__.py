@@ -4,6 +4,3 @@ from . import project_task
 from . import project_task_type
 from . import project_environment
 from . import task_environment_status
-from . import project_task_environment
-from . import project_project_environment
-from . import item_type_environment

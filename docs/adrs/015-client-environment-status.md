@@ -25,12 +25,17 @@ relational conditions.
 
 Task create, eligibility changes, template restoration and Project activation
 synchronize missing lines. Adding/reactivating an environment or enabling a shared type
-reaches open active work. Discovery includes hidden tasks, then restores the caller and
-checks Task write authority before creating lines; configuration fails rather than
-silently omitting inaccessible work. Ordinary native transaction rollback is retained,
-without a second savepoint/locking/retry framework. The unique pair constraint rejects
-duplicate insertion; no unconditional collaborative retry promise is made for
-simultaneous configuration edits.
+reaches open active work. Search as superuser to include tasks the caller cannot see,
+then check write access as the caller before creating their lines. If two transactions
+try to create the same Task/environment pair, the unique constraint rejects the
+duplicate and the affected administrator saves again.
+
+Search accepts selected environment IDs or name patterns resolved through the caller's
+ORM access. Negative operators reverse completion for those matching environments. Only
+tracking tasks whose Project has a matching active environment count as not done; a
+missing status line counts as not done. Waiting for Production requires completion
+somewhere applicable and no completion in any active environment flagged Production in
+the same Project. A Project with no active flagged environment is excluded.
 
 Task copies start fresh statuses. Environment lists and status history are not copied
 with a Project; configure its client environments explicitly. This does not change

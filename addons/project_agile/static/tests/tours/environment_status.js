@@ -56,5 +56,46 @@ registry.category("web_tour.tours").add("agile_environment_gap_search", {
       trigger:
         ".o_list_view:not(:has(.o_data_row:contains(Complete in both))):not(:has(.o_data_row:contains(Import client vendors)))",
     },
+    {trigger: ".o_list_view:not(:has(.o_data_row:contains(Second client waiting)))"},
+    {trigger: ".o_searchview_facet .o_facet_remove", run: "click"},
+    {trigger: ".o_searchview_facet .o_facet_remove", run: "click"},
+    {trigger: ".o_searchview:not(:has(.o_searchview_facet))"},
+    {trigger: ".o_searchview_input", run: "edit ua"},
+    {
+      trigger:
+        ".o_searchview_autocomplete .dropdown-item:contains(Done in environment)",
+      run: "hover",
+    },
+    {trigger: ".o_searchview_input", run: "press Enter"},
+    {trigger: ".o_searchview_facet:contains(Done in environment)"},
+    {trigger: ".o_list_view:not(:has(.o_data_row:contains(Import client vendors)))"},
+    {trigger: ".o_list_view .o_data_row:contains(Second client waiting)"},
+    {trigger: ".o_list_view .o_data_row:contains(Awaiting production)"},
+    {trigger: ".o_searchview_input", run: "edit pROd"},
+    {
+      trigger:
+        ".o_searchview_autocomplete .dropdown-item:contains(Not done in environment)",
+      run: "hover",
+    },
+    {trigger: ".o_searchview_input", run: "press Enter"},
+    {trigger: ".o_searchview_facet:contains(Not done in environment)"},
+    {trigger: ".o_list_view .o_data_row:contains(Second client waiting)"},
+    {trigger: ".o_list_view .o_data_row:contains(Awaiting production)"},
+    {
+      trigger:
+        ".o_list_view:not(:has(.o_data_row:contains(Complete in both))):not(:has(.o_data_row:contains(Import client vendors)))",
+    },
+    {trigger: ".o_searchview_facet .o_facet_remove", run: "click"},
+    {trigger: ".o_searchview_facet .o_facet_remove", run: "click"},
+    {trigger: ".o_searchview:not(:has(.o_searchview_facet))"},
+    {trigger: ".o_searchview_dropdown_toggler", run: "click"},
+    {trigger: ".o_menu_item:contains(Waiting for Production)", run: "click"},
+    {trigger: ".o_searchview_facet:contains(Waiting for Production)"},
+    {trigger: ".o_list_view .o_data_row:contains(Second client waiting)"},
+    {trigger: ".o_list_view .o_data_row:contains(Awaiting production)"},
+    {
+      trigger:
+        ".o_list_view:not(:has(.o_data_row:contains(Complete in both))):not(:has(.o_data_row:contains(Import client vendors)))",
+    },
   ],
 });

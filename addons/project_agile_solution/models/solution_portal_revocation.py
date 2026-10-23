@@ -93,13 +93,29 @@ class SolutionPortalGroups(models.Model):
             "implied_ids",
             "implied_by_ids",
         } & values.keys()
-        before = set(self.sudo().all_user_ids.ids) if relevant else set()
+        implication_fields = {"implied_ids", "implied_by_ids"} & values.keys()
+        before_implications = {
+            group.id: {name: set(group[name].ids) for name in implication_fields}
+            for group in self.sudo()
+        }
+        before_users = (
+            {group.id: set(group.all_user_ids.ids) for group in self.sudo()}
+            if relevant
+            else {}
+        )
         result = super().write(values)
-        if {"implied_ids", "implied_by_ids"} & values.keys():
-            # Rare implication edits can affect users through multiple groups.
+        if any(
+            before_implications[group.id][name] != set(group[name].ids)
+            for group in self.sudo()
+            for name in implication_fields
+        ):
+            # Actual implication edits can affect users through multiple groups.
+            # Repeated XML commands on update are not a revocation event.
             revoke_publications(self.env, [])
         elif relevant:
-            affected = before ^ set(self.sudo().all_user_ids.ids)
+            affected = set()
+            for group in self.sudo():
+                affected.update(before_users[group.id] ^ set(group.all_user_ids.ids))
             revoke_publications(self.env, [("recipient_id", "in", sorted(affected))])
         return result
 

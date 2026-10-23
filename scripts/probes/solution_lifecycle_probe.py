@@ -262,9 +262,16 @@ def check_core(data):
         publication = env["project.agile.solution.portal.publication"].browse(
             data["publication"]
         )
+        assert not publication.revoked_at, {
+            "unexpected_revocation": publication.revoked_at,
+            "revoked_by": publication.revoked_by_id.id,
+            "source_state": publication.revision_id.state,
+            "recipient": publication.recipient_id.id,
+            "partner": publication.partner_id.id,
+        }
         assert (
             publication.with_user(data["client"]).action_view() == data["portal_view"]
-        )
+        ), "Module update changed existing exact client decision receipts"
         assert (
             record_values(
                 publication,
@@ -274,6 +281,12 @@ def check_core(data):
                     "snapshot_sha256",
                     "published_by_id",
                     "published_at",
+                    "recipient_id",
+                    "partner_id",
+                    "revoked_at",
+                    "revoked_by_id",
+                    "_decision_head_id",
+                    "_requirement_head_id",
                 ],
             )
             == data["publication_values"]
@@ -394,6 +407,12 @@ def seed_portal(manager, project, baseline, requirement):
                 "snapshot_sha256",
                 "published_by_id",
                 "published_at",
+                "recipient_id",
+                "partner_id",
+                "revoked_at",
+                "revoked_by_id",
+                "_decision_head_id",
+                "_requirement_head_id",
             ],
         ),
         "portal_acceptance": event["id"],

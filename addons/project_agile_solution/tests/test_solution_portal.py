@@ -325,6 +325,70 @@ class TestSolutionPortal(TestSolutionRequirements):
                 self.publication.action_decide_document("approved")
         self.assertTrue(self.publication_b.action_decide_document("approved"))
 
+    def test_group_noop_updates_preserve_live_decisions(self):
+        groups = self.env["res.groups"]
+        child = groups.create({"name": "Client no-op child"})
+        parents = groups.create(
+            [
+                {"name": name, "implied_ids": [Command.set(child.ids)]}
+                for name in ("Client no-op parent A", "Client no-op parent B")
+            ]
+        )
+        self.publication.action_decide_document("approved")
+        self._accept()
+        before = self.publication.action_view()
+        self.env.ref("project_agile_solution.group_snapshot_storage").write(
+            {
+                "user_ids": [Command.clear()],
+                "implied_ids": [Command.clear()],
+                "implied_by_ids": [Command.clear()],
+            }
+        )
+        parents.write({"implied_ids": [Command.set(child.ids)]})
+        child.write({"implied_by_ids": [Command.set(parents.ids)]})
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertEqual(self.publication.action_view(), before)
+        self.assertTrue(self.publication_b.action_view()["can_decide"])
+
+    def test_batched_implication_changes_revoke_despite_unchanged_union(self):
+        groups = self.env["res.groups"]
+        child = groups.create({"name": "Client batch child"})
+        parents = groups.create(
+            [
+                {
+                    "name": "Client batch parent A",
+                    "implied_ids": [Command.set(child.ids)],
+                },
+                {"name": "Client batch parent B"},
+            ]
+        )
+        before = set(parents.implied_ids.ids)
+        self.assertFalse(parents[1].implied_ids)
+        parents.write({"implied_ids": [Command.set(child.ids)]})
+        self.assertEqual(set(parents.implied_ids.ids), before)
+        self.assertEqual(parents[1].implied_ids, child)
+        self.assertTrue(self.publication.sudo().revoked_at)
+        self.assertTrue(self.publication_b.sudo().revoked_at)
+        self._assert_denied(self.publication)
+        self.publication = self._issue()
+        self.assertTrue(self.publication.action_view()["can_decide"])
+        children = groups.create(
+            [
+                {
+                    "name": "Client inverse child A",
+                    "implied_by_ids": [Command.set(parents.ids)],
+                },
+                {"name": "Client inverse child B"},
+            ]
+        )
+        before = set(children.implied_by_ids.ids)
+        self.assertFalse(children[1].implied_by_ids)
+        children.write({"implied_by_ids": [Command.set(parents.ids)]})
+        self.assertEqual(set(children.implied_by_ids.ids), before)
+        self.assertEqual(children[1].implied_by_ids, parents)
+        self.assertTrue(self.publication.sudo().revoked_at)
+        self._assert_denied(self.publication)
+
     def test_supersession_keeps_history_no_carryover_and_archives_deny_read(self):
         first = self.publication.action_decide_document("approved")
         accepted = self._accept()

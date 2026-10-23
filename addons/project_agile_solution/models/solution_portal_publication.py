@@ -269,8 +269,7 @@ class SolutionPortalPublication(models.Model):
         released = caller.sudo()
         claim_records(released, allow_referencing=True)
         baseline = released.revision_id
-        claim_records(baseline.document_id, allow_referencing=True)
-        claim_records(baseline, allow_referencing=True)
+        baseline._claim_portal_sources()
         if (
             baseline.state != "approved"
             or baseline.document_id.portal_approver_id != user
@@ -401,11 +400,24 @@ class SolutionPortalRevision(models.Model):
             "context": {"default_revision_id": self.id},
         }
 
+    def _claim_portal_sources(self):
+        """After caller authorization, order portal work against owner changes.
+
+        Native owner writes conflict with these claims even after committing
+        against an older REPEATABLE READ snapshot. Native transaction retry then
+        rechecks availability; temporary archives do not revoke released grants.
+        """
+        self.ensure_one()
+        source = self.sudo()
+        claim_records(source.solution_id, allow_referencing=True)
+        claim_records(source.project_id, allow_referencing=True)
+        claim_records(source.document_id, allow_referencing=True)
+        claim_records(source, allow_referencing=True)
+
     def action_issue_portal(self, recipient_id):
         self.ensure_one()
         self._check_authority(approval=True)
-        claim_records(self.document_id, allow_referencing=True)
-        claim_records(self, allow_referencing=True)
+        self._claim_portal_sources()
         self.action_portal_preview()
         payload, members = released_payload(self)
         if type(recipient_id) is not int or recipient_id <= 0:

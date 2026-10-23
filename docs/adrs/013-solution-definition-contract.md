@@ -307,9 +307,13 @@ correction is available while internally approved; supersession preserves author
 history but rejects new decisions and carries nothing forward. A newer draft alone does
 not invalidate the approved baseline.
 
-Decision actions claim the publication, document, baseline and exact requirement. Append
-publishes real event heads on publication/requirement to conflict with revocation and
-competing submissions. The expected head from the current page rejects duplicate or
+Publication issuance and client decisions claim the current Solution and Project source
+owners before accepting active-lineage authority. A winning Solution archive, Project
+archive or Agile disable forces stale transactions through native retry and fresh
+reauthorization. Reversible archive/unarchive does not permanently revoke publications.
+Decision actions also claim the publication, document, baseline and exact requirement.
+Append publishes real event heads on publication/requirement to conflict with revocation
+and competing submissions. The expected head from the current page rejects duplicate or
 stale submission after native whole-transaction retry. Revoke-only hooks follow native
 authorized follower, user/contact, group membership or implication and company-user
 inverse mutations. They retire affected live publications in the same transaction. Rare

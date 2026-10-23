@@ -443,6 +443,23 @@ class SolutionPortalRevision(models.Model):
                 _("Invite an active exact client contact to this Project.")
             )
         project.with_user(recipient).check_access("read")
+        # Only this exact native invitation may coordinate the authorized issue.
+        invitation = (
+            self.env["mail.followers"]
+            .sudo()
+            .search(
+                [
+                    ("res_model", "=", "project.project"),
+                    ("res_id", "=", project.id),
+                    ("partner_id", "=", recipient.partner_id.id),
+                ]
+            )
+        )
+        if not invitation:
+            raise AccessError(
+                _("Invite an active exact client contact to this Project.")
+            )
+        claim_records(invitation, allow_referencing=True)
         raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
         model = self.env["project.agile.solution.portal.publication"].sudo()
         # Exact server fields; discard caller defaults rather than merge context.
@@ -471,4 +488,22 @@ class SolutionPortalRevision(models.Model):
                 "_decision_head_id": False,
             }
         )
+        # A real issued reference changes the invitation row, so an old-snapshot
+        # native remover must retry even when no grant existed in its snapshot.
+        invitation.write({"_portal_publication_head_id": publication.id})
         return publication.id
+
+
+class SolutionPortalInvitation(models.Model):
+    _inherit = "mail.followers"
+
+    _portal_publication_head_id = fields.Many2one(
+        "project.agile.solution.portal.publication",
+        groups=STORAGE,
+        copy=False,
+        ondelete="set null",
+        help=(
+            "Written with each publication to conflict with native invitation "
+            "removal and reassignment."
+        ),
+    )

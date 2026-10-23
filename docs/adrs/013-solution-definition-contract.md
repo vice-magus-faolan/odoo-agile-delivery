@@ -311,6 +311,16 @@ Publication issuance and client decisions claim the current Solution and Project
 owners before accepting active-lineage authority. A winning Solution archive, Project
 archive or Agile disable forces stale transactions through native retry and fresh
 reauthorization. Reversible archive/unarchive does not permanently revoke publications.
+Issuance also claims the exact native Project/contact follower and writes its latest
+issued-publication reference through the ORM. Native invitation deletion or reassignment
+then conflicts on that same row even when neither transaction initially sees a grant:
+removal first forces issuance to retry and reject, while issuance first forces an
+old-snapshot remover to retry and retire the new grant. A claim alone would not protect
+the latter ordering after the issuer commits. The private reference is non-authorizing,
+does not change follower identity or notification subtypes, is not copied, and uses
+`ondelete="set null"` so addon teardown does not retain native followers. Reinvitation
+creates a different follower and cannot revive the retired grant; deliberate fresh
+issuance is required. Nullable references need no historical head reconstruction.
 Decision actions also claim the publication, document, baseline and exact requirement.
 Append publishes real event heads on publication/requirement to conflict with revocation
 and competing submissions. The expected head from the current page rejects duplicate or
@@ -319,9 +329,13 @@ authorized follower, user/contact, group membership or implication and company-u
 inverse mutations. They retire affected live publications in the same transaction. Rare
 group-implication edits conservatively retire live publications; this is not a general
 security-change engine or a claim of serialization against arbitrary administrator/SQL
-reconfiguration. Signer changes retire the old signer publications. Regrant requires a
-new publication; audit actors are never reassigned. Downloaded copies cannot be
-recalled.
+reconfiguration. The invitation boundary does not serialize first issuance against every
+recipient/contact or group/company inverse edit. Current availability still rejects an
+inactive or mismatched identity or missing membership, and their ordinary restoration
+writes run the revoke hooks again, unlike native follower creation. Concurrent compound
+administrator changes beyond these native paths remain outside that guarantee. Signer
+changes retire the old signer publications. Regrant requires a new publication; audit
+actors are never reassigned. Downloaded copies cannot be recalled.
 
 This retained per-recipient copy costs storage but keeps disclosure/revocation policy
 locally understandable without broadening every internal model ACL.

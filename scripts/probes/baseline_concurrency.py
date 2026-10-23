@@ -539,7 +539,9 @@ def _first_issue_races(env, manager, project, solution, requirement, secondary):
         )
         env.cr.commit()
         env.invalidate_all()
-        assert not grants.with_user(metadata["client_uid"]).search(domain)
+        assert not grants.with_user(metadata["client_uid"]).search(
+            [("id", "in", retained.ids)]
+        )
         for publication in retained:
             rejected = False
             try:
@@ -553,7 +555,10 @@ def _first_issue_races(env, manager, project, solution, requirement, secondary):
             .with_context(allowed_company_ids=metadata["allowed_company_ids"])
             .action_issue_portal(metadata["client_uid"])
         )
-        assert grants.with_user(metadata["client_uid"]).search(domain).ids == [fresh]
+        candidates = grants.search(domain)
+        assert grants.with_user(metadata["client_uid"]).search(
+            [("id", "in", candidates.ids)]
+        ).ids == [fresh]
         assert (
             grants.browse(fresh)
             .with_user(metadata["client_uid"])

@@ -14,7 +14,7 @@ from pathlib import Path
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
-from odoo.exceptions import ConcurrencyError, ValidationError
+from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -37,7 +37,12 @@ def worker(env):
         .with_user(data["uid"])
         .browse(data["revision_id"])
     )
-    revision.read(["state", "number"])  # Both contenders establish old snapshots.
+    if data.get("publication_id"):
+        env["project.agile.solution.portal.publication"].with_user(
+            data["client_uid"]
+        ).browse(data["publication_id"]).read(["name"])
+    else:
+        revision.read(["state", "number"])  # Both contenders establish old snapshots.
     env.cr.execute("SELECT pg_backend_pid()")
     backend = env.cr.fetchone()[0]
     (directory / (name + ".ready")).touch()
@@ -46,7 +51,9 @@ def worker(env):
     while retries < 3:
         (directory / (name + ".attempt")).touch()
         try:
-            if data["action"] == "successor":
+            if data.get("publication_id"):
+                _portal_apply(env, data)
+            elif data["action"] == "successor":
                 revision.action_new_revision()
             elif data["action"] == "edit_section":
                 revision.section_ids.write(
@@ -72,7 +79,7 @@ def worker(env):
             )
             retries += 1
             time.sleep(0.1)
-        except ValidationError:
+        except (AccessError, ValidationError):
             env.cr.rollback()
             outcome = "stale_rejected"
             break
@@ -89,7 +96,7 @@ def worker(env):
     )
 
 
-def _launch(env, directory, name, revision, uid, action):
+def _launch(env, directory, name, revision, uid, action, portal=None):
     data = {
         "directory": str(directory),
         "worker": name,
@@ -97,6 +104,7 @@ def _launch(env, directory, name, revision, uid, action):
         "uid": uid,
         "action": action,
     }
+    data.update(portal or {})
     command = [
         "odoo",
         "shell",
@@ -124,7 +132,7 @@ def _launch(env, directory, name, revision, uid, action):
     return process
 
 
-def _race(env, revision, uid, action):
+def _race(env, revision, uid, action, *, portal=None, ordering="overlap"):
     with tempfile.TemporaryDirectory(
         prefix="solution-baseline-race-", dir="/var/lib/odoo"
     ) as temporary:
@@ -136,11 +144,16 @@ def _race(env, revision, uid, action):
                     if isinstance(action, tuple)
                     else action
                 )
-                processes.append(_launch(env, directory, name, revision, uid, selected))
+                processes.append(
+                    _launch(env, directory, name, revision, uid, selected, portal)
+                )
             for name in ("winner", "loser"):
                 _wait(directory / (name + ".ready"))
             (directory / "winner.go").touch()
             _wait(directory / "winner.mutated")
+            if ordering == "committed":
+                (directory / "winner.commit").touch()
+                _wait(directory / "winner.json")
             (directory / "loser.go").touch()
             _wait(directory / "loser.attempt")
             (directory / "winner.commit").touch()
@@ -155,7 +168,9 @@ def _race(env, revision, uid, action):
             assert results[0]["backend"] != results[1]["backend"]
             assert results[0]["outcome"] == "applied"
             assert results[1]["outcome"] == (
-                "applied" if isinstance(action, tuple) else "stale_rejected"
+                "applied"
+                if isinstance(action, tuple) and not portal
+                else "stale_rejected"
             )
             assert results[1]["retries"] >= 1
             return {"action": action, "workers": results}
@@ -249,11 +264,13 @@ def run_probe(env):
         in working.action_read_snapshot()["snapshot_json"]
     )
     assert revisions[0].action_read_snapshot()["snapshot_json"] == frozen
+    portal = run_portal_probe(env)
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_BASELINE_CONCURRENCY_OK "
         + json.dumps(
             {
+                "portal": portal,
                 "allocation": allocation,
                 "approval": approval,
                 "narrative_submission": narrative,
@@ -264,3 +281,153 @@ def run_probe(env):
         ),
         flush=True,
     )
+
+
+def _portal_apply(env, data):
+    publication = env["project.agile.solution.portal.publication"].browse(
+        data["publication_id"]
+    )
+    client = env["res.users"].browse(data["client_uid"])
+    action = data["action"]
+    if action == "portal_document":
+        publication.with_user(client).action_decide_document("approved")
+    elif action == "portal_requirement":
+        publication.with_user(client).action_decide_requirement(
+            data["key"],
+            data["number"],
+            "accepted",
+            "Identity matrix",
+            "Actual fixture observation",
+        )
+    elif action == "portal_revoke":
+        publication.with_user(data["manager_uid"]).action_revoke()
+    elif action == "portal_follower":
+        publication.project_id.message_unsubscribe(partner_ids=client.partner_id.ids)
+    elif action == "portal_group":
+        env.ref("base.group_portal").write({"user_ids": [Command.unlink(client.id)]})
+    elif action == "portal_implication":
+        env["res.groups"].browse(data["group_id"]).write(
+            {"implied_ids": [Command.clear()]}
+        )
+    elif action == "portal_company":
+        env["res.company"].browse(data["company_id"]).write(
+            {"user_ids": [Command.unlink(client.id)]}
+        )
+    elif action == "portal_supersede":
+        env["project.agile.solution.revision"].with_user(data["manager_uid"]).browse(
+            data["successor_id"]
+        ).action_approve()
+    else:
+        raise AssertionError("Unknown portal fixture action")
+    env.flush_all()
+
+
+def run_portal_probe(env):
+    from task_concurrency import seed
+
+    manager, project, solution, requirement = seed(env, "M8PORTALRACE")
+    requirement.write({"audience": "customer"})
+    project.write({"privacy_visibility": "portal"})
+    secondary = env["res.company"].create({"name": "SYNTHETIC portal race secondary"})
+    results = []
+    actions = (
+        "portal_document",
+        "portal_requirement",
+        "portal_revoke",
+        "portal_follower",
+        "portal_group",
+        "portal_implication",
+        "portal_company",
+        "portal_supersede",
+    )
+    for action in actions:
+        for ordering in ("overlap", "committed"):
+            suffix = action + ordering
+            client = mail_new_test_user(
+                env,
+                "solution_race_" + suffix,
+                groups="base.group_portal",
+                company_id=secondary.id,
+                company_ids=[Command.set((project.company_id | secondary).ids)],
+            )
+            project.message_subscribe(partner_ids=client.partner_id.ids)
+            document = (
+                env["project.agile.solution.document"]
+                .with_user(manager)
+                .create(
+                    {
+                        "name": "SYNTHETIC " + suffix,
+                        "solution_id": solution.id,
+                        "portal_approver_id": client.id,
+                        "approver_id": manager.id,
+                    }
+                )
+            )
+            revision = (
+                env["project.agile.solution.revision"]
+                .with_user(manager)
+                .create(
+                    {
+                        "document_id": document.id,
+                        "title": "SYNTHETIC portal race",
+                        "requirement_revision_ids": [Command.set(requirement.ids)],
+                    }
+                )
+            )
+            revision.action_submit()
+            revision.action_approve()
+            metadata = {
+                "client_uid": client.id,
+                "key": requirement.requirement_id.key,
+                "number": requirement.number,
+                "manager_uid": manager.id,
+                "company_id": project.company_id.id,
+            }
+            if action == "portal_implication":
+                group = env["res.groups"].create(
+                    {
+                        "name": "SYNTHETIC portal implication " + ordering,
+                        "implied_ids": [Command.link(env.ref("base.group_portal").id)],
+                    }
+                )
+                client.write({"group_ids": [Command.link(group.id)]})
+                metadata["group_id"] = group.id
+            publication_id = revision.action_issue_portal(client.id)
+            metadata["publication_id"] = publication_id
+            if action == "portal_supersede":
+                successor = revision.browse(revision.action_new_revision()["res_id"])
+                successor.action_submit()
+                metadata["successor_id"] = successor.id
+            loser_action = (
+                "portal_requirement"
+                if action == "portal_requirement"
+                else "portal_document"
+            )
+            # Both contenders must be valid before imposing either ordering.
+            for selected in (loser_action, action):
+                with env.cr.savepoint() as savepoint:
+                    _portal_apply(env, {**metadata, "action": selected})
+                    savepoint.rollback()
+            env.cr.commit()
+            result = _race(
+                env,
+                revision,
+                env.uid,
+                (action, loser_action),
+                portal=metadata,
+                ordering=ordering,
+            )
+            env.cr.rollback()
+            env.invalidate_all()
+            expected = 1 if action in ("portal_document", "portal_requirement") else 0
+            model = (
+                "project.agile.requirement.acceptance"
+                if action == "portal_requirement"
+                else "project.agile.solution.portal.document.decision"
+            )
+            assert (
+                env[model].search_count([("publication_id", "=", publication_id)])
+                == expected
+            )
+            results.append({"action": action, "ordering": ordering, "workers": result})
+    return results

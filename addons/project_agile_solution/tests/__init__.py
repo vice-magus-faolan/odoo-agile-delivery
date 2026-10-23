@@ -6,3 +6,5 @@ from . import test_solution_rendering
 from . import test_solution_render_tour
 from . import test_solution_hardening
 from . import test_solution_roles
+from . import test_solution_portal
+from . import test_solution_portal_http

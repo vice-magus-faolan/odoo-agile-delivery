@@ -10,7 +10,7 @@ export COMPOSE_PROJECT_NAME
 VERIFY_IMAGE_TAG=$(printf '%s' "$ROOT" | sha256sum | cut -d ' ' -f 1)
 export VERIFY_IMAGE_TAG
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.yaml -f compose.verify.yaml)
-PRIOR_SOURCE_COMMITS=(898f0e105aed33aaeb6815fdc56edb10892f6165 2c974e580a436dacd9b526002f639e79fda544b1 0991cff1e5a53fd19c9fb24fb40941e7400beb3c)
+PRIOR_SOURCE_COMMITS=(898f0e105aed33aaeb6815fdc56edb10892f6165 2c974e580a436dacd9b526002f639e79fda544b1 0991cff1e5a53fd19c9fb24fb40941e7400beb3c 0e9ac4cd97359aa2df1fc1edaed49211fecda43c)
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
@@ -127,10 +127,16 @@ for PRIOR_SOURCE_COMMIT in "${PRIOR_SOURCE_COMMITS[@]}"; do
             odoo --config=/etc/odoo/odoo.conf --stop-after-init --without-demo=True \
             --database "$DATABASE_UPGRADE" --init "$MODULES"
         { printf "PHASE = \"seed\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+        if [[ $PRIOR_SOURCE_COMMIT == 0e9ac4cd97359aa2df1fc1edaed49211fecda43c ]]; then
+            { printf 'PHASE = "seed_legacy_proxy"\n'; cat "$ROOT/scripts/probes/solution_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T -v "$PRIOR_SOURCE_ROOT/addons:/mnt/extra-addons:ro" odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+        fi
     )
     printf "%s\n" "Prior-source population complete; updating the same database with candidate source."
     run_odoo --database "$DATABASE_UPGRADE" --update "$MODULES"
     { printf "PHASE = \"check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+    if [[ $PRIOR_SOURCE_COMMIT == 0e9ac4cd97359aa2df1fc1edaed49211fecda43c ]]; then
+        { printf 'PHASE = "check_legacy_proxy"\n'; cat "$ROOT/scripts/probes/solution_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+    fi
     printf "%s\n" "Upgrade smoke test passed for $MODULES from $PRIOR_SOURCE_COMMIT."
 done
 reset_verification_database "$DATABASE_INSTALL"

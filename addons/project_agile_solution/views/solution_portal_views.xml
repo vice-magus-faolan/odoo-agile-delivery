@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="view_solution_document_client" model="ir.ui.view">
+    <field name="name">solution.document.client.signer</field>
+    <field name="model">project.agile.solution.document</field>
+    <field name="inherit_id" ref="view_solution_document_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='approver_id']" position="after">
+        <field
+          name="portal_approver_id"
+          string="Client Signer"
+          domain="[('share', '=', True), ('active', '=', True)]"
+          groups="project.group_project_manager"
+        />
+      </xpath>
+      <xpath expr="//field[@name='revision_ids']" position="after">
+        <field name="portal_publication_ids" readonly="1" />
+      </xpath>
+    </field>
+  </record>
+  <record id="view_solution_revision_publish" model="ir.ui.view">
+    <field name="name">solution.revision.publish.client</field>
+    <field name="model">project.agile.solution.revision</field>
+    <field name="inherit_id" ref="view_solution_revision_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button
+          name="action_request_publication"
+          type="object"
+          string="Preview / Share with Client"
+          invisible="state != 'approved'"
+          groups="project.group_project_manager"
+        />
+      </xpath>
+    </field>
+  </record>
+  <record id="view_solution_portal_issue" model="ir.ui.view">
+    <field name="name">solution.portal.issue.form</field>
+    <field name="model">project.agile.solution.portal.issue.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Preview Exact Customer Disclosure">
+        <p
+        >Review all disclosed labels and customer content before sharing. The recipient must be an exact invited Project contact. Only the separately designated Client Signer may decide.</p>
+        <group>
+          <field name="revision_id" readonly="1" />
+          <field
+            name="recipient_id"
+            domain="[('share', '=', True), ('active', '=', True)]"
+            options="{'no_create': True}"
+          />
+          <field name="preview_text" readonly="1" />
+        </group>
+        <footer>
+          <button
+            name="action_issue"
+            type="object"
+            string="Issue Customer Publication"
+            class="btn-primary"
+          />
+          <button special="cancel" string="Cancel" />
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="view_solution_publication_list" model="ir.ui.view">
+    <field name="name">solution.publication.list</field>
+    <field name="model">project.agile.solution.portal.publication</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0" delete="0">
+        <field name="name" />
+        <field name="recipient_id" />
+        <field name="published_at" />
+        <field name="revoked_at" />
+      </list>
+    </field>
+  </record>
+  <record id="view_solution_publication_form" model="ir.ui.view">
+    <field name="name">solution.publication.form</field>
+    <field name="model">project.agile.solution.portal.publication</field>
+    <field name="arch" type="xml">
+      <form create="0" edit="0" delete="0" duplicate="0">
+        <header>
+          <button
+            name="action_revoke"
+            type="object"
+            string="Revoke Publication"
+            groups="project.group_project_manager"
+            invisible="revoked_at"
+          />
+        </header>
+        <sheet>
+          <group>
+            <field name="name" />
+            <field name="revision_id" />
+            <field name="recipient_id" />
+            <field name="published_by_id" />
+            <field name="published_at" />
+            <field name="revoked_at" />
+            <field name="revoked_by_id" />
+            <field name="snapshot_sha256" />
+            <field name="payload_sha256" />
+          </group>
+          <p
+          >Internal approval and client decisions are separate. Revocation prevents future access; downloaded copies cannot be recalled.</p>
+          <field name="payload_json" />
+          <field name="document_decision_ids" readonly="1">
+            <list>
+              <field name="decision" />
+              <field name="actor_label" />
+              <field name="recorded_at" />
+              <field name="comment" />
+            </list>
+          </field>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="view_acceptance_source_list" model="ir.ui.view">
+    <field name="name">requirement.acceptance.source.list</field>
+    <field name="model">project.agile.requirement.acceptance</field>
+    <field name="inherit_id" ref="view_requirement_acceptance_list" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='decision']" position="after">
+        <field name="decision_source" />
+        <field name="publication_id" />
+      </xpath>
+    </field>
+  </record>
+  <record id="view_acceptance_source_form" model="ir.ui.view">
+    <field name="name">requirement.acceptance.source.form</field>
+    <field name="model">project.agile.requirement.acceptance</field>
+    <field name="inherit_id" ref="view_requirement_acceptance_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='decision']" position="after">
+        <field name="decision_source" invisible="not id" />
+        <field name="publication_id" invisible="not id" />
+        <field name="publication_sha256" invisible="not id" />
+        <field name="portal_partner_id" invisible="not id" />
+      </xpath>
+    </field>
+  </record>
+  <record id="view_acceptance_source_search" model="ir.ui.view">
+    <field name="name">requirement.acceptance.source.search</field>
+    <field name="model">project.agile.requirement.acceptance</field>
+    <field name="inherit_id" ref="view_requirement_acceptance_search" />
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <field name="decision_source" />
+        <field name="publication_id" />
+      </xpath>
+    </field>
+  </record>
+</odoo>

@@ -18,3 +18,7 @@ from . import project_task_trace
 from . import solution_projection
 from . import solution_acceptance
 from . import solution_coverage
+from . import solution_portal_publication
+from . import solution_portal_decision
+from . import solution_portal_revocation
+from . import solution_portal_wizard

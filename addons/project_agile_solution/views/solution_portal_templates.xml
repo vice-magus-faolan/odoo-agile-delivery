@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <template id="portal_solution_home" inherit_id="portal.portal_my_home">
+    <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+      <a href="/my/solution-documents" class="list-group-item">Solution documents</a>
+    </xpath>
+  </template>
+  <template id="portal_solution_list" name="Issued Solution Documents">
+    <t t-call="portal.portal_layout">
+      <h2>Solution documents</h2>
+      <p>Only explicitly shared customer-facing revisions appear here.</p>
+      <ul class="o_solution_publications">
+        <li t-foreach="publications" t-as="publication">
+          <a
+            t-att-href="'/my/solution-documents/%s' % publication.id"
+            t-out="publication.name"
+          />
+        </li>
+      </ul>
+      <t t-call="portal.pager" />
+    </t>
+  </template>
+  <template id="portal_solution_document" name="Exact Customer Publication">
+    <t t-call="portal.portal_layout">
+      <article class="o_solution_publication">
+        <h1 t-out="view['payload']['title']" />
+        <p><span t-out="view['payload']['document_name']" /> — Revision <span
+          t-out="view['payload']['number']"
+        /></p>
+        <p
+        >Internal approval: Approved. Client decisions apply only to this explicitly shared customer-facing revision, not hidden internal content.</p>
+        <p
+          t-if="not view['current']"
+        >Historical revision — read only. No decision carries forward to another revision.</p>
+        <a
+          t-if="not download"
+          t-att-href="'/my/solution-documents/%s/download' % publication.id"
+        >Download HTML</a>
+        <section t-foreach="view['payload']['sections']" t-as="section">
+          <h2 t-out="section['title']" />
+          <pre t-out="section['text']" />
+        </section>
+        <section t-foreach="view['payload']['contexts']" t-as="context">
+          <h2 t-out="context['title']" />
+          <pre t-out="context['text']" />
+          <p t-out="context['evaluation_expectations']" />
+          <p
+            t-foreach="context['requirements']"
+            t-as="member"
+            t-out="member['title']"
+          />
+        </section>
+        <h2>Client document decision</h2>
+        <div class="o_solution_document_receipt">
+          <t t-if="view['document']['id']">
+            <span t-out="view['document']['decision']" /> — <span
+            t-out="view['document']['actor']"
+          />
+            <time t-out="view['document']['time']" /><pre
+            t-out="view['document']['comment']"
+          />
+          </t>
+          <p t-else="">No client decision recorded.</p>
+        </div>
+        <form
+          t-if="view['can_decide'] and not download"
+          t-att-action="'/my/solution-documents/%s/decision' % publication.id"
+          method="post"
+          class="o_solution_document_decision"
+        >
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+          <input type="hidden" name="kind" value="document" />
+          <input
+            type="hidden"
+            name="expected_event_id"
+            t-att-value="view['document']['id'] or ''"
+          />
+          <label>Comment <textarea
+            name="comment"
+            maxlength="10000"
+            class="form-control"
+          /></label>
+          <button
+            name="decision"
+            value="approved"
+            class="btn btn-primary"
+          >Approve document</button>
+          <button
+            name="decision"
+            value="rejected"
+            class="btn btn-secondary"
+          >Reject document</button>
+        </form>
+        <section
+          t-foreach="view['payload']['requirements']"
+          t-as="requirement"
+          class="o_solution_requirement"
+        >
+          <t t-set="receipt" t-value="view['requirements'][requirement['key']]" />
+          <h2><span t-out="requirement['key']" /> @ <span
+            t-out="requirement['number']"
+          />: <span t-out="requirement['title']" /></h2>
+          <pre t-out="requirement['description']" />
+          <p><span t-out="requirement['requirement_type']" /> / <span
+            t-out="requirement['priority']"
+          /></p>
+          <p t-out="requirement['verification_method']" />
+          <pre t-out="requirement['acceptance_expectations']" />
+          <div class="o_solution_requirement_receipt" t-if="receipt['id']">
+            <span t-out="receipt['decision']" /> — <span t-out="receipt['actor']" />
+            <time t-out="receipt['time']" /><pre t-out="receipt['criteria']" /><pre
+            t-out="receipt['evidence']"
+          />
+          </div>
+          <form
+            t-if="view['can_decide'] and not download and view['payload']['kind'] == 'spec'"
+            t-att-action="'/my/solution-documents/%s/decision' % publication.id"
+            method="post"
+            class="o_solution_requirement_decision"
+          >
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+            <input type="hidden" name="kind" value="requirement" />
+            <input type="hidden" name="key" t-att-value="requirement['key']" />
+            <input type="hidden" name="number" t-att-value="requirement['number']" />
+            <input
+              type="hidden"
+              name="expected_event_id"
+              t-att-value="receipt['id'] or ''"
+            />
+            <label>Evaluated criteria <textarea
+              name="criteria_evaluated"
+              required="required"
+              maxlength="10000"
+              class="form-control"
+            /></label>
+            <label>Evidence <textarea
+              name="evidence"
+              required="required"
+              maxlength="10000"
+              class="form-control"
+            /></label>
+            <button
+              name="decision"
+              value="accepted"
+              class="btn btn-primary"
+            >Accept requirement</button>
+            <button
+              name="decision"
+              value="rejected"
+              class="btn btn-secondary"
+            >Reject requirement</button>
+          </form>
+        </section>
+      </article>
+    </t>
+  </template>
+</odoo>

@@ -210,6 +210,106 @@ class TestGitEnvironmentEvidence(TransactionCase):
         pr.ordering_state = "stale"
         self._assert_projection(self.uat.browse(), 0, False)
 
+    def test_repository_reparent_keeps_project_evidence_consistent_in_batches(self):
+        repository = self._repository("reparented")
+        self._pr("101", repository=repository)
+        association = self.task.git_association_ids
+        association_fields = [
+            "repository_id",
+            "task_id",
+            "source_type",
+            "source_provider_id",
+        ]
+        history = association.read(association_fields)
+        other_project = self.env["project.project"].create(
+            {
+                "name": "Reparent destination",
+                "company_id": self.project.company_id.id,
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "RPD",
+            }
+        )
+        # An unmapped repository may move; its old association remains historical.
+        repository.with_user(self.manager).write({"project_id": other_project.id})
+        environment = (
+            self.env["project.agile.environment"]
+            .with_user(self.manager)
+            .create({"name": "Destination UAT", "project_id": other_project.id})
+        )
+        self.env["project.git.environment.branch"].with_user(self.manager).create(
+            {
+                "environment_id": environment.id,
+                "repository_id": repository.id,
+                "branch_name": "release/UAT",
+            }
+        )
+        other_task = self.env["project.task"].create(
+            {"name": "Destination work", "project_id": other_project.id}
+        )
+        pr = self._pr("102", repository=repository, link=False)
+        self.env["project.git.task.association"].create(
+            {
+                "repository_id": repository.id,
+                "task_id": other_task.id,
+                "source_type": "pull_request",
+                "source_provider_id": "102",
+            }
+        )
+        old_task = self.task.with_user(self.reader)
+        new_task = other_task.with_user(self.reader)
+        fields = [
+            "git_merge_environment_ids",
+            "git_environment_merge_count",
+            "git_environment_evidence",
+        ]
+        singletons = {
+            row["id"]: row for row in old_task.read(fields) + new_task.read(fields)
+        }
+        # Mix Projects in both orders after singleton cache warmup, then re-read A.
+        for records in (
+            old_task,
+            old_task | new_task,
+            new_task,
+            new_task | old_task,
+            old_task,
+        ):
+            with self.subTest(task_ids=records.ids):
+                for row in records.read(fields):
+                    expected = row["id"] == new_task.id
+                    self.assertEqual(row, singletons[row["id"]])
+                    self.assertEqual(
+                        row["git_merge_environment_ids"],
+                        environment.ids if expected else [],
+                    )
+                    self.assertEqual(row["git_environment_merge_count"], int(expected))
+                    if expected:
+                        self.assertIn(
+                            "Destination UAT", row["git_environment_evidence"]
+                        )
+                        self.assertIn("PR 102", row["git_environment_evidence"])
+                    else:
+                        self.assertIn("Unknown", row["git_environment_evidence"])
+                        self.assertNotIn(
+                            "Destination UAT", row["git_environment_evidence"]
+                        )
+                        self.assertNotIn("PR 101", row["git_environment_evidence"])
+        for task, expected_prs in ((old_task, pr.browse()), (new_task, pr)):
+            action = task.action_open_git_environment_merges()
+            self.assertEqual(
+                self.env["project.git.pull.request"]
+                .with_user(self.reader)
+                .search(action["domain"]),
+                expected_prs,
+            )
+        domain = [
+            ("id", "in", (old_task | new_task).ids),
+            ("git_merge_environment_ids", "in", environment.ids),
+        ]
+        self.assertEqual(old_task.search(domain), new_task)
+        self.assertFalse(old_task.search(domain + [("id", "=", old_task.id)]))
+        self.assertEqual(association.read(association_fields), history)
+
     def test_mapping_authority_integrity_unique_and_copy(self):
         with self.assertRaises(AccessError):
             self.uat_mapping.with_user(self.reader).write({"branch_name": "other"})

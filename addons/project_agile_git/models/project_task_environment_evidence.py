@@ -151,6 +151,13 @@ class ProjectTask(models.Model):
             if pr is None:
                 continue
             for mapping in by_repository[association.repository_id.id]:
+                # Repository moves retain old associations, not current ownership.
+                if not (
+                    association.task_id.project_id
+                    == mapping.project_id
+                    == mapping.repository_id.project_id
+                ):
+                    continue
                 item = (mapping, pr)
                 result[association.task_id.id]["observations"].append(item)
                 if self._git_is_observed_merge(mapping, pr):

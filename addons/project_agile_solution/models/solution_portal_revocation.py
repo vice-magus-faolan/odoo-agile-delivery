@@ -93,29 +93,26 @@ class SolutionPortalGroups(models.Model):
             "implied_ids",
             "implied_by_ids",
         } & values.keys()
-        implication_fields = {"implied_ids", "implied_by_ids"} & values.keys()
-        before_implications = {
-            group.id: {name: set(group[name].ids) for name in implication_fields}
-            for group in self.sudo()
-        }
         before_users = (
-            {group.id: set(group.all_user_ids.ids) for group in self.sudo()}
+            {user.id: set(user.all_group_ids.ids) for user in self.sudo().all_user_ids}
             if relevant
             else {}
         )
         result = super().write(values)
-        if any(
-            before_implications[group.id][name] != set(group[name].ids)
-            for group in self.sudo()
-            for name in implication_fields
-        ):
-            # Actual implication edits can affect users through multiple groups.
-            # Repeated XML commands on update are not a revocation event.
-            revoke_publications(self.env, [])
-        elif relevant:
-            affected = set()
-            for group in self.sudo():
-                affected.update(before_users[group.id] ^ set(group.all_user_ids.ids))
+        if relevant:
+            # Native membership includes transitive and inverse implications.
+            # Compare each user's effective groups, not the edited graph's union:
+            # routine Project features can change only internal users' groups.
+            after_users = {
+                user.id: set(user.all_group_ids.ids)
+                for user in self.sudo().all_user_ids
+            }
+            affected = before_users.keys() ^ after_users.keys()
+            affected.update(
+                user_id
+                for user_id in before_users.keys() & after_users.keys()
+                if before_users[user_id] != after_users[user_id]
+            )
             revoke_publications(self.env, [("recipient_id", "in", sorted(affected))])
         return result
 

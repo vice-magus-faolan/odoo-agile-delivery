@@ -334,6 +334,8 @@ class TestSolutionPortal(TestSolutionRequirements):
                 for name in ("Client no-op parent A", "Client no-op parent B")
             ]
         )
+        parents.write({"user_ids": [Command.link(self.client.id)]})
+        self.publication = self._issue()
         self.publication.action_decide_document("approved")
         self._accept()
         before = self.publication.action_view()
@@ -346,6 +348,17 @@ class TestSolutionPortal(TestSolutionRequirements):
         )
         parents.write({"implied_ids": [Command.set(child.ids)]})
         child.write({"implied_by_ids": [Command.set(parents.ids)]})
+        effective = set(self.client.all_group_ids.ids)
+        parents[0].write({"implied_ids": [Command.clear()]})
+        self.assertEqual(set(self.client.all_group_ids.ids), effective)
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertEqual(self.publication.action_view(), before)
+        parents[0].write({"user_ids": [Command.unlink(self.client.id)]})
+        self.assertTrue(self.publication.sudo().revoked_at)
+        self._assert_denied(self.publication)
+        self.publication = self._issue()
+        before = self.publication.action_view()
+        parents[1].write({"all_user_ids": [Command.set(self.client.ids)]})
         self.assertFalse(self.publication.sudo().revoked_at)
         self.assertEqual(self.publication.action_view(), before)
         self.assertTrue(self.publication_b.action_view()["can_decide"])
@@ -362,13 +375,27 @@ class TestSolutionPortal(TestSolutionRequirements):
                 {"name": "Client batch parent B"},
             ]
         )
+        ancestor = groups.create(
+            {
+                "name": "Client batch ancestor",
+                "implied_ids": [Command.link(parents[1].id)],
+            }
+        )
+        self.client.write({"group_ids": [Command.link(ancestor.id)]})
+        self.publication = self._issue()
+        other_view = self.publication_b.action_view()
         before = set(parents.implied_ids.ids)
+        users_before = set(parents.all_user_ids.ids)
+        self.assertNotIn(child, self.client.all_group_ids)
         self.assertFalse(parents[1].implied_ids)
         parents.write({"implied_ids": [Command.set(child.ids)]})
         self.assertEqual(set(parents.implied_ids.ids), before)
+        self.assertEqual(set(parents.all_user_ids.ids), users_before)
         self.assertEqual(parents[1].implied_ids, child)
+        self.assertIn(child, self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
-        self.assertTrue(self.publication_b.sudo().revoked_at)
+        self.assertFalse(self.publication_b.sudo().revoked_at)
+        self.assertEqual(self.publication_b.action_view(), other_view)
         self._assert_denied(self.publication)
         self.publication = self._issue()
         self.assertTrue(self.publication.action_view()["can_decide"])
@@ -381,13 +408,80 @@ class TestSolutionPortal(TestSolutionRequirements):
                 {"name": "Client inverse child B"},
             ]
         )
+        self.publication = self._issue()
         before = set(children.implied_by_ids.ids)
+        self.assertNotIn(children[1], self.client.all_group_ids)
         self.assertFalse(children[1].implied_by_ids)
         children.write({"implied_by_ids": [Command.set(parents.ids)]})
         self.assertEqual(set(children.implied_by_ids.ids), before)
         self.assertEqual(children[1].implied_by_ids, parents)
+        self.assertIn(children[1], self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
         self._assert_denied(self.publication)
+        self.publication = self._issue()
+        children[1].write({"implied_by_ids": [Command.clear()]})
+        self.assertNotIn(children[1], self.client.all_group_ids)
+        self.assertTrue(self.publication.sudo().revoked_at)
+        self._assert_denied(self.publication)
+        self.assertFalse(self.publication_b.sudo().revoked_at)
+        self.assertEqual(self.publication_b.action_view(), other_view)
+
+    def test_unrelated_project_milestones_preserve_both_clients_and_decisions(self):
+        milestone = self.env.ref("project.group_project_milestone")
+        # Force the native feature inverse to add a real implication even in a
+        # combined registry where another test/setup already enabled Milestones.
+        milestone.write(
+            {"implied_by_ids": [Command.clear()], "user_ids": [Command.clear()]}
+        )
+        self.assertFalse(self.manager.has_group("project.group_project_milestone"))
+        unrelated = (
+            self.env["project.project"]
+            .with_user(self.manager)
+            .create(
+                {
+                    "name": "Unrelated internal Project",
+                    "privacy_visibility": "employees",
+                }
+            )
+        )
+        self.assertFalse(unrelated.allow_milestones)
+        self.publication = self._issue()
+        self.publication_b = self.publication_b.browse(
+            self.publication_b.sudo()
+            .revision_id.with_user(self.manager)
+            .action_issue_portal(self.client_b.id)
+        )
+        first = self.publication.action_decide_document("approved")
+        first_b = self.publication_b.action_decide_document("approved")
+        accepted = self._accept()
+        before = self.publication.action_view()
+        before_b = self.publication_b.action_view()
+        clients = self.client | self.client_b
+        effective = {user.id: set(user.all_group_ids.ids) for user in clients}
+
+        unrelated.write({"allow_milestones": True})
+
+        self.assertTrue(unrelated.allow_milestones)
+        self.assertIn(milestone, self.env.ref("base.group_user").implied_ids)
+        self.assertTrue(self.manager.has_group("project.group_project_milestone"))
+        self.assertEqual(
+            {user.id: set(user.all_group_ids.ids) for user in clients}, effective
+        )
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertFalse(self.publication_b.sudo().revoked_at)
+        self.assertEqual(self.publication.search([]), self.publication)
+        self.assertEqual(self.publication_b.search([]), self.publication_b)
+        self.assertEqual(self.publication.action_view(), before)
+        self.assertEqual(self.publication_b.action_view(), before_b)
+        self.assertTrue(
+            self.publication.action_decide_document("rejected", first["id"])
+        )
+        self.assertTrue(
+            self.publication_b.action_decide_document("rejected", first_b["id"])
+        )
+        self.assertTrue(
+            self._accept(decision="rejected", expected_event_id=accepted["id"])
+        )
 
     def test_supersession_keeps_history_no_carryover_and_archives_deny_read(self):
         first = self.publication.action_decide_document("approved")

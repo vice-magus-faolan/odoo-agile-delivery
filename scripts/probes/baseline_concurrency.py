@@ -358,9 +358,13 @@ def _portal_apply(env, data):
     elif action == "portal_group":
         env.ref("base.group_portal").write({"user_ids": [Command.unlink(client.id)]})
     elif action == "portal_implication":
+        portal = env.ref("base.group_portal")
+        assert portal not in client.group_ids and portal in client.all_group_ids
         env["res.groups"].browse(data["group_id"]).write(
             {"implied_ids": [Command.clear()]}
         )
+        assert portal not in client.all_group_ids
+        assert publication.revoked_at and publication.revoked_by_id
     elif action == "portal_company":
         env["res.company"].browse(data["company_id"]).write(
             {"user_ids": [Command.unlink(client.id)]}
@@ -439,12 +443,21 @@ def _portal_fixture(
                 "implied_ids": [Command.link(env.ref("base.group_portal").id)],
             }
         )
-        client.write({"group_ids": [Command.link(group.id)]})
+        # Portal authority must depend on this implication, not a direct grant.
+        client.write({"group_ids": [Command.set(group.ids)]})
+        assert client.group_ids == group
+        assert env.ref("base.group_portal") in client.all_group_ids
+        assert client.share and client.has_group("base.group_portal")
         metadata["group_id"] = group.id
     if issue:
         metadata["publication_id"] = revision.with_context(
             allowed_company_ids=metadata["allowed_company_ids"]
         ).action_issue_portal(client.id)
+        publication = env["project.agile.solution.portal.publication"].browse(
+            metadata["publication_id"]
+        )
+        assert not publication.revoked_at
+        assert publication.with_user(client).action_view()["can_decide"]
     else:
         metadata["first_issue"] = True
     return revision, metadata
@@ -667,6 +680,20 @@ def run_portal_probe(env):
                 if action in SOURCE_OWNER_CHANGES:
                     _check_source_owner_result(
                         env, revision, metadata, action, loser_action
+                    )
+                elif action == "portal_implication":
+                    client = env["res.users"].browse(metadata["client_uid"])
+                    assert client.group_ids.ids == [metadata["group_id"]]
+                    assert env.ref("base.group_portal") not in client.all_group_ids
+                    publication = env[
+                        "project.agile.solution.portal.publication"
+                    ].browse(metadata["publication_id"])
+                    assert publication.revoked_at and publication.revoked_by_id
+                    assert not publication._decision_head_id
+                    assert not publication._requirement_head_id
+                    assert (
+                        requirement.sudo()._last_acceptance_id.id
+                        == metadata["requirement_head_id"]
                     )
                 results.append(
                     {

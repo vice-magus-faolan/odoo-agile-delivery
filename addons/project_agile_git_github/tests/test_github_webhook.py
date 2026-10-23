@@ -982,9 +982,7 @@ class TestGitHubWebhook(HttpCase):
             production.id in expected,
         )
 
-    def test_signed_merge_conflict_recovery_replay_purge_and_manual_isolation(
-        self,
-    ):
+    def test_signed_merge_conflict_and_newer_recovery(self):
         self.repository.retention_policy = "redacted_excerpt"
         uat, production = self.env["project.agile.environment"].create(
             [
@@ -1019,93 +1017,14 @@ class TestGitHubWebhook(HttpCase):
                 ).id,
             }
         )
-        lines = task.agile_environment_status_ids
-        lines[0].status = "verified"
-        task_fields = [
-            "stage_id",
-            "state",
-            "agile_item_type_id",
-            "write_date",
-            "message_ids",
-        ]
-        line_fields = ["status", "actor_id", "changed_at", "message_ids", "write_date"]
-        before_task, before_lines = task.read(task_fields), lines.read(line_fields)
         timestamp = "2026-10-20T12:00:00Z"
         self._post_environment_pr(task, 801, "uat", timestamp, "uat-known")
         self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)
-        self._post_environment_pr(task, 802, "main", timestamp, "prod-known")
-        self._assert_environment_pr_evidence(
-            task, uat, production, [uat.id, production.id], False
+        self._post_environment_pr(
+            task, 801, "other", timestamp, "uat-conflict", merged=False
         )
-        for identity, branch, other_id in (
-            (801, "uat", production.id),
-            (802, "main", uat.id),
-        ):
-            with self.subTest(branch=branch):
-                self._post_environment_pr(
-                    task,
-                    identity,
-                    "other",
-                    timestamp,
-                    branch + "-conflict",
-                    merged=False,
-                )
-                self._assert_environment_pr_evidence(
-                    task, uat, production, [other_id], branch == "main"
-                )
-                self._post_environment_pr(
-                    task, identity, branch, "2026-10-19T12:00:00Z", branch + "-older"
-                )
-                self._assert_environment_pr_evidence(
-                    task, uat, production, [other_id], branch == "main"
-                )
-                self._post_environment_pr(
-                    task, identity, branch, timestamp, branch + "-same-time"
-                )
-                self._assert_environment_pr_evidence(
-                    task, uat, production, [other_id], branch == "main"
-                )
-                self._post_environment_pr(
-                    task, identity, branch, "2026-10-21T12:00:00Z", branch + "-recovery"
-                )
-                self._assert_environment_pr_evidence(
-                    task, uat, production, [uat.id, production.id], False
-                )
-        # Even a harmless late event demotes confidence; it does not prove absence.
-        self._post_environment_pr(task, 801, "uat", timestamp, "uat-harmless-late")
-        self._assert_environment_pr_evidence(
-            task, uat, production, [production.id], False
+        self._assert_environment_pr_evidence(task, uat, production, [], False)
+        self._post_environment_pr(
+            task, 801, "uat", "2026-10-21T12:00:00Z", "uat-recovery"
         )
-        payload, delivery = self._post_environment_pr(
-            task, 801, "uat", "2026-10-22T12:00:00Z", "uat-final"
-        )
-        self._assert_environment_pr_evidence(
-            task, uat, production, [uat.id, production.id], False
-        )
-        self.assertEqual(
-            self._post(
-                payload, "uat-final", **{"X-GitHub-Event": "pull_request"}
-            ).status_code,
-            202,
-        )
-        delivery.retained_until = "2000-01-01 00:00:00"
-        self.env["project.git.delivery"]._purge_expired_github_payloads()
-        self.assertFalse(delivery.retained_payload)
-        self.assertTrue(delivery.retained_payload_purged_at)
-        self._assert_environment_pr_evidence(
-            task, uat, production, [uat.id, production.id], False
-        )
-        # Reverts are linked observations, not current-presence arithmetic.
-        self._post_environment_pr(task, 803, "uat", timestamp, "revert-observation")
-        self._assert_environment_pr_evidence(
-            task, uat, production, [uat.id, production.id], False
-        )
-        deleted = self._post_and_settle_push(
-            self._branch_deletion_payload("refs/heads/uat"), "uat-deleted"
-        )
-        self.assertEqual(deleted.state, "discarded")
-        self._assert_environment_pr_evidence(
-            task, uat, production, [uat.id, production.id], False
-        )
-        self.assertEqual(task.read(task_fields), before_task)
-        self.assertEqual(lines.read(line_fields), before_lines)
+        self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)

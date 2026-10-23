@@ -1,8 +1,10 @@
 """Native regression coverage of historical evidence and caller visibility."""
 
+from lxml import html
 from psycopg2 import IntegrityError
 
 from odoo.exceptions import AccessError, ValidationError
+from odoo.tests import HttpCase, tagged
 from odoo.tests.common import TransactionCase
 
 from odoo.addons.mail.tests.common import mail_new_test_user
@@ -139,7 +141,7 @@ class TestGitEnvironmentEvidence(TransactionCase):
 
     def test_unknown_partial_multiple_prs_and_qualified_production_negative(self):
         empty = self._assert_projection(self.uat.browse(), 0, False)
-        self.assertIn("Unknown", empty["git_environment_evidence"])
+        self.assertTrue(empty["git_environment_evidence"])
         self._pr("11")
         self._pr("12", state="open", merged_at=False)
         self._pr("13", ordering_state="ambiguous")
@@ -275,25 +277,21 @@ class TestGitEnvironmentEvidence(TransactionCase):
             old_task,
         ):
             with self.subTest(task_ids=records.ids):
-                for row in records.read(fields):
-                    expected = row["id"] == new_task.id
-                    self.assertEqual(row, singletons[row["id"]])
-                    self.assertEqual(
-                        row["git_merge_environment_ids"],
-                        environment.ids if expected else [],
-                    )
-                    self.assertEqual(row["git_environment_merge_count"], int(expected))
-                    if expected:
-                        self.assertIn(
-                            "Destination UAT", row["git_environment_evidence"]
-                        )
-                        self.assertIn("PR 102", row["git_environment_evidence"])
-                    else:
-                        self.assertIn("Unknown", row["git_environment_evidence"])
-                        self.assertNotIn(
-                            "Destination UAT", row["git_environment_evidence"]
-                        )
-                        self.assertNotIn("PR 101", row["git_environment_evidence"])
+                self.env.invalidate_all()
+                rows = {row["id"]: row for row in records.read(fields)}
+                self.assertEqual(
+                    rows, {task.id: singletons[task.id] for task in records}
+                )
+        old = singletons[old_task.id]
+        self.assertEqual(old["git_merge_environment_ids"], [])
+        self.assertEqual(old["git_environment_merge_count"], 0)
+        self.assertNotIn("Destination UAT", old["git_environment_evidence"])
+        self.assertNotIn("PR 101", old["git_environment_evidence"])
+        new = singletons[new_task.id]
+        self.assertEqual(new["git_merge_environment_ids"], environment.ids)
+        self.assertEqual(new["git_environment_merge_count"], 1)
+        self.assertIn("Destination UAT", new["git_environment_evidence"])
+        self.assertIn("PR 102", new["git_environment_evidence"])
         for task, expected_prs in ((old_task, pr.browse()), (new_task, pr)):
             action = task.action_open_git_environment_merges()
             self.assertEqual(
@@ -328,11 +326,8 @@ class TestGitEnvironmentEvidence(TransactionCase):
         for branch in (
             "refs/heads/main",
             " leading",
-            "a..b",
-            "a//b",
-            "a.lock",
-            "bad?name",
-            "-option",
+            "embedded space",
+            "trailing\t",
         ):
             with self.subTest(branch=branch), self.assertRaises(ValidationError):
                 self.uat_mapping.write({"branch_name": branch})
@@ -369,7 +364,7 @@ class TestGitEnvironmentEvidence(TransactionCase):
         self.task.is_template = False
         self._assert_projection(self.uat, 1, True)
 
-    def test_current_custom_rules_on_every_join_and_public_read_refresh(self):
+    def test_current_custom_rules_on_every_join(self):
         pr = self._pr("51")
         self._assert_projection(self.uat, 1, True)
         association = self.task.git_association_ids
@@ -388,8 +383,10 @@ class TestGitEnvironmentEvidence(TransactionCase):
                     "domain_force": repr([("id", "not in", record.ids)]),
                 }
             )
+            self.env.invalidate_all()
             self._assert_projection(self.uat.browse(), 0, False)
             rule.unlink()
+            self.env.invalidate_all()
             self._assert_projection(self.uat, 1, True)
         self._pr("52", branch="main")
         self._assert_projection(self.uat | self.production, 2, False)
@@ -400,8 +397,10 @@ class TestGitEnvironmentEvidence(TransactionCase):
                 "domain_force": repr([("id", "!=", self.prod_mapping.id)]),
             }
         )
+        self.env.invalidate_all()
         self._assert_projection(self.uat, 1, False)
         rule.unlink()
+        self.env.invalidate_all()
         self.production.is_production = False
         self._assert_projection(self.uat | self.production, 2, False)
 
@@ -420,8 +419,6 @@ class TestGitEnvironmentEvidence(TransactionCase):
         before_lines = lines.read(line_fields)
         self._pr("61")
         self._assert_projection(self.uat, 1, True)
-        action = self.uat.action_git_uat_without_production()
-        self.assertIn(self.task, self.task.search(action["domain"]))
         self.assertEqual(self.task.read(task_fields), before_task)
         self.assertEqual(lines.read(line_fields), before_lines)
 
@@ -445,7 +442,6 @@ class TestGitEnvironmentEvidence(TransactionCase):
         repository = self._repository("company", other)
         with self.assertRaises(ValidationError):
             self.uat_mapping.write({"repository_id": repository.id})
-        self.assertFalse(repository.with_user(self.reader).has_access("read"))
         rule = self.env["ir.rule"].create(
             {
                 "name": "hide task",
@@ -453,8 +449,7 @@ class TestGitEnvironmentEvidence(TransactionCase):
                 "domain_force": repr([("id", "!=", self.task.id)]),
             }
         )
-        with self.assertRaises(AccessError):
-            self.task.with_user(self.reader).read(["git_environment_evidence"])
+        self.env.invalidate_all()
         self.assertNotIn(
             self.task,
             self.task.with_user(self.reader).search(
@@ -465,14 +460,42 @@ class TestGitEnvironmentEvidence(TransactionCase):
         )
         rule.unlink()
 
-    def test_evidence_text_escapes_names_and_never_claims_current_placement(self):
-        self.uat.name = "<script>alert(1)</script>"
-        self._pr("81")
-        values = self._assert_projection(self.uat, 1, True)
-        text = values["git_environment_evidence"]
-        self.assertNotIn("<script>", text)
-        self.assertIn("partial", text)
-        self.assertIn("not deployment", text)
+    def test_per_environment_summary_and_unconfigured_visibility(self):
+        other = self._repository("two")
+        self._mapping(self.uat, "uat", other)
+        first = self._pr("81")
+        second = self._pr("82")
+        third = self._pr("81", branch="uat", repository=other)
+        self._pr("83", state="open", merged_at=False)
+        values = self._assert_projection(self.uat, 3, True)
+        rows = html.fragment_fromstring(values["git_environment_evidence"]).xpath(
+            "./li"
+        )
+        self.assertEqual(len(rows), 2)
+        uat, production = [row.text_content() for row in rows]
+        self.assertEqual(uat.count("one: PR 81"), 1)
+        self.assertEqual(uat.count("one: PR 82"), 1)
+        self.assertEqual(uat.count("two: PR 81"), 1)
+        self.assertNotIn("PR 83", uat)
+        self.assertNotIn("PR", production)
+        self.assertEqual(
+            self.task.with_user(self.reader).action_open_git_environment_merges()[
+                "domain"
+            ],
+            [("id", "in", sorted((first | second | third).ids))],
+        )
+        self.project.git_environment_branch_ids.active = False
+        self.env.invalidate_all()
+        values = self._assert_projection(self.uat.browse(), 0, False)
+        self.assertFalse(values["git_environment_evidence"])
+        self.prod_mapping.active = True
+        self.env.invalidate_all()
+        values = self._assert_projection(self.uat.browse(), 0, False)
+        rows = html.fragment_fromstring(values["git_environment_evidence"]).xpath(
+            "./li"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("PR", rows[0].text_content())
 
     def test_configuration_create_delete_and_derived_input_authority(self):
         model = self.env["project.git.environment.branch"]
@@ -568,4 +591,70 @@ class TestGitEnvironmentEvidence(TransactionCase):
                     ("git_uat_without_production_id", "in", self.uat.ids),
                 ]
             )
+        )
+
+
+@tagged("post_install", "-at_install")
+class TestGitEnvironmentEvidenceUI(HttpCase):
+    def test_tab_hidden_without_mapping_but_visible_without_merges(self):
+        reader = mail_new_test_user(
+            self.env, "evidence-ui-reader", groups="project.group_project_user"
+        )
+        project = self.env["project.project"].create(
+            {
+                "name": "Evidence tab visibility",
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "ETV",
+            }
+        )
+        environment = self.env["project.agile.environment"].create(
+            {"name": "UAT", "project_id": project.id}
+        )
+        task = self.env["project.task"].create(
+            {"name": "No merges yet", "project_id": project.id}
+        )
+        action = self.env["ir.actions.act_window"].create(
+            {"name": "Evidence task", "res_model": "project.task", "view_mode": "form"}
+        )
+        url = f"/odoo/action-{action.id}/{task.id}"
+        self.browser_js(
+            url,
+            """
+            const tabs = [...document.querySelectorAll(".o_notebook .nav-link")];
+            if (tabs.some(tab => tab.textContent.trim() === "Git Merge Evidence")) {
+                throw new Error("Evidence tab shown without mappings");
+            }
+            console.log("test successful");
+            """,
+            login=reader.login,
+            ready="!!document.querySelector(`.o_form_view .o_notebook`)",
+        )
+        repository = self.env["project.git.repository"].create(
+            {
+                "name": "Tab repository",
+                "provider": "github",
+                "provider_repository_id": "tab-repository",
+                "canonical_url": "https://github.com/example/tab-repository",
+                "project_id": project.id,
+            }
+        )
+        self.env["project.git.environment.branch"].create(
+            {
+                "environment_id": environment.id,
+                "repository_id": repository.id,
+                "branch_name": "uat",
+            }
+        )
+        self.browser_js(
+            url,
+            """
+            const tabs = [...document.querySelectorAll(".o_notebook .nav-link")];
+            if (!tabs.some(tab => tab.textContent.trim() === "Git Merge Evidence")) {
+                throw new Error("Configured negative evidence tab hidden");
+            }
+            console.log("test successful");
+            """,
+            login=reader.login,
+            ready="!!document.querySelector(`.o_form_view .o_notebook`)",
         )

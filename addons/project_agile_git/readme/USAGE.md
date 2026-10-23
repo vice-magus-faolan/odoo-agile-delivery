@@ -18,35 +18,20 @@ and facts remain, and already queued work can still be processed.
 
 ## Historical environment merges
 
-Open the task **Git Merge Evidence** tab. **Merge observed in** shows the
-configured environments with at least one linked, known merged PR targeting
-their exact branch. **Observed merged PRs** opens those PR records, including
-provider links and retained provenance. The details identify the repository,
-branch, PR, merge time, source time, last-seen time and confidence.
+The task **Git Merge Evidence** tab shows one line per configured environment:
+linked PRs with **Known** ordering merged into its exact mapped branch, or no
+merge seen. It is hidden without visible active mappings. **Observed merged
+PRs** opens source details. In Tasks search, **Merged into, not Production**
+finds tasks with a merge into the selected environment but none into any visible
+production mapping in that Project; a production mapping is required. Typed
+names match the whole name, ignoring case, so UAT does not match Pre-UAT.
+The tab and filter follow your access rights; the BA's manual **Environments**
+panel stays separate.
 
-One merged PR is partial task progress even if another is open, uncertain or
-in another repository. Without links, evidence is unknown; without a visible
-active mapping, it is unconfigured. A merge is historical evidence, not a deployment, current code
-presence or proof that all work for the task has arrived. Reverts, reapplications,
-cherry-picks, promotions, branch deletion, force-push and renames do not infer
-current presence or absence. A head SHA is not a merge SHA.
-
-In Tasks search, select **UAT merge observed; no production merge observed
-(visible evidence)** and choose the exact UAT environment. Typing a name matches
-the whole name, ignoring case, not a substring such as Pre-UAT. The filter
-requires a visible active production mapping in the same Project and excludes
-a task with any qualifying visible production merge, even from a different PR.
-A missing or uncertain production observation can leave a task included as
-unknown, never as proof that its code is absent. Results follow your current
-Task, Project, environment, repository, mapping, association and PR access.
-
-Only **Known** ordering can establish a positive. **Stale** and **Ambiguous**
-remain uncertain until a strictly newer unambiguous observation arrives. This
-conservative rule can hide a genuine merge after an otherwise harmless late
-event. Delayed, failed, digest-only or prematurely purged deliveries are not
-backfilled by inference. Purging an already processed payload leaves normalized
-merge facts readable.
-
-The separate manual **Environments** panel remains authoritative for BA
-Configuration and Data import status. Git evidence never updates those lines,
-their actor/time/history, stages or task completion.
+A merge is not a deployment or proof that all task code is present. Only PRs
+linked by task keys in their title, body or head branch count: put promoted
+task keys in the release PR body when merging UAT into Production. Currently,
+more than 20 distinct keys in a body links none of those keys
+([#75](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/75)).
+A late source event can hide a merge until a strictly newer, unambiguous event
+arrives; no merge seen does not prove absence.

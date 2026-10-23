@@ -185,28 +185,19 @@ Project-write boundary from ADR-015; ownership fields are derived and protected.
 caller-bound environment and repository rule subqueries protect mapping visibility.
 Copies do not inherit mappings.
 
-Task evidence is a nonstored projection, not a second status ledger. One batched
-caller-context join resolves exact `(repository, provider PR ID)` associations. The sole
-positive predicate requires merged state, merge time, known ordering and exact mapped
-target branch. Counts, environment tags, details, PR navigation and searches use this
-predicate. Public reads refresh the projection to account for current record rules;
-ordinary dependency triggers invalidate fact and configuration changes. No elevated
-result contributes to a projection.
+Merge evidence is computed from PR facts and mappings. Nothing new is stored. One
+batched caller-context join resolves exact `(repository, provider PR ID)` associations
+and requires the Task, mapping and repository to share their current Project. A
+qualifying PR must be merged, have a merge time and known ordering, and target the exact
+mapped branch. Counts, environment tags, summaries, PR navigation and searches share
+this predicate. The summary deduplicates PRs per environment; without visible active
+mappings the tab is hidden. Native caller/context caching and dependencies apply; no
+elevated result contributes.
 
-Any qualifying linked PR establishes historical partial progress. UAT/no-production
-search requires the selected visible active environment and a production mapping in the
-same Project, and excludes any visible production positive across all mapped
-repositories. Its negative is qualified visible evidence, not completeness or code
-absence. Current mappings reinterpret retained observations. Reverts and branch
-operations do not establish current code placement or deployment.
-
-Known-only confidence is intentional: the retained normalizer can mark an equal-time
-conflict ambiguous and then an older event stale without reconciling its values. Stale
-therefore cannot restore a positive, including production exclusion. A strictly newer
-unambiguous observation can restore confidence; harmless late events may temporarily
-hide valid positives. No new confidence storage, source ordering semantics, scheduler or
-normalizer behavior is added. Retained normalized facts survive terminal payload purge;
-missing processing is not inferred. Manual environment status, audit and
-configuration/data-import lifecycle remain independent under ADR-015. This keeps a
-future mapping or confidence-rule change in one projection owner without coupling core
-Agile to Git.
+The environment/no-production search requires a visible production mapping in the same
+Project and excludes any qualifying production merge across mapped repositories. It
+reports partial progress, not deployment or current code placement. Mapping changes
+reinterpret retained facts. Late or conflicting events can hide a merge until a strictly
+newer unambiguous event arrives. Source ordering and normalization are unchanged, and
+processed facts survive payload purge. Manual environment status, audit and
+Configuration/Data import lifecycle remain independent under ADR-015.

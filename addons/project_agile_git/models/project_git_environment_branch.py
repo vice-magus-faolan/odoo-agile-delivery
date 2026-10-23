@@ -96,25 +96,8 @@ class ProjectGitEnvironmentBranch(models.Model):
                     )
                 )
             branch = mapping.branch_name
-            if (
-                branch != branch.strip()
-                or branch.startswith(("refs/", "/", "-"))
-                or branch.endswith(("/", "."))
-                or ".." in branch
-                or "//" in branch
-                or "@{" in branch
-                or branch == "@"
-                or any(
-                    char.isspace()
-                    or ord(char) < 32
-                    or ord(char) == 127
-                    or char in "~^:?*[\\"
-                    for char in branch
-                )
-                or any(
-                    part.startswith(".") or part.endswith(".lock")
-                    for part in branch.split("/")
-                )
+            if branch.startswith("refs/heads/") or any(
+                char.isspace() for char in branch
             ):
                 raise ValidationError(
                     self.env._(

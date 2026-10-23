@@ -38,10 +38,10 @@
   <menuitem
     id="menu_git_environment_branch"
     name="Environment Git Branches"
-    parent="project.menu_project_management"
+    parent="project.menu_project_config"
     action="action_git_environment_branch"
     groups="project.group_project_manager"
-    sequence="26"
+    sequence="31"
   />
   <record id="view_project_git_environment_branches" model="ir.ui.view">
     <field name="name">project.project.git.environment.branches</field>
@@ -61,7 +61,10 @@
     <field name="inherit_id" ref="project.view_task_form2" />
     <field name="arch" type="xml">
       <xpath expr="//notebook" position="inside">
-        <page string="Git Merge Evidence" invisible="not agile_project_enabled">
+        <page
+          string="Git Merge Evidence"
+          invisible="not agile_project_enabled or not git_environment_evidence"
+        >
           <group>
             <field
               name="git_merge_environment_ids"

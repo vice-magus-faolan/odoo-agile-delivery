@@ -28,7 +28,7 @@ As a Project administrator with write access to the Project, first configure
 its environments in the Project settings. Flag each production environment
 with **Production**; the name does not determine its role.
 
-Open **Project > Tasks > Environment Git Branches**. Select an **Environment**
+Open **Project > Configuration > Environment Git Branches**. Select an **Environment**
 and a **Repository** from the same Agile Project and enter **Target branch**
 as the exact, case-sensitive short branch name, for example `release/uat`,
 not `refs/heads/release/uat`. Each environment maps a repository once. Edit

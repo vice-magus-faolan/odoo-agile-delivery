@@ -42,7 +42,7 @@ class ProjectTask(models.Model):
         compute="_compute_git_environment_evidence",
         search="_search_git_uat_without_production",
         compute_sudo=False,
-        string="UAT merge observed; no production merge observed (visible evidence)",
+        string="Merged into, not Production",
     )
 
     @api.model
@@ -53,14 +53,6 @@ class ProjectTask(models.Model):
         ):
             raise AccessError(self.env._("Git merge evidence is read-only."))
         return super()._check_environment_derived_input(values)
-
-    def read(self, fields=None, load="_classic_read"):
-        # Nonstored fields still cache within a transaction. Public reads must
-        # re-resolve current rules as well as facts; rule changes have no task
-        # dependency trigger. No cached privileged projection is reused.
-        if fields is None or set(fields).intersection(_EVIDENCE_FIELDS):
-            self.invalidate_recordset(_EVIDENCE_FIELDS)
-        return super().read(fields=fields, load=load)
 
     @api.model
     def _git_evidence_task_domain(self):
@@ -86,8 +78,8 @@ class ProjectTask(models.Model):
     def _git_merge_evidence(self):
         """Join only visible exact association pairs in bulk, never a Cartesian join.
 
-        Each result contains current visible mappings, linked observations and
-        known positives. Absence is deliberately not a code-presence assertion.
+        Each result contains current visible mappings and known positives.
+        Absence is deliberately not a code-presence assertion.
         """
         tasks = self.search(
             Domain.AND(
@@ -132,16 +124,11 @@ class ProjectTask(models.Model):
                 "target_branch",
                 "merged_at",
                 "ordering_state",
-                "updated_at",
-                "last_seen_at",
                 "number",
             ],
         )
         by_pair = {(pr.repository_id.id, pr.provider_request_id): pr for pr in requests}
-        result = {
-            task.id: {"mappings": [], "observations": [], "positive": []}
-            for task in self
-        }
+        result = {task.id: {"mappings": [], "positive": []} for task in self}
         for task in tasks:
             result[task.id]["mappings"] = by_project[task.project_id.id]
         for association in associations:
@@ -159,7 +146,6 @@ class ProjectTask(models.Model):
                 ):
                     continue
                 item = (mapping, pr)
-                result[association.task_id.id]["observations"].append(item)
                 if self._git_is_observed_merge(mapping, pr):
                     result[association.task_id.id]["positive"].append(item)
         return result
@@ -177,47 +163,29 @@ class ProjectTask(models.Model):
     @api.model
     def _git_evidence_html(self, evidence):
         if not evidence["mappings"]:
-            return self.env._(
-                "Unconfigured: no active visible environment branch mappings."
-            )
+            return False
+        by_environment = {
+            mapping.environment_id: self.env["project.git.pull.request"]
+            for mapping in evidence["mappings"]
+        }
+        for mapping, pr in evidence["positive"]:
+            by_environment[mapping.environment_id] |= pr
         rows = []
-        positives = {(mapping.id, pr.id) for mapping, pr in evidence["positive"]}
-        for mapping, pr in evidence["observations"]:
-            label = (
-                self.env._("Historical merge observed (partial task progress)")
-                if (mapping.id, pr.id) in positives
-                else self.env._("Unknown: no qualifying merge observed")
-            )
-            rows.append(
-                Markup(
-                    "<li>%s / %s / %s: %s; PR %s; target %s; merged %s; "
-                    "source %s; last seen %s; confidence %s</li>"
+        for environment, requests in by_environment.items():
+            merges = [
+                Markup("%s: PR %s")
+                % (pr.repository_id.name, pr.number or pr.provider_request_id)
+                for pr in requests.sorted(
+                    key=lambda pr: (pr.repository_id.id, pr.provider_request_id)
                 )
-                % (
-                    mapping.environment_id.name,
-                    mapping.repository_id.name,
-                    mapping.branch_name,
-                    label,
-                    pr.number or pr.provider_request_id,
-                    pr.target_branch or "?",
-                    pr.merged_at or "?",
-                    pr.updated_at or "?",
-                    pr.last_seen_at or "?",
-                    pr.ordering_state,
-                )
+            ]
+            summary = (
+                Markup(self.env._("Merged in %s")) % Markup(", ").join(merges)
+                if merges
+                else self.env._("No merge seen")
             )
-        if not rows:
-            return self.env._(
-                "Unknown: no linked visible PR observations for the "
-                "configured repositories."
-            )
-        return Markup("<ul>%s</ul><p>%s</p>") % (
-            Markup("").join(rows),
-            self.env._(
-                "Historical observations only, not deployment, current code "
-                "presence or complete task delivery."
-            ),
-        )
+            rows.append(Markup("<li>%s: %s</li>") % (environment.name, summary))
+        return Markup("<ul>%s</ul>") % Markup("").join(rows)
 
     # Membership explicitly requires active records, independent of active_test.
     # That cache-key special case only supports relational fields in Odoo 19.
@@ -319,20 +287,3 @@ class ProjectTask(models.Model):
             ("id", "in", sorted({pr.id for _mapping, pr in evidence["positive"]}))
         ]
         return action
-
-
-class ProjectAgileEnvironment(models.Model):
-    _inherit = "project.agile.environment"
-
-    def action_git_uat_without_production(self):
-        self.ensure_one()
-        self.check_access("read")
-        return {
-            "type": "ir.actions.act_window",
-            "name": self.env._(
-                "UAT merge observed; no production merge observed (visible evidence)"
-            ),
-            "res_model": "project.task",
-            "view_mode": "list,form",
-            "domain": [("git_uat_without_production_id", "in", [self.id])],
-        }

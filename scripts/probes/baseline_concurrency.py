@@ -412,7 +412,7 @@ def _portal_fixture(
         "company_id": project.company_id.id,
         "allowed_company_ids": (project.company_id | secondary).ids,
         "requirement_id": requirement.id,
-        "requirement_head_id": requirement._last_acceptance_id.id,
+        "requirement_head_id": requirement.sudo()._last_acceptance_id.id,
     }
     if implication:
         group = env["res.groups"].create(

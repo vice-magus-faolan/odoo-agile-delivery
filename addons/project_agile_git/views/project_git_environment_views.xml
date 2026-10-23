@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="view_git_environment_branch_list" model="ir.ui.view">
+    <field name="name">project.git.environment.branch.list</field>
+    <field name="model">project.git.environment.branch</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="project_id" />
+        <field name="environment_id" />
+        <field name="repository_id" />
+        <field name="branch_name" />
+        <field name="active" />
+      </list>
+    </field>
+  </record>
+  <record id="view_git_environment_branch_form" model="ir.ui.view">
+    <field name="name">project.git.environment.branch.form</field>
+    <field name="model">project.git.environment.branch</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="environment_id" />
+            <field name="repository_id" />
+            <field name="branch_name" />
+            <field name="active" />
+            <field name="project_id" readonly="1" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_git_environment_branch" model="ir.actions.act_window">
+    <field name="name">Environment Git Branches</field>
+    <field name="res_model">project.git.environment.branch</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <menuitem
+    id="menu_git_environment_branch"
+    name="Environment Git Branches"
+    parent="project.menu_project_config"
+    action="action_git_environment_branch"
+    groups="project.group_project_manager"
+    sequence="31"
+  />
+  <record id="view_project_git_environment_branches" model="ir.ui.view">
+    <field name="name">project.project.git.environment.branches</field>
+    <field name="model">project.project</field>
+    <field name="inherit_id" ref="project.edit_project" />
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Environment Git Branches" invisible="not agile_enabled">
+          <field name="git_environment_branch_ids" readonly="1" />
+        </page>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_task_git_environment_evidence" model="ir.ui.view">
+    <field name="name">project.task.git.environment.evidence</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_form2" />
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page
+          string="Git Merge Evidence"
+          invisible="not agile_project_enabled or not git_environment_evidence"
+        >
+          <group>
+            <field
+              name="git_merge_environment_ids"
+              widget="many2many_tags"
+              readonly="1"
+            />
+            <field name="git_environment_merge_count" readonly="1" />
+          </group>
+          <field name="git_environment_evidence" readonly="1" nolabel="1" />
+          <button
+            name="action_open_git_environment_merges"
+            type="object"
+            string="Observed merged PRs"
+          />
+        </page>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_task_search_git_environment_evidence" model="ir.ui.view">
+    <field name="name">project.task.search.git.environment.evidence</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project_agile.view_task_search_agile" />
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <field
+          name="git_merge_environment_ids"
+          filter_domain="[(&quot;git_merge_environment_ids&quot;, &quot;=ilike&quot; if raw_value == self else &quot;=&quot;, raw_value)]"
+        />
+        <field
+          name="git_uat_without_production_id"
+          filter_domain="[(&quot;git_uat_without_production_id&quot;, &quot;=ilike&quot; if raw_value == self else &quot;=&quot;, raw_value)]"
+        />
+      </xpath>
+    </field>
+  </record>
+</odoo>

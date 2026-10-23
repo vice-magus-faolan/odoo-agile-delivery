@@ -915,3 +915,116 @@ class TestGitHubWebhook(HttpCase):
             ),
             1,
         )
+
+    def _post_environment_pr(
+        self, task, identity, branch, timestamp, suffix, merged=True
+    ):
+        payload = {
+            "repository": {"id": 4242},
+            "number": identity,
+            "pull_request": {
+                "id": identity,
+                "number": identity,
+                "title": task.agile_key,
+                "body": "",
+                "state": "closed" if merged else "open",
+                "merged": merged,
+                "head": {"ref": "feature/" + task.agile_key, "sha": "a" * 40},
+                "base": {"ref": branch},
+                "updated_at": timestamp,
+                "merged_at": "2026-10-20T11:00:00Z" if merged else None,
+            },
+        }
+        response = self._post(payload, suffix, **{"X-GitHub-Event": "pull_request"})
+        self.assertEqual(response.status_code, 202)
+        delivery = self.env["project.git.delivery"].search(
+            [
+                ("repository_id", "=", self.repository.id),
+                ("provider_delivery_id", "=", suffix),
+            ]
+        )
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        return payload, delivery
+
+    def _assert_environment_pr_evidence(self, task, uat, production, expected, gap):
+        values = task.read(["git_merge_environment_ids"])[0]
+        self.assertEqual(set(values["git_merge_environment_ids"]), set(expected))
+        found = task.search(
+            [
+                ("id", "=", task.id),
+                ("git_uat_without_production_id", "in", [uat.id]),
+            ]
+        )
+        self.assertEqual(bool(found), gap)
+        self.assertEqual(
+            bool(
+                task.search(
+                    [
+                        ("id", "=", task.id),
+                        ("git_merge_environment_ids", "in", [uat.id]),
+                    ]
+                )
+            ),
+            uat.id in expected,
+        )
+        self.assertEqual(
+            bool(
+                task.search(
+                    [
+                        ("id", "=", task.id),
+                        ("git_merge_environment_ids", "in", [production.id]),
+                    ]
+                )
+            ),
+            production.id in expected,
+        )
+
+    def test_signed_merge_conflict_and_newer_recovery(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        uat, production = self.env["project.agile.environment"].create(
+            [
+                {"name": "UAT", "project_id": self.project.id},
+                {
+                    "name": "Production",
+                    "project_id": self.project.id,
+                    "is_production": True,
+                },
+            ]
+        )
+        self.env["project.git.environment.branch"].create(
+            [
+                {
+                    "environment_id": uat.id,
+                    "repository_id": self.repository.id,
+                    "branch_name": "uat",
+                },
+                {
+                    "environment_id": production.id,
+                    "repository_id": self.repository.id,
+                    "branch_name": "main",
+                },
+            ]
+        )
+        task = self.env["project.task"].create(
+            {
+                "name": "Manual configuration",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.env.ref(
+                    "project_agile.project_agile_item_type_configuration"
+                ).id,
+            }
+        )
+        timestamp = "2026-10-20T12:00:00Z"
+        self._post_environment_pr(task, 801, "uat", timestamp, "uat-known")
+        self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)
+        self._post_environment_pr(
+            task, 801, "other", timestamp, "uat-conflict", merged=False
+        )
+        self._assert_environment_pr_evidence(task, uat, production, [], False)
+        self._post_environment_pr(
+            task, 801, "uat", "2026-10-21T12:00:00Z", "uat-recovery"
+        )
+        self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)

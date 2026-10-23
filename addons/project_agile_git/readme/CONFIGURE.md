@@ -21,3 +21,20 @@ Setting **Webhook Secret** also requires System Administrator access.
 
 Redacted excerpts can still contain sensitive business text and unrecognized
 credentials. Keep secrets out of commit messages and other webhook text.
+
+## Environment branch mappings
+
+As a Project administrator with write access to the Project, first configure
+its environments in the Project settings. Flag each production environment
+with **Production**; the name does not determine its role.
+
+Open **Project > Configuration > Environment Git Branches**. Select an **Environment**
+and a **Repository** from the same Agile Project and enter **Target branch**
+as the exact, case-sensitive short branch name, for example `release/uat`,
+not `refs/heads/release/uat`. Each environment maps a repository once. Edit
+or reactivate that mapping instead of adding a duplicate.
+
+Configure every repository needed for that environment and at least one
+production mapping before using the UAT/no-production filter. Archived
+mappings, repositories and environments are excluded. Mapping edits immediately
+reinterpret retained PR observations. Project copies start without mappings.

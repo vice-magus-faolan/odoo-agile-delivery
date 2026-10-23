@@ -175,3 +175,29 @@ verification.
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/service/model.py
 - Odoo 19 repeatable-read cursor and savepoints:
   https://raw.githubusercontent.com/odoo/odoo/c2957158eb2f7a341a874c3c58884c8a162ef59a/odoo/sql_db.py
+
+## Historical environment merge projection
+
+The optional Git facts addon owns `project.git.environment.branch`: one active or
+archived exact short branch mapping per environment/repository. Both links must share an
+Agile Project and company. Configuration reuses the native Project-administrator plus
+Project-write boundary from ADR-015; ownership fields are derived and protected. Native
+caller-bound environment and repository rule subqueries protect mapping visibility.
+Copies do not inherit mappings.
+
+Merge evidence is computed from PR facts and mappings. Nothing new is stored. One
+batched caller-context join resolves exact `(repository, provider PR ID)` associations
+and requires the Task, mapping and repository to share their current Project. A
+qualifying PR must be merged, have a merge time and known ordering, and target the exact
+mapped branch. Counts, environment tags, summaries, PR navigation and searches share
+this predicate. The summary deduplicates PRs per environment; without visible active
+mappings the tab is hidden. Native caller/context caching and dependencies apply; no
+elevated result contributes.
+
+The environment/no-production search requires a visible production mapping in the same
+Project and excludes any qualifying production merge across mapped repositories. It
+reports partial progress, not deployment or current code placement. Mapping changes
+reinterpret retained facts. Late or conflicting events can hide a merge until a strictly
+newer unambiguous event arrives. Source ordering and normalization are unchanged, and
+processed facts survive payload purge. Manual environment status, audit and
+Configuration/Data import lifecycle remain independent under ADR-015.

@@ -15,3 +15,23 @@ on those observations.
 
 To stop future GitHub deliveries, archive the repository. Existing deliveries
 and facts remain, and already queued work can still be processed.
+
+## Historical environment merges
+
+The task **Git Merge Evidence** tab shows one line per configured environment:
+linked PRs with **Known** ordering merged into its exact mapped branch, or no
+merge seen. It is hidden without visible active mappings. **Observed merged
+PRs** opens source details. In Tasks search, **Merged into, not Production**
+finds tasks with a merge into the selected environment but none into any visible
+production mapping in that Project; a production mapping is required. Typed
+names match the whole name, ignoring case, so UAT does not match Pre-UAT.
+The tab and filter follow your access rights; the BA's manual **Environments**
+panel stays separate.
+
+A merge is not a deployment or proof that all task code is present. Only PRs
+linked by task keys in their title, body or head branch count: put promoted
+task keys in the release PR body when merging UAT into Production. Currently,
+more than 20 distinct keys in a body links none of those keys
+([#75](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/75)).
+A late source event can hide a merge until a strictly newer, unambiguous event
+arrives; no merge seen does not prove absence.

@@ -329,6 +329,7 @@ def run_portal_probe(env):
     requirement.write({"audience": "customer"})
     project.write({"privacy_visibility": "portal"})
     secondary = env["res.company"].create({"name": "SYNTHETIC portal race secondary"})
+    manager.write({"company_ids": [Command.set((project.company_id | secondary).ids)]})
     results = []
     actions = (
         "portal_document",
@@ -392,7 +393,9 @@ def run_portal_probe(env):
                 )
                 client.write({"group_ids": [Command.link(group.id)]})
                 metadata["group_id"] = group.id
-            publication_id = revision.action_issue_portal(client.id)
+            publication_id = revision.with_context(
+                allowed_company_ids=(project.company_id | secondary).ids
+            ).action_issue_portal(client.id)
             metadata["publication_id"] = publication_id
             if action == "portal_supersede":
                 successor = revision.browse(revision.action_new_revision()["res_id"])

@@ -327,20 +327,21 @@ and competing submissions. The expected head from the current page rejects dupli
 stale submission after native whole-transaction retry. Revoke-only hooks follow native
 authorized follower, user/contact, group membership or implication and company-user
 inverse mutations. They retire affected live publications in the same transaction. Group
-membership and implication writes compare each affected user's native effective groups
-before and after the authorized mutation. Only recipients whose effective groups changed
-lose their live publications; repeated commands and redundant implication paths preserve
-unchanged membership. Native Project features such as Milestones routinely change
-internal-user implications without changing portal clients' groups, publications or
-decisions. This is not a general security-change engine or a claim of serialization
-against arbitrary administrator/SQL reconfiguration. The invitation boundary does not
-serialize first issuance against every recipient/contact or group/company inverse edit.
-Current availability still rejects an inactive or mismatched identity or missing
-membership, and their ordinary restoration writes run the revoke hooks again, unlike
-native follower creation. Concurrent compound administrator changes beyond these native
-paths remain outside that guarantee. Signer changes retire the old signer publications.
-Regrant requires a new publication; audit actors are never reassigned. Downloaded copies
-cannot be recalled.
+membership and implication writes compare each affected user's native effective
+`base.group_portal` membership and `share` eligibility before and after the authorized
+mutation. Only changes to that eligibility retire live publications. Unrelated group
+additions/removals, repeated commands and redundant implication paths preserve live
+publications and decisions, including portal-wide feature implications. Native Project
+features such as Milestones also preserve eligible clients' publications and decisions.
+This is not a general security-change engine or a claim of serialization against
+arbitrary administrator/SQL reconfiguration. The invitation boundary does not serialize
+first issuance against every recipient/contact or group/company inverse edit. Current
+availability still rejects an inactive or mismatched identity or missing membership.
+Restoring eligibility cannot revive a retired publication; a fresh explicit issuance is
+required. Concurrent compound administrator changes beyond these native paths remain
+outside that guarantee. Signer changes retire the old signer publications. Regrant
+requires a new publication; audit actors are never reassigned. Downloaded copies cannot
+be recalled.
 
 This retained per-recipient copy costs storage but keeps disclosure/revocation policy
 locally understandable without broadening every internal model ACL.

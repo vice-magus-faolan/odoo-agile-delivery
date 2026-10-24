@@ -290,6 +290,7 @@ class TestSolutionPortal(TestSolutionRequirements):
 
         operations = (
             lambda: self.client.write({"active": False}),
+            lambda: self.client.write({"share": False}),
             archive_contact,
             lambda: self.client.write({"partner_id": self.client_b.partner_id.id}),
             lambda: self.client.write(
@@ -327,15 +328,17 @@ class TestSolutionPortal(TestSolutionRequirements):
 
     def test_group_noop_updates_preserve_live_decisions(self):
         groups = self.env["res.groups"]
-        child = groups.create({"name": "Client no-op child"})
+        child = self.env.ref("base.group_portal")
         parents = groups.create(
             [
                 {"name": name, "implied_ids": [Command.set(child.ids)]}
                 for name in ("Client no-op parent A", "Client no-op parent B")
             ]
         )
-        parents.write({"user_ids": [Command.link(self.client.id)]})
-        self.publication = self._issue()
+        self.client.write({"group_ids": [Command.set(parents.ids)]})
+        self.assertNotIn(child, self.client.group_ids)
+        self.assertIn(child, self.client.all_group_ids)
+        self.assertFalse(self.publication.sudo().revoked_at)
         self.publication.action_decide_document("approved")
         self._accept()
         before = self.publication.action_view()
@@ -354,25 +357,35 @@ class TestSolutionPortal(TestSolutionRequirements):
         self.assertFalse(self.publication.sudo().revoked_at)
         self.assertEqual(self.publication.action_view(), before)
         parents[0].write({"user_ids": [Command.unlink(self.client.id)]})
-        self.assertTrue(self.publication.sudo().revoked_at)
-        self._assert_denied(self.publication)
-        self.publication = self._issue()
-        before = self.publication.action_view()
+        self.assertIn(child, self.client.all_group_ids)
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertEqual(self.publication.action_view(), before)
         parents[1].write({"all_user_ids": [Command.set(self.client.ids)]})
         self.assertFalse(self.publication.sudo().revoked_at)
         self.assertEqual(self.publication.action_view(), before)
+        parents[1].write({"all_user_ids": [Command.clear()]})
+        self.assertNotIn(child, self.client.all_group_ids)
+        self.assertTrue(self.publication.sudo().revoked_at)
+        self._assert_denied(self.publication)
+        parents[1].write({"user_ids": [Command.link(self.client.id)]})
+        self.assertTrue(self.client.share)
+        self.assertIn(child, self.client.all_group_ids)
+        self._assert_denied(self.publication)
+        replacement = self._issue()
+        self.assertNotEqual(replacement.id, self.publication.id)
+        self.assertTrue(replacement.action_decide_document("approved"))
         self.assertTrue(self.publication_b.action_view()["can_decide"])
 
-    def test_batched_implication_changes_revoke_despite_unchanged_union(self):
+    def test_batched_transitive_and_inverse_portal_loss_retires_only_affected(self):
         groups = self.env["res.groups"]
-        child = groups.create({"name": "Client batch child"})
+        portal = self.env.ref("base.group_portal")
         parents = groups.create(
             [
                 {
-                    "name": "Client batch parent A",
-                    "implied_ids": [Command.set(child.ids)],
-                },
-                {"name": "Client batch parent B"},
+                    "name": name,
+                    "implied_ids": [Command.set(portal.ids)],
+                }
+                for name in ("Client batch parent A", "Client batch parent B")
             ]
         )
         ancestor = groups.create(
@@ -381,21 +394,20 @@ class TestSolutionPortal(TestSolutionRequirements):
                 "implied_ids": [Command.link(parents[1].id)],
             }
         )
-        self.client.write({"group_ids": [Command.link(ancestor.id)]})
-        self.publication = self._issue()
+        self.client.write({"group_ids": [Command.set(ancestor.ids)]})
+        self.assertNotIn(portal, self.client.group_ids)
+        self.assertTrue(self.client.has_group("base.group_portal"))
+        self.assertTrue(self.client.share)
+        self.assertFalse(self.publication.sudo().revoked_at)
         other_view = self.publication_b.action_view()
-        before = set(parents.implied_ids.ids)
-        users_before = set(parents.all_user_ids.ids)
-        self.assertNotIn(child, self.client.all_group_ids)
-        self.assertFalse(parents[1].implied_ids)
-        parents.write({"implied_ids": [Command.set(child.ids)]})
-        self.assertEqual(set(parents.implied_ids.ids), before)
-        self.assertEqual(set(parents.all_user_ids.ids), users_before)
-        self.assertEqual(parents[1].implied_ids, child)
-        self.assertIn(child, self.client.all_group_ids)
+        parents.write({"implied_ids": [Command.clear()]})
+        self.assertNotIn(portal, self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
         self.assertFalse(self.publication_b.sudo().revoked_at)
         self.assertEqual(self.publication_b.action_view(), other_view)
+        self._assert_denied(self.publication)
+        parents.write({"implied_ids": [Command.set(portal.ids)]})
+        self.assertIn(portal, self.client.all_group_ids)
         self._assert_denied(self.publication)
         self.publication = self._issue()
         self.assertTrue(self.publication.action_view()["can_decide"])
@@ -408,7 +420,7 @@ class TestSolutionPortal(TestSolutionRequirements):
                 {"name": "Client inverse child B"},
             ]
         )
-        self.publication = self._issue()
+        before_view = self.publication.action_view()
         before = set(children.implied_by_ids.ids)
         self.assertNotIn(children[1], self.client.all_group_ids)
         self.assertFalse(children[1].implied_by_ids)
@@ -416,15 +428,73 @@ class TestSolutionPortal(TestSolutionRequirements):
         self.assertEqual(set(children.implied_by_ids.ids), before)
         self.assertEqual(children[1].implied_by_ids, parents)
         self.assertIn(children[1], self.client.all_group_ids)
-        self.assertTrue(self.publication.sudo().revoked_at)
-        self._assert_denied(self.publication)
-        self.publication = self._issue()
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertEqual(self.publication.action_view(), before_view)
         children[1].write({"implied_by_ids": [Command.clear()]})
         self.assertNotIn(children[1], self.client.all_group_ids)
+        self.assertFalse(self.publication.sudo().revoked_at)
+        self.assertEqual(self.publication.action_view(), before_view)
+        (portal | children).write({"implied_by_ids": [Command.clear()]})
+        self.assertNotIn(portal, self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
         self._assert_denied(self.publication)
+        portal.write({"implied_by_ids": [Command.link(parents[1].id)]})
+        self.assertIn(portal, self.client.all_group_ids)
+        self._assert_denied(self.publication)
+        replacement = self._issue()
+        self.assertNotEqual(replacement.id, self.publication.id)
+        self.assertTrue(replacement.action_decide_document("approved"))
         self.assertFalse(self.publication_b.sudo().revoked_at)
         self.assertEqual(self.publication_b.action_view(), other_view)
+
+    def test_portal_wide_harmless_groups_preserve_both_clients_and_decisions(self):
+        portal = self.env.ref("base.group_portal")
+        feature = self.env["res.groups"].create({"name": "Harmless portal feature"})
+        clients = self.client | self.client_b
+        first = self.publication.action_decide_document("approved")
+        first_b = self.publication_b.action_decide_document("approved")
+        accepted = self._accept()
+        before = self.publication.action_view()
+        before_b = self.publication_b.action_view()
+        operations = (
+            (lambda: portal.write({"implied_ids": [Command.link(feature.id)]}), True),
+            (lambda: feature.write({"implied_by_ids": [Command.clear()]}), False),
+            (
+                lambda: feature.write({"implied_by_ids": [Command.link(portal.id)]}),
+                True,
+            ),
+            (
+                lambda: portal.write({"implied_ids": [Command.unlink(feature.id)]}),
+                False,
+            ),
+            (lambda: clients.write({"group_ids": [Command.link(feature.id)]}), True),
+            (lambda: clients.write({"group_ids": [Command.unlink(feature.id)]}), False),
+            (lambda: feature.write({"user_ids": [Command.set(clients.ids)]}), True),
+            (lambda: feature.write({"all_user_ids": [Command.clear()]}), False),
+        )
+        for operation, present in operations:
+            effective = {user.id: set(user.all_group_ids.ids) for user in clients}
+            operation()
+            for user in clients:
+                self.assertNotEqual(set(user.all_group_ids.ids), effective[user.id])
+                self.assertEqual(feature in user.all_group_ids, present)
+                self.assertTrue(user.has_group("base.group_portal"))
+                self.assertTrue(user.share)
+            self.assertFalse(self.publication.sudo().revoked_at)
+            self.assertFalse(self.publication_b.sudo().revoked_at)
+            self.assertEqual(self.publication.search([]), self.publication)
+            self.assertEqual(self.publication_b.search([]), self.publication_b)
+            self.assertEqual(self.publication.action_view(), before)
+            self.assertEqual(self.publication_b.action_view(), before_b)
+        self.assertTrue(
+            self.publication.action_decide_document("rejected", first["id"])
+        )
+        self.assertTrue(
+            self.publication_b.action_decide_document("rejected", first_b["id"])
+        )
+        self.assertTrue(
+            self._accept(decision="rejected", expected_event_id=accepted["id"])
+        )
 
     def test_unrelated_project_milestones_preserve_both_clients_and_decisions(self):
         milestone = self.env.ref("project.group_project_milestone")

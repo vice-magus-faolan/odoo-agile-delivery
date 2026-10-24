@@ -57,19 +57,35 @@ class SolutionPortalFollowers(models.Model):
 class SolutionPortalUsers(models.Model):
     _inherit = "res.users"
 
+    def _publication_portal_eligibility(self):
+        """Snapshot native recipient eligibility, not incidental access groups."""
+        return {
+            user.id: (user.has_group("base.group_portal"), user.share)
+            for user in self.sudo()
+        }
+
+    def _revoke_changed_portal_eligibility(self, before):
+        after = self._publication_portal_eligibility()
+        changed = [user_id for user_id in before if before[user_id] != after[user_id]]
+        if changed:
+            revoke_publications(self.env, [("recipient_id", "in", changed)])
+
     def write(self, values):
+        before = (
+            self._publication_portal_eligibility()
+            if {"group_ids", "all_group_ids", "share", "role"} & values.keys()
+            else {}
+        )
         result = super().write(values)
         if {
             "active",
             "partner_id",
             "company_id",
             "company_ids",
-            "group_ids",
-            "all_group_ids",
-            "share",
-            "role",
         } & values.keys():
             revoke_publications(self.env, [("recipient_id", "in", self.ids)])
+        elif before:
+            self._revoke_changed_portal_eligibility(before)
         return result
 
 
@@ -93,27 +109,14 @@ class SolutionPortalGroups(models.Model):
             "implied_ids",
             "implied_by_ids",
         } & values.keys()
-        before_users = (
-            {user.id: set(user.all_group_ids.ids) for user in self.sudo().all_user_ids}
-            if relevant
-            else {}
-        )
+        users = self.sudo().all_user_ids if relevant else self.env["res.users"]
+        before = users._publication_portal_eligibility()
         result = super().write(values)
         if relevant:
-            # Native membership includes transitive and inverse implications.
-            # Compare each user's effective groups, not the edited graph's union:
-            # routine Project features can change only internal users' groups.
-            after_users = {
-                user.id: set(user.all_group_ids.ids)
-                for user in self.sudo().all_user_ids
-            }
-            affected = before_users.keys() ^ after_users.keys()
-            affected.update(
-                user_id
-                for user_id in before_users.keys() & after_users.keys()
-                if before_users[user_id] != after_users[user_id]
-            )
-            revoke_publications(self.env, [("recipient_id", "in", sorted(affected))])
+            # Keep departed users in the comparison. Only existing effective
+            # members can lose portal eligibility through this group's mutation;
+            # newly implied members gain membership, not lose it.
+            users._revoke_changed_portal_eligibility(before)
         return result
 
 

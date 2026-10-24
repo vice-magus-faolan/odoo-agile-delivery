@@ -13,6 +13,9 @@ class ProjectAgileItemType(models.Model):
     active = fields.Boolean(default=True)
     uses_story_points = fields.Boolean(default=True)
     tracks_environments = fields.Boolean()
+    new_description_template = fields.Html(
+        help="New work starts with this description; clear it to start empty.",
+    )
     allowed_child_type_ids = fields.Many2many(
         "project.agile.item.type",
         "project_agile_item_type_child_rel",

@@ -208,4 +208,56 @@
     groups="project.group_project_user"
     sequence="89"
   />
+  <record id="view_task_form_solution_actors" model="ir.ui.view">
+    <field name="name">project.task.form.solution.actors</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project_agile.view_task_form_agile" />
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name=&apos;agile&apos;]" position="inside">
+        <group string="People Served">
+          <field
+            name="solution_actor_ids"
+            widget="many2many_tags"
+            options="{&apos;no_create&apos;: True, &apos;no_open&apos;: True}"
+            domain="[(&apos;kind&apos;, &apos;=&apos;, &apos;actor&apos;), (&apos;project_id&apos;, &apos;=&apos;, project_id)]"
+            readonly="not solution_can_select_actors"
+          />
+          <field name="solution_can_select_actors" invisible="1" />
+        </group>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_task_list_solution_actors" model="ir.ui.view">
+    <field name="name">project.task.list.solution.actors</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project_agile.view_task_list_agile" />
+    <field name="arch" type="xml">
+      <field name="name" position="after">
+        <field
+          name="solution_actor_ids"
+          widget="many2many_tags"
+          optional="show"
+          readonly="1"
+        />
+      </field>
+    </field>
+  </record>
+  <record id="view_task_kanban_solution_actors" model="ir.ui.view">
+    <field name="name">project.task.kanban.solution.actors</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project_agile.view_task_kanban_agile" />
+    <field name="arch" type="xml">
+      <xpath expr="//kanban/templates" position="before">
+        <field name="solution_actor_ids" />
+      </xpath>
+      <xpath
+        expr="//templates/t[@t-name=&apos;card&apos;]//field[@name=&apos;name&apos;]"
+        position="after"
+      >
+        <div t-if="record.solution_actor_ids.raw_value.length" class="text-muted">
+          <field name="solution_actor_ids" widget="many2many_tags" />
+        </div>
+      </xpath>
+    </field>
+  </record>
 </odoo>

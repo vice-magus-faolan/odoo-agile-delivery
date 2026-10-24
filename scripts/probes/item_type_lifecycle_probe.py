@@ -10,6 +10,8 @@ env = globals()["env"]
 
 TASK_FIELDS = [
     "name",
+    "description",
+    "agile_acceptance_criteria",
     "agile_story_points",
     "agile_key",
     "agile_item_type_id",
@@ -122,6 +124,10 @@ if PHASE == "seed":
         [
             {
                 "name": f"Existing Story {points}",
+                "description": "<p>Keep populated description</p>"
+                if points != 5
+                else False,
+                "agile_acceptance_criteria": "<p>Keep explicit criteria</p>",
                 "project_id": project.id,
                 "agile_item_type_id": story.id,
                 "agile_story_points": points,
@@ -162,7 +168,8 @@ if PHASE == "seed":
     )
     env.cr.commit()
     logging.getLogger(__name__).info(
-        "Seeded an active Sprint with Stories at 3/5/8 points."
+        "Seeded an active Sprint with Stories at 3/5/8 points; original content: %s",
+        snapshot(tasks, ["description", "agile_acceptance_criteria"]),
     )
 elif PHASE == "check":
     saved = json.loads(env["ir.config_parameter"].get_param(SNAPSHOT_KEY))
@@ -208,6 +215,13 @@ elif PHASE == "check":
     assert next_legacy.agile_key == "BACKFILL-4"
     task_type = env.ref("project_agile.project_agile_item_type_task")
     assert task_type.name == "Customer task" and task_type.sequence == 123
+    story = env.ref("project_agile.project_agile_item_type_story")
+    assert "As a" in story.new_description_template
+    assert not task_type.new_description_template
+    logging.getLogger(__name__).info(
+        "Populated description/criteria before and after update: %s",
+        snapshot(tasks, ["description", "agile_acceptance_criteria"]),
+    )
     for code in ("configuration", "data_import"):
         item_type = env.ref("project_agile.project_agile_item_type_" + code)
         assert item_type.active and not item_type.uses_story_points
@@ -280,6 +294,40 @@ elif PHASE == "check":
         "templates excluded and sequence continued; "
         "Story points and Sprint events preserved; "
         "point changes, planning totals, seeds and quick defaults checked."
+    )
+elif PHASE in ("template_edit", "template_clear"):
+    template = (
+        "<p>Administrator starting point</p>" if PHASE == "template_edit" else False
+    )
+    env.ref(
+        "project_agile.project_agile_item_type_story"
+    ).new_description_template = template
+    env["ir.config_parameter"].set_param(
+        SNAPSHOT_KEY + ".template", json.dumps(template)
+    )
+    env.cr.commit()
+elif PHASE == "template_check":
+    saved = json.loads(env["ir.config_parameter"].get_param(SNAPSHOT_KEY))
+    expected = json.loads(
+        env["ir.config_parameter"].get_param(SNAPSHOT_KEY + ".template")
+    )
+    story = env.ref("project_agile.project_agile_item_type_story")
+    assert story.new_description_template == expected
+    work = env["project.task"].create(
+        {
+            "name": "After admin choice",
+            "project_id": saved["project"],
+            "agile_item_type_id": story.id,
+        }
+    )
+    assert work.description == expected
+    for row in saved["tasks"]:
+        task = env["project.task"].browse(row["id"])
+        assert task.description == row["description"]
+        assert task.agile_acceptance_criteria == row["agile_acceptance_criteria"]
+    logging.getLogger(__name__).info(
+        "Repeated populated update preserved admin template choice %r and old content",
+        expected,
     )
 else:
     raise AssertionError("Unknown item-type lifecycle phase")

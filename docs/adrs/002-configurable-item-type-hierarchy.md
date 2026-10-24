@@ -44,3 +44,13 @@ actionable validation error rather than silently reclassify or detach tasks.
   or should it be required once a project is enabled?
 - Should cross-project parentage be prohibited globally by Project or only for the Agile
   opt-in boundary in this milestone?
+
+## New-work descriptions
+
+Each item type owns an optional editable HTML starting description. Story is seeded with
+As a / I want / so that; other types start empty. Native new-task defaults and creation
+apply the configured text only when no explicit description is supplied, including
+explicit empty defaults. New unsaved form work can fill an empty description when
+selecting a type. Saved task edits, moves and configuration changes never rewrite
+descriptions. A one-time versioned upgrade seeds the new Story field on existing
+noupdate configuration; subsequent upgrades preserve administrator edits and clearing.

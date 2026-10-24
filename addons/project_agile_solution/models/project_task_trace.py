@@ -1,13 +1,100 @@
 """Native work remains authoritative; traceability does not regenerate or move it."""
 
-from odoo import _, fields, models
-from odoo.exceptions import ValidationError
+from odoo import Command, _, api, fields, models
+from odoo.exceptions import AccessError, ValidationError
 
 from odoo.addons.project_agile.utils import claim_records
+
+from .solution_content import check_reference_commands, reference_command_ids
 
 
 class ProjectTaskTrace(models.Model):
     _inherit = "project.task"
+
+    solution_can_select_actors = fields.Boolean(compute="_compute_can_select_actors")
+
+    @api.depends_context("uid")
+    def _compute_can_select_actors(self):
+        allowed = self.env.user.has_group(
+            "project.group_project_manager"
+        ) or self.env.user.has_group("project_agile_solution.group_business_analyst")
+        for task in self:
+            task.solution_can_select_actors = allowed
+
+    solution_actor_ids = fields.Many2many(
+        "project.agile.solution.context",
+        "solution_task_actor_rel",
+        "task_id",
+        "context_id",
+        string="Actors",
+        groups="project.group_project_user",
+        copy=False,
+        check_company=True,
+        help="This Project serves these Actors; not frozen requirement acceptance.",
+    )
+
+    @api.model
+    def _check_actor_commands(self, values):
+        commands = values.get("solution_actor_ids", [])
+        if not commands:
+            return
+        user = self.env.user
+        if not user.active or not (
+            user.has_group("project.group_project_manager")
+            or user.has_group("project_agile_solution.group_business_analyst")
+        ):
+            raise AccessError(
+                _(
+                    "An active Business analyst or Project administrator "
+                    "is required to select Actors."
+                )
+            )
+        check_reference_commands(commands)
+        ids = [item for command in commands for item in reference_command_ids(command)]
+        actors = self.env["project.agile.solution.context"].sudo(False).browse(ids)
+        actors.check_access("read")
+        if len(actors.exists()) != len(set(ids)):
+            raise ValidationError(_("Select available Actors."))
+        actors.solution_id.check_access("read")
+        actors.project_id.check_access("read")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        defaults = self.default_get(["solution_actor_ids"])
+        for values in vals_list:
+            self._check_actor_commands(defaults | values)
+        return super().create(vals_list)
+
+    @api.constrains("solution_actor_ids", "project_id", "company_id")
+    def _check_actor_scope(self):
+        for task in self:
+            actors = task.solution_actor_ids
+            actors.check_access("read")
+            actors.solution_id.check_access("read")
+            actors.project_id.check_access("read")
+            if any(
+                actor.kind != "actor"
+                or actor.project_id != task.project_id
+                or actor.company_id != task.company_id
+                for actor in actors
+            ):
+                raise ValidationError(
+                    _("Actors must belong to the task Project and company.")
+                )
+
+    def copy_data(self, default=None):
+        values_list = super().copy_data(default=default)
+        for task, values in zip(self, values_list, strict=False):
+            if (
+                "solution_actor_ids" not in (default or {})
+                and not self.env.context.get("copy_project")
+                and values.get("project_id") == task.project_id.id
+                and task.solution_actor_ids
+            ):
+                values["solution_actor_ids"] = [
+                    Command.set(task.solution_actor_ids.ids)
+                ]
+        return values_list
 
     solution_maintenance_reason = fields.Text(
         help=(
@@ -63,6 +150,7 @@ class ProjectTaskTrace(models.Model):
         )
 
     def write(self, values):
+        self._check_actor_commands(values)
         if "project_id" in values or "company_id" in values:
             self.sudo(False).check_access("write")
             claim_records(self, allow_referencing=True)

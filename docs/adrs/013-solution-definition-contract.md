@@ -378,3 +378,14 @@ without replacing native work. Release management, Jira import, provider expansi
 anonymous/public access, financial/signature engines and full test management remain out
 of scope. See [contributor checks](../contributing.md) and the actual Odoo build in
 verification logs for exercised verification.
+
+## People served by native work
+
+Optional Task Actors reference stable context identities of kind Actor in the same
+Project and company, across its Solutions. They display the current identity name, not
+implicit latest-revision content or a frozen acceptance baseline. Existing
+Project/context rules govern selection; Business analysts and Project administrators
+need native Task write authority. Reference commands cannot create, edit or delete
+context through a Task. Core Agile remains independent. Ordinary same-Project Task
+duplication retains Actors; cross-Project and whole-Project/template copies omit
+source-owned Actors, including child work, without copying Solution identities.

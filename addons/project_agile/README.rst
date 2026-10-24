@@ -119,6 +119,13 @@ Project cannot change; copy the task to move work to another Project.
 The Project prefix cannot change after keys have been assigned. Seeded
 item types preserve administrator customizations on module updates.
 
+Open an item type form under **Configuration > Agile Item Types** to
+edit or clear **New Description Template**. Story starts with As a / I
+want / so that; Task starts empty. These starting descriptions apply
+only to newly created Agile work. Explicit descriptions, existing work
+and later module updates preserve your choices, including a cleared
+template.
+
 Usage
 =====
 

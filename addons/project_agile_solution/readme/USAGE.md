@@ -129,3 +129,15 @@ To remove access, open the publication from its Solution Document and choose
 client identity, company access or signer also retires affected publications.
 Restoring access does not reactivate them; issue a new publication. Downloaded
 copies cannot be recalled.
+
+## Name the people served
+
+As a Business analyst or Project administrator with task write access, open the
+task **Agile** tab and select **Actors** under **People Served**. First create
+the named supporting context with **Kind** set to **Actor** in a Solution of
+that same Project. You may select several Actors from Solutions in that Project.
+The native board and Product Backlog show their names; empty selections stay
+blank. Actors describe people served, not access grants or frozen acceptance.
+Renaming the stable Actor updates its displayed name, not requirement history.
+A same-Project task duplicate retains Actors; a copy to another Project or a
+whole-Project/template copy starts without source-Project Actors.

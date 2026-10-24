@@ -10,7 +10,7 @@ export COMPOSE_PROJECT_NAME
 VERIFY_IMAGE_TAG=$(printf '%s' "$ROOT" | sha256sum | cut -d ' ' -f 1)
 export VERIFY_IMAGE_TAG
 COMPOSE=(docker compose -p "$COMPOSE_PROJECT_NAME" -f compose.yaml -f compose.verify.yaml)
-PRIOR_SOURCE_COMMITS=(898f0e105aed33aaeb6815fdc56edb10892f6165 2c974e580a436dacd9b526002f639e79fda544b1 0991cff1e5a53fd19c9fb24fb40941e7400beb3c 0e9ac4cd97359aa2df1fc1edaed49211fecda43c)
+PRIOR_SOURCE_COMMITS=(898f0e105aed33aaeb6815fdc56edb10892f6165 2c974e580a436dacd9b526002f639e79fda544b1 0991cff1e5a53fd19c9fb24fb40941e7400beb3c 0e9ac4cd97359aa2df1fc1edaed49211fecda43c 1ab2436110e72d51dd81ad449e9cf22f906c25f1)
 DATABASE_INSTALL=odoo_agile_verify_install
 DATABASE_UPGRADE=odoo_agile_verify_upgrade
 DATABASE_REINSTALL=odoo_agile_verify_reinstall
@@ -136,6 +136,13 @@ for PRIOR_SOURCE_COMMIT in "${PRIOR_SOURCE_COMMITS[@]}"; do
     { printf "PHASE = \"check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
     if [[ $PRIOR_SOURCE_COMMIT == 0e9ac4cd97359aa2df1fc1edaed49211fecda43c ]]; then
         { printf 'PHASE = "check_legacy_proxy"\n'; cat "$ROOT/scripts/probes/solution_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+    fi
+    if [[ $PRIOR_SOURCE_COMMIT == 1ab2436110e72d51dd81ad449e9cf22f906c25f1 ]]; then
+        for phase in template_edit template_clear; do
+            { printf "PHASE = \"%s\"\n" "$phase"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+            run_odoo --database "$DATABASE_UPGRADE" --update project_agile
+            { printf "PHASE = \"template_check\"\n"; cat "$ROOT/scripts/probes/item_type_lifecycle_probe.py"; } | "${COMPOSE[@]}" run --rm -T odoo odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_UPGRADE" --no-http
+        done
     fi
     printf "%s\n" "Upgrade smoke test passed for $MODULES from $PRIOR_SOURCE_COMMIT."
 done

@@ -16,11 +16,11 @@ informed identifiable, verifiable requirements and traceability.
 
 ## Dependencies and native boundaries
 
-Solution core depends only on LGPL-3 `project_agile`, transitively native Community
-Project. Both Solution addons retain LGPL-3. Odoo 19 Community is the tested edition.
-The architecture is Odoo.sh-first, portable to self-hosted Odoo. Enterprise and Odoo.sh
-installed-extension behavior require separate verification. This is an Odoo-compatible
-suite, not a claim of full OCA conformity.
+Solution core depends on LGPL-3 `project_agile` and native Community `portal`,
+transitively native Community Project. Both Solution addons retain LGPL-3. Odoo 19
+Community is the tested edition. The architecture is Odoo.sh-first, portable to
+self-hosted Odoo. Enterprise and Odoo.sh installed-extension behavior require separate
+verification. This is an Odoo-compatible suite, not a claim of full OCA conformity.
 
 Reuse native Tasks, hierarchy, dependencies, Agile keys/types/criteria, Project
 permissions, ORM, constraints, transactions, `ir.sequence`, views and QWeb. No Sales,
@@ -110,8 +110,8 @@ Each document names an active internal native Project Manager approver. Approval
 requires that exact current user plus current lineage, Project, document, revision and
 company authority. A manager group alone is insufficient. Unlike Git policy, Solution
 approval does not require two people: the designated approver may also be the author.
-Recorded external authority is an internal assertion, not external authentication or a
-legal signature.
+Authority recorded through the internal proxy channel is an internal assertion, not
+external authentication. Client decisions use the separate publication channel below.
 
 ## Concurrency and atomicity
 
@@ -270,6 +270,82 @@ approved or superseded pair; withdrawal requires a current accepted event. Event
 preserve authenticated recorder, frozen label and UTC time. Acceptance of v1 never
 accepts v2. Evidence is not fetched or verified as URL truth/test success.
 
+## Authenticated client publication and decisions
+
+Internal approval precedes client sign-off and remains independent. A document may
+designate one current active portal user separately from its internal approver. Project
+administrators explicitly issue immutable per-user customer publications; Business
+analysts cannot designate, publish or revoke. Native Project commercial follower
+visibility and bearer tokens do not establish signing authority.
+
+A publication is a grant on released bytes, not on internal Solution records. It retains
+the exact approved snapshot digest, a versioned allowlisted payload and its digest,
+recipient/contact, publisher and server time. Only customer narrative, customer
+requirements and section/domain/deliverable context cross this boundary. Nested
+requirements use the same allowlist; rationale, owner/actor identities, discovery Tasks,
+template provenance, raw source IDs and internal evidence do not. Frozen labels are part
+of the explicit disclosure preview. Existing internal report APIs keep their full
+reference-closure checks and internal-only ACLs.
+
+Authenticated portal HTML and downloadable HTML use the same released payload. There is
+no attachment token, generic report endpoint or production PDF grant. Portal ACLs allow
+publication read only. Current-caller Project subqueries, exact recipient and captured
+contact, exact follower membership, active Project, solution/document and current
+company membership govern search, counts, grouping, read, export and route retrieval.
+Company-less Projects remain supported. Source relations and storage are field-group
+restricted; client receipts expose only their own publication history. Current source
+references are checked through the publication boundary, not by granting portal access
+to undisclosed source rows.
+
+Document client decisions are append-only and never invoke internal approval.
+Requirement events retain separate `internal_proxy` and `portal` predecessor channels;
+proxy correction cannot withdraw a real client decision. Legacy events receive the
+internal-proxy default without changing original actor/time/evidence. Portal actors,
+contact, time, exact publication digest and source revisions are server-controlled. Only
+the current designated client with an issued current publication may decide. Client
+correction is available while internally approved; supersession preserves authorized
+history but rejects new decisions and carries nothing forward. A newer draft alone does
+not invalidate the approved baseline.
+
+Publication issuance and client decisions claim the current Solution and Project source
+owners before accepting active-lineage authority. A winning Solution archive, Project
+archive or Agile disable forces stale transactions through native retry and fresh
+reauthorization. Reversible archive/unarchive does not permanently revoke publications.
+Issuance also claims the exact native Project/contact follower and writes its latest
+issued-publication reference through the ORM. Native invitation deletion or reassignment
+then conflicts on that same row even when neither transaction initially sees a grant:
+removal first forces issuance to retry and reject, while issuance first forces an
+old-snapshot remover to retry and retire the new grant. A claim alone would not protect
+the latter ordering after the issuer commits. The private reference is non-authorizing,
+does not change follower identity or notification subtypes, is not copied, and uses
+`ondelete="set null"` so addon teardown does not retain native followers. Reinvitation
+creates a different follower and cannot revive the retired grant; deliberate fresh
+issuance is required. Nullable references need no historical head reconstruction.
+Decision actions also claim the publication, document, baseline and exact requirement.
+Append publishes real event heads on publication/requirement to conflict with revocation
+and competing submissions. The expected head from the current page rejects duplicate or
+stale submission after native whole-transaction retry. Revoke-only hooks follow native
+authorized follower, user/contact, group membership or implication and company-user
+inverse mutations. They retire affected live publications in the same transaction. Group
+membership and implication writes compare each affected user's native effective
+`base.group_portal` membership and `share` eligibility before and after the authorized
+mutation. Only changes to that eligibility retire live publications. Unrelated group
+additions/removals, repeated commands and redundant implication paths preserve live
+publications and decisions, including portal-wide feature implications. Native Project
+features such as Milestones also preserve eligible clients' publications and decisions.
+This is not a general security-change engine or a claim of serialization against
+arbitrary administrator/SQL reconfiguration. The invitation boundary does not serialize
+first issuance against every recipient/contact or group/company inverse edit. Current
+availability still rejects an inactive or mismatched identity or missing membership.
+Restoring eligibility cannot revive a retired publication; a fresh explicit issuance is
+required. Concurrent compound administrator changes beyond these native paths remain
+outside that guarantee. Signer changes retire the old signer publications. Regrant
+requires a new publication; audit actors are never reassigned. Downloaded copies cannot
+be recalled.
+
+This retained per-recipient copy costs storage but keeps disclosure/revocation policy
+locally understandable without broadening every internal model ACL.
+
 ## Recovery and consequences
 
 Retain used identities, baselines, consumed intents, acceptance and Sprint references.
@@ -299,6 +375,6 @@ pointer-only snapshots, a generic contracts/Sales engine, copied wiki/history, a
 planning and privileged complete-looking exports. Explicit revision and audit models
 cost storage and conservative historical-access refusals but preserve explainable intent
 without replacing native work. Release management, Jira import, provider expansion,
-public/customer routes, financial/signature engines and full test management remain out
+anonymous/public access, financial/signature engines and full test management remain out
 of scope. See [contributor checks](../contributing.md) and the actual Odoo build in
 verification logs for exercised verification.

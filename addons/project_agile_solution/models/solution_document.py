@@ -40,6 +40,18 @@ class SolutionDocument(models.Model):
             else False
         ),
     )
+    portal_approver_id = fields.Many2one(
+        "res.users",
+        ondelete="restrict",
+        copy=False,
+        help="Separately designated client signer; publication is still required.",
+    )
+    portal_publication_ids = fields.One2many(
+        "project.agile.solution.portal.publication",
+        "document_id",
+        readonly=True,
+    )
+
     revision_ids = fields.One2many(
         "project.agile.solution.revision", "document_id", readonly=True, copy=False
     )
@@ -64,6 +76,16 @@ class SolutionDocument(models.Model):
             {"_last_revision_id": revision.id}
         )
 
+    @api.model
+    def default_get(self, names):
+        return super().default_get(
+            [
+                name
+                for name in names
+                if name not in ("portal_approver_id", "portal_publication_ids")
+            ]
+        )
+
     @api.model_create_multi
     def create(self, vals_list):
         self.sudo(False).check_access("create")
@@ -74,6 +96,7 @@ class SolutionDocument(models.Model):
                 "project_id",
                 "company_id",
                 "revision_ids",
+                "portal_publication_ids",
             } & values.keys():
                 raise ValidationError(
                     _("Document scope and revisions are server managed.")
@@ -95,6 +118,8 @@ class SolutionDocument(models.Model):
         with self.env.cr.savepoint():
             records = super().create(prepared)
             records._check_authority()
+            if records.portal_approver_id:
+                records._check_authority(approval=True)
             for record in records:
                 record.solution_id._record_document(record)
                 record.project_id._record_solution_history(record)
@@ -117,8 +142,24 @@ class SolutionDocument(models.Model):
                     _("The designated approver must belong to the Project company.")
                 )
 
+    @api.constrains("portal_approver_id", "company_id")
+    def _check_portal_approver(self):
+        for row in self:
+            user = row.portal_approver_id
+            if user and (
+                not user.active
+                or not user.share
+                or not user.has_group("base.group_portal")
+                or not user.partner_id.active
+                or row.company_id
+                and row.company_id not in user.company_ids
+            ):
+                raise ValidationError(
+                    _("Designate an active portal user in the Project company.")
+                )
+
     def write(self, values):
-        self._check_authority()
+        self._check_authority(approval="portal_approver_id" in values)
         claim_records(self, allow_referencing=True)
         if {
             "solution_id",
@@ -126,6 +167,7 @@ class SolutionDocument(models.Model):
             "company_id",
             "kind",
             "revision_ids",
+            "portal_publication_ids",
         } & values.keys():
             raise ValidationError(
                 _(
@@ -134,6 +176,19 @@ class SolutionDocument(models.Model):
                 )
             )
         with self.env.cr.savepoint():
+            if "portal_approver_id" in values:
+                publications = self.env[
+                    "project.agile.solution.portal.publication"
+                ].sudo()
+                for row in self:
+                    if row.portal_approver_id.id != values["portal_approver_id"]:
+                        publications.search(
+                            [
+                                ("document_id", "=", row.id),
+                                ("recipient_id", "=", row.portal_approver_id.id),
+                                ("revoked_at", "=", False),
+                            ]
+                        )._revoke()
             return super().write(values)
 
     def unlink(self):

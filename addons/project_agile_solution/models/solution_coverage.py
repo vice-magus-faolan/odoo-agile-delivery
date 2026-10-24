@@ -84,6 +84,7 @@ class SolutionCoverage(models.Model):
             **caller._coverage_work(tasks, linked_tasks),
             "unresolved_questions_affecting_work": caller._coverage_questions(),
             **caller._coverage_acceptance(selected, events),
+            **caller._coverage_portal(events),
             "changes_since_baseline": caller._coverage_changes(
                 payload, baseline_payload
             ),
@@ -172,9 +173,10 @@ class SolutionCoverage(models.Model):
             "rejected_or_withdrawn": [],
             "approved_but_unaccepted": [],
         }
-        exact = events.filtered(lambda row: row.document_revision_id == self).sorted(
-            "id", reverse=True
-        )
+        exact = events.filtered(
+            lambda row: row.document_revision_id == self
+            and row.decision_source == "internal_proxy"
+        ).sorted("id", reverse=True)
         by_requirement = {}
         for event in exact:
             by_requirement.setdefault(event.requirement_revision_id.id, event)
@@ -206,6 +208,26 @@ class SolutionCoverage(models.Model):
             elif self.state in ("approved", "superseded"):
                 categories["approved_but_unaccepted"].append(label)
         return categories
+
+    def _coverage_portal(self, events):
+        exact = events.filtered(
+            lambda row: row.document_revision_id == self
+            and row.decision_source == "portal"
+        ).sorted("id", reverse=True)
+        latest = {}
+        history = []
+        for event in exact:
+            event._check_event_read()
+            receipt = dict(
+                requirement_label(event.requirement_revision_id),
+                **event._portal_receipt(),
+            )
+            history.append(receipt)
+            latest.setdefault(event.requirement_revision_id.id, receipt)
+        return {
+            "authenticated_client_decisions": list(latest.values()),
+            "authenticated_client_history": history,
+        }
 
     def _coverage_changes(self, payload, baseline):
         if baseline is None:

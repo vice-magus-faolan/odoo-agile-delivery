@@ -14,9 +14,15 @@ from pathlib import Path
 from psycopg2.errors import SerializationFailure
 
 from odoo import Command
-from odoo.exceptions import ConcurrencyError, ValidationError
+from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
 
 from odoo.addons.mail.tests.common import mail_new_test_user
+
+SOURCE_OWNER_CHANGES = {
+    "portal_solution_archive": ("solution", "active"),
+    "portal_project_archive": ("project", "active"),
+    "portal_agile_disable": ("project", "agile_enabled"),
+}
 
 
 def _wait(path):
@@ -37,16 +43,28 @@ def worker(env):
         .with_user(data["uid"])
         .browse(data["revision_id"])
     )
-    revision.read(["state", "number"])  # Both contenders establish old snapshots.
+    if data.get("publication_id"):
+        env["project.agile.solution.portal.publication"].with_user(
+            data["client_uid"]
+        ).browse(data["publication_id"]).read(["name"])
+    else:
+        revision.read(["state", "number"])  # Both contenders establish old snapshots.
+    if data.get("first_issue"):
+        assert data["partner_id"] in revision.project_id.message_partner_ids.ids
+        assert not env["project.agile.solution.portal.publication"].search_count(
+            [("revision_id", "=", revision.id)]
+        ), "First-issuance worker started with an existing grant"
     env.cr.execute("SELECT pg_backend_pid()")
     backend = env.cr.fetchone()[0]
     (directory / (name + ".ready")).touch()
     _wait(directory / (name + ".go"))
-    retries, outcome = 0, None
+    retries, outcome, first_conflict = 0, None, None
     while retries < 3:
         (directory / (name + ".attempt")).touch()
         try:
-            if data["action"] == "successor":
+            if data.get("client_uid"):
+                _portal_apply(env, data)
+            elif data["action"] == "successor":
                 revision.action_new_revision()
             elif data["action"] == "edit_section":
                 revision.section_ids.write(
@@ -57,12 +75,15 @@ def worker(env):
             else:
                 revision.action_approve()
             outcome = "applied"
+            (directory / (name + ".observed")).touch()
             if name == "winner":
                 (directory / "winner.mutated").touch()
                 _wait(directory / "winner.commit")
             env.cr.commit()
             break
-        except (SerializationFailure, ConcurrencyError):
+        except (SerializationFailure, ConcurrencyError) as error:
+            if first_conflict is None:
+                first_conflict = type(error).__name__
             env.cr.rollback()
             env.invalidate_all()
             revision = (
@@ -71,10 +92,15 @@ def worker(env):
                 .browse(data["revision_id"])
             )
             retries += 1
+            (directory / (name + ".observed")).touch()
+            if name == "loser" and data.get("client_uid"):
+                # Keep the real first overlap conflict, then retry after commit.
+                _wait(directory / "winner.json")
             time.sleep(0.1)
-        except ValidationError:
+        except (AccessError, ValidationError):
             env.cr.rollback()
             outcome = "stale_rejected"
+            (directory / (name + ".observed")).touch()
             break
     assert outcome, "Retry bound exhausted"
     (directory / (name + ".json")).write_text(
@@ -83,13 +109,14 @@ def worker(env):
                 "pid": os.getpid(),
                 "backend": backend,
                 "retries": retries,
+                "first_conflict": first_conflict,
                 "outcome": outcome,
             }
         )
     )
 
 
-def _launch(env, directory, name, revision, uid, action):
+def _launch(env, directory, name, revision, uid, action, portal=None):
     data = {
         "directory": str(directory),
         "worker": name,
@@ -97,6 +124,7 @@ def _launch(env, directory, name, revision, uid, action):
         "uid": uid,
         "action": action,
     }
+    data.update(portal or {})
     command = [
         "odoo",
         "shell",
@@ -124,7 +152,7 @@ def _launch(env, directory, name, revision, uid, action):
     return process
 
 
-def _race(env, revision, uid, action):
+def _race(env, revision, uid, action, *, portal=None, ordering="overlap"):
     with tempfile.TemporaryDirectory(
         prefix="solution-baseline-race-", dir="/var/lib/odoo"
     ) as temporary:
@@ -136,13 +164,20 @@ def _race(env, revision, uid, action):
                     if isinstance(action, tuple)
                     else action
                 )
-                processes.append(_launch(env, directory, name, revision, uid, selected))
+                processes.append(
+                    _launch(env, directory, name, revision, uid, selected, portal)
+                )
             for name in ("winner", "loser"):
                 _wait(directory / (name + ".ready"))
             (directory / "winner.go").touch()
             _wait(directory / "winner.mutated")
+            if ordering == "committed":
+                (directory / "winner.commit").touch()
+                _wait(directory / "winner.json")
             (directory / "loser.go").touch()
-            _wait(directory / "loser.attempt")
+            # Portal overlap is controlled through the actual first result, not
+            # merely entry into the action before the winner is allowed to commit.
+            _wait(directory / ("loser.observed" if portal else "loser.attempt"))
             (directory / "winner.commit").touch()
             for process in processes:
                 stdout, stderr = process.communicate(timeout=40)
@@ -155,9 +190,26 @@ def _race(env, revision, uid, action):
             assert results[0]["backend"] != results[1]["backend"]
             assert results[0]["outcome"] == "applied"
             assert results[1]["outcome"] == (
-                "applied" if isinstance(action, tuple) else "stale_rejected"
-            )
-            assert results[1]["retries"] >= 1
+                "applied"
+                if isinstance(action, tuple)
+                and (
+                    not portal
+                    or portal.get("first_issue")
+                    and action[0] == "portal_issue"
+                )
+                else "stale_rejected"
+            ), results
+            assert results[1]["retries"] >= 1, results
+            if portal and (
+                action[0] in SOURCE_OWNER_CHANGES or portal.get("first_issue")
+            ):
+                assert results[0]["retries"] == 0
+                assert results[1]["retries"] == 1
+                assert results[1]["first_conflict"] == (
+                    "SerializationFailure"
+                    if ordering == "committed"
+                    else "ConcurrencyError"
+                ), results
             return {"action": action, "workers": results}
         finally:
             for process in processes:
@@ -249,11 +301,13 @@ def run_probe(env):
         in working.action_read_snapshot()["snapshot_json"]
     )
     assert revisions[0].action_read_snapshot()["snapshot_json"] == frozen
+    portal = run_portal_probe(env)
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_BASELINE_CONCURRENCY_OK "
         + json.dumps(
             {
+                "portal": portal,
                 "allocation": allocation,
                 "approval": approval,
                 "narrative_submission": narrative,
@@ -264,3 +318,389 @@ def run_probe(env):
         ),
         flush=True,
     )
+
+
+def _portal_apply(env, data):
+    publication = env["project.agile.solution.portal.publication"].browse(
+        data.get("publication_id", [])
+    )
+    revision = env["project.agile.solution.revision"].browse(data["revision_id"])
+    client = env["res.users"].browse(data["client_uid"])
+    action = data["action"]
+    if action == "portal_document":
+        publication.with_user(client).action_decide_document("approved")
+    elif action == "portal_requirement":
+        publication.with_user(client).action_decide_requirement(
+            data["key"],
+            data["number"],
+            "accepted",
+            "Identity matrix",
+            "Actual fixture observation",
+        )
+    elif action == "portal_issue":
+        revision.with_user(data["manager_uid"]).with_context(
+            allowed_company_ids=data["allowed_company_ids"]
+        ).action_issue_portal(client.id)
+    elif action in SOURCE_OWNER_CHANGES:
+        owner, field = SOURCE_OWNER_CHANGES[action]
+        source = (
+            publication.revision_id.solution_id
+            if owner == "solution"
+            else publication.project_id
+        )
+        source.with_user(data["manager_uid"]).write({field: False})
+    elif action == "portal_revoke":
+        publication.with_user(data["manager_uid"]).action_revoke()
+    elif action == "portal_follower":
+        revision.project_id.with_user(data["manager_uid"]).message_unsubscribe(
+            partner_ids=client.partner_id.ids
+        )
+    elif action == "portal_group":
+        env.ref("base.group_portal").write({"user_ids": [Command.unlink(client.id)]})
+    elif action == "portal_implication":
+        portal = env.ref("base.group_portal")
+        assert portal not in client.group_ids and portal in client.all_group_ids
+        env["res.groups"].browse(data["group_id"]).write(
+            {"implied_ids": [Command.clear()]}
+        )
+        assert portal not in client.all_group_ids
+        assert publication.revoked_at and publication.revoked_by_id
+    elif action == "portal_company":
+        env["res.company"].browse(data["company_id"]).write(
+            {"user_ids": [Command.unlink(client.id)]}
+        )
+    elif action == "portal_supersede":
+        env["project.agile.solution.revision"].with_user(data["manager_uid"]).browse(
+            data["successor_id"]
+        ).action_approve()
+    else:
+        raise AssertionError("Unknown portal fixture action")
+    env.flush_all()
+
+
+def _portal_fixture(
+    env,
+    manager,
+    project,
+    solution,
+    requirement,
+    secondary,
+    suffix,
+    *,
+    implication=False,
+    issue=True,
+):
+    """An otherwise-valid designated signer and internally approved publication."""
+    client = mail_new_test_user(
+        env,
+        "solution_race_" + suffix,
+        groups="base.group_portal",
+        company_id=secondary.id,
+        company_ids=[Command.set((project.company_id | secondary).ids)],
+    )
+    project.message_subscribe(partner_ids=client.partner_id.ids)
+    document = (
+        env["project.agile.solution.document"]
+        .with_user(manager)
+        .create(
+            {
+                "name": "SYNTHETIC " + suffix,
+                "solution_id": solution.id,
+                "portal_approver_id": client.id,
+                "approver_id": manager.id,
+            }
+        )
+    )
+    revision = (
+        env["project.agile.solution.revision"]
+        .with_user(manager)
+        .create(
+            {
+                "document_id": document.id,
+                "title": "SYNTHETIC portal race",
+                "requirement_revision_ids": [Command.set(requirement.ids)],
+            }
+        )
+    )
+    revision.action_submit()
+    revision.action_approve()
+    metadata = {
+        "revision_id": revision.id,
+        "client_uid": client.id,
+        "partner_id": client.partner_id.id,
+        "key": requirement.requirement_id.key,
+        "number": requirement.number,
+        "manager_uid": manager.id,
+        "company_id": project.company_id.id,
+        "allowed_company_ids": (project.company_id | secondary).ids,
+        "requirement_id": requirement.id,
+        "requirement_head_id": requirement.sudo()._last_acceptance_id.id,
+    }
+    if implication:
+        group = env["res.groups"].create(
+            {
+                "name": "SYNTHETIC portal implication " + suffix,
+                "implied_ids": [Command.link(env.ref("base.group_portal").id)],
+            }
+        )
+        # Portal authority must depend on this implication, not a direct grant.
+        client.write({"group_ids": [Command.set(group.ids)]})
+        assert client.group_ids == group
+        assert env.ref("base.group_portal") in client.all_group_ids
+        assert client.share and client.has_group("base.group_portal")
+        metadata["group_id"] = group.id
+    if issue:
+        metadata["publication_id"] = revision.with_context(
+            allowed_company_ids=metadata["allowed_company_ids"]
+        ).action_issue_portal(client.id)
+        publication = env["project.agile.solution.portal.publication"].browse(
+            metadata["publication_id"]
+        )
+        assert not publication.revoked_at
+        assert publication.with_user(client).action_view()["can_decide"]
+    else:
+        metadata["first_issue"] = True
+    return revision, metadata
+
+
+def _check_source_owner_result(env, revision, metadata, action, loser_action):
+    """Archive hides, but does not revoke or mutate grants/receipts on losing work."""
+    publication = env["project.agile.solution.portal.publication"].browse(
+        metadata["publication_id"]
+    )
+    grants = env["project.agile.solution.portal.publication"].search(
+        [("revision_id", "=", revision.id)]
+    )
+    assert grants == publication
+    assert not publication.revoked_at and not publication.revoked_by_id
+    assert not publication._decision_head_id and not publication._requirement_head_id
+    requirement = env["project.agile.requirement.revision"].browse(
+        metadata["requirement_id"]
+    )
+    assert requirement._last_acceptance_id.id == metadata["requirement_head_id"]
+    for model in (
+        "project.agile.solution.portal.document.decision",
+        "project.agile.requirement.acceptance",
+    ):
+        assert not env[model].search_count([("publication_id", "=", publication.id)])
+    owner, field = SOURCE_OWNER_CHANGES[action]
+    source = revision.solution_id if owner == "solution" else revision.project_id
+    assert not source[field]
+    # A genuinely fresh disabled-owner transaction must reject the same action.
+    rejected = False
+    try:
+        with env.cr.savepoint():
+            _portal_apply(env, {**metadata, "action": loser_action})
+    except (AccessError, ValidationError):
+        rejected = True
+    assert rejected, "Disabled source owner accepted fresh portal work"
+    source.with_user(metadata["manager_uid"]).write({field: True})
+    env.flush_all()
+    assert not publication.revoked_at
+    assert publication.with_user(metadata["client_uid"]).action_view()["can_decide"]
+    # Restoration is a committed native mutation, not a new grant or republish.
+    env.cr.commit()
+    for selected in ("portal_document", "portal_requirement", "portal_issue"):
+        with env.cr.savepoint() as savepoint:
+            _portal_apply(env, {**metadata, "action": selected})
+            savepoint.rollback()
+
+
+def _first_issue_races(env, manager, project, solution, requirement, secondary):
+    """No grant exists in either old snapshot; native unsubscribe must still win."""
+    results = []
+    for winner, ordering in (
+        ("portal_follower", "overlap"),
+        ("portal_follower", "committed"),
+        ("portal_issue", "committed"),
+    ):
+        revision, metadata = _portal_fixture(
+            env,
+            manager,
+            project,
+            solution,
+            requirement,
+            secondary,
+            "first_" + winner + ordering,
+            issue=False,
+        )
+        loser = "portal_issue" if winner == "portal_follower" else "portal_follower"
+        grants = env["project.agile.solution.portal.publication"]
+        domain = [("revision_id", "=", revision.id)]
+        assert not grants.search_count(domain)
+        for selected in ("portal_issue", "portal_follower"):
+            with env.cr.savepoint() as savepoint:
+                _portal_apply(env, {**metadata, "action": selected})
+                savepoint.rollback()
+        env.cr.commit()
+        result = _race(
+            env,
+            revision,
+            env.uid,
+            (winner, loser),
+            portal=metadata,
+            ordering=ordering,
+        )
+        env.cr.rollback()
+        env.invalidate_all()
+        retained = grants.search(domain)
+        assert len(retained) == (1 if winner == "portal_issue" else 0)
+        assert all(row.revoked_at and row.revoked_by_id for row in retained)
+        assert metadata["partner_id"] not in project.message_partner_ids.ids
+        project.with_user(manager).message_subscribe(
+            partner_ids=[metadata["partner_id"]]
+        )
+        env.cr.commit()
+        env.invalidate_all()
+        assert not grants.with_user(metadata["client_uid"]).search(
+            [("id", "in", retained.ids)]
+        )
+        for publication in retained:
+            rejected = False
+            try:
+                with env.cr.savepoint():
+                    publication.with_user(metadata["client_uid"]).action_view()
+            except AccessError:
+                rejected = True
+            assert rejected, "Reinvitation revived the stale first grant"
+        fresh = (
+            revision.with_user(manager)
+            .with_context(allowed_company_ids=metadata["allowed_company_ids"])
+            .action_issue_portal(metadata["client_uid"])
+        )
+        candidates = grants.search(domain)
+        assert grants.with_user(metadata["client_uid"]).search(
+            [("id", "in", candidates.ids)]
+        ).ids == [fresh]
+        assert (
+            grants.browse(fresh)
+            .with_user(metadata["client_uid"])
+            .action_view()["can_decide"]
+        )
+        for selected in ("portal_document", "portal_requirement"):
+            with env.cr.savepoint() as savepoint:
+                _portal_apply(
+                    env, {**metadata, "publication_id": fresh, "action": selected}
+                )
+                savepoint.rollback()
+        env.cr.commit()
+        results.append(
+            {
+                "first_issue": True,
+                "winner": winner,
+                "ordering": ordering,
+                "workers": result,
+                "reinvite_denied": True,
+                "fresh_issue_and_decisions": True,
+            }
+        )
+    return results
+
+
+def run_portal_probe(env):
+    from task_concurrency import seed
+
+    manager, project, solution, requirement = seed(env, "M8PORTALRACE")
+    requirement.write({"audience": "customer"})
+    project.write({"privacy_visibility": "portal"})
+    secondary = env["res.company"].create({"name": "SYNTHETIC portal race secondary"})
+    manager.write({"company_ids": [Command.set((project.company_id | secondary).ids)]})
+    results = _first_issue_races(
+        env, manager, project, solution, requirement, secondary
+    )
+    actions = (
+        "portal_document",
+        "portal_requirement",
+        "portal_revoke",
+        "portal_follower",
+        "portal_group",
+        "portal_implication",
+        "portal_company",
+        "portal_supersede",
+        *SOURCE_OWNER_CHANGES,
+    )
+    for action in actions:
+        loser_actions = (
+            ("portal_document", "portal_requirement", "portal_issue")
+            if action in SOURCE_OWNER_CHANGES
+            else (
+                "portal_requirement"
+                if action == "portal_requirement"
+                else "portal_document",
+            )
+        )
+        for ordering in ("overlap", "committed"):
+            for loser_action in loser_actions:
+                revision, metadata = _portal_fixture(
+                    env,
+                    manager,
+                    project,
+                    solution,
+                    requirement,
+                    secondary,
+                    action + ordering + loser_action,
+                    implication=action == "portal_implication",
+                )
+                if action == "portal_supersede":
+                    successor = revision.browse(
+                        revision.action_new_revision()["res_id"]
+                    )
+                    successor.action_submit()
+                    metadata["successor_id"] = successor.id
+                # Both contenders must be valid before imposing either ordering.
+                for selected in (loser_action, action):
+                    with env.cr.savepoint() as savepoint:
+                        _portal_apply(env, {**metadata, "action": selected})
+                        savepoint.rollback()
+                env.cr.commit()
+                result = _race(
+                    env,
+                    revision,
+                    env.uid,
+                    (action, loser_action),
+                    portal=metadata,
+                    ordering=ordering,
+                )
+                env.cr.rollback()
+                env.invalidate_all()
+                expected = (
+                    1 if action in ("portal_document", "portal_requirement") else 0
+                )
+                model = (
+                    "project.agile.requirement.acceptance"
+                    if action == "portal_requirement"
+                    else "project.agile.solution.portal.document.decision"
+                )
+                assert (
+                    env[model].search_count(
+                        [("publication_id", "=", metadata["publication_id"])]
+                    )
+                    == expected
+                )
+                if action in SOURCE_OWNER_CHANGES:
+                    _check_source_owner_result(
+                        env, revision, metadata, action, loser_action
+                    )
+                elif action == "portal_implication":
+                    client = env["res.users"].browse(metadata["client_uid"])
+                    assert client.group_ids.ids == [metadata["group_id"]]
+                    assert env.ref("base.group_portal") not in client.all_group_ids
+                    publication = env[
+                        "project.agile.solution.portal.publication"
+                    ].browse(metadata["publication_id"])
+                    assert publication.revoked_at and publication.revoked_by_id
+                    assert not publication._decision_head_id
+                    assert not publication._requirement_head_id
+                    assert (
+                        requirement.sudo()._last_acceptance_id.id
+                        == metadata["requirement_head_id"]
+                    )
+                results.append(
+                    {
+                        "action": action,
+                        "loser": loser_action,
+                        "ordering": ordering,
+                        "workers": result,
+                    }
+                )
+    return results

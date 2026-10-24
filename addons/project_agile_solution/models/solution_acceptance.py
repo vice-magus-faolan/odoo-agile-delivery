@@ -51,6 +51,23 @@ class RequirementAcceptance(models.Model):
         ],
         required=True,
     )
+    decision_source = fields.Selection(
+        [("internal_proxy", "Internal proxy"), ("portal", "Authenticated client")],
+        required=True,
+        default="internal_proxy",
+        readonly=True,
+        index=True,
+    )
+    publication_id = fields.Many2one(
+        "project.agile.solution.portal.publication",
+        ondelete="restrict",
+        readonly=True,
+    )
+    publication_sha256 = fields.Char(readonly=True)
+    portal_partner_id = fields.Many2one(
+        "res.partner", ondelete="restrict", readonly=True
+    )
+
     authority_label = fields.Char(
         required=True,
         help=(
@@ -154,6 +171,7 @@ class RequirementAcceptance(models.Model):
             [
                 ("requirement_revision_id", "=", requirement.id),
                 ("document_revision_id", "=", baseline.id),
+                ("decision_source", "=", "internal_proxy"),
             ],
             limit=1,
         )
@@ -161,11 +179,13 @@ class RequirementAcceptance(models.Model):
             [
                 ("requirement_revision_id", "=", requirement.id),
                 ("document_revision_id", "=", baseline.id),
+                ("decision_source", "=", "internal_proxy"),
             ]
         ) != self.search_count(
             [
                 ("requirement_revision_id", "=", requirement.id),
                 ("document_revision_id", "=", baseline.id),
+                ("decision_source", "=", "internal_proxy"),
             ]
         ):
             raise AccessError(
@@ -183,6 +203,10 @@ class RequirementAcceptance(models.Model):
         requirement._seal()
         prepared = {
             **values,
+            "decision_source": "internal_proxy",
+            "publication_id": False,
+            "publication_sha256": False,
+            "portal_partner_id": False,
             "recorded_by_id": self.env.uid,
             "recorded_by_label": self.env.user.display_name,
             "recorded_at": fields.Datetime.now(),
@@ -191,6 +215,63 @@ class RequirementAcceptance(models.Model):
         event = super().create(prepared)
         requirement._record_acceptance(event)
         return event
+
+    def _append_portal(
+        self, publication, requirement, decision, criteria, evidence, expected
+    ):
+        values = {
+            "decision": decision,
+            "authority_label": self.env.user.display_name[:200],
+            "criteria_evaluated": criteria,
+            "evidence": evidence,
+        }
+        self._validate_evidence(values)
+        model = self.sudo().with_context({})  # pylint: disable=context-overridden
+        previous = model.search(
+            [
+                ("requirement_revision_id", "=", requirement.id),
+                ("document_revision_id", "=", publication.revision_id.id),
+                ("decision_source", "=", "portal"),
+            ],
+            limit=1,
+        )
+        own_previous = model.search(
+            [
+                ("publication_id", "=", publication.id),
+                ("requirement_revision_id", "=", requirement.id),
+                ("decision_source", "=", "portal"),
+            ],
+            limit=1,
+        )
+        publication._check_expected(expected, own_previous.id)
+        event = super(RequirementAcceptance, model).create(
+            {
+                **values,
+                "requirement_revision_id": requirement.id,
+                "document_revision_id": publication.revision_id.id,
+                "decision_source": "portal",
+                "publication_id": publication.id,
+                "publication_sha256": publication.payload_sha256,
+                "portal_partner_id": self.env.user.partner_id.id,
+                "recorded_by_id": self.env.uid,
+                "recorded_by_label": self.env.user.display_name,
+                "recorded_at": fields.Datetime.now(),
+                "supersedes_id": previous.id or False,
+            }
+        )
+        requirement._record_acceptance(event)
+        return event
+
+    def _portal_receipt(self):
+        self.ensure_one()
+        return {
+            "id": self.id,
+            "decision": self.decision,
+            "actor": self.recorded_by_label,
+            "time": fields.Datetime.to_string(self.recorded_at),
+            "criteria": self.criteria_evaluated,
+            "evidence": self.evidence,
+        }
 
     def _validate_evidence(self, values):
         if values.get("decision") not in ("accepted", "rejected", "withdrawn"):

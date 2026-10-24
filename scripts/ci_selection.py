@@ -12,7 +12,7 @@ from pathlib import Path
 
 # These optional bridges belong to verify-oca-document-page, not this runtime.
 OPTIONAL_DEPENDENCIES = {"document_page_project"}
-NATIVE_DEPENDENCIES = {"project", "hr_timesheet"}
+NATIVE_DEPENDENCIES = {"project", "hr_timesheet", "portal"}
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 

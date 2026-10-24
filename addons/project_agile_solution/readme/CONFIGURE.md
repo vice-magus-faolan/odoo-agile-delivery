@@ -30,3 +30,9 @@ For an internal initiative, a Statement of Work (SOW) is optional. If the soluti
 has a SOW document, separately approve its current baseline and select it in the
 specification before approving the specification. Record requirement acceptance
 separately through Exact Requirement Decisions.
+
+For client sign-off, invite the exact portal contact with native Project sharing
+in read mode. A commercially related contact is not automatically a signer.
+As a Project administrator, set **Client Signer** on the Solution Document to the
+active portal user. The contact must belong to the Project company. Designation
+alone discloses nothing; issue each customer-facing revision explicitly.

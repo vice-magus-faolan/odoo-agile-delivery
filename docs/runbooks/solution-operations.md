@@ -22,6 +22,13 @@ before sharing it. Do not distribute native report URLs as customer access. Keep
 out of narratives and evidence. Restrict distribution and retention of exported files,
 because later permission changes cannot revoke copies already shared.
 
+For portal clients, check the exact Project invitation, current company access, Client
+Signer and explicit publication. Native commercial visibility alone does not grant
+publication access. After correcting a revoked grant, issue a new publication from the
+approved revision. Review internal approval, client document decision and Internal proxy
+requirement history separately. Revoke an issued publication through its document when
+it should no longer be available.
+
 ## Handle previews and corrections
 
 Preview collections stop above 1,000 rows. Split the initiative instead of bypassing the

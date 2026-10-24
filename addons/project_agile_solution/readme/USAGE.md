@@ -77,7 +77,7 @@ Rendering requires access to every required reference. If rendering is refused,
 ask your Project administrator to check access. Internal coverage accepts up to
 1,000 rows; split larger initiatives into smaller ones.
 
-## Record exact acceptance
+## Record internal proxy acceptance
 
 Only the active internal Project administrator who actually approved the selected
 specification baseline may record its decisions, with current Project, record
@@ -100,5 +100,32 @@ Saved decisions cannot be edited or deleted. Append **Rejected** or **Withdrawn*
 with criteria and evidence to correct history; those corrections also allow a
 superseded baseline. Withdrawal requires a currently accepted decision for the
 same exact pair. The acceptance-events list filter shows the decision history.
-Read the latest decision for each exact pair to determine its current accepted
-status.
+Read the latest Internal proxy decision for each exact pair to determine its
+proxy status. Authenticated client decisions have a separate channel and history.
+
+
+## Share a revision and obtain client decisions
+
+After internal approval, a Project administrator opens the exact revision and
+chooses **Preview / Share with Client**. Select the invited portal user and review
+the complete customer disclosure, including its labels. Choose **Issue Customer
+Publication**. Only customer-tagged narrative, requirements and permitted context
+are disclosed; requirement rationale and internal history stay private.
+
+The client opens **My Account > Solution documents**, selects the issued revision
+and uses **Approve document** or **Reject document**. For each disclosed requirement
+in a specification, enter **Evaluated criteria** and **Evidence**, then choose
+**Accept requirement** or **Reject requirement**. The page shows the authenticated
+client and server time. Decisions concern only these disclosed bytes. Internal
+approval remains separate, including when the client rejects the document.
+
+Reload before correcting an existing decision. Corrections append history rather
+than edit it. A superseded publication is read-only; a successor requires a new
+publication and new decisions. **Download HTML** contains the same customer-facing
+content, not the internal report.
+
+To remove access, open the publication from its Solution Document and choose
+**Revoke Publication**. Removing the exact Project invitation or changing the
+client identity, company access or signer also retires affected publications.
+Restoring access does not reactivate them; issue a new publication. Downloaded
+copies cannot be recalled.

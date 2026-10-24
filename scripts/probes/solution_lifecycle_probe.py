@@ -14,8 +14,16 @@ from datetime import date, datetime
 
 from odoo import Command
 
-DATABASE = "odoo_agile_verify_install"
-KEY = "m8.disposable.lifecycle.fixture"
+DATABASE = (
+    "odoo_agile_verify_upgrade"
+    if PHASE.endswith("legacy_proxy")
+    else "odoo_agile_verify_install"
+)
+KEY = (
+    "m8.disposable.lifecycle.legacy.fixture"
+    if PHASE.endswith("legacy_proxy")
+    else "m8.disposable.lifecycle.fixture"
+)
 NATIVE_FIELDS = [
     "name",
     "description",
@@ -28,6 +36,8 @@ NATIVE_FIELDS = [
 ]
 assert env.cr.dbname == DATABASE, "Refuse non-declared lifecycle fixture database"
 assert PHASE in (
+    "seed_legacy_proxy",
+    "check_legacy_proxy",
     "seed_core",
     "check_core",
     "removed_core",
@@ -64,6 +74,7 @@ def seed_fixture(bridge):
         env, "M8LIFEBRIDGE" if bridge else "M8LIFECORE"
     )
     project.write({"agile_estimation_method": "fibonacci"})
+    requirement.write({"audience": "customer"})
     document = (
         env["project.agile.solution.document"]
         .with_user(manager)
@@ -154,7 +165,24 @@ def seed_fixture(bridge):
         "snapshot": baseline.snapshot_json,
         "projection": baseline.action_projection("internal"),
         "evidence": acceptance.evidence,
+        "acceptance_values": record_values(
+            acceptance,
+            [
+                "requirement_revision_id",
+                "document_revision_id",
+                "decision",
+                "authority_label",
+                "criteria_evaluated",
+                "evidence",
+                "recorded_by_id",
+                "recorded_by_label",
+                "recorded_at",
+                "supersedes_id",
+            ],
+        ),
     }
+    if not PHASE.endswith("legacy_proxy"):
+        data.update(seed_portal(manager, project, baseline, requirement))
     if bridge:
         data.update(seed_sprint(env, manager, project, task))
     data["native"] = native_values(task)
@@ -224,6 +252,53 @@ def check_core(data):
         .browse(data["acceptance"])
     )
     assert acceptance.evidence == data["evidence"] and acceptance.decision == "accepted"
+    assert acceptance.decision_source == "internal_proxy"
+    assert not acceptance.publication_id and not acceptance.portal_partner_id
+    assert (
+        record_values(acceptance, list(data["acceptance_values"].keys() - {"id"}))
+        == data["acceptance_values"]
+    )
+    if "publication" in data:
+        publication = env["project.agile.solution.portal.publication"].browse(
+            data["publication"]
+        )
+        assert not publication.revoked_at, {
+            "unexpected_revocation": publication.revoked_at,
+            "revoked_by": publication.revoked_by_id.id,
+            "source_state": publication.revision_id.state,
+            "recipient": publication.recipient_id.id,
+            "partner": publication.partner_id.id,
+        }
+        assert (
+            publication.with_user(data["client"]).action_view() == data["portal_view"]
+        ), "Module update changed existing exact client decision receipts"
+        assert (
+            record_values(
+                publication,
+                [
+                    "payload_json",
+                    "payload_sha256",
+                    "snapshot_sha256",
+                    "published_by_id",
+                    "published_at",
+                    "recipient_id",
+                    "partner_id",
+                    "revoked_at",
+                    "revoked_by_id",
+                    "_decision_head_id",
+                    "_requirement_head_id",
+                ],
+            )
+            == data["publication_values"]
+        )
+        revoked = env[publication._name].browse(data["revoked_publication"])
+        assert revoked.revoked_at.isoformat() == data["revoked_at"]
+        assert (
+            env["project.agile.requirement.acceptance"]
+            .browse(data["portal_acceptance"])
+            .decision_source
+            == "portal"
+        )
 
 
 def check_event(data):
@@ -254,12 +329,15 @@ def check_phase(data):
         assert not env["project.agile.solution"].search([]), (
             "Uninstall is destructive, not history retention"
         )
+        assert not env["project.agile.solution.portal.publication"].search([])
+        assert not env["project.agile.solution.portal.document.decision"].search([])
+        assert not env["project.agile.requirement.acceptance"].search([])
         assert not env["project.agile.solution.task.intent"].search([]), (
             "Reinstall must not fabricate consumed intents"
         )
         return
     check_core(data)
-    if PHASE == "check_core":
+    if PHASE in ("check_core", "check_legacy_proxy"):
         return
     event = check_event(data)
     if PHASE == "removed_bridge":
@@ -286,6 +364,61 @@ def check_phase(data):
     )
     assert event.solution_capture_status == "not_available"
     env.cr.commit()
+
+
+def seed_portal(manager, project, baseline, requirement):
+    from odoo.addons.mail.tests.common import mail_new_test_user
+
+    client = mail_new_test_user(
+        env, "solution_lifecycle_client_" + PHASE, groups="base.group_portal"
+    )
+    project.write({"privacy_visibility": "portal"})
+    project.message_subscribe(partner_ids=client.partner_id.ids)
+    baseline.document_id.write({"portal_approver_id": client.id})
+    publication = env["project.agile.solution.portal.publication"].browse(
+        baseline.action_issue_portal(client.id)
+    )
+    publication.with_user(client).action_decide_document(
+        "approved", comment="Exact lifecycle disclosure"
+    )
+    event = publication.with_user(client).action_decide_requirement(
+        requirement.requirement_id.key,
+        requirement.number,
+        "accepted",
+        "Lifecycle criteria",
+        "Lifecycle observation",
+    )
+    view = publication.with_user(client).action_view()
+    viewer = mail_new_test_user(
+        env, "solution_lifecycle_viewer_" + PHASE, groups="base.group_portal"
+    )
+    project.message_subscribe(partner_ids=viewer.partner_id.ids)
+    revoked = env[publication._name].browse(baseline.action_issue_portal(viewer.id))
+    revoked.with_user(manager).action_revoke()
+    return {
+        "client": client.id,
+        "publication": publication.id,
+        "portal_view": view,
+        "publication_values": record_values(
+            publication,
+            [
+                "payload_json",
+                "payload_sha256",
+                "snapshot_sha256",
+                "published_by_id",
+                "published_at",
+                "recipient_id",
+                "partner_id",
+                "revoked_at",
+                "revoked_by_id",
+                "_decision_head_id",
+                "_requirement_head_id",
+            ],
+        ),
+        "portal_acceptance": event["id"],
+        "revoked_publication": revoked.id,
+        "revoked_at": revoked.revoked_at.isoformat(),
+    }
 
 
 if PHASE.startswith("seed_"):

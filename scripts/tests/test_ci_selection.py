@@ -131,6 +131,12 @@ class SelectionCase(unittest.TestCase):
                     self.git("rm", "addons/other/models.py")
                 self.assertEqual(self.decision()["mode"], "full")
 
+    def test_native_portal_dependency_is_supported(self):
+        self.addon("customer", ["core", "portal"])
+        result = self.decision()
+        self.assertIn("customer", result["selected"])
+        self.assertNotIn("customer", result["excluded"])
+
     def test_added_addon_changes_graph(self):
         self.addon("added", ["core"])
         result = self.decision()

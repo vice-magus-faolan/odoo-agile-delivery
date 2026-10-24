@@ -59,9 +59,11 @@ class SolutionPortalUsers(models.Model):
 
     def _publication_portal_eligibility(self):
         """Snapshot native recipient eligibility, not incidental access groups."""
+        # Read native fields without warming has_group's registry-wide user cache
+        # with membership that an enclosing savepoint may subsequently roll back.
+        portal = self.env.ref("base.group_portal")
         return {
-            user.id: (user.has_group("base.group_portal"), user.share)
-            for user in self.sudo()
+            user.id: (portal in user.all_group_ids, user.share) for user in self.sudo()
         }
 
     def _revoke_changed_portal_eligibility(self, before):

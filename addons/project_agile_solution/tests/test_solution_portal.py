@@ -366,7 +366,8 @@ class TestSolutionPortal(TestSolutionRequirements):
         parents[1].write({"all_user_ids": [Command.clear()]})
         self.assertNotIn(child, self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
-        self._assert_denied(self.publication)
+        with self.assertRaises(AccessError):
+            self.publication.action_view()
         parents[1].write({"user_ids": [Command.link(self.client.id)]})
         self.assertTrue(self.client.share)
         self.assertIn(child, self.client.all_group_ids)
@@ -405,7 +406,8 @@ class TestSolutionPortal(TestSolutionRequirements):
         self.assertTrue(self.publication.sudo().revoked_at)
         self.assertFalse(self.publication_b.sudo().revoked_at)
         self.assertEqual(self.publication_b.action_view(), other_view)
-        self._assert_denied(self.publication)
+        with self.assertRaises(AccessError):
+            self.publication.action_view()
         parents.write({"implied_ids": [Command.set(portal.ids)]})
         self.assertIn(portal, self.client.all_group_ids)
         self._assert_denied(self.publication)
@@ -437,7 +439,8 @@ class TestSolutionPortal(TestSolutionRequirements):
         (portal | children).write({"implied_by_ids": [Command.clear()]})
         self.assertNotIn(portal, self.client.all_group_ids)
         self.assertTrue(self.publication.sudo().revoked_at)
-        self._assert_denied(self.publication)
+        with self.assertRaises(AccessError):
+            self.publication.action_view()
         portal.write({"implied_by_ids": [Command.link(parents[1].id)]})
         self.assertIn(portal, self.client.all_group_ids)
         self._assert_denied(self.publication)

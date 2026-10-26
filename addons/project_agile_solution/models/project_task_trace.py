@@ -138,7 +138,9 @@ class ProjectTaskTrace(models.Model):
                 and not self.env.context.get("copy_project")
                 and values.get("project_id") == task.project_id.id
             ):
-                values["solution_actor_ids"] = _CopiedActorCommands(task)
+                commands = _CopiedActorCommands(task)
+                if commands[0][2]:
+                    values["solution_actor_ids"] = commands
         return values_list
 
     solution_maintenance_reason = fields.Text(

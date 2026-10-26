@@ -211,6 +211,11 @@ class TestTaskActors(TransactionCase):
         self.assertEqual(child.solution_actor_ids, self.actors)
         self.assertEqual(work.solution_actor_ids, self.actors)
 
+    def test_empty_actor_copy_keeps_native_authority(self):
+        # Native fixture/OdooBot copies have no selector role or active-user grant.
+        work = self._create().with_env(self.env)
+        self.assertFalse(work.copy().solution_actor_ids)
+
     def test_member_native_single_and_nested_copy(self):
         self.assertFalse(self.member.has_group("project.group_project_manager"))
         self.assertFalse(

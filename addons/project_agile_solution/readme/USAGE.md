@@ -43,6 +43,14 @@ twenty exact **Requirement Revisions**. Select **Task** for existing work; for
 new work, select **Agile Item Type** and optionally **Description**. An optional
 **Document Revision** must contain the selected exact requirements.
 
+For new work, **Copy Acceptance Expectations** starts unchecked. Check it to
+copy the selected exact requirements into task acceptance criteria. Inspect
+**Task Acceptance Criteria Preview** before saving and again in confirmation;
+the created criteria match that preview and remain editable on the task.
+Leave it unchecked to create work without copying requirement criteria.
+This option does not update existing tasks when linking them. To change a saved
+preview or its copy choice, create a fresh preview.
+
 Save, choose **Review and Confirm**, inspect the proposed work, then choose
 **Confirm This Preview** as the same user. Work is created or linked only when
 you confirm the preview. Changed source content requires a fresh preview;
@@ -53,6 +61,25 @@ Link** with a reason when replacing coverage, then link the successor.
 Manage task descriptions, criteria, estimates, workflow and Sprint allocation
 on the tasks themselves. Specification changes preserve these task values. For a task
 without requirements, enter its explanation on the **Solution Maintenance** tab.
+
+On the task **Agile** tab, **Exact Requirement Acceptance** shows each accessible
+active link: the exact title and revision, **Acceptance Expectations** and
+**Verification Method**, read-only. A newer revision does not replace the linked
+one. Retired links disappear. Inaccessible requirements are omitted without
+preventing task access; this panel is not proof of complete requirement coverage.
+
+For example, a client needs warehouse staff to dispatch only buyer-approved orders.
+Their requirement expectations might say:
+
+- Given an order awaiting the buyer approval, when a warehouse clerk attempts to
+  dispatch it, then dispatch is refused and the order stays awaiting approval.
+- Given that buyer approval is recorded, when the clerk dispatches the order,
+  then a dispatch reference is saved and shown to the buyer.
+
+Use **Verification Method** to record a demonstration with buyer and warehouse test
+accounts. Given/When/Then is optional wording, not an enforced format. A developer
+may copy these expectations at creation and add task-specific edge cases later;
+editing task criteria does not change the client-agreed requirement revision.
 
 ## Preview the chosen audience
 

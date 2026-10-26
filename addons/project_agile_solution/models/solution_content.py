@@ -27,6 +27,13 @@ def check_reference_commands(commands):
 
 def reference_command_ids(command):
     """Validate native/RPC reference tuples and return their literal selected IDs."""
+    if (
+        isinstance(command, (list, tuple))
+        and len(command) == 2
+        and command[0] in (Command.LINK, Command.UNLINK)
+    ):
+        # Native web relational lists can omit the unused LINK/UNLINK payload.
+        command = (*command, 0)
     if not isinstance(command, (list, tuple)) or len(command) != 3:
         raise ValidationError(_("Use explicit reference commands."))
     operation, record_id, payload = command

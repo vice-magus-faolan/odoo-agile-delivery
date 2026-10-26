@@ -200,13 +200,23 @@ specification invalidates an unconsumed preview. Preview again rather than reuse
 intent. A consumed intent returns the same still-authorized result, including after
 requirement successors; archive or deletion cannot renew creation.
 
-Confirmation creates one native Task using only name, description, Project and
-explicitly selected Agile item type, then links exact requirements and consumes the
-intent in the same savepoint. Caller default context is stripped. Native creation
-effects remain native. No estimate, criteria, hierarchy, dependency, stage/state, Sprint
-or ordering is supplied. Specification edits never regenerate backlogs or overwrite
+Confirmation creates one native Task using name, description, Project and explicitly
+selected Agile item type, then links exact requirements and consumes the intent in the
+same savepoint. A creation-only, false-by-default copy choice includes the selected
+exact Acceptance Expectations as escaped HTML in stable revision-ID order. The same HTML
+preview is displayed at confirmation and supplied as editable task criteria; unchecked
+previews supply no criteria. Ambient defaults cannot opt in, and link-only operations
+cannot overwrite existing work. Caller default context is stripped. Native creation
+effects remain native. No estimate, hierarchy, dependency, stage/state, Sprint or
+ordering is supplied. Specification edits never regenerate backlogs or overwrite
 manually authored Task values. Independent confirmations converge on one result;
 failures leave no partial Task, links, seals or consumption.
+
+The Task Agile tab renders active exact links read-only under current caller authority.
+Inaccessible links are omitted, not elevated or counted, so a hidden requirement cannot
+break Task access. The caller-specific nonstored escaped projection depends on the
+existing Task reference publication updated by link creation/retirement; it neither
+implies complete coverage nor substitutes the latest revision.
 
 ## Optional frozen Scrum context
 

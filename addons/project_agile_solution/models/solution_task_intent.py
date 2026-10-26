@@ -4,6 +4,8 @@ import hashlib
 import json
 from uuid import uuid4
 
+from markupsafe import Markup, escape
+
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
@@ -27,6 +29,7 @@ INPUT = frozenset(
         "task_id",
         "document_revision_id",
         "requirement_revision_ids",
+        "copy_acceptance_expectations",
     }
 )
 
@@ -48,6 +51,15 @@ class SolutionTaskIntent(models.Model):
     )
     name = fields.Char(required=True)
     description = fields.Html()
+    copy_acceptance_expectations = fields.Boolean(
+        default=False,
+        help="Copy the selected exact expectations into editable Task criteria.",
+    )
+    acceptance_criteria_preview = fields.Html(
+        string="Task Acceptance Criteria Preview",
+        compute="_compute_acceptance_criteria_preview",
+        compute_sudo=False,
+    )
     agile_item_type_id = fields.Many2one("project.agile.item.type", ondelete="restrict")
     task_id = fields.Many2one(
         "project.task", readonly=True, ondelete="restrict", check_company=True
@@ -95,6 +107,9 @@ class SolutionTaskIntent(models.Model):
             values["state"] = "preview"
         if "creator_id" in names:
             values["creator_id"] = self.env.uid
+        if "copy_acceptance_expectations" in names:
+            # An ambient context default is not a deliberate choice in this proposal.
+            values["copy_acceptance_expectations"] = False
         return values
 
     @api.model_create_multi
@@ -143,7 +158,13 @@ class SolutionTaskIntent(models.Model):
         if values.get("operation", "link") == "link":
             task = self._checked_relation("project.task", values.get("task_id"))
             check_task(task, solution.project_id)
-        values = {**values, "requirement_revision_ids": [Command.set(ids)]}
+        values = {
+            **values,
+            "requirement_revision_ids": [Command.set(ids)],
+            "copy_acceptance_expectations": values.get(
+                "copy_acceptance_expectations", False
+            ),
+        }
         record = super().create(
             {
                 **values,
@@ -174,6 +195,10 @@ class SolutionTaskIntent(models.Model):
             raise ValidationError(_("Use a meaningful bounded Task proposal."))
         check_document(self.document_revision_id, revisions, self.solution_id)
         if self.operation == "link":
+            if self.copy_acceptance_expectations:
+                raise ValidationError(
+                    _("Copy expectations only when creating new native work.")
+                )
             check_task(self.task_id, self.project_id)
         else:
             if self.task_id:
@@ -231,6 +256,30 @@ class SolutionTaskIntent(models.Model):
             )
             record.preview_text = "\n".join(
                 f"{row.requirement_id.key} v{row.number}: {row.title}"
+                for row in revisions.sorted("id")
+            )
+
+    @api.depends(
+        "copy_acceptance_expectations", "requirement_revision_ids", "operation"
+    )
+    @api.depends_context("uid")
+    def _compute_acceptance_criteria_preview(self):
+        for record in self:
+            record.acceptance_criteria_preview = False
+            if (
+                record.operation != "create"
+                or not record.copy_acceptance_expectations
+                or not record.requirement_revision_ids
+            ):
+                continue
+            if record._origin.id:
+                record._check_current_trace_read()
+            revisions = check_requirements(
+                record.requirement_revision_ids, record.solution_id, active=False
+            )
+            record.acceptance_criteria_preview = Markup("").join(
+                Markup("<p>%s</p>")
+                % escape(row.acceptance_expectations).replace("\n", Markup("<br>"))
                 for row in revisions.sorted("id")
             )
 
@@ -326,6 +375,8 @@ class SolutionTaskIntent(models.Model):
                     "description": self.description,
                     "project_id": self.project_id.id,
                     "agile_item_type_id": self.agile_item_type_id.id,
+                    "agile_acceptance_criteria": self.acceptance_criteria_preview
+                    or False,
                 }
             )
         )
@@ -366,6 +417,16 @@ class TaskConfirmWizard(models.TransientModel):
     name = fields.Char(related="intent_id.name", readonly=True, compute_sudo=False)
     description = fields.Html(
         related="intent_id.description", readonly=True, compute_sudo=False
+    )
+    copy_acceptance_expectations = fields.Boolean(
+        related="intent_id.copy_acceptance_expectations",
+        readonly=True,
+        compute_sudo=False,
+    )
+    acceptance_criteria_preview = fields.Html(
+        related="intent_id.acceptance_criteria_preview",
+        readonly=True,
+        compute_sudo=False,
     )
     operation = fields.Selection(
         related="intent_id.operation", readonly=True, compute_sudo=False

@@ -112,7 +112,8 @@ registry.category("web_tour.tours").add("solution_task_pristine_story_switch", {
     {trigger: ".o_field_widget[name=description]:contains(As a)"},
     ...switchStoryToTask(),
     {
-      trigger: ".o_field_widget[name=description] .odoo-editor-editable",
+      trigger:
+        ".o_field_widget[name=description] .odoo-editor-editable:not(:contains(As a)):not(:contains(I want)):not(:contains(so that))",
       run() {
         if (
           document

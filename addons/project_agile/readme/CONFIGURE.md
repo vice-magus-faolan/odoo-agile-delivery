@@ -64,5 +64,7 @@ Seeded item types preserve administrator customizations on module updates.
 Open an item type form under **Configuration > Agile Item Types** to edit or clear
 **New Description Template**. Story starts with As a / I want / so that; Task
 starts empty. These starting descriptions apply only to newly created Agile
-work. Explicit descriptions, existing work and later module updates preserve
-your choices, including a cleared template.
+work. On an unsaved task, changing the item type replaces or clears untouched
+starting text. Your authored text and explicit starting descriptions are preserved.
+Existing work and later module updates preserve your choices, including a cleared
+template.

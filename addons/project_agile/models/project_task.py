@@ -74,6 +74,12 @@ class ProjectTask(models.Model):
         store=True,
     )
     agile_acceptance_criteria = fields.Html(string="Acceptance Criteria")
+    agile_draft_description_template = fields.Html(
+        store=False,
+        readonly=True,
+        copy=False,
+        help="Previous starting text in an unsaved form; never stored on work.",
+    )
     # Preserve the existing explicit field label.
     # pylint: disable-next=attribute-string-redundant
     agile_backlog_sequence = fields.Integer(
@@ -180,15 +186,18 @@ class ProjectTask(models.Model):
 
     @api.onchange("project_id", "agile_item_type_id")
     def _onchange_new_description_template(self):
-        # Do not rewrite saved work or an author-provided draft description.
+        # Only a pristine draft follows type changes. Saved/explicit text is owned
+        # by its author; the transient field carries the old template across RPCs.
         for task in self:
             if (
                 not task._origin.id
-                and not task.description
                 and task.project_id.agile_enabled
                 and "default_description" not in self.env.context
             ):
-                task.description = task.agile_item_type_id.new_description_template
+                template = task.agile_item_type_id.new_description_template
+                if task.description == task.agile_draft_description_template:
+                    task.description = template
+                task.agile_draft_description_template = template
 
     def copy_data(self, default=None):
         default = dict(default or {})

@@ -386,6 +386,15 @@ Project and company, across its Solutions. They display the current identity nam
 implicit latest-revision content or a frozen acceptance baseline. Existing
 Project/context rules govern selection; Business analysts and Project administrators
 need native Task write authority. Reference commands cannot create, edit or delete
-context through a Task. Core Agile remains independent. Ordinary same-Project Task
-duplication retains Actors; cross-Project and whole-Project/template copies omit
-source-owned Actors, including child work, without copying Solution identities.
+context through a Task. Core Agile remains independent. New selections explicitly reject
+archived Actors, independent of active_test; retained historical links remain usable.
+Ordinary same-Project Task duplication retains Actors for Agile members as well as
+authors, including child work. A private Python command-list subtype marks native
+copy_data inheritance, bound to the accessible source Task, exact Actor set and Project.
+After checking source read access, narrowly elevated enumeration obtains that source
+relation only; caller-context checks authorize the complete identities and their scope
+before any copy payload is returned. This avoids silently copying a record-rule-filtered
+subset. It grants no selector role: JSON/RPC roundtrips lose the subtype, explicit copy
+defaults remain ordinary selections, and create/read/context/company checks still apply.
+Cross-Project and whole-Project/template copies omit source-owned Actors without copying
+Solution identities.

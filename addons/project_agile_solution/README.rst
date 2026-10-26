@@ -258,9 +258,12 @@ Served**. First create the named supporting context with **Kind** set to
 Actors from Solutions in that Project. The native board and Product
 Backlog show their names; empty selections stay blank. Actors describe
 people served, not access grants or frozen acceptance. Renaming the
-stable Actor updates its displayed name, not requirement history. A
-same-Project task duplicate retains Actors; a copy to another Project or
-a whole-Project/template copy starts without source-Project Actors.
+stable Actor updates its displayed name, not requirement history. An
+Agile member can duplicate a task and its subtasks in the same Project
+while retaining their Actors; this does not grant permission to select
+other Actors. Archived Actors remain on historical work but cannot be
+newly selected. A copy to another Project or a whole-Project/template
+copy starts without source-Project Actors.
 
 Bug Tracker
 ===========

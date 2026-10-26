@@ -50,7 +50,10 @@ actionable validation error rather than silently reclassify or detach tasks.
 Each item type owns an optional editable HTML starting description. Story is seeded with
 As a / I want / so that; other types start empty. Native new-task defaults and creation
 apply the configured text only when no explicit description is supplied, including
-explicit empty defaults. New unsaved form work can fill an empty description when
-selecting a type. Saved task edits, moves and configuration changes never rewrite
-descriptions. A one-time versioned upgrade seeds the new Story field on existing
-noupdate configuration; subsequent upgrades preserve administrator edits and clearing.
+explicit empty defaults. An unsaved form follows type changes only while its description
+is exactly the previous starting template. One nonstored, invisible HTML field carries
+that previous template across onchange requests; it is not persisted business state.
+Authored drafts, explicit defaults and saved task edits remain unchanged. A one-time
+versioned upgrade initializes existing Story configuration from the same static HTML
+file used by native XML installation. A deleted seed is skipped; subsequent upgrades
+preserve administrator edits and clearing.

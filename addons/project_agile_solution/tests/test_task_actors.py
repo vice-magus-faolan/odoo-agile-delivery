@@ -1,3 +1,5 @@
+import json
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests import Form
@@ -208,3 +210,170 @@ class TestTaskActors(TransactionCase):
         self.assertFalse(restored.task_ids.solution_actor_ids)
         self.assertEqual(child.solution_actor_ids, self.actors)
         self.assertEqual(work.solution_actor_ids, self.actors)
+
+    def test_member_native_single_and_nested_copy(self):
+        self.assertFalse(self.member.has_group("project.group_project_manager"))
+        self.assertFalse(
+            self.member.has_group("project_agile_solution.group_business_analyst")
+        )
+        work = self._create(solution_actor_ids=[Command.set(self.actors.ids)])
+        member_work = work.with_user(self.member)
+        self.assertEqual(member_work.copy().solution_actor_ids, self.actors)
+        self.assertFalse(
+            member_work.copy({"project_id": self.other.id}).solution_actor_ids
+        )
+        child = self._create(
+            parent_id=work.id,
+            agile_item_type_id=self.env.ref(
+                "project_agile.project_agile_item_type_task"
+            ).id,
+            solution_actor_ids=[Command.set(self.actors[0].ids)],
+        )
+        copied = member_work.copy()
+        self.assertEqual(copied.solution_actor_ids, self.actors)
+        self.assertEqual(copied.child_ids.solution_actor_ids, child.solution_actor_ids)
+        self.actors.active = False
+        inherited = member_work.copy()
+        self.assertEqual(
+            inherited.with_context(active_test=False).solution_actor_ids, self.actors
+        )
+        inherited.name = "Historical links retained"
+        self.assertEqual(
+            inherited.with_context(active_test=False).solution_actor_ids, self.actors
+        )
+
+    def test_member_cannot_forge_copy_or_select_actors(self):
+        work = self._create(solution_actor_ids=[Command.set(self.actors.ids)])
+        member_work = work.with_user(self.member)
+        commands = [Command.set(self.actors.ids)]
+        with self.assertRaises(AccessError):
+            member_work.copy({"solution_actor_ids": commands})
+        with self.assertRaises(AccessError):
+            member_work.copy(
+                {
+                    "child_ids": [
+                        Command.create(
+                            {
+                                "name": "Injected child",
+                                "project_id": self.project.id,
+                                "solution_actor_ids": commands,
+                            }
+                        )
+                    ]
+                }
+            )
+        member_tasks = self.tasks.with_user(self.member)
+        with self.assertRaises(AccessError):
+            member_tasks.create(
+                {
+                    "name": "Direct selection",
+                    "project_id": self.project.id,
+                    "solution_actor_ids": commands,
+                }
+            )
+        with self.assertRaises(AccessError):
+            member_tasks.with_context(default_solution_actor_ids=commands).create(
+                {
+                    "name": "Default injection",
+                    "project_id": self.project.id,
+                }
+            )
+        with self.assertRaises(AccessError):
+            member_work.with_context(
+                solution_actor_copy=True,
+                solution_actor_copy_source=work.id,
+            ).write({"solution_actor_ids": commands})
+        # Public copy_data is JSON data, not authority to choose these references.
+        payload = {
+            "name": "Serialized copy data",
+            "project_id": self.project.id,
+            "solution_actor_ids": json.loads(
+                json.dumps(member_work.copy_data()[0]["solution_actor_ids"])
+            ),
+        }
+        with self.assertRaises(AccessError):
+            member_tasks.create(payload)
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Hidden copied Actor",
+                "model_id": self.env["ir.model"]._get_id(
+                    "project.agile.solution.context"
+                ),
+                "domain_force": repr([("id", "!=", self.actors[0].id)]),
+            }
+        )
+        with self.assertRaises(AccessError):
+            member_work.copy()
+        rule.unlink()
+        self.assertEqual(work.solution_actor_ids, self.actors)
+
+    def test_archived_actor_selection_and_historical_retention(self):
+        work = self._create(solution_actor_ids=[Command.set(self.actors.ids)])
+        for context in ({}, {"active_test": False}):
+            tasks = self.tasks.with_context(**context)
+            active = tasks.create(
+                {
+                    "name": "Active Actor",
+                    "project_id": self.project.id,
+                    "solution_actor_ids": [Command.set(self.actors.ids)],
+                }
+            )
+            self.assertEqual(active.solution_actor_ids, self.actors)
+        target = self._create()
+        self.actors[0].active = False
+        for context in ({}, {"active_test": False}):
+            tasks = self.tasks.with_context(**context)
+            with self.assertRaises(ValidationError):
+                tasks.create(
+                    {
+                        "name": "Archived selection",
+                        "project_id": self.project.id,
+                        "solution_actor_ids": [Command.link(self.actors[0].id)],
+                    }
+                )
+            with self.assertRaises(ValidationError):
+                tasks.with_context(
+                    default_solution_actor_ids=[Command.set(self.actors[0].ids)]
+                ).create({"name": "Archived default", "project_id": self.project.id})
+            with self.assertRaises(ValidationError):
+                target.with_context(**context).write(
+                    {"solution_actor_ids": [Command.link(self.actors[0].id)]}
+                )
+        work = work.with_context(active_test=False)
+        work.name = "Unrelated historical edit"
+        self.assertEqual(work.solution_actor_ids, self.actors)
+        # Retaining an already linked archived reference is not a new selection.
+        work.write({"solution_actor_ids": [Command.set(self.actors.ids)]})
+        self.assertEqual(work.solution_actor_ids, self.actors)
+        work.write({"solution_actor_ids": [Command.unlink(self.actors[0].id)]})
+        self.assertEqual(work.solution_actor_ids, self.actors[1])
+
+    def test_member_copy_preserves_native_source_and_create_access(self):
+        work = self._create(solution_actor_ids=[Command.set(self.actors.ids)])
+        member_work = work.with_user(self.member)
+        model_id = self.env["ir.model"]._get_id("project.task")
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Hidden copy source",
+                "model_id": model_id,
+                "domain_force": repr([("id", "!=", work.id)]),
+            }
+        )
+        with self.assertRaises(AccessError):
+            member_work.copy()
+        rule.unlink()
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Deny copied Task creation",
+                "model_id": model_id,
+                "domain_force": repr([("id", "=", 0)]),
+                "perm_read": False,
+                "perm_write": False,
+                "perm_unlink": False,
+                "perm_create": True,
+            }
+        )
+        with self.assertRaises(AccessError):
+            member_work.copy()
+        rule.unlink()
+        self.assertEqual(member_work.copy().solution_actor_ids, self.actors)

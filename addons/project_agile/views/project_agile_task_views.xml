@@ -13,6 +13,7 @@
           invisible="not agile_project_enabled"
           domain="[(&apos;active&apos;, &apos;=&apos;, True)]"
         />
+        <field name="agile_draft_description_template" invisible="1" />
         <field name="agile_uses_story_points" invisible="1" />
         <field
           name="agile_story_points"

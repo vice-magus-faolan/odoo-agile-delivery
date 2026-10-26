@@ -16,11 +16,11 @@
   </record>
   <record id="project_agile_item_type_story" model="project.agile.item.type">
     <field name="name">Story</field>
-    <field name="new_description_template" type="html">
-      <p>As a ...</p>
-      <p>I want ...</p>
-      <p>so that ...</p>
-    </field>
+    <field
+      name="new_description_template"
+      type="char"
+      file="project_agile/data/story_description.html"
+    />
     <field name="code">story</field>
     <field name="sequence">30</field>
     <field

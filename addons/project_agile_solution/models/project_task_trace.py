@@ -1,13 +1,147 @@
 """Native work remains authoritative; traceability does not regenerate or move it."""
 
-from odoo import _, fields, models
-from odoo.exceptions import ValidationError
+from odoo import Command, _, api, fields, models
+from odoo.exceptions import AccessError, ValidationError
 
 from odoo.addons.project_agile.utils import claim_records
+
+from .solution_content import check_reference_commands, reference_command_ids
+
+
+class _CopiedActorCommands(list):
+    # Server-only copy provenance; JSON/RPC receives an ordinary command list.
+    def __init__(self, source):
+        super().__init__([Command.set(source._actor_copy_ids())])
+        self.source_id = source.id
 
 
 class ProjectTaskTrace(models.Model):
     _inherit = "project.task"
+
+    solution_can_select_actors = fields.Boolean(compute="_compute_can_select_actors")
+
+    @api.depends_context("uid")
+    def _compute_can_select_actors(self):
+        allowed = self.env.user.has_group(
+            "project.group_project_manager"
+        ) or self.env.user.has_group("project_agile_solution.group_business_analyst")
+        for task in self:
+            task.solution_can_select_actors = allowed
+
+    solution_actor_ids = fields.Many2many(
+        "project.agile.solution.context",
+        "solution_task_actor_rel",
+        "task_id",
+        "context_id",
+        string="Actors",
+        groups="project.group_project_user",
+        copy=False,
+        check_company=True,
+        help="This Project serves these Actors; not frozen requirement acceptance.",
+    )
+
+    def _actor_copy_ids(self):
+        self.ensure_one()
+        caller = self.sudo(False).with_context(active_test=False)
+        caller.check_access("read")
+        # Relation reads filter inaccessible identities. Enumerate only stored IDs on
+        # this authorized source, then enforce caller access on the complete set.
+        actors = caller.env["project.agile.solution.context"].browse(
+            caller.sudo().solution_actor_ids.ids
+        )
+        actors.check_access("read")
+        actors.solution_id.check_access("read")
+        actors.project_id.check_access("read")
+        return actors.ids
+
+    @api.model
+    def _check_actor_commands(self, values, *, creating=False):
+        commands = values.get("solution_actor_ids", [])
+        if not commands:
+            return
+        inherited = creating and isinstance(commands, _CopiedActorCommands)
+        if inherited:
+            source = self.browse(commands.source_id).sudo(False)
+            source.check_access("read")
+            if values.get("project_id") != source.project_id.id or commands != [
+                Command.set(source._actor_copy_ids())
+            ]:
+                raise AccessError(_("Copied Actors must retain their source Project."))
+        user = self.env.user
+        if not user.active or not (
+            inherited
+            or user.has_group("project.group_project_manager")
+            or user.has_group("project_agile_solution.group_business_analyst")
+        ):
+            raise AccessError(
+                _(
+                    "An active Business analyst or Project administrator "
+                    "is required to select Actors."
+                )
+            )
+        check_reference_commands(commands)
+        ids = [item for command in commands for item in reference_command_ids(command)]
+        actors = self.env["project.agile.solution.context"].sudo(False).browse(ids)
+        actors.check_access("read")
+        if len(actors.exists()) != len(set(ids)):
+            raise ValidationError(_("Select available Actors."))
+        actors.solution_id.check_access("read")
+        actors.project_id.check_access("read")
+        selected_ids = {
+            actor_id
+            for command in commands
+            if command[0] in (Command.LINK, Command.SET)
+            for actor_id in reference_command_ids(command)
+        }
+        selected = actors.browse(selected_ids)
+        # Archive is a selection rule, not a retroactive historical constraint.
+        retained = self.browse() if creating else self.with_context(active_test=False)
+        if not inherited and any(
+            not actor.active
+            and (
+                not retained
+                or any(actor not in task.solution_actor_ids for task in retained)
+            )
+            for actor in selected
+        ):
+            raise ValidationError(_("Select active Actors."))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        defaults = self.default_get(["solution_actor_ids"])
+        for values in vals_list:
+            self._check_actor_commands(defaults | values, creating=True)
+        return super().create(vals_list)
+
+    @api.constrains("solution_actor_ids", "project_id", "company_id")
+    def _check_actor_scope(self):
+        for task in self:
+            actors = task.solution_actor_ids
+            actors.check_access("read")
+            actors.solution_id.check_access("read")
+            actors.project_id.check_access("read")
+            if any(
+                actor.kind != "actor"
+                or actor.project_id != task.project_id
+                or actor.company_id != task.company_id
+                for actor in actors
+            ):
+                raise ValidationError(
+                    _("Actors must belong to the task Project and company.")
+                )
+
+    def copy_data(self, default=None):
+        values_list = super().copy_data(default=default)
+        for task, values in zip(self, values_list, strict=False):
+            if (
+                "solution_actor_ids" not in (default or {})
+                and not self.env.context.get("copy_project")
+                and values.get("project_id") == task.project_id.id
+            ):
+                commands = _CopiedActorCommands(task)
+                if commands[0][2]:
+                    values["solution_actor_ids"] = commands
+        return values_list
 
     solution_maintenance_reason = fields.Text(
         help=(
@@ -63,6 +197,7 @@ class ProjectTaskTrace(models.Model):
         )
 
     def write(self, values):
+        self._check_actor_commands(values)
         if "project_id" in values or "company_id" in values:
             self.sudo(False).check_access("write")
             claim_records(self, allow_referencing=True)

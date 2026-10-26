@@ -39,17 +39,6 @@ class ProjectTask(models.Model):
 
     def copy_data(self, default=None):
         default = dict(default or {})
-        if self.env.context.get("copy_project") and any(
-            task.project_id.agile_enabled for task in self
-        ):
-            # Odoo drops root defaults when copying children. Set the destination before
-            # Agile hierarchy/key checks; keep plain cross-Project subtasks unchanged.
-            project_id = default.get(
-                "project_id", self.env.context.get("default_project_id")
-            )
-            if project_id:
-                default["project_id"] = project_id
-                self = self.with_context(default_project_id=project_id)
         values_list = super().copy_data(default=default)
         for task, values in zip(self, values_list, strict=False):
             # Project copying also calls this hook for children with narrowed defaults.

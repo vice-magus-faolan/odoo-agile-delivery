@@ -74,6 +74,12 @@ class ProjectTask(models.Model):
         store=True,
     )
     agile_acceptance_criteria = fields.Html(string="Acceptance Criteria")
+    agile_draft_description_template = fields.Html(
+        store=False,
+        readonly=True,
+        copy=False,
+        help="Previous starting text in an unsaved form; never stored on work.",
+    )
     # Preserve the existing explicit field label.
     # pylint: disable-next=attribute-string-redundant
     agile_backlog_sequence = fields.Integer(
@@ -165,7 +171,48 @@ class ProjectTask(models.Model):
                 {"project_id": project.id, "agile_item_type_id": item_type_id}
             )
             values["stage_id"] = task._first_agile_stage().id
+        if (
+            item_type_id
+            and "description" in fields_list
+            and "default_description" not in self.env.context
+            and "description" not in values
+        ):
+            values["description"] = (
+                self.env["project.agile.item.type"]
+                .browse(item_type_id)
+                .new_description_template
+            )
         return values
+
+    @api.onchange("project_id", "agile_item_type_id")
+    def _onchange_new_description_template(self):
+        # Only a pristine draft follows type changes. Saved/explicit text is owned
+        # by its author; the transient field carries the old template across RPCs.
+        for task in self:
+            if (
+                not task._origin.id
+                and task.project_id.agile_enabled
+                and "default_description" not in self.env.context
+            ):
+                template = task.agile_item_type_id.new_description_template
+                if task.description == task.agile_draft_description_template:
+                    task.description = template
+                task.agile_draft_description_template = template
+
+    def copy_data(self, default=None):
+        default = dict(default or {})
+        if self.env.context.get("copy_project") and any(
+            task.project_id.agile_enabled for task in self
+        ):
+            # Odoo drops root defaults when copying children. Set the destination before
+            # Agile hierarchy/key checks; keep plain cross-Project subtasks unchanged.
+            project_id = default.get(
+                "project_id", self.env.context.get("default_project_id")
+            )
+            if project_id:
+                default["project_id"] = project_id
+                self = self.with_context(default_project_id=project_id)
+        return super().copy_data(default=default)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -190,6 +237,15 @@ class ProjectTask(models.Model):
             values["agile_key"] = False
             if project and project.agile_enabled:
                 self._prepare_agile_task_values(project, values)
+                if (
+                    "description" not in values
+                    and "default_description" not in self.env.context
+                ):
+                    values["description"] = (
+                        self.env["project.agile.item.type"]
+                        .browse(values["agile_item_type_id"])
+                        .new_description_template
+                    )
         tasks = super().create(values_list)
         tasks._assign_agile_keys()
         tasks._sync_environment_statuses()

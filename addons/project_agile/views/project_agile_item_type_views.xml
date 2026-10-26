@@ -27,6 +27,9 @@
             <field name="active" />
             <field name="uses_story_points" />
           </group>
+          <group string="New Work">
+            <field name="new_description_template" />
+          </group>
           <group string="Hierarchy Policy">
             <field name="allowed_child_type_ids" widget="many2many_tags" />
           </group>

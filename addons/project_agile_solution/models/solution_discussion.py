@@ -91,7 +91,9 @@ class SolutionDiscussion(models.AbstractModel):
 
     def _get_thread_with_access(self, thread_id, *, mode="read", **kwargs):
         thread = super()._get_thread_with_access(thread_id, mode=mode, **kwargs)
-        return thread if source_readable(thread) else self.browse()
+        if not source_readable(thread):
+            raise AccessError(_("Current Solution source access is required."))
+        return thread
 
     def _discussion_recipient_allowed(self, partner_id):
         """A follower/mention cannot disclose source content to an outsider."""
@@ -138,6 +140,13 @@ class SolutionDiscussionMessage(models.Model):
         allowed = source_access_domain(self.env, "model")
         positive = Domain.OR(allowed if item is True else ~allowed for item in value)
         return positive if operator == "in" else ~positive
+
+    def _message_fetch(self, domain, **kwargs):
+        # Native HTTP fetch may elevate after its thread check. Keep source
+        # visibility in the fetch query itself, including unscoped inbox fetches.
+        domain = Domain(True if domain is None else domain)
+        domain &= source_access_domain(self.env, "model")
+        return super()._message_fetch(domain, **kwargs)
 
     def _get_forbidden_access(self, operation):
         return super()._get_forbidden_access(operation) | forbidden_source_rows(

@@ -234,6 +234,13 @@ class TestSolutionDiscussion(TransactionCase):
                         .with_user(user)
                         .search([("id", "=", message.id)])
                     )
+                    fetched = (
+                        self.env["mail.message"]
+                        .with_user(user)
+                        .sudo()
+                        ._message_fetch([("id", "=", message.id)])
+                    )
+                    self.assertFalse(fetched["messages"])
                     with self.assertRaises(AccessError):
                         caller.message_post(body="Forbidden")
                     with self.assertRaises(AccessError):
@@ -242,9 +249,17 @@ class TestSolutionDiscussion(TransactionCase):
                         caller.message_unsubscribe(partner_ids=user.partner_id.ids)
                     with self.assertRaises(AccessError):
                         follower.with_user(user).read(["partner_id"])
-                    self.assertFalse(
-                        follower.with_user(user).search([("id", "in", follower.ids)])
-                    )
+                    if user.share:
+                        with self.assertRaises(AccessError):
+                            follower.with_user(user).search(
+                                [("id", "in", follower.ids)]
+                            )
+                    else:
+                        self.assertFalse(
+                            follower.with_user(user).search(
+                                [("id", "in", follower.ids)]
+                            )
+                        )
                     with self.assertRaises(AccessError), self.cr.savepoint():
                         follower.with_user(user).write(
                             {"subtype_ids": [Command.clear()]}
@@ -381,11 +396,18 @@ class TestSolutionDiscussion(TransactionCase):
         employee = mail_new_test_user(
             self.env, "discussion_plain_employee", groups="base.group_user"
         )
-        own_message = employee.partner_id.with_user(employee).message_post(
-            body="Ordinary contact discussion"
+        own_message = (
+            self.env["mail.message"]
+            .with_user(employee)
+            .create(
+                {
+                    "body": "Ordinary private discussion",
+                    "message_type": "comment",
+                }
+            )
         )
         self.assertIn(
-            "Ordinary contact discussion", own_message.read(["body"])[0]["body"]
+            "Ordinary private discussion", own_message.read(["body"])[0]["body"]
         )
         message = self.project.with_user(self.manager).message_post(
             body="Ordinary native Project"
@@ -476,6 +498,18 @@ class TestSolutionDiscussionTour(HttpCase):
             self.authenticate(reader.login, reader.login)
             allowed = self._rpc("mail.message", "read", [messages.ids, ["body"]])
             self.assertIn("Browser persistent discussion", allowed["result"][0]["body"])
+            fetch_payload = {
+                "jsonrpc": "2.0",
+                "method": "call",
+                "id": 1,
+                "params": {"thread_model": model, "thread_id": identity.id},
+            }
+            visible = self.url_open(
+                "/mail/thread/messages",
+                data=json.dumps(fetch_payload),
+                headers={"Content-Type": "application/json"},
+            )
+            self.assertIn("Browser persistent discussion", visible.text)
             rule = self.env["ir.rule"].create(
                 {
                     "name": "Revoke UI source",
@@ -486,14 +520,7 @@ class TestSolutionDiscussionTour(HttpCase):
             self.env.flush_all()
             messages_response = self.url_open(
                 "/mail/thread/messages",
-                data=json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "method": "call",
-                        "id": 1,
-                        "params": {"thread_model": model, "thread_id": identity.id},
-                    }
-                ),
+                data=json.dumps(fetch_payload),
                 headers={"Content-Type": "application/json"},
             )
             self.assertNotIn("Browser persistent discussion", messages_response.text)

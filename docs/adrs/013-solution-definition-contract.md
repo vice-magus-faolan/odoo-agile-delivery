@@ -94,11 +94,12 @@ Solution isolation. Global message/follower rules constrain only these three mod
 using current-caller source subqueries, including custom Project/company rules and
 archived source access. Native record authorization and recipient checks use fresh
 source searches, not cached computed access predicates. The native thread access hook
-retains the current company scope. Direct message field fetches also check access
-because native mail fetch otherwise elevates. Polymorphic mail-row relocation checks
-destination source access as well as existing native checks. Public post, subscribe and
-unsubscribe actions require source read access, including native self-unfollow.
-Following never grants source authority.
+retains the current company scope. Native message fetch queries include the same source
+domain even when invoked with an elevated mail environment. Direct message field fetches
+also check access because native mail fetch otherwise elevates. Polymorphic mail-row
+relocation checks destination source access as well as existing native checks. Public
+post, subscribe and unsubscribe actions require source read access, including native
+self-unfollow. Following never grants source authority.
 
 The native notification-recipient hook rechecks active internal recipients under their
 own source access and permitted companies before inbox/email delivery. External contacts

@@ -90,10 +90,10 @@ class SolutionDiscussion(models.AbstractModel):
         return super().message_unsubscribe(partner_ids)
 
     def _get_thread_with_access(self, thread_id, *, mode="read", **kwargs):
-        thread = super()._get_thread_with_access(thread_id, mode=mode, **kwargs)
-        if not source_readable(thread):
+        if not source_readable(self.browse(thread_id)):
             raise AccessError(_("Current Solution source access is required."))
-        return thread
+        # Preserve native write-to-read fallback for read-authorized posting.
+        return super()._get_thread_with_access(thread_id, mode=mode, **kwargs)
 
     def _discussion_recipient_allowed(self, partner_id):
         """A follower/mention cannot disclose source content to an outsider."""

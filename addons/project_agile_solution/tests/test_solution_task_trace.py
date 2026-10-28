@@ -93,7 +93,25 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             )
         )
         snapshot = baseline.action_read_snapshot()
-        acceptance = accepted.read()[0]
+        # Freeze the acceptance-domain payload, not native log_access metadata
+        # affected by deferred stored-related recomputation.
+        acceptance_fields = [
+            "requirement_revision_id",
+            "document_revision_id",
+            "decision",
+            "decision_source",
+            "publication_id",
+            "publication_sha256",
+            "portal_partner_id",
+            "authority_label",
+            "criteria_evaluated",
+            "evidence",
+            "recorded_by_id",
+            "recorded_by_label",
+            "recorded_at",
+            "supersedes_id",
+        ]
+        acceptance = accepted.read(acceptance_fields, load=None)[0]
         original = requirement._snapshot_values()
         edge = self._link(requirement, task, document_revision_id=baseline.id)
         other_edge = self._link(requirement, other, document_revision_id=baseline.id)
@@ -136,7 +154,7 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             task.with_user(self.user).solution_requirement_acceptance,
         )
         self.assertEqual(baseline.action_read_snapshot(), snapshot)
-        self.assertEqual(accepted.read()[0], acceptance)
+        self.assertEqual(accepted.read(acceptance_fields, load=None)[0], acceptance)
         self.assertEqual(requirement._snapshot_values(), original)
         self.assertEqual(baseline.requirement_revision_ids, requirement)
         self.assertEqual(wizard.action_confirm(), result)

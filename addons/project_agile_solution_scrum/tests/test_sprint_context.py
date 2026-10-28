@@ -64,12 +64,19 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
             json.loads(frozen)["requirement"]["revision_id"], requirement.id
         )
         self.assertEqual(sprint.committed_task_ids, task)
-        successor = requirement.browse(
-            requirement.requirement_id.action_new_revision()["res_id"]
+        original = requirement._snapshot_values()
+        wizard = self._refinement(edge)
+        wizard.write({"acceptance_expectations": "Explicit later evaluation"})
+        wizard.action_confirm()
+        successor = edge.sudo()._refinement_link_id.requirement_revision_id.with_user(
+            self.manager
         )
-        successor.write({"acceptance_expectations": "Explicit later evaluation"})
-        edge.action_retire("Deliberate successor coverage")
-        self._link(successor, task)
+        self.assertEqual(requirement._snapshot_values(), original)
+        self.assertIn("Explicit later evaluation", task.solution_requirement_acceptance)
+        with self.assertRaises(ValidationError):
+            requirement.sudo().write(
+                {"acceptance_expectations": "Rewrite Sprint history"}
+            )
         requirement.requirement_id.write({"active": False})
         self.assertEqual(self._contexts(committed).payload_json, frozen)
         # Existing linked archived identity remains navigable history but new

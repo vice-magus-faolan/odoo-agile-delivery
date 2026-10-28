@@ -103,6 +103,45 @@ class TestTaskActorTour(HttpCase):
             login=member.login,
         )
 
+    def test_native_ba_refines_link_in_two_steps_and_task_shows_successor(self):
+        analyst, _member, project, _solution, revisions = self._acceptance_setup()
+        task = (
+            self.env["project.task"]
+            .with_user(analyst)
+            .create(
+                {
+                    "name": "Refine dispatch",
+                    "project_id": project.id,
+                }
+            )
+        )
+        link = (
+            self.env["project.agile.requirement.task.link"]
+            .with_user(analyst)
+            .create(
+                {
+                    "task_id": task.id,
+                    "requirement_revision_id": revisions[0].id,
+                }
+            )
+        )
+        original = revisions[0]._snapshot_values()
+        action = self.env.ref("project_agile_solution.action_requirement_task_link")
+        self.start_tour(
+            f"/odoo/action-{action.id}/{link.id}",
+            "solution_task_refine_acceptance",
+            login=analyst.login,
+        )
+        link.invalidate_recordset()
+        replacement = link.sudo()._refinement_link_id
+        self.assertFalse(link.active)
+        self.assertEqual(replacement.task_id, task)
+        self.assertEqual(
+            replacement.requirement_revision_id.acceptance_expectations,
+            "Then the buyer sees their approved dispatch receipt",
+        )
+        self.assertEqual(revisions[0]._snapshot_values(), original)
+
     def test_native_creation_choice_preview_and_saved_criteria(self):
         analyst, _member, project, solution, revisions = self._acceptance_setup()
         action = self.env["ir.actions.act_window"].create(

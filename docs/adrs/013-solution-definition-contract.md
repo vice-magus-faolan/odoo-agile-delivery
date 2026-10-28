@@ -218,6 +218,40 @@ break Task access. The caller-specific nonstored escaped projection depends on t
 existing Task reference publication updated by link creation/retirement; it neither
 implies complete coverage nor substitutes the latest revision.
 
+## Cheap refinement without changing agreed content
+
+Keep sealing at first exact reference, rather than delaying it until document approval:
+a Task link must continue to mean the content actually selected, even before approval.
+Automatically carrying every active link forward would change other Tasks without their
+authors selecting new intent. Instead, a Business analyst with current write authority
+refines one selected active work link in two steps: open **Refine Acceptance**, then
+edit the proposed expectations and **Apply Refinement**. The dialog shows the original
+exact expectations and explains the selected Task boundary before confirmation.
+
+Apply creates and seals a numbered requirement successor, links that exact content to
+the selected Task and retires the original edge with an audit reason, together in one
+savepoint. The successor copies the other requirement attributes unchanged. It does not
+inherit the old specification reference: that exact specification contains the original
+requirement, not the new one. Documents require their own explicit
+successor/membership/approval workflow. Other active Task links remain on their selected
+revisions; no implicit latest-head resolution or bulk relinking occurs. Manual Task
+criteria and native planning values are not overwritten.
+
+Only the current sealed head can be refined. A newer working or sealed head makes the
+old dialog stale; reopen the current link or explicitly resolve coverage rather than
+overwrite another author. The existing identity allocation publication, Task reference
+publication and edge retirement writes conflict with competing revision, link and Sprint
+operations under native whole-transaction retry. The original edge retains its
+replacement reference for identical idempotent retries; a different proposal cannot
+reuse that receipt. Current caller/reference/company authority is checked again on
+confirmation and retry. No new transaction retry loop or SQL is used.
+
+Approved/review document snapshots and exact membership, recorded acceptance and Sprint
+event payloads continue to refer to the original sealed content. A successor is new
+unapproved and unaccepted intent, not an amendment to those agreements. This scoped
+action costs one successor and one edge per refinement but avoids mutable history,
+hidden relink steps and a second requirement/history system.
+
 ## Optional frozen Scrum context
 
 `project_agile_solution_scrum` depends on Solution core and `project_scrum`, never the

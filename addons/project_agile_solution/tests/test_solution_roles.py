@@ -273,3 +273,32 @@ class TestSolutionRoles(TransactionCase):
             intent.action_confirm()
         with self.assertRaises(AccessError):
             requirement.write({"title": "Inactive"})
+
+    def test_ba_refines_selected_link_without_project_administration(self):
+        requirement = self._requirement()
+        intent = self._preview(requirement)
+        intent.action_confirm()
+        link = (
+            self.env["project.agile.requirement.task.link"]
+            .with_user(self.analyst)
+            .search(
+                [
+                    ("task_id", "=", intent.task_id.id),
+                ]
+            )
+        )
+        self.assertFalse(self.analyst.has_group("project.group_project_manager"))
+        action = link.action_request_refinement()
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(self.analyst)
+            .browse(action["res_id"])
+        )
+        with Form(wizard) as form:
+            form.acceptance_expectations = "BA can refine without approving scope"
+        wizard.action_confirm()
+        self.assertIn(
+            "BA can refine without approving scope",
+            intent.task_id.solution_requirement_acceptance,
+        )
+        self.assertFalse(link.active)

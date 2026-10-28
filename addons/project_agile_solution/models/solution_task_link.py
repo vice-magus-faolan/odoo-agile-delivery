@@ -56,6 +56,116 @@ class RequirementTaskLink(models.Model):
         "This exact Task requirement edge already exists.",
     )
 
+    _refinement_link_id = fields.Many2one(
+        "project.agile.requirement.task.link",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="project_agile_solution.group_snapshot_storage",
+        help="Replacement exact edge retained for identical refinement retries.",
+    )
+
+    def _check_refinement_source(self):
+        self.ensure_one()
+        caller = self._trace_authority()
+        caller._check_current_trace_read()
+        check_task(caller.task_id, caller.project_id)
+        revision = caller.requirement_revision_id
+        revision._check_authority()
+        check_requirements(revision, caller.solution_id)
+        if (
+            not caller.active
+            or not revision.sealed
+            or revision.requirement_id._complete_revisions()[-1] != revision
+        ):
+            raise ValidationError(
+                _("Coverage changed; refine an active link to the current sealed head.")
+            )
+        return caller
+
+    def action_request_refinement(self):
+        caller = self._check_refinement_source()
+        wizard = self.env["project.agile.requirement.refine.wizard"].create(
+            {
+                "link_id": caller.id,
+                "acceptance_expectations": (
+                    caller.requirement_revision_id.acceptance_expectations
+                ),
+            }
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": wizard._name,
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    def action_refine_acceptance(self, expectations):
+        # Replace selected working coverage, never rewrite an exact agreement.
+        self.ensure_one()
+        caller = self._trace_authority()
+        caller._check_current_trace_read()
+        if (
+            not isinstance(expectations, str)
+            or not expectations.strip()
+            or len(expectations) > 20000
+        ):
+            raise ValidationError(
+                _("Give meaningful expectations of at most 20000 characters.")
+            )
+        with self.env.cr.savepoint():
+            claim_records(caller.task_id, allow_referencing=True)
+            claim_records(caller, allow_referencing=True)
+            revision = caller.requirement_revision_id
+            claim_records(revision.requirement_id, allow_referencing=True)
+            claim_records(revision, allow_referencing=True)
+            # Storage-only receipt is not authority to read or mutate its target.
+            replacement = caller.browse(caller.sudo()._refinement_link_id.id)
+            if replacement:
+                replacement._trace_authority()
+                replacement._check_current_trace_read()
+                check_task(replacement.task_id, caller.project_id, active=False)
+                if (
+                    replacement.requirement_revision_id.acceptance_expectations
+                    != expectations
+                ):
+                    raise ValidationError(
+                        _("This link was refined with different expectations.")
+                    )
+            else:
+                caller._check_refinement_source()
+                if revision.acceptance_expectations == expectations:
+                    raise ValidationError(
+                        _("Change the expectations before applying refinement.")
+                    )
+                successor = revision.create(
+                    {
+                        **revision._copy_content_values(),
+                        "requirement_id": revision.requirement_id.id,
+                        "acceptance_expectations": expectations,
+                    }
+                )
+                replacement = caller.create(
+                    {
+                        "task_id": caller.task_id.id,
+                        "requirement_revision_id": successor.id,
+                        "document_revision_id": False,
+                    }
+                )
+                caller.action_retire(
+                    _("Acceptance expectations refined in a numbered successor.")
+                )
+                super(RequirementTaskLink, caller.sudo()).write(
+                    {"_refinement_link_id": replacement.id}
+                )
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "project.task",
+                "res_id": replacement.task_id.id,
+                "view_mode": "form",
+            }
+
     @api.model
     def default_get(self, names):
         return {

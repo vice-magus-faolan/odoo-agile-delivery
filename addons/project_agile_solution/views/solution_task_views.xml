@@ -175,6 +175,13 @@
       <xpath expr="//sheet" position="before">
         <header>
           <button
+            name="action_request_refinement"
+            type="object"
+            string="Refine Acceptance"
+            invisible="not active"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
+          />
+          <button
             name="action_request_retirement"
             type="object"
             string="Retire Working Link"
@@ -279,6 +286,35 @@
           <field name="solution_actor_ids" widget="many2many_tags" />
         </div>
       </xpath>
+    </field>
+  </record>
+  <record id="view_requirement_refine_wizard" model="ir.ui.view">
+    <field name="name">requirement.refine.wizard.form</field>
+    <field name="model">project.agile.requirement.refine.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Refine Acceptance">
+        <div
+          class="alert alert-info"
+          role="status"
+        >This creates a numbered successor and replaces only this Task link. Other Tasks, document baselines, recorded acceptance, Sprint history and manual Task criteria remain unchanged. The new link is not approved against the old specification.</div>
+        <group>
+          <field name="link_id" options="{'no_open': True}" />
+          <field name="previous_expectations" />
+          <field
+            name="acceptance_expectations"
+            string="Proposed Acceptance Expectations"
+          />
+        </group>
+        <footer>
+          <button
+            name="action_confirm"
+            type="object"
+            string="Apply Refinement"
+            class="btn-primary"
+          />
+          <button string="Cancel" special="cancel" />
+        </footer>
+      </form>
     </field>
   </record>
 </odoo>

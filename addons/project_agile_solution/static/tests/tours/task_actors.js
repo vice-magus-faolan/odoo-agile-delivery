@@ -166,3 +166,34 @@ registry.category("web_tour.tours").add("solution_task_actor_names", {
     },
   ],
 });
+
+registry.category("web_tour.tours").add("solution_task_refine_acceptance", {
+  steps: () => [
+    // Step 1: open the refinement dialog on the selected exact link.
+    {trigger: "button[name=action_request_refinement]", run: "click"},
+    {
+      trigger:
+        ".modal .o_field_widget[name=previous_expectations]:contains(Then record Buyer dispatch)",
+    },
+    // Step 2: edit and Apply; no save, successor or relink screen is needed.
+    {
+      trigger: ".modal .o_field_widget[name=acceptance_expectations] textarea",
+      run: "edit Then the buyer sees their approved dispatch receipt",
+    },
+    {trigger: ".modal button[name=action_confirm]", run: "click"},
+    {trigger: "body:not(:has(.modal)) .nav-link:contains(Agile)", run: "click"},
+    {
+      trigger:
+        ".o_field_widget[name=solution_requirement_acceptance]:contains(Revision 2):contains(Then the buyer sees their approved dispatch receipt)",
+      run() {
+        if (
+          document
+            .querySelector(".o_field_widget[name=solution_requirement_acceptance]")
+            .textContent.includes("Then record Buyer dispatch")
+        ) {
+          throw new Error("Task still projects the retired expectations");
+        }
+      },
+    },
+  ],
+});

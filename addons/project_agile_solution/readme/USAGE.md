@@ -81,6 +81,31 @@ accounts. Given/When/Then is optional wording, not an enforced format. A develop
 may copy these expectations at creation and add task-specific edge cases later;
 editing task criteria does not change the client-agreed requirement revision.
 
+## Refine linked acceptance expectations
+
+As a Business analyst or Project administrator with current Task write access,
+open the selected active link under **Project > Requirement Work Links**.
+
+1. Choose **Refine Acceptance**. Inspect the original exact expectations and the
+   selected work link in the dialog.
+2. Edit **Proposed Acceptance Expectations** and choose **Apply Refinement**.
+   The Task opens; its **Agile** tab shows the new exact expectations under
+   **Exact Requirement Acceptance**. No separate save or relinking is needed.
+
+Apply creates a sealed numbered successor, links it to this Task and retires the
+old link together. Other linked Tasks remain on their own selected revisions.
+Manual Task criteria, approved documents, recorded acceptance and historical
+Sprint event content do not change. The new link has no old specification
+reference or inherited approval/acceptance: select the successor in a new document
+revision and follow the ordinary approval workflow when agreement is required.
+
+Refinement requires a link to the current sealed requirement head. If another
+author created a newer revision or retired the link, the old dialog is rejected
+without partial changes. Inspect current coverage before reopening refinement.
+An identical retry returns the same Task without another successor; a different
+proposal on an already refined link is rejected. Cancel changes no requirement
+or work link.
+
 ## Preview the chosen audience
 
 1. Open the exact document revision through **Project > Solution Revisions**

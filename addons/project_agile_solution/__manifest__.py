@@ -3,11 +3,11 @@
     "summary": (
         "Optional solution documents, immutable baselines and separate approvals"
     ),
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.9.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
-    "depends": ["project_agile", "portal"],
+    "depends": ["project_agile", "portal", "mail"],
     "data": [
         "security/project_agile_solution_groups.xml",
         "security/ir.model.access.csv",
@@ -26,6 +26,7 @@
     "assets": {
         "web.assets_tests": [
             "project_agile_solution/static/tests/tours/solution_render.js",
+            "project_agile_solution/static/tests/tours/solution_discussion.js",
             "project_agile_solution/static/tests/tours/task_actors.js",
             "project_agile_solution/static/tests/tours/solution_portal.js",
         ],

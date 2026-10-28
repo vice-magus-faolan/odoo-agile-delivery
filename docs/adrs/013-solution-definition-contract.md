@@ -81,6 +81,33 @@ The internal-brief template omits commercial/SOW assumptions. Both are shared ed
 appends sanitized content with exact source provenance; later template edits never
 propagate to existing documents.
 
+## Stable identity discussions
+
+Native `mail.thread` belongs only to requirement, document and context identities, never
+their numbered revisions. Project readers may post without content-editing authority.
+Question revision creation and owner changes subscribe the owner to the stable context.
+Existing followers and subtype preferences are retained; owner changes do not infer
+which subscriptions were manual.
+
+Native mail author, recipient and follower exceptions alone are insufficient for
+Solution isolation. Global message/follower rules constrain only these three models
+using current-caller source subqueries, including custom Project/company rules and
+archived source access. Native record authorization and recipient checks use fresh
+source searches, not cached computed access predicates. The native thread access hook
+retains the current company scope. Direct message field fetches also check access
+because native mail fetch otherwise elevates. Polymorphic mail-row relocation checks
+destination source access as well as existing native checks. Public post, subscribe and
+unsubscribe actions require source read access, including native self-unfollow.
+Following never grants source authority.
+
+The native notification-recipient hook rechecks active internal recipients under their
+own source access and permitted companies before inbox/email delivery. External contacts
+and unbound email recipients are excluded; retained followers with revoked access
+receive no new content. This does not recall already sent notifications or exported
+copies. All other native mail models retain their normal rules and transports. These
+version-sensitive seams follow the pinned upstream mail source above and require native
+security/browser regression coverage.
+
 ## Revision, scope and approval
 
 Documents follow `draft -> review -> approved -> superseded`. Submission freezes actual

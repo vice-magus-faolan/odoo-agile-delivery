@@ -8,7 +8,10 @@ from .solution_content import ContentRevision
 
 class Requirement(models.Model):
     _name = "project.agile.requirement"
-    _inherit = "project.agile.solution.content.identity"
+    _inherit = [
+        "project.agile.solution.content.identity",
+        "project.agile.solution.discussion",
+    ]
     _description = "Stable Agile Requirement Identity"
     _check_company_auto = True
     _order = "project_id, key, id"

@@ -33,6 +33,23 @@ described in Configuration. The following example starts with a Solution Specifi
    select them in the new draft. Approving the successor marks the previous
    baseline **Superseded** and preserves its content and decisions.
 
+## Discuss stable records
+
+Project users with access to a requirement, Solution document or supporting
+context can use **Send message**, mentions and **Follow** on its identity form.
+Open **Project > Requirements**, **Solution Documents** or **Solution Supporting
+Context**, rather than the numbered revision list. The conversation stays with
+the identity when a new revision is created. Messages do not change sealed
+content or approve scope.
+
+A question owner follows its stable context when assigned or changed on the
+working revision. Previous owners remain followers until they unfollow; their
+existing subscription preferences are preserved. Following and mentioning do
+not grant Project or company access. Notifications go only to active internal
+users who can currently read the source; external contacts and raw email
+recipients do not receive these discussions. Customer publications remain a
+separate workflow.
+
 ## Link delivery work
 
 As a Business analyst or Project administrator with write access to the affected

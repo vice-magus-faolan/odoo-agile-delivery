@@ -1,5 +1,6 @@
 from . import project_agile_solution
 from . import solution_access
+from . import solution_discussion
 from . import solution_document
 from . import solution_revision
 from . import solution_section

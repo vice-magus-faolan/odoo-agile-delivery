@@ -8,7 +8,7 @@ from odoo.addons.project_agile.utils import claim_records
 
 class SolutionDocument(models.Model):
     _name = "project.agile.solution.document"
-    _inherit = "project.agile.solution.access"
+    _inherit = ["project.agile.solution.access", "project.agile.solution.discussion"]
     _description = "Solution Document Identity"
     _check_company_auto = True
     _order = "name, id"

@@ -153,4 +153,15 @@
     />
     <field name="domain_force">[('publication_id.available', '=', True)]</field>
   </record>
+  <!-- Native author/recipient/follower exceptions never grant source access. -->
+  <record id="solution_message_source_rule" model="ir.rule">
+    <field name="name">Solution discussion: current source access</field>
+    <field name="model_id" ref="mail.model_mail_message" />
+    <field name="domain_force">[('solution_source_access', '=', True)]</field>
+  </record>
+  <record id="solution_follower_source_rule" model="ir.rule">
+    <field name="name">Solution followers: current source access</field>
+    <field name="model_id" ref="mail.model_mail_followers" />
+    <field name="domain_force">[('solution_source_access', '=', True)]</field>
+  </record>
 </odoo>

@@ -44,7 +44,10 @@ RESOLUTION_AUDIT = frozenset(
 
 class SolutionContext(models.Model):
     _name = "project.agile.solution.context"
-    _inherit = "project.agile.solution.content.identity"
+    _inherit = [
+        "project.agile.solution.content.identity",
+        "project.agile.solution.discussion",
+    ]
     _description = "Stable Typed Solution Context Identity"
     _check_company_auto = True
     _order = "project_id, key, id"
@@ -174,6 +177,7 @@ class SolutionContextRevision(models.Model):
             prepared["resolution_status"] = "open"
         record = super()._create_content(prepared)
         record.spike_task_ids._record_solution_reference(record)
+        record._subscribe_question_owner()
         return record
 
     def read(self, fields=None, load="_classic_read"):
@@ -229,7 +233,15 @@ class SolutionContextRevision(models.Model):
             if "spike_task_ids" in values:
                 for record in self:
                     record.spike_task_ids._record_solution_reference(record)
+            if "owner_id" in values:
+                self._subscribe_question_owner()
             return result
+
+    def _subscribe_question_owner(self):
+        for record in self.filtered(lambda row: row.kind == "question"):
+            record.context_id.message_subscribe(
+                partner_ids=record.owner_id.partner_id.ids
+            )
 
     # Validation is side-effect/error-only; super's value is not its API.
     def _validate_content(self):  # pylint: disable=missing-return

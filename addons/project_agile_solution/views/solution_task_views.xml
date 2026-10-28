@@ -31,7 +31,7 @@
           <div
             class="alert alert-info"
             role="status"
-          >Saving creates a preview only. Review and deliberately confirm to create/link work. No automatic estimates, Sprint allocation, criteria or workflow updates.</div>
+          >Saving creates a preview only. Review and deliberately confirm to create/link work. Criteria copy requires your explicit choice; estimates, Sprint allocation and workflow are unchanged.</div>
           <group>
             <field name="solution_id" readonly="id" />
             <field name="operation" readonly="id" />
@@ -59,6 +59,16 @@
               invisible="operation != 'create'"
             />
             <field name="name" readonly="id" />
+            <field
+              name="copy_acceptance_expectations"
+              readonly="id"
+              invisible="operation != &apos;create&apos;"
+            />
+            <field
+              name="acceptance_criteria_preview"
+              readonly="1"
+              invisible="operation != &apos;create&apos;"
+            />
             <field name="description" readonly="id" invisible="operation != 'create'" />
             <field name="preview_text" invisible="not id" />
             <field name="creator_id" invisible="not id" />
@@ -79,6 +89,14 @@
           <field name="name" />
           <field name="task_id" />
           <field name="description" />
+          <field
+            name="copy_acceptance_expectations"
+            invisible="operation != &apos;create&apos;"
+          />
+          <field
+            name="acceptance_criteria_preview"
+            invisible="operation != &apos;create&apos;"
+          />
           <field name="preview_text" />
         </group>
         <footer>
@@ -214,6 +232,9 @@
     <field name="inherit_id" ref="project_agile.view_task_form_agile" />
     <field name="arch" type="xml">
       <xpath expr="//page[@name=&apos;agile&apos;]" position="inside">
+        <group string="Exact Requirement Acceptance">
+          <field name="solution_requirement_acceptance" readonly="1" nolabel="1" />
+        </group>
         <group string="People Served">
           <field
             name="solution_actor_ids"

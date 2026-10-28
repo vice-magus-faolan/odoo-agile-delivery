@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from odoo import Command
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import Form
 
 from .test_solution_requirements import TestSolutionRequirements
@@ -63,6 +63,225 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
                 {"requirement_revision_id": revision.id, "task_id": task.id, **values}
             )
         )
+
+    def test_task_displays_all_active_exact_acceptance_and_retirement(self):
+        first = self._requirement(
+            title="Dispatch approval",
+            acceptance_expectations="Buyer approves <only> their dispatch",
+        )
+        second = self._requirement(
+            title="Delivery evidence",
+            verification_method="Inspect signed delivery receipt",
+        )
+        task = self._task()
+        self._link(first, task)
+        edge = self._link(second, task)
+        successor = first.browse(first.requirement_id.action_new_revision()["res_id"])
+        successor.write({"title": "Unlinked successor must stay absent"})
+        member = task.with_user(self.user)
+        shown = member.read(["solution_requirement_acceptance"])[0][
+            "solution_requirement_acceptance"
+        ]
+        for text in (
+            first.title,
+            second.title,
+            "Revision 1",
+            "Acceptance Expectations",
+            "Verification Method",
+            second.verification_method,
+        ):
+            self.assertIn(text, shown)
+        self.assertIn("Buyer approves &lt;only&gt; their dispatch", shown)
+        self.assertNotIn(successor.title, shown)
+        edge.action_retire("Replaced delivery evidence")
+        shown = member.read(["solution_requirement_acceptance"])[0][
+            "solution_requirement_acceptance"
+        ]
+        self.assertIn(first.title, shown)
+        self.assertNotIn(second.title, shown)
+        with Form(member) as form:
+            self.assertIn(first.title, form.solution_requirement_acceptance)
+            self.assertNotIn(second.title, form.solution_requirement_acceptance)
+
+    def test_hidden_requirement_omission_keeps_native_task_access(self):
+        revision, task = (
+            self._requirement(title="Private requirement identity"),
+            self._task(),
+        )
+        self._link(revision, task)
+        # Privileged caches and earlier reads do not grant later presentation access.
+        self.assertIn(revision.title, task.solution_requirement_acceptance)
+        member = task.with_user(self.user)
+        self.assertIn(
+            revision.title,
+            member.read(["solution_requirement_acceptance"])[0][
+                "solution_requirement_acceptance"
+            ],
+        )
+        for record in (revision, revision.requirement_id, self.solution):
+            rule = self._hide(record._name, record)
+            self.env.invalidate_all()
+            with self.assertRaises(AccessError):
+                record.with_user(self.user).read(["display_name"])
+            self.assertEqual(
+                member.read(["name", "solution_requirement_acceptance"])[0][
+                    "solution_requirement_acceptance"
+                ],
+                False,
+            )
+            self.assertEqual(
+                member.export_data(["solution_requirement_acceptance"])["datas"], [[""]]
+            )
+            with Form(member) as form:
+                self.assertFalse(form.solution_requirement_acceptance)
+            rule.unlink()
+            self.env.invalidate_all()
+        acls = self.env["ir.model.access"].search(
+            [
+                ("model_id", "=", self.env["ir.model"]._get_id(revision._name)),
+                ("perm_read", "=", True),
+            ]
+        )
+        acls.write({"perm_read": False})
+        self.env.registry.clear_cache()
+        self.env.invalidate_all()
+        self.assertFalse(
+            member.read(["solution_requirement_acceptance"])[0][
+                "solution_requirement_acceptance"
+            ]
+        )
+        with Form(member) as form:
+            self.assertFalse(form.solution_requirement_acceptance)
+
+    def test_explicit_two_requirement_criteria_preview_saved_equality_and_editing(self):
+        first = self._requirement(
+            acceptance_expectations="Given a buyer <A>\n"
+            "When dispatch is approved & saved"
+        )
+        second = self._requirement(
+            acceptance_expectations="Then the warehouse sees the approved dispatch"
+        )
+        revisions = second | first
+        off = self._intent(revisions)
+        self.assertFalse(off.copy_acceptance_expectations)
+        self.assertFalse(off.acceptance_criteria_preview)
+        off.action_confirm()
+        self.assertFalse(off.task_id.agile_acceptance_criteria)
+        intent = self._intent(revisions, copy_acceptance_expectations=True)
+        preview = intent.acceptance_criteria_preview
+        self.assertEqual(
+            preview,
+            "<p>Given a buyer &lt;A&gt;<br>"
+            "When dispatch is approved &amp; saved</p>"
+            "<p>Then the warehouse sees the approved dispatch</p>",
+        )
+        wizard = (
+            self.env["project.agile.solution.task.confirm.wizard"]
+            .with_user(self.manager)
+            .create({"intent_id": intent.id})
+        )
+        self.assertTrue(wizard.copy_acceptance_expectations)
+        self.assertEqual(wizard.acceptance_criteria_preview, preview)
+        wizard.action_confirm()
+        self.assertEqual(intent.task_id.agile_acceptance_criteria, preview)
+        self.assertEqual(intent.action_confirm()["res_id"], intent.task_id.id)
+        intent.task_id.write(
+            {"agile_acceptance_criteria": "<p>Task-specific authored checks</p>"}
+        )
+        intent.action_confirm()
+        self.assertEqual(
+            intent.task_id.agile_acceptance_criteria,
+            "<p>Task-specific authored checks</p>",
+        )
+
+    def test_copy_choice_cannot_be_defaulted_mutated_or_applied_to_existing_work(self):
+        revision = self._requirement()
+        model = (
+            self.env["project.agile.solution.task.intent"]
+            .with_user(self.manager)
+            .with_context(default_copy_acceptance_expectations=True)
+        )
+        self.assertFalse(
+            model.default_get(["copy_acceptance_expectations"])[
+                "copy_acceptance_expectations"
+            ]
+        )
+        intent = model.create(
+            {
+                "solution_id": self.solution.id,
+                "operation": "create",
+                "name": "No implicit copy",
+                "agile_item_type_id": self.env.ref(
+                    "project_agile.project_agile_item_type_story"
+                ).id,
+                "requirement_revision_ids": [Command.set(revision.ids)],
+            }
+        )
+        self.assertFalse(intent.copy_acceptance_expectations)
+        with self.assertRaises(ValidationError):
+            intent.write({"copy_acceptance_expectations": True})
+        intent.with_context(
+            copy_acceptance_expectations=True, default_copy_acceptance_expectations=True
+        ).action_confirm()
+        self.assertFalse(intent.task_id.agile_acceptance_criteria)
+        task = self._task(agile_acceptance_criteria="<p>Keep manual checks</p>")
+        with self.assertRaises(ValidationError):
+            self._intent(
+                revision,
+                operation="link",
+                task_id=task.id,
+                copy_acceptance_expectations=True,
+            )
+        self.assertEqual(task.agile_acceptance_criteria, "<p>Keep manual checks</p>")
+
+    def test_opted_in_copy_rejects_stale_or_inaccessible_source_atomically(self):
+        revision = self._requirement()
+        intent = self._intent(revision, copy_acceptance_expectations=True)
+        inspected = intent.acceptance_criteria_preview
+        revision.write({"acceptance_expectations": "Changed client agreement"})
+        with self.assertRaises(ValidationError):
+            intent.action_confirm()
+        self.assertFalse(intent.task_id)
+        fresh = self._intent(revision, copy_acceptance_expectations=True)
+        self.assertNotEqual(fresh.acceptance_criteria_preview, inspected)
+        rule = self._hide(revision._name, revision)
+        self.env.invalidate_all()
+        # Depending on native relation prefetch, Odoo denies the intent/row or
+        # hides its selection before validation. Both must leave creation untouched.
+        with self.assertRaises(UserError) as denied:
+            fresh.action_confirm()
+        self.assertIn(type(denied.exception), (AccessError, ValidationError))
+        # Observe retained state internally; do not elevate the action under test.
+        self.assertFalse(fresh.sudo().task_id)
+        self.assertEqual(fresh.sudo().state, "preview")
+        rule.unlink()
+        self.env.invalidate_all()
+        fresh.action_confirm()
+        self.assertEqual(
+            fresh.task_id.agile_acceptance_criteria, fresh.acceptance_criteria_preview
+        )
+
+    def test_native_short_reference_commands_keep_literal_ids_and_no_mutation(self):
+        revision = self._requirement()
+        intent = self._intent(
+            revision,
+            requirement_revision_ids=[[4, revision.id]],
+            copy_acceptance_expectations=True,
+        )
+        intent.action_confirm()
+        self.assertEqual(
+            intent.task_id.agile_acceptance_criteria, intent.acceptance_criteria_preview
+        )
+        for command in (
+            [4, True],
+            [1, revision.id],
+            [2, revision.id],
+            [6, 0],
+            [4, revision.id, 0, 999],
+            [True, revision.id],
+        ):
+            with self.assertRaises(ValidationError):
+                self._intent(revision, requirement_revision_ids=[command])
 
     def test_history_publication_fields_are_server_owned(self):
         revision, task = self._requirement(), self._task()
@@ -533,6 +752,7 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
         with Form(model) as form:
             form.solution_id = self.solution
             form.operation = "create"
+            form.copy_acceptance_expectations = True
             form.name = "SYNTHETIC native preview"
             form.agile_item_type_id = self.env.ref(
                 "project_agile.project_agile_item_type_story"
@@ -548,4 +768,10 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             .with_context(**action["context"])
         ) as wizard:
             self.assertEqual(wizard.name, intent.name)
+            self.assertEqual(
+                wizard.acceptance_criteria_preview, intent.acceptance_criteria_preview
+            )
         wizard.record.action_confirm()
+        self.assertEqual(
+            intent.task_id.agile_acceptance_criteria, intent.acceptance_criteria_preview
+        )

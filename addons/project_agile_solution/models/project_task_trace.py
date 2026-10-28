@@ -1,5 +1,7 @@
 """Native work remains authoritative; traceability does not regenerate or move it."""
 
+from markupsafe import Markup
+
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
@@ -17,6 +19,65 @@ class _CopiedActorCommands(list):
 
 class ProjectTaskTrace(models.Model):
     _inherit = "project.task"
+
+    solution_requirement_acceptance = fields.Html(
+        string="Linked Requirement Acceptance",
+        compute="_compute_requirement_acceptance",
+        compute_sudo=False,
+        help="Accessible active exact links; not a Task acceptance decision.",
+    )
+
+    @api.depends("solution_last_reference")
+    @api.depends_context("uid", "company")
+    def _compute_requirement_acceptance(self):
+        links = self.env["project.agile.requirement.task.link"].sudo(False)
+        for task in self:
+            content = []
+            task.sudo(False).check_access("read")
+            try:
+                visible = (
+                    links.search(
+                        [("task_id", "=", task._origin.id), ("active", "=", True)],
+                        order="id",
+                    )
+                    if task._origin.id
+                    else links.browse()
+                )
+            except AccessError:
+                visible = links.browse()
+            for link in visible:
+                try:
+                    link._check_current_trace_read()
+                    revision = link.requirement_revision_id.sudo(False)
+                    revision.requirement_id.check_access("read")
+                    values = revision.read(
+                        [
+                            "title",
+                            "number",
+                            "acceptance_expectations",
+                            "verification_method",
+                        ]
+                    )[0]
+                except AccessError:
+                    # Task visibility is not permission to reveal a requirement.
+                    continue
+                content.append(
+                    Markup(
+                        "<section><h4>%s — %s %s</h4>"
+                        "<p><strong>%s</strong></p><pre>%s</pre>"
+                        "<p><strong>%s</strong></p><pre>%s</pre></section>"
+                    )
+                    % (
+                        values["title"],
+                        _("Revision"),
+                        values["number"],
+                        _("Acceptance Expectations"),
+                        values["acceptance_expectations"],
+                        _("Verification Method"),
+                        values["verification_method"],
+                    )
+                )
+            task.solution_requirement_acceptance = Markup("").join(content) or False
 
     solution_can_select_actors = fields.Boolean(compute="_compute_can_select_actors")
 

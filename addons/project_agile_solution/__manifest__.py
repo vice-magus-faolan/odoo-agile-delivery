@@ -7,7 +7,7 @@
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
-    "depends": ["project_agile", "portal", "mail"],
+    "depends": ["project_agile", "portal"],
     "data": [
         "security/project_agile_solution_groups.xml",
         "security/ir.model.access.csv",

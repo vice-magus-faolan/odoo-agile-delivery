@@ -156,12 +156,16 @@ class TestSolutionDiscussion(TransactionCase):
         self.env.invalidate_all()
         with self.assertRaises(AccessError):
             _content = caller[field]
-        if user.share and record._name == "mail.scheduled.message":
-            with self.assertRaises(AccessError):
-                caller.search_read([("id", "=", record.id)], [field])
+        domain = [("id", "=", record.id)]
+        # Model ACL denial precedes record filtering and differs by runtime.
+        if caller.env["ir.model.access"].check(record._name, "read", False):
+            self.assertFalse(caller.search(domain))
+            self.assertFalse(caller.search_read(domain, [field]))
         else:
-            self.assertFalse(caller.search([("id", "=", record.id)]))
-            self.assertFalse(caller.search_read([("id", "=", record.id)], [field]))
+            with self.assertRaises(AccessError):
+                caller.search(domain)
+            with self.assertRaises(AccessError):
+                caller.search_read(domain, [field])
 
     def _private_project(self):
         self.project.message_subscribe(

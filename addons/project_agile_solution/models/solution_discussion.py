@@ -254,6 +254,16 @@ class SolutionDiscussionAttachment(models.Model):
             ATTACHMENT_SOURCE_MODELS,
         )
 
+    def write(self, values):
+        if not self.env.su and {"res_model", "res_id"} & values.keys():
+            for row in self:
+                check_source_target(
+                    self.env,
+                    values.get("res_model", row.res_model),
+                    values.get("res_id", row.res_id),
+                )
+        return super().write(values)
+
 
 class SolutionDiscussionScheduledMessage(models.Model):
     _inherit = "mail.scheduled.message"

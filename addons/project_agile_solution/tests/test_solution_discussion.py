@@ -36,6 +36,11 @@ class TestSolutionDiscussion(TransactionCase):
         cls.portal = mail_new_test_user(
             cls.env, "discussion_portal", groups="base.group_portal"
         )
+        cls.analyst = mail_new_test_user(
+            cls.env,
+            "discussion_analyst",
+            groups="project_agile_solution.group_business_analyst",
+        )
         cls.project = cls.env["project.project"].create(
             {
                 "name": "Discussion Project",
@@ -87,6 +92,146 @@ class TestSolutionDiscussion(TransactionCase):
                 }
             )
         )
+
+    def test_attachment_mutations_require_current_source(self):
+        self._private_project()
+        self.project.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+        attachments = self.env["ir.attachment"].with_user(self.analyst)
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                values = {
+                    "name": "BA attachment",
+                    "raw": b"Original mutation payload",
+                    "res_model": identity._name,
+                    "res_id": identity.id,
+                }
+                attachment = attachments.create(dict(values))
+                attachment.write({"name": "Authorized edit"})
+                self.assertEqual(attachment.name, "Authorized edit")
+                self.assertEqual(attachment.create_uid, self.analyst)
+                self.project.message_unsubscribe(
+                    partner_ids=self.analyst.partner_id.ids
+                )
+                self.assertFalse(
+                    identity.with_user(self.analyst).search([("id", "=", identity.id)])
+                )
+                with self.subTest(operation="create"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        attachments.create(dict(values))
+                with self.subTest(operation="write"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        attachment.write({"name": "Forbidden edit"})
+                with self.subTest(operation="unlink"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        attachment.unlink()
+                self.assertTrue(attachment.sudo().exists())
+                self.assertEqual(attachment.sudo().name, "Authorized edit")
+                self.project.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+                attachment.write({"name": "Restored edit"})
+                self.assertEqual(attachment.name, "Restored edit")
+                attachment.unlink()
+                self.assertFalse(attachment.exists())
+
+    def test_scheduled_mutations_require_current_source(self):
+        self._private_project()
+        self.project.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+        messages = self.env["mail.scheduled.message"].with_user(self.analyst)
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                values = {
+                    "model": identity._name,
+                    "res_id": identity.id,
+                    "author_id": self.analyst.partner_id.id,
+                    "body": "Original scheduled payload",
+                    "scheduled_date": fields.Datetime.now() + timedelta(days=1),
+                }
+                scheduled = messages.create(dict(values))
+                scheduled.write({"body": "Authorized edit"})
+                self.assertIn("Authorized edit", scheduled.body)
+                self.assertEqual(scheduled.create_uid, self.analyst)
+                self.project.message_unsubscribe(
+                    partner_ids=self.analyst.partner_id.ids
+                )
+                self.assertFalse(
+                    identity.with_user(self.analyst).search([("id", "=", identity.id)])
+                )
+                with self.subTest(operation="create"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        messages.create(dict(values))
+                with self.subTest(operation="write"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        scheduled.write({"body": "Forbidden edit"})
+                with self.subTest(operation="unlink"):
+                    with self.assertRaises(AccessError), self.cr.savepoint():
+                        scheduled.unlink()
+                self.assertTrue(scheduled.sudo().exists())
+                self.assertIn("Authorized edit", scheduled.sudo().body)
+                self.project.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+                scheduled.write({"body": "Restored edit"})
+                self.assertIn("Restored edit", scheduled.body)
+                scheduled.unlink()
+                self.assertFalse(scheduled.exists())
+
+    def test_attachment_relocation_checks_effective_destination(self):
+        self._private_project()
+        self.assertFalse(self.analyst.has_group("project.group_project_manager"))
+        project = self.env["project.project"].create(
+            {
+                "name": "Visible attachment destination",
+                "agile_enabled": True,
+                "agile_key": "FILEOPEN",
+                "privacy_visibility": "employees",
+            }
+        )
+        solution = (
+            self.env["project.agile.solution"]
+            .with_user(self.manager)
+            .create({"name": "Visible source", "project_id": project.id})
+        )
+        attachments = self.env["ir.attachment"].with_user(self.analyst)
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                self.assertFalse(
+                    identity.with_user(self.analyst).search([("id", "=", identity.id)])
+                )
+                values = {"name": "Visible identity", "solution_id": solution.id}
+                if identity == self.document:
+                    values["approver_id"] = self.manager.id
+                visible = (
+                    self.env[identity._name].with_user(self.manager).create(values)
+                )
+                files = attachments.create(
+                    [
+                        {"name": name, "raw": b"Own writable payload"}
+                        for name in ("first.txt", "second.txt")
+                    ]
+                )
+                self.assertEqual(files.mapped("create_uid"), self.analyst)
+                files.write({"name": "Still writable"})
+                with self.assertRaises(AccessError), self.cr.savepoint():
+                    files.write({"res_model": identity._name, "res_id": identity.id})
+                self.assertEqual(files.sudo().mapped("res_model"), [False, False])
+                files.write({"res_model": visible._name, "res_id": visible.id})
+                with self.assertRaises(AccessError), self.cr.savepoint():
+                    files.write({"res_id": identity.id})
+                self.assertEqual(files.mapped("res_id"), [visible.id, visible.id])
+                files.write({"res_model": False, "res_id": 0})
+                files.write({"res_id": identity.id})
+                with self.assertRaises(AccessError), self.cr.savepoint():
+                    files.write({"res_model": identity._name})
+                self.assertEqual(files.sudo().mapped("res_model"), [False, False])
+                # The first effective destination is allowed; the second is not.
+                files[0].write({"res_id": visible.id})
+                with self.assertRaises(AccessError), self.cr.savepoint():
+                    files.write({"res_model": identity._name})
+                self.assertEqual(files.sudo().mapped("res_model"), [False, False])
+                self.assertEqual(files.mapped("res_id"), [visible.id, identity.id])
+                files.write({"res_model": visible._name, "res_id": visible.id})
+                self.assertEqual(
+                    files.mapped("res_model"), [visible._name, visible._name]
+                )
+                files.unlink()
+                self.assertFalse(files.exists())
 
     def _post(self, record, **values):
         return (
@@ -157,15 +302,17 @@ class TestSolutionDiscussion(TransactionCase):
         with self.assertRaises(AccessError):
             _content = caller[field]
         domain = [("id", "=", record.id)]
-        # Model ACL denial precedes record filtering and differs by runtime.
-        if caller.env["ir.model.access"].check(record._name, "read", False):
-            self.assertFalse(caller.search(domain))
-            self.assertFalse(caller.search_read(domain, [field]))
-        else:
-            with self.assertRaises(AccessError):
-                caller.search(domain)
-            with self.assertRaises(AccessError):
-                caller.search_read(domain, [field])
+        # Nightlies may reject the model ACL or filter out inaccessible rows.
+        try:
+            records = caller.search(domain)
+        except AccessError:
+            records = None
+        self.assertFalse(records)
+        try:
+            rows = caller.search_read(domain, [field])
+        except AccessError:
+            rows = None
+        self.assertFalse(rows)
 
     def _private_project(self):
         self.project.message_subscribe(
@@ -290,6 +437,7 @@ class TestSolutionDiscussion(TransactionCase):
         )
         attachment, scheduled, pending = self._private_payloads(task, self.manager)
         for row in attachment | pending:
+            row.with_user(self.manager).write({"name": "Native attachment edit"})
             self.assertTrue(row.with_user(self.reader).search([("id", "=", row.id)]))
             self.assertTrue(row.with_user(self.reader).read(["datas"])[0]["datas"])
         self.assertIn(
@@ -299,6 +447,14 @@ class TestSolutionDiscussion(TransactionCase):
         self.assertTrue(
             scheduled.with_user(self.reader).search([("id", "=", scheduled.id)])
         )
+        scheduled.with_user(self.manager).write({"subject": "Native scheduled edit"})
+        self.assertEqual(
+            scheduled.with_user(self.manager).subject, "Native scheduled edit"
+        )
+        (attachment | pending).with_user(self.manager).unlink()
+        scheduled.with_user(self.manager).unlink()
+        self.assertFalse((attachment | pending).exists())
+        self.assertFalse(scheduled.exists())
 
     def test_threads_survive_successors_without_changing_frozen_content(self):
         requirement = (

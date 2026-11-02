@@ -99,6 +99,13 @@ def _apply(env, data):
             .action_confirm()["res_id"]
         )
     task = env["project.task"].with_user(uid).browse(data["task_id"])
+    if action == "refine":
+        return (
+            env["project.agile.requirement.task.link"]
+            .with_user(uid)
+            .browse(data["link_id"])
+            .action_refine_acceptance(data["expectations"])["res_id"]
+        )
     sprint = env["project.sprint"].with_user(uid).browse(data["sprint_id"])
     if action == "relink":
         links = (
@@ -365,6 +372,65 @@ def run_probe(env):
         ]
     )
     results.append({"operation": "stale_source", "workers": stale})
+    # New public refinement action: identical submissions converge, different
+    # proposals cannot overwrite a winner after real native transaction retry.
+    manager, project, _solution, revision = seed(env, "M8REFINERACE")
+    task = (
+        env["project.task"]
+        .with_user(manager)
+        .create(
+            {
+                "name": "SYNTHETIC refinement race work",
+                "project_id": project.id,
+                "agile_item_type_id": env.ref(
+                    "project_agile.project_agile_item_type_story"
+                ).id,
+            }
+        )
+    )
+    link = (
+        env["project.agile.requirement.task.link"]
+        .with_user(manager)
+        .create(
+            {
+                "task_id": task.id,
+                "requirement_revision_id": revision.id,
+            }
+        )
+    )
+    common = {"uid": manager.id, "task_id": task.id, "action": "refine"}
+    for different in (False, True):
+        env.cr.commit()
+        proposal = {
+            **common,
+            "link_id": link.id,
+            "expectations": "Updated evaluation " + str(different),
+        }
+        loser = (
+            {**proposal, "expectations": "Conflicting evaluation", "expect_stale": True}
+            if different
+            else proposal
+        )
+        result = race(env, proposal, loser, ordering="contended")
+        self_links = env["project.agile.requirement.task.link"].with_user(manager)
+        active = self_links.search([("task_id", "=", task.id)])
+        assert len(active) == 1 and active.requirement_revision_id.sealed
+        assert (
+            active.requirement_revision_id.acceptance_expectations
+            == proposal["expectations"]
+        )
+        assert not link.active and link.sudo()._refinement_link_id == active
+        assert (
+            revision.acceptance_expectations == "No duplicate or rewritten commitment"
+        )
+        results.append(
+            {
+                "operation": "refine_conflict" if different else "refine_retry",
+                "workers": result,
+            }
+        )
+        link = active
+    assert revision.requirement_id._complete_revisions().mapped("number") == [1, 2, 3]
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_TASK_INTENT_CONCURRENCY_OK "

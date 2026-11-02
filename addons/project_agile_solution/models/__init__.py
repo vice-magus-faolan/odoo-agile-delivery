@@ -23,3 +23,4 @@ from . import solution_portal_publication
 from . import solution_portal_decision
 from . import solution_portal_revocation
 from . import solution_portal_wizard
+from . import solution_refinement_wizard

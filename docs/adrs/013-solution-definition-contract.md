@@ -262,6 +262,61 @@ break Task access. The caller-specific nonstored escaped projection depends on t
 existing Task reference publication updated by link creation/retirement; it neither
 implies complete coverage nor substitutes the latest revision.
 
+## Cheap refinement without changing agreed content
+
+Keep sealing at first exact reference, rather than delaying it until document approval:
+a Task link must continue to mean the content actually selected, even before approval.
+Automatically carrying every active link forward would change other Tasks without their
+authors selecting new intent. Instead, a Business analyst with current write authority
+refines one selected active work link in two steps: open **Refine Acceptance**, then
+edit the proposed expectations and **Apply Refinement**. The dialog shows the original
+exact expectations and explains the selected Task boundary before confirmation.
+
+Apply creates and seals a numbered requirement successor, links that exact content to
+the selected Task and retires the original edge with an audit reason, together in one
+savepoint. The successor copies the other requirement attributes unchanged. It does not
+inherit the old specification reference: that exact specification contains the original
+requirement, not the new one. Documents require their own explicit
+successor/membership/approval workflow. Other active Task links remain on their selected
+revisions; no implicit latest-head resolution or bulk relinking occurs. Manual Task
+criteria and native planning values are not overwritten.
+
+Only the current sealed head can be refined. A newer working or sealed head makes the
+old dialog stale; reopening a non-head link cannot move it to that head. If Tasks A and
+B link revision 1 and A is refined to sealed revision 2, B remains on revision 1 and
+cannot refine that link. The BA must explicitly adopt existing revision 2 for B:
+
+1. Inspect the requirement and revision number under **Project > Requirement
+   Revisions**. Create a fresh **Project > Deliberate Task Previews** record with **Link
+   Existing Native Task**, the same **Solution**, **Task** B and **Name**. In
+   **Requirement Revisions**, use **Search More...** and match **Requirement** and
+   **Number** (2), not the copied title. Leave **Document Revision** empty unless it
+   contains that exact successor.
+2. Save, **Review and Confirm**, then **Confirm This Preview** as the same user. This
+   adds the replacement link without creating another content revision.
+3. Open the old link for B under **Project > Requirement Work Links**. Inspect its
+   **Requirement Revision** to verify **Requirement** and **Number** (1). Return to the
+   link, choose **Retire Working Link**, enter **Reason**, then **Retire With This
+   Reason**.
+
+These are separate confirmation and retirement actions, not the two-step refinement
+path; both revisions remain active until retirement. Repeat for each chosen Task. The
+remaining multi-Task cost is not solved here; cheaper explicit adoption is tracked in
+[issue 82](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/82). The
+[usage guide](../../addons/project_agile_solution/readme/USAGE.md#move-another-task-to-an-existing-revision)
+owns the detailed recovery steps. The existing identity allocation publication, Task
+reference publication and edge retirement writes conflict with competing revision, link
+and Sprint operations under native whole-transaction retry. The original edge retains
+its replacement reference for identical idempotent retries; a different proposal cannot
+reuse that receipt. Current caller/reference/company authority is checked again on
+confirmation and retry. No new transaction retry loop or SQL is used.
+
+Approved/review document snapshots and exact membership, recorded acceptance and Sprint
+event payloads continue to refer to the original sealed content. A successor is new
+unapproved and unaccepted intent, not an amendment to those agreements. This scoped
+action costs one successor and one edge per refinement but avoids mutable history,
+hidden relink steps and a second requirement/history system.
+
 ## Optional frozen Scrum context
 
 `project_agile_solution_scrum` depends on Solution core and `project_scrum`, never the

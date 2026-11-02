@@ -1,8 +1,10 @@
 """Exercise real mail exceptions and stable threads, not a mocked transport."""
 
+import base64
 import json
+from datetime import timedelta
 
-from odoo import Command
+from odoo import Command, fields
 from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, tagged
 from odoo.tests.common import TransactionCase
@@ -111,6 +113,187 @@ class TestSolutionDiscussion(TransactionCase):
                     "owner_id": self.owner.id,
                 }
             )
+        )
+
+    def _private_payloads(self, identity, author):
+        caller = identity.with_user(author).with_context(mail_notify_force_send=False)
+        message = caller.message_post(
+            body="Private attachment discussion",
+            message_type="comment",
+            subtype_xmlid="mail.mt_comment",
+            attachments=[("discussion.txt", b"Private stable file payload")],
+        )
+        attachment = caller.env["ir.attachment"].create(
+            {
+                "name": "scheduled.txt",
+                "raw": b"Private scheduled file payload",
+                "res_model": "mail.compose.message",
+                "res_id": 0,
+            }
+        )
+        scheduled = caller.env["mail.scheduled.message"].create(
+            {
+                "model": identity._name,
+                "res_id": identity.id,
+                "author_id": author.partner_id.id,
+                "body": "Private scheduled discussion",
+                "scheduled_date": fields.Datetime.now() + timedelta(days=1),
+                "attachment_ids": [Command.link(attachment.id)],
+            }
+        )
+        self.assertEqual(
+            (attachment.res_model, attachment.res_id), (scheduled._name, scheduled.id)
+        )
+        return message.attachment_ids, scheduled, attachment
+
+    def _assert_payload_hidden(self, record, user, field, **context):
+        caller = record.with_user(user).with_context(
+            sudo=True, active_test=False, **context
+        )
+        self.env.invalidate_all()
+        with self.assertRaises(AccessError):
+            caller.read([field])
+        self.env.invalidate_all()
+        with self.assertRaises(AccessError):
+            _content = caller[field]
+        if user.share and record._name == "mail.scheduled.message":
+            with self.assertRaises(AccessError):
+                caller.search_read([("id", "=", record.id)], [field])
+        else:
+            self.assertFalse(caller.search([("id", "=", record.id)]))
+            self.assertFalse(caller.search_read([("id", "=", record.id)], [field]))
+
+    def _private_project(self):
+        self.project.message_subscribe(
+            partner_ids=(self.manager | self.reader).partner_id.ids
+        )
+        self.project.write({"privacy_visibility": "followers"})
+
+    def test_chatter_attachments_current_source_authority(self):
+        self._private_project()
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                attachment, _scheduled, pending = self._private_payloads(
+                    identity, self.reader
+                )
+                for file, payload in (
+                    (attachment, b"Private stable file payload"),
+                    (pending, b"Private scheduled file payload"),
+                ):
+                    self.assertEqual(
+                        base64.b64decode(
+                            file.with_user(self.reader).read(["datas"])[0]["datas"]
+                        ),
+                        payload,
+                    )
+                    self.assertTrue(
+                        file.with_user(self.reader).search([("id", "=", file.id)])
+                    )
+                    self.assertFalse(
+                        identity.with_user(self.owner).search(
+                            [("id", "=", identity.id)]
+                        )
+                    )
+                    self._assert_payload_hidden(file, self.owner, "datas")
+                    self._assert_payload_hidden(file, self.portal, "datas")
+                self.project.message_unsubscribe(partner_ids=self.reader.partner_id.ids)
+                self.assertFalse(
+                    identity.with_user(self.reader).search([("id", "=", identity.id)])
+                )
+                for file in attachment | pending:
+                    self._assert_payload_hidden(file, self.reader, "datas")
+                    file.sudo().write({"public": True})
+                    self._assert_payload_hidden(file, self.reader, "datas")
+                self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
+                self.assertEqual(
+                    base64.b64decode(
+                        attachment.with_user(self.reader).read(["datas"])[0]["datas"]
+                    ),
+                    b"Private stable file payload",
+                )
+
+    def test_scheduled_messages_current_source_authority(self):
+        self._private_project()
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                _attachment, scheduled, _pending = self._private_payloads(
+                    identity, self.reader
+                )
+                self.assertIn(
+                    "Private scheduled discussion",
+                    scheduled.with_user(self.reader).body,
+                )
+                self.assertTrue(
+                    scheduled.with_user(self.reader).search_read(
+                        [("id", "=", scheduled.id)], ["body"]
+                    )
+                )
+                for user in (self.owner, self.portal):
+                    self._assert_payload_hidden(scheduled, user, "body")
+                self.project.message_unsubscribe(partner_ids=self.reader.partner_id.ids)
+                self.assertFalse(
+                    identity.with_user(self.reader).search([("id", "=", identity.id)])
+                )
+                self._assert_payload_hidden(scheduled, self.reader, "body")
+                self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
+                self.assertIn(
+                    "Private scheduled discussion",
+                    scheduled.with_user(self.reader).read(["body"])[0]["body"],
+                )
+
+    def test_payloads_follow_current_company_and_custom_source_rules(self):
+        other = self.env["res.company"].create({"name": "Other file company"})
+        self.reader.company_ids = [Command.link(other.id)]
+        for identity in (self.requirement, self.document, self.context):
+            attachment, scheduled, pending = self._private_payloads(
+                identity, self.reader
+            )
+            for row, field in (
+                (attachment, "datas"),
+                (pending, "datas"),
+                (scheduled, "body"),
+            ):
+                self._assert_payload_hidden(
+                    row, self.reader, field, allowed_company_ids=other.ids
+                )
+            rule = self.env["ir.rule"].create(
+                {
+                    "name": "Current custom source restriction",
+                    "model_id": self.env["ir.model"]._get_id(identity._name),
+                    "domain_force": repr([("id", "!=", identity.id)]),
+                }
+            )
+            for row, field in (
+                (attachment, "datas"),
+                (pending, "datas"),
+                (scheduled, "body"),
+            ):
+                self._assert_payload_hidden(row, self.reader, field)
+            rule.unlink()
+            self.assertTrue(
+                attachment.with_user(self.reader).read(["datas"])[0]["datas"]
+            )
+            self.assertIn(
+                "Private scheduled discussion",
+                scheduled.with_user(self.reader).read(["body"])[0]["body"],
+            )
+
+    def test_unrelated_task_payloads_keep_native_access(self):
+        task = (
+            self.env["project.task"]
+            .with_user(self.manager)
+            .create({"name": "Native files", "project_id": self.project.id})
+        )
+        attachment, scheduled, pending = self._private_payloads(task, self.manager)
+        for row in attachment | pending:
+            self.assertTrue(row.with_user(self.reader).search([("id", "=", row.id)]))
+            self.assertTrue(row.with_user(self.reader).read(["datas"])[0]["datas"])
+        self.assertIn(
+            "Private scheduled discussion",
+            scheduled.with_user(self.reader).read(["body"])[0]["body"],
+        )
+        self.assertTrue(
+            scheduled.with_user(self.reader).search([("id", "=", scheduled.id)])
         )
 
     def test_threads_survive_successors_without_changing_frozen_content(self):
@@ -421,6 +604,116 @@ class TestSolutionDiscussion(TransactionCase):
 @tagged("post_install", "-at_install")
 class TestSolutionDiscussionTour(HttpCase):
     _rpc = TestSolutionRenderTour._rpc
+
+    _private_payloads = TestSolutionDiscussion._private_payloads
+
+    def test_private_attachment_download_and_scheduled_rpc(self):
+        manager = mail_new_test_user(
+            self.env, "file_manager", groups="project.group_project_manager"
+        )
+        reader = mail_new_test_user(
+            self.env, "file_reader", groups="project.group_project_user"
+        )
+        outsider = mail_new_test_user(
+            self.env, "file_outsider", groups="project.group_project_user"
+        )
+        portal = mail_new_test_user(self.env, "file_portal", groups="base.group_portal")
+        project = self.env["project.project"].create(
+            {
+                "name": "Private files",
+                "agile_enabled": True,
+                "agile_key": "FILEPRIV",
+                "privacy_visibility": "followers",
+            }
+        )
+        project.message_subscribe(partner_ids=(manager | reader).partner_id.ids)
+        solution = (
+            self.env["project.agile.solution"]
+            .with_user(manager)
+            .create({"name": "Private files", "project_id": project.id})
+        )
+        for model, extra in (
+            ("project.agile.requirement", {}),
+            ("project.agile.solution.document", {"approver_id": manager.id}),
+            ("project.agile.solution.context", {"kind": "question"}),
+        ):
+            with self.subTest(model=model):
+                project.message_subscribe(partner_ids=reader.partner_id.ids)
+                identity = (
+                    self.env[model]
+                    .with_user(manager)
+                    .create(
+                        {"name": "Private source", "solution_id": solution.id, **extra}
+                    )
+                )
+                attachment, scheduled, pending = self._private_payloads(
+                    identity, reader
+                )
+                tokens = {
+                    file.id: (
+                        file.sudo().generate_access_token()[0],
+                        file.sudo()._get_raw_access_token(),
+                    )
+                    for file in attachment | pending
+                }
+                self.env.flush_all()
+                self.authenticate(reader.login, reader.login)
+                for file, payload in (
+                    (attachment, b"Private stable file payload"),
+                    (pending, b"Private scheduled file payload"),
+                ):
+                    response = self.url_open(f"/web/content/{file.id}?download=1")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.content, payload)
+                self.assertIn(
+                    "Private scheduled discussion",
+                    str(
+                        self._rpc(
+                            "mail.scheduled.message", "read", [scheduled.ids, ["body"]]
+                        )["result"]
+                    ),
+                )
+                project.message_unsubscribe(partner_ids=reader.partner_id.ids)
+                self.env.flush_all()
+                for user in (outsider, reader, portal):
+                    self.authenticate(user.login, user.login)
+                    if not user.share:
+                        self.assertFalse(
+                            self._rpc(model, "search", [[("id", "=", identity.id)]])[
+                                "result"
+                            ]
+                        )
+                    for file in attachment | pending:
+                        file.sudo().write({"public": True})
+                        self.env.flush_all()
+                        for token in ("", *tokens[file.id]):
+                            response = self.url_open(
+                                f"/web/content/{file.id}?download=1&access_token={token}"
+                            )
+                            self.assertIn(response.status_code, (403, 404))
+                            self.assertNotIn(
+                                b"Private stable file payload", response.content
+                            )
+                            self.assertNotIn(
+                                b"Private scheduled file payload", response.content
+                            )
+                    denied = self._rpc(
+                        "mail.scheduled.message", "read", [scheduled.ids, ["body"]]
+                    )
+                    self.assertEqual(
+                        denied["error"]["data"]["name"], "odoo.exceptions.AccessError"
+                    )
+                    self.assertNotIn("Private scheduled discussion", str(denied))
+                project.message_subscribe(partner_ids=reader.partner_id.ids)
+
+        # Unrelated public attachments retain the native public/token transport.
+        public = self.env["ir.attachment"].create(
+            {"name": "public.txt", "raw": b"Ordinary public file", "public": True}
+        )
+        self.env.flush_all()
+        response = self.url_open(f"/web/content/{public.id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"Ordinary public file")
 
     def test_native_stable_chatter_and_direct_rpc_access(self):
         manager = mail_new_test_user(

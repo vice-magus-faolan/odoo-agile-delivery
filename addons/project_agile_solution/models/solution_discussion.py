@@ -11,9 +11,9 @@ DISCUSSION_MODELS = (
 )
 
 
-def source_access_domain(env, model_field):
+def source_access_domain(env, model_field, source_models=DISCUSSION_MODELS):
     """Keep native mail exceptions from becoming a Solution access grant."""
-    unrelated = Domain(model_field, "not in", DISCUSSION_MODELS)
+    unrelated = Domain(model_field, "not in", source_models)
     caller = env(su=False)
     if not caller.user.active or not caller.user._is_internal():
         return unrelated
@@ -31,7 +31,7 @@ def source_access_domain(env, model_field):
                         ),
                     ]
                 )
-                for model in DISCUSSION_MODELS
+                for model in source_models
                 if caller["ir.model.access"].check(model, "read", False)
             ),
         ]
@@ -48,17 +48,32 @@ def source_readable(records):
     return caller.search([("id", "in", caller.ids)])
 
 
-def forbidden_source_rows(records, model_field):
+def forbidden_source_rows(records, model_field, source_models=DISCUSSION_MODELS):
     """Constrain native mail exceptions using current concrete source access."""
     forbidden = records.browse()
     for model, rows in records.sudo().grouped(model_field).items():
-        if model in DISCUSSION_MODELS:
+        if model in source_models:
             sources = records.env[model].browse(rows.mapped("res_id"))
             allowed = set(source_readable(sources).ids)
             forbidden |= records.browse(
                 row.id for row in rows if row.res_id not in allowed
             )
     return forbidden
+
+
+def source_access_result(records, model_field, result, source_models=DISCUSSION_MODELS):
+    """Intersect concrete source authority with native record restrictions."""
+    if records.env.su:
+        return result
+    forbidden = forbidden_source_rows(records, model_field, source_models)
+    if not forbidden:
+        return result
+    if result:
+        return (result[0] | forbidden, result[1])
+    return (
+        forbidden,
+        lambda: AccessError(_("Current Solution source access is required.")),
+    )
 
 
 def check_source_target(env, model, record_id):
@@ -195,16 +210,7 @@ class SolutionDiscussionFollowers(models.Model):
         return positive if operator == "in" else ~positive
 
     def _check_access(self, operation):
-        result = super()._check_access(operation)
-        forbidden = forbidden_source_rows(self, "res_model")
-        if forbidden:
-            if result:
-                return (result[0] | forbidden, result[1])
-            return (
-                forbidden,
-                lambda: AccessError(_("Current Solution source access is required.")),
-            )
-        return result
+        return source_access_result(self, "res_model", super()._check_access(operation))
 
     def read(self, fields=None, load="_classic_read"):
         self.check_access("read")
@@ -219,3 +225,68 @@ class SolutionDiscussionFollowers(models.Model):
                     values.get("res_id", row.res_id),
                 )
         return super().write(values)
+
+
+# Composer attachments move to the scheduled row before they move to its thread.
+ATTACHMENT_SOURCE_MODELS = (*DISCUSSION_MODELS, "mail.scheduled.message")
+
+
+class SolutionDiscussionAttachment(models.Model):
+    _inherit = "ir.attachment"
+
+    def _search(
+        self, domain, offset=0, limit=None, order=None, *, bypass_access=False, **kwargs
+    ):
+        if not self.env.su and not bypass_access:
+            domain = Domain(domain) & source_access_domain(
+                self.env, "res_model", ATTACHMENT_SOURCE_MODELS
+            )
+        return super()._search(
+            domain, offset, limit, order, bypass_access=bypass_access, **kwargs
+        )
+
+    def _check_access(self, operation):
+        # Native public/creator exceptions must not become a source grant.
+        return source_access_result(
+            self,
+            "res_model",
+            super()._check_access(operation),
+            ATTACHMENT_SOURCE_MODELS,
+        )
+
+
+class SolutionDiscussionScheduledMessage(models.Model):
+    _inherit = "mail.scheduled.message"
+
+    def _search(
+        self, domain, offset=0, limit=None, order=None, *, bypass_access=False, **kwargs
+    ):
+        if not self.env.su and not bypass_access:
+            domain = Domain(domain) & source_access_domain(self.env, "model")
+        return super()._search(
+            domain, offset, limit, order, bypass_access=bypass_access, **kwargs
+        )
+
+    def _check_access(self, operation):
+        return source_access_result(self, "model", super()._check_access(operation))
+
+
+class SolutionDiscussionBinary(models.AbstractModel):
+    _inherit = "ir.binary"
+
+    def _find_record(
+        self,
+        xmlid=None,
+        res_model="ir.attachment",
+        res_id=None,
+        access_token=None,
+        field=None,
+    ):
+        record = super()._find_record(xmlid, res_model, res_id, access_token, field)
+        # Native public and both token routes can return an elevated attachment.
+        # Rebind to the request caller before resolving its current source access.
+        if record._name == "ir.attachment" and forbidden_source_rows(
+            record.with_env(self.env), "res_model", ATTACHMENT_SOURCE_MODELS
+        ):
+            raise AccessError(_("Current Solution source access is required."))
+        return record

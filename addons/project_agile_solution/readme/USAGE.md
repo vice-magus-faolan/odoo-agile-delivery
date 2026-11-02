@@ -47,8 +47,10 @@ working revision. Previous owners remain followers until they unfollow; their
 existing subscription preferences are preserved. Following and mentioning do
 not grant Project or company access. Notifications go only to active internal
 users who can currently read the source; external contacts and raw email
-recipients do not receive these discussions. Customer publications remain a
-separate workflow.
+recipients do not receive these discussions. Chatter files and scheduled messages
+also require current source access, including after Project membership is revoked.
+A file link or public flag does not share internal Solution content with outsiders.
+Customer publications remain a separate workflow.
 
 ## Link delivery work
 

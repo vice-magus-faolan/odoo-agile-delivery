@@ -105,9 +105,25 @@ The native notification-recipient hook rechecks active internal recipients under
 own source access and permitted companies before inbox/email delivery. External contacts
 and unbound email recipients are excluded; retained followers with revoked access
 receive no new content. This does not recall already sent notifications or exported
-copies. All other native mail models retain their normal rules and transports. These
-version-sensitive seams follow the pinned upstream mail source above and require native
-security/browser regression coverage.
+copies.
+
+Chatter attachments and scheduled messages also require current source read access.
+Their native in-memory checks cannot enforce the search-only Project predicate, so
+scoped search domains and concrete record checks reuse the same caller-bound source
+queries. Attachments transferred from a composer to a scheduled message inherit that
+message source boundary too. The native binary resolver revalidates the request caller
+after public/token elevation: neither a public flag nor an attachment or binary-field
+token publishes internal Solution content. Unrelated Task attachments and scheduled
+messages retain their native rules and transports; this adds no disclosure grant.
+
+The `_search`, `_check_access` and `ir.binary._find_record` extensions are private,
+version-sensitive seams. Revisit them when upgrading the pinned upstream
+[`ir.attachment`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/odoo/addons/base/models/ir_attachment.py),
+[`mail.scheduled.message`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/addons/mail/models/mail_scheduled_message.py)
+and
+[`ir.binary`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/odoo/addons/base/models/ir_binary.py)
+APIs, alongside the mail seams above. Native ORM and authenticated binary-route
+regressions must retain authorized positives and outsider/revocation negatives.
 
 ## Revision, scope and approval
 

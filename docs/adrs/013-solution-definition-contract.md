@@ -81,6 +81,50 @@ The internal-brief template omits commercial/SOW assumptions. Both are shared ed
 appends sanitized content with exact source provenance; later template edits never
 propagate to existing documents.
 
+## Stable identity discussions
+
+Native `mail.thread` belongs only to requirement, document and context identities, never
+their numbered revisions. Project readers may post without content-editing authority.
+Question revision creation and owner changes subscribe the owner to the stable context.
+Existing followers and subtype preferences are retained; owner changes do not infer
+which subscriptions were manual.
+
+Native mail author, recipient and follower exceptions alone are insufficient for
+Solution isolation. Global message/follower rules constrain only these three models
+using current-caller source subqueries, including custom Project/company rules and
+archived source access. Native record authorization and recipient checks use fresh
+source searches, not cached computed access predicates. The native thread access hook
+retains the current company scope. Native message fetch queries include the same source
+domain even when invoked with an elevated mail environment. Direct message field fetches
+also check access because native mail fetch otherwise elevates. Polymorphic mail-row
+relocation checks destination source access as well as existing native checks. Public
+post, subscribe and unsubscribe actions require source read access, including native
+self-unfollow. Following never grants source authority.
+
+The native notification-recipient hook rechecks active internal recipients under their
+own source access and permitted companies before inbox/email delivery. External contacts
+and unbound email recipients are excluded; retained followers with revoked access
+receive no new content. This does not recall already sent notifications or exported
+copies.
+
+Chatter attachments and scheduled messages also require current source read access.
+Their native in-memory checks cannot enforce the search-only Project predicate, so
+scoped search domains and concrete record checks reuse the same caller-bound source
+queries. Attachments transferred from a composer to a scheduled message inherit that
+message source boundary too. The native binary resolver revalidates the request caller
+after public/token elevation: neither a public flag nor an attachment or binary-field
+token publishes internal Solution content. Unrelated Task attachments and scheduled
+messages retain their native rules and transports; this adds no disclosure grant.
+
+The `_search`, `_check_access` and `ir.binary._find_record` extensions are private,
+version-sensitive seams. Revisit them when upgrading the pinned upstream
+[`ir.attachment`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/odoo/addons/base/models/ir_attachment.py),
+[`mail.scheduled.message`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/addons/mail/models/mail_scheduled_message.py)
+and
+[`ir.binary`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/odoo/addons/base/models/ir_binary.py)
+APIs, alongside the mail seams above. Native ORM and authenticated binary-route
+regressions must retain authorized positives and outsider/revocation negatives.
+
 ## Revision, scope and approval
 
 Documents follow `draft -> review -> approved -> superseded`. Submission freezes actual

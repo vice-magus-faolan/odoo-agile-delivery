@@ -79,7 +79,15 @@ class RequirementTaskLink(models.Model):
             or revision.requirement_id._complete_revisions()[-1] != revision
         ):
             raise ValidationError(
-                _("Coverage changed; refine an active link to the current sealed head.")
+                _(
+                    "Coverage changed; only an active link to the current sealed "
+                    "head can be refined. To use an existing revision, open "
+                    "Project > Deliberate Task Previews, select Link Existing "
+                    "Native Task and the exact Requirement Revisions, then "
+                    "confirm the replacement and retire the old link with a "
+                    "reason. See the usage guide (USAGE.md): "
+                    "Move another Task to an existing revision."
+                )
             )
         return caller
 

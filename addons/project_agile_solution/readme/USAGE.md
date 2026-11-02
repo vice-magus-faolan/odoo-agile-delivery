@@ -55,8 +55,9 @@ Save, choose **Review and Confirm**, inspect the proposed work, then choose
 **Confirm This Preview** as the same user. Work is created or linked only when
 you confirm the preview. Changed source content requires a fresh preview;
 confirming an already consumed preview returns its existing task rather than
-creating another. Inspect links under **Project > Requirement Work Links**. Use **Retire Working
-Link** with a reason when replacing coverage, then link the successor.
+creating another. Inspect links under **Project > Requirement Work Links**. When
+replacing coverage, confirm the successor link first, then retire the old link
+with a reason as described below.
 
 Manage task descriptions, criteria, estimates, workflow and Sprint allocation
 on the tasks themselves. Specification changes preserve these task values. For a task
@@ -80,6 +81,70 @@ Use **Verification Method** to record a demonstration with buyer and warehouse t
 accounts. Given/When/Then is optional wording, not an enforced format. A developer
 may copy these expectations at creation and add task-specific edge cases later;
 editing task criteria does not change the client-agreed requirement revision.
+
+## Refine linked acceptance expectations
+
+As a Business analyst or Project administrator with current Task write access,
+open the selected active link under **Project > Requirement Work Links**.
+
+1. Choose **Refine Acceptance**. Inspect the original exact expectations and the
+   selected work link in the dialog.
+2. Edit **Proposed Acceptance Expectations** and choose **Apply Refinement**.
+   The Task opens; its **Agile** tab shows the new exact expectations under
+   **Exact Requirement Acceptance**. No separate save or relinking is needed.
+
+Apply creates a sealed numbered successor, links it to this Task and retires the
+old link together. Other linked Tasks remain on their own selected revisions.
+Manual Task criteria, approved documents, recorded acceptance and historical
+Sprint event content do not change. The new link has no old specification
+reference or inherited approval/acceptance: select the successor in a new document
+revision and follow the ordinary approval workflow when agreement is required.
+
+Refinement requires a link to the current sealed requirement head. If another
+author created a newer revision or retired the link, the old dialog is rejected
+without partial changes. Reopening an older active link does not move it to the
+head; use the explicit replacement workflow below when adopting existing content.
+An identical retry returns the same Task without another successor; a different
+proposal on an already refined link is rejected. Cancel changes no requirement
+or work link.
+
+## Move another Task to an existing revision
+
+If Tasks A and B both link requirement revision 1, refining A creates sealed
+revision 2 for A only. B stays on revision 1 and cannot refine that non-head
+revision. To adopt revision 2 for B, use a Business analyst or Project
+administrator account with current write access to B:
+
+1. Inspect B under **Project > Requirement Work Links** and the intended revision
+   under **Project > Requirement Revisions**. Check **Requirement**, **Number**
+   (2), **Sealed** and **Acceptance Expectations**. Revisions can have the same
+   title; do not select by title alone. Use the existing revision, not
+   **Open / New Content Revision**, which can create another successor.
+2. Create a fresh **Project > Deliberate Task Previews** record. Set **Solution**,
+   **Operation** to **Link Existing Native Task**, **Task** to B, and **Name**.
+   In **Requirement Revisions**, use **Search More...** to inspect the revision
+   list and select that exact **Requirement** and **Number** (2), not revision 1.
+   Leave **Document Revision** empty unless the selected specification contains
+   revision 2; the old baseline containing revision 1 does not cover it.
+3. Save, choose **Review and Confirm**, inspect the proposed exact coverage, then
+   choose **Confirm This Preview** as the same user. This adds the revision 2
+   link to B without creating revision 3. If source context changes before
+   confirmation, inspect it and create a fresh preview.
+4. Under **Project > Requirement Work Links**, open the old link for B. Open its
+   **Requirement Revision** to verify **Requirement** and **Number** (1), rather
+   than relying on the link title. Return to the link, choose **Retire Working
+   Link**, enter **Reason**, and choose **Retire With This Reason**. Verify
+   **Agile > Exact Requirement Acceptance** on B now shows revision 2 without
+   the retired revision 1.
+
+Replacement confirmation and retirement are separate actions: until retirement,
+both active revisions appear on B. Repeat the workflow for each Task you choose
+to move; this is not the two-step **Refine Acceptance** path and does not solve
+the remaining multi-Task adoption cost. Other Tasks, manual Task criteria,
+approved baselines, recorded acceptance and historical Sprint content stay
+unchanged. A cheaper explicit adoption workflow is tracked in
+[issue 82](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/82),
+not implemented here.
 
 ## Preview the chosen audience
 

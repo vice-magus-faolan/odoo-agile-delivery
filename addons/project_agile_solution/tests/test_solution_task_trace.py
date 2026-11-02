@@ -64,6 +64,191 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
             )
         )
 
+    def _refinement(self, edge):
+        action = edge.action_request_refinement()
+        return (
+            self.env[action["res_model"]]
+            .with_user(edge.env.user)
+            .browse(action["res_id"])
+        )
+
+    def test_refinement_form_preserves_approved_acceptance_and_other_work(self):
+        requirement, task, other = self._requirement(), self._task(), self._task()
+        baseline = self._revision(
+            requirement_revision_ids=[Command.set(requirement.ids)]
+        )
+        self._approve(baseline)
+        accepted = (
+            self.env["project.agile.requirement.acceptance"]
+            .with_user(self.manager)
+            .create(
+                {
+                    "requirement_revision_id": requirement.id,
+                    "document_revision_id": baseline.id,
+                    "decision": "accepted",
+                    "authority_label": "Exact baseline approver",
+                    "criteria_evaluated": requirement.acceptance_expectations,
+                    "evidence": "SYNTHETIC observed original content",
+                }
+            )
+        )
+        snapshot = baseline.action_read_snapshot()
+        # Freeze the acceptance-domain payload, not native log_access metadata
+        # affected by deferred stored-related recomputation.
+        acceptance_fields = [
+            "requirement_revision_id",
+            "document_revision_id",
+            "decision",
+            "decision_source",
+            "publication_id",
+            "publication_sha256",
+            "portal_partner_id",
+            "authority_label",
+            "criteria_evaluated",
+            "evidence",
+            "recorded_by_id",
+            "recorded_by_label",
+            "recorded_at",
+            "supersedes_id",
+        ]
+        acceptance = accepted.read(acceptance_fields, load=None)[0]
+        original = requirement._snapshot_values()
+        edge = self._link(requirement, task, document_revision_id=baseline.id)
+        other_edge = self._link(requirement, other, document_revision_id=baseline.id)
+        task.write({"agile_acceptance_criteria": "<p>Keep manual checks</p>"})
+        before = task.read(
+            [
+                "name",
+                "description",
+                "state",
+                "agile_acceptance_criteria",
+                "agile_story_points",
+                "agile_backlog_sequence",
+            ]
+        )
+        # Two user steps: open dialog, then edit and Apply (native saves edits).
+        wizard = self._refinement(edge)
+        with Form(wizard) as form:
+            self.assertEqual(
+                form.previous_expectations, requirement.acceptance_expectations
+            )
+            form.acceptance_expectations = (
+                "Buyer confirms <only> their dispatch & receipt"
+            )
+        result = wizard.action_confirm()
+        replacement = edge.sudo()._refinement_link_id.with_user(self.manager)
+        successor = replacement.requirement_revision_id
+        self.assertEqual(result["res_id"], task.id)
+        self.assertEqual(successor.predecessor_id, requirement)
+        self.assertEqual(successor.number, 2)
+        self.assertTrue(successor.sealed)
+        self.assertFalse(replacement.document_revision_id)
+        self.assertFalse(edge.active)
+        self.assertTrue(edge.retirement_reason)
+        self.assertEqual(edge.retired_by_id, self.manager)
+        self.assertTrue(other_edge.active)
+        self.assertEqual(other_edge.requirement_revision_id, requirement)
+        self.assertEqual(task.read(list(before[0])), before)
+        self.assertIn(
+            "Buyer confirms &lt;only&gt; their dispatch &amp; receipt",
+            task.with_user(self.user).solution_requirement_acceptance,
+        )
+        self.assertEqual(baseline.action_read_snapshot(), snapshot)
+        self.assertEqual(accepted.read(acceptance_fields, load=None)[0], acceptance)
+        self.assertEqual(requirement._snapshot_values(), original)
+        self.assertEqual(baseline.requirement_revision_ids, requirement)
+        self.assertEqual(wizard.action_confirm(), result)
+        self.assertEqual(
+            requirement.requirement_id.revision_ids, successor | requirement
+        )
+        with self.assertRaises(ValidationError):
+            requirement.sudo().write({"acceptance_expectations": "Rewrite agreement"})
+        with self.assertRaises(ValidationError):
+            successor.sudo().write(
+                {"acceptance_expectations": "Rewrite linked successor"}
+            )
+        with self.assertRaises(ValidationError):
+            baseline.write({"requirement_revision_ids": [Command.set(successor.ids)]})
+
+    def test_refinement_failure_rolls_back_successor_edge_and_retirement(self):
+        requirement, task = self._requirement(), self._task()
+        edge = self._link(requirement, task)
+        wizard = self._refinement(edge)
+        wizard.write({"acceptance_expectations": "Revised expectation"})
+        before = task.solution_requirement_acceptance
+        retire = type(edge).action_retire
+
+        def fail_after_retirement(records, reason):
+            retire(records, reason)
+            raise ValidationError("SYNTHETIC failed refinement")  # pylint: disable=translation-required
+
+        with patch.object(type(edge), "action_retire", fail_after_retirement):
+            with self.assertRaises(ValidationError):
+                wizard.action_confirm()
+        self.assertTrue(edge.active)
+        self.assertFalse(edge.retired_at)
+        self.assertFalse(edge.sudo()._refinement_link_id)
+        self.assertEqual(requirement.requirement_id.revision_ids, requirement)
+        self.assertEqual(task.solution_requirement_acceptance, before)
+        self.assertEqual(edge.search_count([("task_id", "=", task.id)]), 1)
+        wizard.action_confirm()
+
+    def test_refinement_stale_head_retirement_and_different_retry_reject(self):
+        requirement, task = self._requirement(), self._task()
+        edge = self._link(requirement, task)
+        wizard, competing = self._refinement(edge), self._refinement(edge)
+        wizard.write({"acceptance_expectations": "Winner proposal"})
+        competing.write({"acceptance_expectations": "Competing proposal"})
+        wizard.action_confirm()
+        with self.assertRaises(ValidationError):
+            competing.action_confirm()
+        replacement = edge.sudo()._refinement_link_id.with_user(self.manager)
+        stale = self._refinement(replacement)
+        stale.write({"acceptance_expectations": "Must not replace a newer head"})
+        successor = requirement.browse(
+            requirement.requirement_id.action_new_revision()["res_id"]
+        )
+        with self.assertRaises(ValidationError):
+            stale.action_confirm()
+        self.assertTrue(replacement.active)
+        self.assertFalse(successor.sealed)
+        self.assertNotIn("Must not replace", task.solution_requirement_acceptance)
+        replacement.action_retire("Explicit coverage withdrawal")
+        with self.assertRaises(ValidationError):
+            stale.action_confirm()
+        for value in (False, " ", "x" * 20001):
+            with self.assertRaises(ValidationError):
+                edge.action_refine_acceptance(value)
+
+    def test_refinement_current_access_and_server_managed_selection(self):
+        requirement, task = self._requirement(), self._task()
+        edge = self._link(requirement, task)
+        wizard = self._refinement(edge)
+        wizard.write({"acceptance_expectations": "Visible permitted refinement"})
+        with self.assertRaises(AccessError):
+            edge.with_user(self.user).action_refine_acceptance("Unauthorized")
+        with self.assertRaises(ValidationError):
+            wizard.write({"link_id": edge.id})
+        for record in (requirement, task, self.solution):
+            self.assertTrue(wizard.read(["previous_expectations"]))
+            rule = self._hide(record._name, record)
+            self.env.invalidate_all()
+            self.assertFalse(wizard.search([("id", "=", wizard.id)]))
+            for action in (
+                lambda: wizard.read(["previous_expectations"]),
+                lambda: wizard.export_data(["previous_expectations"]),
+                wizard.action_confirm,
+            ):
+                with self.assertRaises(AccessError):
+                    action()
+            self.assertTrue(edge.sudo().active)
+            self.assertFalse(edge.sudo()._refinement_link_id)
+            rule.unlink()
+            self.env.invalidate_all()
+        wizard.action_confirm()
+        with self.assertRaises(AccessError):
+            edge.read(["_refinement_link_id"])
+
     def test_task_displays_all_active_exact_acceptance_and_retirement(self):
         first = self._requirement(
             title="Dispatch approval",

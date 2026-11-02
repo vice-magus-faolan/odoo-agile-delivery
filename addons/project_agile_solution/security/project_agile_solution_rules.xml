@@ -153,4 +153,9 @@
     />
     <field name="domain_force">[('publication_id.available', '=', True)]</field>
   </record>
+  <record id="requirement_refine_link_rule" model="ir.rule">
+    <field name="name">Refinement: current selected link reference closure</field>
+    <field name="model_id" ref="model_project_agile_requirement_refine_wizard" />
+    <field name="domain_force">[('native_link_access', '=', True)]</field>
+  </record>
 </odoo>

@@ -85,10 +85,13 @@ registry.category("web_tour.tours").add("solution_author_roles", {
     },
     {trigger: 'button[name="action_submit"]', run: "click"},
     {
-      trigger: 'button[name="action_request_return"]',
+      trigger: '.o_statusbar_status:has(.o_arrow_button_current[data-value="review"])',
       run() {
-        if (document.querySelector('button[name="action_approve"]')) {
-          throw new Error("Business analyst was offered approval authority");
+        if (
+          document.querySelector('button[name="action_approve"]') ||
+          document.querySelector('button[name="action_request_return"]')
+        ) {
+          throw new Error("Business analyst was offered a review decision");
         }
       },
     },

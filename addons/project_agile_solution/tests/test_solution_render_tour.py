@@ -225,7 +225,16 @@ class TestSolutionRenderTour(HttpCase):
             login=analyst.login,
         )
         self.authenticate(analyst.login, analyst.login)
-        denied = self._rpc(draft._name, "action_approve", [draft.ids])
-        self.assertEqual(denied["error"]["data"]["name"], "odoo.exceptions.AccessError")
-        draft.invalidate_recordset()
+        before = draft.action_read_snapshot()
+        for method, args in (
+            ("action_approve", [draft.ids]),
+            ("action_request_return", [draft.ids]),
+            ("action_return_to_draft", [draft.ids, "Forged review decision"]),
+        ):
+            denied = self._rpc(draft._name, method, args, {"sudo": True})
+            self.assertEqual(
+                denied["error"]["data"]["name"], "odoo.exceptions.AccessError"
+            )
+            draft.invalidate_recordset()
+            self.assertEqual(draft.action_read_snapshot(), before)
         self.assertEqual(draft.state, "review")

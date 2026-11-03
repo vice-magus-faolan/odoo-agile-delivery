@@ -428,6 +428,7 @@ class SolutionRevision(models.Model):
         return True
 
     def action_return_to_draft(self, reason=None):
+        self._check_authority(approval=True)
         self._transition_caller("review")
         if type(reason) is not str or not reason.strip() or len(reason) > 4000:
             raise ValidationError(_("Supply a bounded, nonempty return reason."))
@@ -606,6 +607,7 @@ class SolutionRevision(models.Model):
         return True
 
     def action_request_return(self):
+        self._check_authority(approval=True)
         self._transition_caller("review")
         return self._wizard_action("return")
 

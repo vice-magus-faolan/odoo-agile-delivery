@@ -1,15 +1,12 @@
-As a Settings administrator, open an existing internal user in **Settings >
-Users & Companies > Users**. On **Access Rights**, in **Services**, select
-**Scrum master** in **Agile Scrum** and save before the user manages teams or
-Sprints. This role includes **Agile member**, not Administrator. Add **Business
-analyst** separately in **Agile Solution** if the person also authors Solution
-content. Keep any already authorized **Project** access.
-A Project administrator can also perform these operations. Neither role grants
-access to a Project or company by itself.
+Follow [role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
+to assign Scrum master before managing teams or Sprints, or combine it with
+Business analyst for Solution authoring. A Project administrator can also
+perform Scrum operations. Neither role grants access to a Project or company
+by itself.
 
 1. Have a Project administrator configure an Agile-enabled Project using the
    [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration).
-2. As a Scrum master, open **Project > Agile Teams**. Create a team and select
+2. As a Scrum master, open **Project > Tasks > Agile Teams**. Create a team and select
    its Project. The team inherits the Project company.
 3. Have a Project administrator open **Project > Configuration > Agile Item Types**
    and review **Can Schedule In Sprint**. It defaults to enabled. Disable it

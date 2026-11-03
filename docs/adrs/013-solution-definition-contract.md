@@ -129,10 +129,14 @@ regressions must retain authorized positives and outsider/revocation negatives.
 
 Documents follow `draft -> review -> approved -> superseded`. Submission freezes actual
 ordered content, membership, audience, exact references and template provenance. Return
-to draft requires a reason. Approved or superseded content is not rewritten by ORM,
-import, RPC, relational commands, context or ordinary sudo; correction creates a
-successor. Direct lifecycle-state writes are rejected even for superuser; private
-actions change lifecycle metadata only after authorization.
+to draft is a review decision requiring a reason and current Project administrator
+access, not Business analyst authoring authority. The designated approver is already
+required to be a Project administrator; another authorized Project administrator may
+also return a review. Authors, including the submitter, have no self-return exception:
+they need that same administrator authority. Approved or superseded content is not
+rewritten by ORM, import, RPC, relational commands, context or ordinary sudo; correction
+creates a successor. Direct lifecycle-state writes are rejected even for superuser;
+private actions change lifecycle metadata only after authorization.
 
 Requirement/context content seals when used in review, confirmed Task intent/link,
 Sprint capture or acceptance. Returning a document does not unseal reused content.

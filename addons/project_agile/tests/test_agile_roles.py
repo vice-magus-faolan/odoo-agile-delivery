@@ -1,6 +1,6 @@
 from odoo import Command
 from odoo.exceptions import AccessError
-from odoo.tests.common import TransactionCase
+from odoo.tests.common import TransactionCase, tagged
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -135,6 +135,7 @@ class TestAgileRoles(TransactionCase):
         )
 
 
+@tagged("post_install", "-at_install")
 class TestAgileProjectSharing(TransactionCase):
     @classmethod
     def setUpClass(cls):
@@ -174,6 +175,10 @@ class TestAgileProjectSharing(TransactionCase):
         self.assertEqual(task.display_name, "Portal-authored work")
         self.assertFalse(task.with_user(self.env.user).agile_key)
         task.write({"name": "Portal-owned title"})
+        task.write({"state": "1_done"})
+        self.assertEqual(task.state, "1_done")
+        task.write({"state": "01_in_progress"})
+        self.assertEqual(task.state, "01_in_progress")
         for values in (
             {"project_id": self.project.id},
             {"agile_story_points": 5},

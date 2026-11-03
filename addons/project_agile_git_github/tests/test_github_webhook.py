@@ -917,7 +917,7 @@ class TestGitHubWebhook(HttpCase):
         )
 
     def _post_environment_pr(
-        self, task, identity, branch, timestamp, suffix, merged=True
+        self, task, identity, branch, timestamp, suffix, merged=True, body=""
     ):
         payload = {
             "repository": {"id": 4242},
@@ -926,7 +926,7 @@ class TestGitHubWebhook(HttpCase):
                 "id": identity,
                 "number": identity,
                 "title": task.agile_key,
-                "body": "",
+                "body": body,
                 "state": "closed" if merged else "open",
                 "merged": merged,
                 "head": {"ref": "feature/" + task.agile_key, "sha": "a" * 40},
@@ -1028,3 +1028,174 @@ class TestGitHubWebhook(HttpCase):
             task, 801, "uat", "2026-10-21T12:00:00Z", "uat-recovery"
         )
         self._assert_environment_pr_evidence(task, uat, production, [uat.id], True)
+
+    def _release_tasks(self, count):
+        tasks = self.env["project.task"].create(
+            [
+                {"name": f"Release task {index}", "project_id": self.project.id}
+                for index in range(count)
+            ]
+        )
+        production = self.env["project.agile.environment"].create(
+            {
+                "name": "Production",
+                "project_id": self.project.id,
+                "is_production": True,
+            }
+        )
+        self.env["project.git.environment.branch"].create(
+            {
+                "environment_id": production.id,
+                "repository_id": self.repository.id,
+                "branch_name": "main",
+            }
+        )
+        self.repository.retention_policy = "redacted_excerpt"
+        return tasks, production
+
+    def test_release_pr_links_25_tasks_and_production_evidence(self):
+        tasks, production = self._release_tasks(25)
+        foreign_tasks = self.env["project.task"]
+        other_company = self.env["res.company"].create({"name": "Release company"})
+        for company, key in ((self.env.company, "LOCAL"), (other_company, "FOREIGN")):
+            project = (
+                self.env["project.project"]
+                .with_company(company)
+                .create(
+                    {
+                        "name": key,
+                        "company_id": company.id,
+                        "privacy_visibility": "employees",
+                        "agile_enabled": True,
+                        "agile_key": key,
+                    }
+                )
+            )
+            foreign_tasks |= (
+                self.env["project.task"]
+                .with_company(company)
+                .create({"name": "Not in this release", "project_id": project.id})
+            )
+        task_fields = ["stage_id", "message_partner_ids", "write_date"]
+        before = (tasks | foreign_tasks).read(task_fields)
+        keys = tasks.mapped("agile_key")
+        payload, delivery = self._post_environment_pr(
+            tasks[0],
+            901,
+            "main",
+            "2026-10-21T12:00:00Z",
+            "release-25",
+            body=" ".join(keys + keys + foreign_tasks.mapped("agile_key") + ["GHI-01"]),
+        )
+        links = self.env["project.git.task.association"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(links.task_id, tasks)
+        self.assertEqual(len(links), 25)
+        self.assertEqual(set(links.mapped("source_provider_id")), {"901"})
+        audits = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id), ("source_field", "=", "body")]
+        )
+        self.assertEqual(audits.task_id, tasks)
+        self.assertEqual(len(audits), 27)
+        foreign = audits.filtered(
+            lambda audit: audit.agile_key in foreign_tasks.mapped("agile_key")
+        )
+        self.assertEqual(len(foreign), 2)
+        self.assertEqual(set(foreign.mapped("reason")), {"unknown_key"})
+        self.assertFalse(foreign.task_id)
+        for values in tasks.read(
+            [
+                "git_merge_environment_ids",
+                "git_environment_merge_count",
+                "git_environment_evidence",
+            ]
+        ):
+            self.assertEqual(values["git_merge_environment_ids"], production.ids)
+            self.assertEqual(values["git_environment_merge_count"], 1)
+            self.assertIn("PR 901", values["git_environment_evidence"])
+        self.assertEqual(
+            tasks.search(
+                [
+                    ("id", "in", tasks.ids),
+                    ("git_merge_environment_ids", "in", production.ids),
+                ]
+            ),
+            tasks,
+        )
+        self.assertFalse(foreign_tasks.git_merge_environment_ids)
+        retained = delivery.retained_payload
+        replay = self._post(payload, "release-25", **{"X-GitHub-Event": "pull_request"})
+        self.assertEqual(replay.status_code, 202)
+        self.assertEqual(self._delivery_count(), 1)
+        self.assertEqual(delivery.retained_payload, retained)
+        delivery.state = "failed"
+        delivery.action_reprocess_github_delivery()
+        claimed = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(claimed, delivery)
+        claimed._settle_github_delivery()
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        self.assertEqual(
+            links.search_count([("repository_id", "=", self.repository.id)]), 25
+        )
+        delivery.retained_until = "2000-01-01 00:00:00"
+        self.assertEqual(delivery._purge_expired_github_payloads(), 1)
+        self.env.invalidate_all()
+        self.assertFalse(delivery.retained_payload)
+        self.assertTrue(delivery.retained_payload_purged_at)
+        self.assertEqual(tasks.mapped("git_environment_merge_count"), [1] * 25)
+        self.assertEqual((tasks | foreign_tasks).read(task_fields), before)
+
+    def test_release_pr_body_boundary_overflow_and_invalid_key(self):
+        tasks, production = self._release_tasks(101)
+        keys = tasks.mapped("agile_key")
+        for count in (100, 101):
+            with self.subTest(count=count):
+                payload, delivery = self._post_environment_pr(
+                    tasks[0],
+                    900 + count,
+                    "main",
+                    "2026-10-21T12:00:00Z",
+                    f"release-boundary-{count}",
+                    body=" ".join(keys[:count] + keys[:count]),
+                )
+                summary = json.loads(delivery.retained_payload)["pull_request"]["body"]
+                self.assertEqual(summary["keys"], keys[:100])
+                self.assertEqual(
+                    summary["reason"], "too_many_keys" if count == 101 else False
+                )
+                links = self.env["project.git.task.association"].search(
+                    [
+                        ("repository_id", "=", self.repository.id),
+                        ("source_provider_id", "=", str(900 + count)),
+                    ]
+                )
+                self.assertEqual(links.task_id, tasks[:100])
+                self.assertEqual(len(links), 100)
+                overflow = self.env["project.git.association.audit"].search(
+                    [
+                        ("delivery_id", "=", delivery.id),
+                        ("reason", "=", "too_many_keys"),
+                    ]
+                )
+                self.assertEqual(len(overflow), int(count == 101))
+                if overflow:
+                    self.assertEqual(
+                        (overflow.source_field, overflow.outcome), ("body", "rejected")
+                    )
+                    self.assertFalse(overflow.task_id)
+        self.assertFalse(tasks[-1].git_merge_environment_ids)
+        self.assertEqual(tasks[99].git_merge_environment_ids, production)
+        payload, delivery = self._post_environment_pr(
+            tasks[0],
+            1100,
+            "main",
+            "2026-10-21T12:00:00Z",
+            "release-invalid",
+            body="GHI-01",
+        )
+        invalid = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id), ("source_field", "=", "body")]
+        )
+        self.assertEqual((invalid.outcome, invalid.reason), ("rejected", "invalid_key"))
+        self.assertFalse(invalid.task_id)

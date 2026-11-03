@@ -3,6 +3,7 @@
 import hmac
 import json
 import re
+from functools import partial
 
 from psycopg2 import IntegrityError
 
@@ -39,7 +40,7 @@ def _redact_scalar_text(value):
     return value
 
 
-def _compact_source(value, with_excerpt=False):
+def _compact_source(value, with_excerpt=False, *, pull_request_body=False):
     """Extract keys before display truncation, after credential scrubbing."""
 
     if value is None and not with_excerpt:
@@ -47,7 +48,7 @@ def _compact_source(value, with_excerpt=False):
     if not isinstance(value, str):
         raise ValueError("Malformed GitHub source text.")
     value = _redact_scalar_text(value)
-    summary = source_key_summary(value)
+    summary = source_key_summary(value, pull_request_body=pull_request_body)
     if with_excerpt:
         summary["excerpt"] = value[:255]
     return summary
@@ -83,7 +84,7 @@ _EVENT_INPUTS = {
         "pull_request": {
             "id": 128,
             "title": 4096,
-            "body": _compact_source,
+            "body": partial(_compact_source, pull_request_body=True),
             "state": 32,
             "merged": 32,
             "merged_at": 64,

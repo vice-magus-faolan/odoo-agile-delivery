@@ -89,10 +89,19 @@ delivered retained text shapes remain processable through the same association p
 
 The projection has explicit field limits, not a 4,096-character aggregate cap: ordinary
 text/ref/title/name fields 4,096 characters; identifiers/SHAs 128 (PR number 64);
-state-like scalars 32; timestamps 64; keys 128 with at most 20 distinct keys per source.
-More than 20 distinct keys rejects the field's associations with `too_many_keys`, not
-partial linking. No valid key but a key-like token retains the `invalid_key` decision.
-Malformed or oversized required fields fail without retaining a partial payload.
+state-like scalars 32; timestamps 64; keys 128. PR bodies retain the first 100 distinct
+keys in source order, allowing release PRs to link more than 20 Tasks without
+multiplying the push projection or commit-normalization work. The 101st distinct key
+stops extraction and sets `too_many_keys`; normalization records that overflow audit and
+still resolves each retained key under the unchanged Project/company/activity checks.
+Unknown or ineligible keys count toward the bound; duplicates do not. Other source
+fields keep the 20-key all-or-nothing rejection policy. Compact validation allows a
+nonempty overflow summary only for a PR body with exactly 100 valid distinct keys.
+Previously retained empty rejection summaries stay rejected: missing key evidence cannot
+be reconstructed by replay. Previously retained text uses the same current
+source-specific policy. No valid key but a key-like token retains the `invalid_key`
+decision. Malformed or oversized required fields fail without retaining a partial
+payload.
 
 A push retains its first 100 commit entries from GitHub's at-most-2,048 collection and
 the exact omitted count. The scheduled processor still records the independently

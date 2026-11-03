@@ -119,10 +119,14 @@ class ProjectTask(models.Model):
     )
 
     @api.depends("name", "agile_key")
+    @api.depends_context("uid")
     # Compute methods assign fields, not return values.
     # pylint: disable-next=missing-return
     def _compute_display_name(self):
         super()._compute_display_name()
+        # Native portal labels must not depend on internal-only Agile fields.
+        if not self._has_field_access(self._fields["agile_key"], "read"):
+            return
         for task in self.filtered("agile_key"):
             task.display_name = f"[{task.agile_key}] {task.display_name}"
 
@@ -220,21 +224,22 @@ class ProjectTask(models.Model):
             self._check_environment_derived_input(values)
         values_list = [dict(values) for values in vals_list]
         defaults = self.default_get(["project_id", "agile_item_type_id"])
-        for values in values_list:
-            if defaults.get("project_id"):
-                values.setdefault("project_id", defaults["project_id"])
+        # Native Project owns default_project_id and its portal creation scope.
         project_ids = [
-            values.get("project_id")
+            values.get("project_id", defaults.get("project_id"))
             for values in values_list
-            if values.get("project_id")
+            if values.get("project_id", defaults.get("project_id"))
         ]
         projects_by_id = {
             project.id: project
             for project in self.env["project.project"].browse(project_ids)
         }
         for values in values_list:
-            project = projects_by_id.get(values.get("project_id"))
-            values["agile_key"] = False
+            project = projects_by_id.get(
+                values.get("project_id", defaults.get("project_id"))
+            )
+            if "agile_key" in values or (project and project.agile_enabled):
+                values["agile_key"] = False
             if project and project.agile_enabled:
                 self._prepare_agile_task_values(project, values)
                 if (
@@ -444,7 +449,10 @@ class ProjectTask(models.Model):
         return matches if operator == "in" else ~matches
 
     def _sync_environment_statuses(self):
-        tasks = self.filtered("agile_tracks_environments")
+        tasks = self.filtered(
+            lambda task: task.project_id.agile_enabled
+            and task.agile_tracks_environments
+        )
         tasks.check_access("write")
         tasks.project_id.check_access("read")
         status_model = self.env["project.task.environment.status"]

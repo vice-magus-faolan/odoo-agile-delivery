@@ -133,3 +133,93 @@ class TestAgileRoles(TransactionCase):
             copied.agile_default_item_type_id,
             self.env.ref("project_agile.project_agile_item_type_task"),
         )
+
+
+class TestAgileProjectSharing(TransactionCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.portal = mail_new_test_user(
+            cls.env, "agile_sharing_portal", groups="base.group_portal"
+        )
+        cls.project = cls.env["project.project"].create(
+            {
+                "name": "Native shared Project",
+                "privacy_visibility": "portal",
+                "partner_id": cls.portal.partner_id.id,
+            }
+        )
+        cls.env["project.share.wizard"].create(
+            {
+                "res_model": "project.project",
+                "res_id": cls.project.id,
+                "collaborator_ids": [
+                    Command.create(
+                        {"partner_id": cls.portal.partner_id.id, "access_mode": "edit"}
+                    )
+                ],
+            }
+        )
+        cls.task = cls.env["project.task"].create(
+            {"name": "Shared work", "project_id": cls.project.id}
+        )
+
+    def test_native_portal_create_and_field_isolation(self):
+        caller = self.env["project.task"].with_user(self.portal)
+        self.assertFalse(caller.env.su)
+        task = caller.with_context(default_project_id=self.project.id).create(
+            {"name": "Portal-authored work"}
+        )
+        self.assertEqual(task.project_id, self.project)
+        self.assertEqual(task.display_name, "Portal-authored work")
+        self.assertFalse(task.with_user(self.env.user).agile_key)
+        task.write({"name": "Portal-owned title"})
+        for values in (
+            {"project_id": self.project.id},
+            {"agile_story_points": 5},
+            {"agile_acceptance_criteria": "Internal metadata"},
+        ):
+            with self.assertRaises(AccessError):
+                task.with_context(project_sharing_create=True).write(values)
+        with self.assertRaises(AccessError):
+            caller.with_context(default_project_id=self.project.id).create(
+                {"name": "Forged", "agile_key": "FORGED-1"}
+            )
+
+    def test_keyed_labels_preserve_portal_field_security(self):
+        self.project.write({"agile_enabled": True, "agile_key": "SHARED"})
+        self.assertTrue(self.task.agile_key)
+        self.assertIn(self.task.agile_key, self.task.display_name)
+        caller = self.task.with_user(self.portal)
+        self.assertEqual(caller.display_name, self.task.name)
+        for field in (
+            "agile_key",
+            "agile_story_points",
+            "agile_environment_status_ids",
+        ):
+            with self.assertRaises(AccessError):
+                caller.read([field])
+
+    def test_unshared_client_project_and_company_remain_hidden(self):
+        outsider = mail_new_test_user(
+            self.env, "agile_sharing_outsider", groups="base.group_portal"
+        )
+        with self.assertRaises(AccessError):
+            self.task.with_user(outsider).read(["name"])
+        other_company = self.env["res.company"].create({"name": "Unshared company"})
+        project = self.env["project.project"].create(
+            {
+                "name": "Unshared foreign Project",
+                "privacy_visibility": "invited_users",
+                "company_id": other_company.id,
+            }
+        )
+        hidden = self.env["project.task"].create(
+            {"name": "Foreign work", "project_id": project.id}
+        )
+        with self.assertRaises(AccessError):
+            hidden.with_user(self.portal).read(["display_name"])
+        with self.assertRaises(AccessError):
+            self.env["project.task"].with_user(self.portal).with_context(
+                default_project_id=project.id
+            ).create({"name": "Foreign forged work"})

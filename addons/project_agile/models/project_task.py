@@ -152,6 +152,8 @@ class ProjectTask(models.Model):
     @api.model
     def default_get(self, fields_list):
         values = super().default_get(fields_list)
+        # System-owned identities are allocated, never inherited from defaults.
+        values.pop("agile_key", None)
         project_id = values.get(
             "project_id", self.env.context.get("default_project_id")
         )

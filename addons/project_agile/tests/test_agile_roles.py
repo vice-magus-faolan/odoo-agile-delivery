@@ -242,6 +242,61 @@ class TestAgileProjectSharing(TransactionCase):
             {plain.id: plain.display_name},
         )
 
+    def test_personal_defaults_cannot_reserve_agile_keys(self):
+        user = mail_new_test_user(
+            self.env,
+            "agile_key_personal_default_user",
+            groups="project.group_project_user",
+        )
+        self.assertFalse(user.has_group("project.group_project_manager"))
+        self.assertFalse(user.has_group("base.group_system"))
+        caller = self.env["project.task"].with_user(user)
+        self.assertFalse(caller.env.su)
+        defaults = self.env["ir.default"].with_user(user)
+        defaults.set("project.task", "agile_key", "PERSONALKEY-1", user_id=True)
+        self.assertEqual(
+            defaults._get_model_defaults("project.task")["agile_key"], "PERSONALKEY-1"
+        )
+        agile_project = self.env["project.project"].create(
+            {
+                "name": "Personal default key namespace",
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "PERSONALKEY",
+            }
+        )
+        plain = caller.with_context(default_project_id=self.project.id).create(
+            {"name": "Plain work with personal key default"}
+        )
+        self.assertEqual(plain.project_id, self.project)
+        self.assertFalse(plain.agile_key)
+        following = caller.with_context(default_project_id=self.project.id).create(
+            {"name": "Successive plain work with personal key default"}
+        )
+        self.assertEqual(following.project_id, self.project)
+        self.assertFalse(following.agile_key)
+        orphan = caller.with_context(default_project_id=False).create(
+            {"name": "Project-less work with personal key default"}
+        )
+        self.assertFalse(orphan.project_id)
+        self.assertFalse(orphan.agile_key)
+        self.assertFalse(caller.name_search("PERSONALKEY-1", operator="="))
+        genuine = caller.with_context(default_project_id=agile_project.id).create(
+            {"name": "Genuine work with personal key default"}
+        )
+        self.assertEqual(genuine.agile_key, "PERSONALKEY-1")
+        for number, task in enumerate((plain, following, orphan), start=2):
+            task.write({"project_id": agile_project.id})
+            self.assertEqual(task.agile_key, f"PERSONALKEY-{number}")
+        for task in genuine | plain | following | orphan:
+            self.assertEqual(
+                dict(caller.name_search(task.agile_key, operator="=")),
+                {task.id: task.display_name},
+            )
+        self.assertEqual(
+            defaults._get_model_defaults("project.task")["agile_key"], "PERSONALKEY-1"
+        )
+
     def test_keyed_labels_preserve_portal_field_security(self):
         self.project.write({"agile_enabled": True, "agile_key": "SHARED"})
         self.assertTrue(self.task.agile_key)

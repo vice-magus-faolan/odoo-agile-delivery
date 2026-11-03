@@ -260,3 +260,36 @@ class TestGitHubDeliveryRetention(TransactionCase):
                         {"repository": {"id": 6001}, **extra}, event
                     )
                 )
+
+    def test_release_body_projection_preserves_storage_and_key_bounds(self):
+        keys = ["AA-1" + f"{index:03d}" + "0" * 121 for index in range(100)]
+        payload = {
+            "repository": {"id": "🙂" * 128},
+            "number": "🙂" * 64,
+            "pull_request": {
+                "id": "🙂" * 128,
+                "title": "🙂" * 4096,
+                "body": " ".join(keys + keys),
+                "state": "🙂" * 32,
+                "merged": True,
+                "merged_at": "🙂" * 64,
+                "updated_at": "🙂" * 64,
+                "head": {"ref": "🙂" * 4096, "sha": "🙂" * 128},
+                "base": {"ref": "🙂" * 4096},
+            },
+        }
+        for overflow in (False, True):
+            if overflow:
+                payload["pull_request"]["body"] += " AA-999"
+            excerpt = self.repository._redacted_github_payload_excerpt(
+                payload, "pull_request"
+            )
+            self.assertTrue(excerpt)
+            self.assertLess(len(excerpt), 900000)
+            summary = json.loads(excerpt)["pull_request"]["body"]
+            self.assertEqual(summary["keys"], keys)
+            self.assertEqual(summary["reason"], "too_many_keys" if overflow else False)
+        payload["pull_request"]["body"] = "AA-" + "1" * 126
+        self.assertFalse(
+            self.repository._redacted_github_payload_excerpt(payload, "pull_request")
+        )

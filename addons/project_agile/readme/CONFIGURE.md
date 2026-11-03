@@ -1,7 +1,8 @@
 As a Settings administrator, open **Settings > Users & Companies > Users**
 and select an existing internal user. On **Access Rights**, in **Services**,
 select **Agile member** in **Project** for ordinary typed work and estimates.
-It includes the native Project User role, not Administrator.
+Agile member currently grants the same capabilities as native Project User,
+not Administrator. It is the common base for Business analyst and Scrum master.
 
 With the optional addons installed, select **Business analyst** in **Agile
 Solution** for authoring, and **Scrum master** in **Agile Scrum** for team and

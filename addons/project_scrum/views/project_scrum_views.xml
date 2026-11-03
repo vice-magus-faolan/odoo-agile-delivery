@@ -324,7 +324,7 @@
   <menuitem
     id="menu_project_agile_team"
     name="Agile Teams"
-    parent="project.menu_main_pm"
+    parent="project.menu_project_management"
     action="action_project_agile_team"
     groups="project.group_project_manager,project_scrum.group_scrum_master"
     sequence="35"

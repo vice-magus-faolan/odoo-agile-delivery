@@ -1,19 +1,18 @@
-Install **Agile Solution Definition** (`project_agile_solution`). As a Settings
-administrator, open an existing internal user in
-**Settings > Users & Companies > Users**. On **Access Rights**, in **Services**,
-select **Business analyst** in **Agile Solution** before the user creates or
-edits requirements, documents,
-revisions and Task previews. It includes **Agile member**, not Administrator.
-For someone who also runs Sprints, select **Scrum master** separately in
-**Agile Scrum** and save. Keep any already authorized **Project** access.
+Install **Agile Solution Definition** (`project_agile_solution`). Follow
+[role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
+to assign Business analyst for authoring requirements, documents, revisions and
+Task previews, or combine it with Scrum master for Sprint operations.
 
 Authors need an active internal account, current Project visibility, write
 access to the solution records, and membership in the Project company. Project users can
 read permitted content and preview reports. Native Project visibility and
 record rules continue to apply. A Business analyst cannot approve documents,
-record acceptance or manage shared narrative templates. Assign **Administrator**
-under **Project** to the approver; a Project administrator retains authoring
-capabilities as well.
+return reviews, record acceptance or manage shared narrative templates.
+A Project administrator retains authoring capabilities and may return an
+in-review document with a reason, whether or not they are its designated
+approver. Authorship alone never permits returning a review, including your own;
+self-return requires Project administrator access. Current Project, record and
+company access still apply. Only the designated approver may approve.
 
 1. Follow the [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
    to enable **Agile Enabled** on the Project and set its **Agile Key**.

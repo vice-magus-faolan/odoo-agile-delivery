@@ -492,11 +492,12 @@ stays separate.</p>
 <p>A merge is not a deployment or proof that all task code is present. Only
 PRs linked by task keys in their title, body or head branch count: put
 promoted task keys in the release PR body when merging UAT into
-Production. Currently, more than 20 distinct keys in a body links none
-of those keys
-(<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/75">#75</a>).
-A late source event can hide a merge until a strictly newer, unambiguous
-event arrives; no merge seen does not prove absence.</p>
+Production. The GitHub connector considers the first 100 distinct body
+keys and records an overflow audit beyond that limit. Split larger
+releases across PRs to retain all links; see the GitHub connector guide
+for key eligibility and other source limits. A late source event can
+hide a merge until a strictly newer, unambiguous event arrives; no merge
+seen does not prove absence.</p>
 </div>
 </div>
 <div class="section" id="bug-tracker">

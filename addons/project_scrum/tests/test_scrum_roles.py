@@ -118,6 +118,26 @@ class TestScrumRoles(TransactionCase):
             with self.assertRaises(AccessError):
                 action()
 
+    def test_team_menu_is_reachable_under_tasks_for_scrum_master(self):
+        team_menu = self.env.ref("project_scrum.menu_project_agile_team")
+        sprint_menu = self.env.ref("project_scrum.menu_project_sprint")
+        tasks_menu = self.env.ref("project.menu_project_management")
+        self.assertEqual(team_menu.parent_id, tasks_menu)
+        self.assertEqual(sprint_menu.parent_id, tasks_menu)
+        self.assertEqual(team_menu.action.res_model, "project.agile.team")
+        self.assertFalse(team_menu.child_id)
+        visible = self.env["ir.ui.menu"].with_user(self.master)._visible_menu_ids()
+        self.assertTrue({team_menu.id, sprint_menu.id, tasks_menu.id} <= visible)
+        self.assertNotIn(
+            team_menu.id,
+            self.env["ir.ui.menu"].with_user(self.member)._visible_menu_ids(),
+        )
+        team = self._team(self.project, self.master)
+        self.assertIn(
+            team,
+            self.env[team_menu.action.res_model].with_user(self.master).search([]),
+        )
+
     def test_master_private_company_and_current_project_access_are_not_implied(self):
         self.assertFalse(self.master.has_group("project.group_project_manager"))
         for project in (self.hidden, self.foreign):

@@ -1232,3 +1232,74 @@ class TestGitHubDeliveryNormalization(TransactionCase):
                         [("repository_id", "=", self.repository.id)]
                     )
                 )
+
+    def test_legacy_release_body_text_keeps_25_task_associations(self):
+        tasks = (
+            self.first_task
+            | self.second_task
+            | self.env["project.task"].create(
+                [
+                    {"name": f"Release {index}", "project_id": self.project.id}
+                    for index in range(23)
+                ]
+            )
+        )
+        payload = self._pull_request("Release", "2026-01-03T03:04:05Z")
+        payload["pull_request"]["body"] = " ".join(tasks.mapped("agile_key"))
+        delivery = self._delivery("pull_request", payload, "legacy-release")
+        self._process(delivery)
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        links = self.env["project.git.task.association"].search(
+            [("repository_id", "=", self.repository.id)]
+        )
+        self.assertEqual(links.task_id, tasks)
+        self.assertEqual(len(links), 25)
+
+    def test_release_body_summary_rejects_malformed_overflow_metadata(self):
+        keys = [f"NRM-{index}" for index in range(1, 101)]
+        for index, summary in enumerate(
+            (
+                {"keys": keys + ["NRM-101"], "reason": False},
+                {"keys": keys, "reason": "invalid_key"},
+                {"keys": ["NRM-1"], "reason": "too_many_keys"},
+                {"keys": keys[:-1] + ["NRM-1"], "reason": "too_many_keys"},
+                {"keys": keys[:-1] + ["NRM-01"], "reason": False},
+                {"keys": keys[:-1] + ["NRM-" + "1" * 125], "reason": False},
+            )
+        ):
+            with self.subTest(summary=index):
+                payload = self._pull_request("Release", "2026-01-03T03:04:05Z")
+                payload["pull_request"]["body"] = summary
+                delivery = self._delivery(
+                    "pull_request", payload, f"bad-release-{index}"
+                )
+                self._process(delivery)
+                self.assertEqual(delivery.state, "failed")
+                self.assertIn("evidence", delivery.error_summary)
+                for model in (
+                    "project.git.branch",
+                    "project.git.pull.request",
+                    "project.git.task.association",
+                    "project.git.association.audit",
+                ):
+                    self.assertFalse(
+                        self.env[model].search(
+                            [("repository_id", "=", self.repository.id)]
+                        )
+                    )
+
+    def test_previously_rejected_release_summary_does_not_invent_missing_keys(self):
+        payload = self._pull_request("Release", "2026-01-03T03:04:05Z")
+        payload["pull_request"]["body"] = {"keys": [], "reason": "too_many_keys"}
+        delivery = self._delivery("pull_request", payload, "old-release-rejection")
+        self._process(delivery)
+        self.assertEqual(delivery.state, "processed", delivery.error_summary)
+        self.assertFalse(
+            self.env["project.git.task.association"].search(
+                [("repository_id", "=", self.repository.id)]
+            )
+        )
+        audit = self.env["project.git.association.audit"].search(
+            [("delivery_id", "=", delivery.id)]
+        )
+        self.assertEqual((audit.outcome, audit.reason), ("rejected", "too_many_keys"))

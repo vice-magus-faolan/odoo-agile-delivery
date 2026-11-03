@@ -1,3 +1,5 @@
+from unittest import TestCase as PythonTestCase
+
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import Form, TransactionCase
@@ -27,6 +29,16 @@ class TestSolutionRoles(TransactionCase):
             groups="project.group_project_manager",
             company_id=cls.company.id,
             company_ids=[Command.set((cls.company | cls.other_company).ids)],
+        )
+        cls.peer = mail_new_test_user(
+            cls.env,
+            "solution_role_peer",
+            groups="project_agile_solution.group_business_analyst",
+        )
+        cls.administrator = mail_new_test_user(
+            cls.env,
+            "solution_role_administrator",
+            groups="project.group_project_manager",
         )
         cls.project = cls._project("ROLEBA", cls.company)
         cls.hidden = cls._project("ROLEHIDE", cls.company, "followers")
@@ -133,10 +145,13 @@ class TestSolutionRoles(TransactionCase):
         with self.assertRaises(AccessError):
             revision.action_approve()
         self.assertEqual(revision.state, "review")
-        action = revision.action_request_return()
-        self.env[action["res_model"]].with_user(self.analyst).with_context(
+        with self.assertRaises(AccessError):
+            revision.action_request_return()
+        action = revision.with_user(self.approver).action_request_return()
+        self.env[action["res_model"]].with_user(self.approver).with_context(
             **action["context"]
-        ).create({"reason": "Author corrects draft"}).action_confirm()
+        ).create({"reason": "Reviewer requests clearer intent"}).action_confirm()
+        revision.section_ids[0].write({"body": "Author corrects returned draft"})
         revision.action_submit()
         revision.with_user(self.approver).action_approve()
         self.assertEqual(revision.state, "approved")
@@ -176,6 +191,144 @@ class TestSolutionRoles(TransactionCase):
         )
         with self.assertRaises(ValidationError):
             revision.document_id.write({"approver_id": self.analyst.id})
+
+    def test_return_denies_peer_and_author_without_mutating_review(self):
+        revision = self._revision(self._requirement())
+        revision.action_submit()
+        fields = [
+            "state",
+            "return_reason",
+            "snapshot_json",
+            "snapshot_sha256",
+            "submitted_by_id",
+            "submitted_at",
+            "approved_by_id",
+            "approved_at",
+            "write_date",
+            "section_ids",
+            "requirement_revision_ids",
+        ]
+        before = revision.read(fields)
+        for user in (self.peer, self.analyst):
+            caller = revision.with_user(user)
+            wizard = (
+                self.env["project.agile.solution.revision.wizard"]
+                .with_user(user)
+                .create(
+                    {
+                        "revision_id": revision.id,
+                        "operation": "return",
+                        "reason": "Not a reviewer decision",
+                    }
+                )
+            )
+            for action in (
+                caller.action_request_return,
+                lambda caller=caller: caller.action_return_to_draft("Peer return"),
+                lambda caller=caller: caller.sudo()
+                .with_context(sudo=True, solution_trusted=True)
+                .action_return_to_draft("Forged review authority"),
+                wizard.action_confirm,
+            ):
+                with self.subTest(user=user.login, action=action):
+                    # No rollback savepoint: a caught denial must leave review intact.
+                    with PythonTestCase.assertRaises(self, AccessError):
+                        action()
+                    revision.invalidate_recordset()
+                    self.assertEqual(revision.read(fields), before)
+
+    def test_reviewer_and_administrator_return_require_bounded_reason(self):
+        revision = self._revision(self._requirement())
+        revision.action_submit()
+        reviewer = revision.with_user(self.approver)
+        before = reviewer.action_read_snapshot()
+        for reason in (None, "", "   ", "x" * 4001):
+            with self.assertRaises(ValidationError):
+                reviewer.action_return_to_draft(reason)
+            self.assertEqual(reviewer.action_read_snapshot(), before)
+        action = reviewer.action_request_return()
+        self.assertEqual(reviewer.action_read_snapshot(), before)
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(self.approver)
+            .with_context(**action["context"])
+            .create({})
+        )
+        with self.assertRaises(ValidationError):
+            wizard.action_confirm()
+        self.assertEqual(reviewer.action_read_snapshot(), before)
+        with Form(wizard) as form:
+            form.reason = "  Reviewer asks for measurable expectations  "
+        wizard.action_confirm()
+        self.assertEqual(revision.state, "draft")
+        self.assertEqual(
+            revision.return_reason, "Reviewer asks for measurable expectations"
+        )
+        self.assertFalse(revision.snapshot_json)
+        self.assertFalse(revision.snapshot_sha256)
+        self.assertTrue(revision.requirement_revision_ids.sealed)
+        # A different administrator may return, including their own submission.
+        administrator = revision.with_user(self.administrator)
+        administrator.action_submit()
+        self.assertEqual(revision.submitted_by_id, self.administrator)
+        self.assertNotEqual(revision.document_id.approver_id, self.administrator)
+        administrator.action_return_to_draft("x" * 4000)
+        self.assertEqual(revision.state, "draft")
+        self.assertEqual(revision.return_reason, "x" * 4000)
+        # Return authority does not broaden the designated-user approval boundary.
+        administrator.action_submit()
+        with self.assertRaises(AccessError):
+            administrator.action_approve()
+        reviewer.action_approve()
+
+    def test_return_rechecks_project_company_and_active_reviewer(self):
+        revision = self._revision(self._requirement())
+        revision.action_submit()
+        reviewer = revision.with_user(self.approver)
+        action = reviewer.action_request_return()
+        wizard = (
+            self.env[action["res_model"]]
+            .with_user(self.approver)
+            .with_context(**action["context"])
+            .create({"reason": "Opened before revocation"})
+        )
+        before = revision.action_read_snapshot()
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Revoke reviewer Project",
+                "model_id": self.env.ref("project.model_project_project").id,
+                "domain_force": repr([("id", "!=", self.project.id)]),
+            }
+        )
+        for operation in (
+            reviewer.action_request_return,
+            lambda: reviewer.action_return_to_draft("Revoked Project"),
+            wizard.action_confirm,
+        ):
+            with self.assertRaises(AccessError):
+                operation()
+        rule.unlink()
+        wrong_company = reviewer.with_context(
+            allowed_company_ids=self.other_company.ids
+        )
+        for operation in (
+            wrong_company.action_request_return,
+            lambda: wrong_company.action_return_to_draft("Wrong company"),
+            wizard.with_context(
+                allowed_company_ids=self.other_company.ids
+            ).action_confirm,
+        ):
+            with self.assertRaises(AccessError):
+                operation()
+        self.approver.active = False
+        with self.assertRaises(AccessError):
+            reviewer.action_return_to_draft("Inactive reviewer")
+        self.approver.active = True
+        revision.invalidate_recordset()
+        self.assertEqual(revision.action_read_snapshot(), before)
+        self.assertFalse(revision.return_reason)
+        wizard.action_confirm()
+        self.assertEqual(revision.state, "draft")
 
     def test_author_cannot_write_protected_state_or_acceptance(self):
         self.assertFalse(self.analyst.has_group("project.group_project_manager"))

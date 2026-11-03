@@ -125,9 +125,21 @@ decimal suffix. Separate the key from surrounding word characters.
 Matching is limited to active tasks in the configured repository Project
 and company. Keys are matched throughout complete commit messages and PR
 bodies before text is discarded or shortened for display. Other source
-text is limited to 4,096 characters. Each source field allows at most 20
-distinct keys, each at most 128 characters; more than 20 rejects
-associations for that field rather than linking only some keys.
+text is limited to 4,096 characters. Keys are at most 128 characters
+each.
+
+For a release PR, put the promoted task keys in its body. The first 100
+distinct keys, in source order, are considered for linking; repeated
+keys take no extra slots. With more than 100, the retained keys are
+still considered and the association audit records **Too Many Keys** for
+the overflow. Unknown, archived and non-local keys use slots but do not
+create links. List only the intended tasks, and split larger releases
+across PRs to retain every link. Other source fields keep their 20-key
+limit: more than 20 rejects all links from that field. A PR title or
+head branch is not a substitute for the release list. Existing links and
+audits survive payload cleanup. An old delivery whose body was already
+reduced to an empty **Too Many Keys** summary cannot recover the
+discarded keys; send a new supported PR event with the release list.
 
 After scheduled processing, open the task and choose **Branches**,
 **Commits**, **Pull Requests** or **Checks** to inspect its linked

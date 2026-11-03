@@ -670,15 +670,19 @@ class ProjectGitDelivery(models.Model):
         """
 
         for source_field, text in fields_by_name.items():
+            pull_request_body = source_type == "pull_request" and source_field == "body"
             try:
                 evidence = (
                     validated_key_summary(
                         text,
+                        pull_request_body=pull_request_body,
                         with_excerpt=source_type == "commit"
                         and source_field == "message",
                     )
                     if isinstance(text, dict)
-                    else source_key_summary(_text(text))
+                    else source_key_summary(
+                        _text(text), pull_request_body=pull_request_body
+                    )
                 )
             except ValueError as error:
                 raise GitHubPayloadError(
@@ -693,7 +697,6 @@ class ProjectGitDelivery(models.Model):
                     "rejected",
                     evidence["reason"],
                 )
-                continue
             keys = evidence["keys"]
             for agile_key in keys:
                 self._associate_agile_key(

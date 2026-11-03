@@ -66,9 +66,11 @@ Item-type configuration has an explicit ACL: existing Project managers may read,
 update, and delete configuration; Project users may only read it. The menu is
 manager-only. Existing Project task access rules remain authoritative for task fields;
 no broad ACL bypasses native task record rules. Employee and manager ORM paths are
-covered by tests. Native shared-Project portal creation remains owned by Project. Portal
-task labels retain the native title without reading internal Agile keys; label caches
-are caller-specific. Agile fields remain outside native portal field access.
+covered by tests. With this addon installed, native portal creation in shared non-Agile
+Projects remains owned by Project. Portal creation in Agile-enabled Projects still has
+the pre-existing Agile Item Type access limitation. Portal task labels retain the native
+title without reading internal Agile keys; label caches are caller-specific. Agile
+fields remain outside native portal field access.
 
 ## Initial ordinary views and actions
 

@@ -191,6 +191,57 @@ class TestAgileProjectSharing(TransactionCase):
                 {"name": "Forged", "agile_key": "FORGED-1"}
             )
 
+        with self.assertRaises(AccessError):
+            caller.with_context(
+                default_project_id=self.project.id, default_agile_key="FORGED-2"
+            ).create({"name": "Forged context default"})
+
+    def test_internal_context_defaults_cannot_reserve_agile_keys(self):
+        user = mail_new_test_user(
+            self.env, "agile_key_default_user", groups="project.group_project_user"
+        )
+        self.assertFalse(user.has_group("project.group_project_manager"))
+        self.assertFalse(user.has_group("base.group_system"))
+        caller = self.env["project.task"].with_user(user)
+        self.assertFalse(caller.env.su)
+        agile_project = self.env["project.project"].create(
+            {
+                "name": "Reserved key namespace",
+                "privacy_visibility": "employees",
+                "agile_enabled": True,
+                "agile_key": "SHAREKEY",
+            }
+        )
+        plain = caller.with_context(
+            default_project_id=self.project.id, default_agile_key="SHAREKEY-1"
+        ).create({"name": "Plain work with forged default"})
+        self.assertEqual(plain.project_id, self.project)
+        self.assertFalse(plain.agile_key)
+        orphan = caller.with_context(
+            default_project_id=False, default_agile_key="SHAREKEY-2"
+        ).create({"name": "Project-less work with forged default"})
+        self.assertFalse(orphan.project_id)
+        self.assertFalse(orphan.agile_key)
+        self.assertFalse(caller.name_search("SHAREKEY-1", operator="="))
+        self.assertFalse(caller.name_search("SHAREKEY-2", operator="="))
+
+        genuine = caller.with_context(default_project_id=agile_project.id).create(
+            {"name": "Genuine Agile work"}
+        )
+        self.assertEqual(genuine.agile_key, "SHAREKEY-1")
+        plain.write({"project_id": agile_project.id})
+        orphan.write({"project_id": agile_project.id})
+        self.assertEqual(plain.agile_key, "SHAREKEY-2")
+        self.assertEqual(orphan.agile_key, "SHAREKEY-3")
+        self.assertEqual(
+            dict(caller.name_search("SHAREKEY-1", operator="=")),
+            {genuine.id: genuine.display_name},
+        )
+        self.assertEqual(
+            dict(caller.name_search("SHAREKEY-2", operator="=")),
+            {plain.id: plain.display_name},
+        )
+
     def test_keyed_labels_preserve_portal_field_security(self):
         self.project.write({"agile_enabled": True, "agile_key": "SHARED"})
         self.assertTrue(self.task.agile_key)

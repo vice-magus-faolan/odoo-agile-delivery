@@ -238,7 +238,11 @@ class ProjectTask(models.Model):
             project = projects_by_id.get(
                 values.get("project_id", defaults.get("project_id"))
             )
-            if "agile_key" in values or (project and project.agile_enabled):
+            if (
+                "agile_key" in values
+                or "default_agile_key" in self.env.context
+                or (project and project.agile_enabled)
+            ):
                 values["agile_key"] = False
             if project and project.agile_enabled:
                 self._prepare_agile_task_values(project, values)

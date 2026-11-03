@@ -196,8 +196,13 @@ class ProjectTask(models.Model):
             for values in vals_list
         ]
         tasks = super().create(values_list)
-        tasks.agile_team_id._register_membership()
-        for task in tasks.filtered(lambda record: record.sprint_id.state == "active"):
+        # Plain shared-Project work must not read internal Scrum fields.
+        agile_tasks = tasks.filtered(lambda task: task.project_id.agile_enabled)
+        if agile_tasks:
+            agile_tasks.agile_team_id._register_membership()
+        for task in agile_tasks.filtered(
+            lambda record: record.sprint_id.state == "active"
+        ):
             task.sprint_id._append_scope_events("added", task)
             if task.state == "1_done":
                 task.sprint_id._append_scope_events("completed", task)
@@ -237,7 +242,7 @@ class ProjectTask(models.Model):
     def _track_active_sprint_completion_edges(
         self, original_sprints, original_done_states, track_sprint_assignment
     ):
-        for task in self:
+        for task in self.filtered(lambda task: task.project_id.agile_enabled):
             sprint = task.sprint_id
             was_done = original_done_states[task.id]
             is_done = task.state == "1_done"

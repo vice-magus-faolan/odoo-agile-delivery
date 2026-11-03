@@ -94,7 +94,7 @@
             type="object"
             string="Return with Reason"
             invisible="state != 'review'"
-            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
+            groups="project.group_project_manager"
           />
           <button
             name="action_new_revision"

@@ -25,8 +25,10 @@ described in Configuration. The following example starts with a Solution Specifi
    SOW marked **Explicit Scope Change**.
 5. Save and choose **Submit for Review**. The content is frozen **In Review**,
    but is still unapproved. The designated Project administrator approver chooses **Approve Exact
-   Revision**. To edit a review, use **Return with Reason**, enter **Reason** and
-   **Confirm**. Requirement and context content already sealed by a reference
+   Revision**. To request edits, a Project administrator with current access uses
+   **Return with Reason**, enters **Reason** and chooses **Confirm**. Business
+   analysts can edit and resubmit the returned draft, but cannot return a review,
+   including their own. Requirement and context content already sealed by a reference
    stays sealed; revise it through its stable identity instead.
 6. For later changes, open the approved revision and choose **New Working
    Revision**. Create successor requirement and context revisions as needed and

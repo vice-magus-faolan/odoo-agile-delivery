@@ -23,7 +23,10 @@ suites for changed addons and their transitive manifest and Python import depend
 Prerequisites are installed independently of test selection. The combined installation
 always runs every supported addon suite: addons can override the same ORM model without
 depending on one another. It also selects the six native Project sharing UI cases and
-the timesheet sharing case, so portal regressions fail normal verification and CI.
+the timesheet sharing case, so portal regressions fail normal verification and CI. The
+combined registry installs optional native Sales to exercise salesperson Project
+creation from plain templates. The independent Solution installation and lifecycle
+checks remain Sales-free; Sales is not a production dependency of Solution.
 Default-branch pushes and `./scripts/verify` without arguments also run every standalone
 suite; ordinary topic pushes do not duplicate PR runs.
 

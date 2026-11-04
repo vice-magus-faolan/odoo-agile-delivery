@@ -269,3 +269,74 @@ class TestSolutionLineage(TransactionCase):
             # Contract expectation data is not fabricated runtime acceptance.
             self.assertNotIn("requirement_ids", lineage._fields)
         self.assertTrue(self.env.ref("project_agile_solution.action_solution_lineage"))
+
+    def test_direct_company_mutation_keeps_caller_and_company_authority(self):
+        project = self._project("Direct retention", "SYNDIRECT", self.company)
+        caller = project.with_user(self.user)
+        for context in ({}, {"solution_trusted": True, "sudo": True}):
+            with self.assertRaises(AccessError):
+                caller.with_context(**context).write({"company_id": False})
+            with self.assertRaises(AccessError):
+                caller.with_context(**context).unlink()
+        self.assertEqual(project.company_id, self.company)
+        self.assertTrue(project.exists())
+        foreign = self.foreign.with_user(self.manager).with_context(
+            allowed_company_ids=self.company.ids
+        )
+        with self.assertRaises(AccessError):
+            foreign.write({"company_id": self.company.id})
+        self.assertEqual(self.foreign.company_id, self.other_company)
+        # An authorized, unused Project can still change company normally.
+        project.with_user(self.manager).write({"company_id": False})
+        self.assertFalse(project.company_id)
+
+    def test_hidden_history_blocks_destructive_changes_even_under_sudo(self):
+        histories = (
+            (
+                "project.agile.solution.document",
+                {"kind": "spec", "approver_id": self.manager.id},
+            ),
+            ("project.agile.requirement", {}),
+            ("project.agile.solution.context", {"kind": "actor"}),
+        )
+        for index, (model, values) in enumerate(histories):
+            with self.subTest(model=model):
+                project = self._project("Retention", f"SYNRET{index}", self.company)
+                solution = (
+                    self.env["project.agile.solution"]
+                    .with_user(self.manager)
+                    .create(
+                        {"name": "SYNTHETIC Retained lineage", "project_id": project.id}
+                    )
+                )
+                history = (
+                    self.env[model]
+                    .with_user(self.manager)
+                    .create(
+                        {
+                            "name": "SYNTHETIC Retained history",
+                            "solution_id": solution.id,
+                            **values,
+                        }
+                    )
+                )
+                history.active = False
+                solution.active = False
+                for caller in (
+                    project.with_user(self.manager),
+                    project.with_user(self.user).sudo(),
+                ):
+                    with self.assertRaisesRegex(
+                        ValidationError, "history cannot change company"
+                    ):
+                        caller.write({"company_id": self.other_company.id})
+                    with (
+                        self.assertRaisesRegex(
+                            ValidationError, "history cannot change company"
+                        ),
+                        self.cr.savepoint(),
+                    ):
+                        caller.unlink()
+                self.assertTrue(project.exists())
+                self.assertEqual(project.company_id, self.company)
+                self.assertTrue(history.exists())

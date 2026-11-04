@@ -183,7 +183,9 @@ reset_verification_database "$DATABASE_INSTALL"
 COMBINED_ADDONS=${MODULES%,hr_timesheet}
 TEST_TAGS=/${COMBINED_ADDONS//,/,/},/project:TestProjectSharingUi,/hr_timesheet:TestProjectSharingHrTimesheet
 printf "Combined unit suites: %s\n" "$TEST_TAGS"
-run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
+# Sales is exercised only here; the standalone Solution registry stays Sales-free.
+run_odoo --database "$DATABASE_INSTALL" --init "$MODULES,sale_project" --test-enable --test-tags "$TEST_TAGS"
+printf "%s\n" "Optional native Sales template confirmation exercised in combined registry."
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \

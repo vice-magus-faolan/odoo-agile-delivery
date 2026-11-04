@@ -164,6 +164,9 @@ run_odoo --database "$DATABASE_INSTALL" --init project_agile_solution
 solution_lifecycle reinstalled_core
 printf "%s\n" "Independent solution persisted-data upgrade and uninstall/reinstall preserve native work; uninstall destroys solution history."
 reset_verification_database "$DATABASE_INSTALL"
+run_unit_install "$DATABASE_INSTALL" project_agile_solution,sale_project project_agile_solution
+printf "%s\n" "Independent optional Solution and Sales template confirmation install passed (without Git automation)."
+reset_verification_database "$DATABASE_INSTALL"
 run_unit_install "$DATABASE_INSTALL" project_agile_solution_scrum project_agile_solution,project_agile_solution_scrum
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \
@@ -183,9 +186,7 @@ reset_verification_database "$DATABASE_INSTALL"
 COMBINED_ADDONS=${MODULES%,hr_timesheet}
 TEST_TAGS=/${COMBINED_ADDONS//,/,/},/project:TestProjectSharingUi,/hr_timesheet:TestProjectSharingHrTimesheet
 printf "Combined unit suites: %s\n" "$TEST_TAGS"
-# Sales is exercised only here; the standalone Solution registry stays Sales-free.
-run_odoo --database "$DATABASE_INSTALL" --init "$MODULES,sale_project" --test-enable --test-tags "$TEST_TAGS"
-printf "%s\n" "Optional native Sales template confirmation exercised in combined registry."
+run_odoo --database "$DATABASE_INSTALL" --init "$MODULES" --test-enable --test-tags "$TEST_TAGS"
 printf "%s\n" "Clean install passed for $MODULES."
 "${COMPOSE[@]}" run --rm -T odoo \
     odoo shell --config=/etc/odoo/odoo.conf --database "$DATABASE_INSTALL" --no-http \

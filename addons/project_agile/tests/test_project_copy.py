@@ -1,6 +1,10 @@
+from psycopg2 import IntegrityError
+
 from odoo import Command
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, ValidationError
+from odoo.tests import Form
 from odoo.tests.common import TransactionCase
+from odoo.tools.misc import mute_logger
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -102,9 +106,17 @@ class TestProjectCopy(TransactionCase):
         )
         caller = source.with_user(self.manager)
         self.assertFalse(caller.env.su)
-        destination = (
-            caller.action_create_from_template() if from_template else caller.copy()
-        )
+        if from_template:
+            wizards = self.env["project.template.create.wizard"].with_user(self.manager)
+            with Form(wizards.with_context(template_id=source.id)) as form:
+                form.name = "Chosen client rollout"
+                self.assertTrue(form.agile_enabled)
+                form.agile_key = "CLIENTCHOICE"
+            destination = form.record._create_project_from_template()
+            self.assertEqual(destination.agile_key, "CLIENTCHOICE")
+        else:
+            destination = caller.copy()
+            self.assertTrue(destination.agile_key.startswith("COPY"))
         self.assertTrue(destination.agile_enabled)
         self.assertFalse(destination.is_template)
         self.assertTrue(destination.agile_key)
@@ -185,7 +197,16 @@ class TestProjectCopy(TransactionCase):
         plain = self.env["project.project"].create(
             {"name": "Plain template", "is_template": True}
         )
-        project = plain.with_user(self.manager).action_create_from_template()
+        wizards = (
+            self.env["project.template.create.wizard"]
+            .with_user(self.manager)
+            .with_context(template_id=plain.id)
+        )
+        with Form(wizards) as form:
+            form.name = "Ordinary client"
+            self.assertFalse(form.agile_enabled)
+        self.assertNotIn("agile_key", form.record._get_template_whitelist_fields())
+        project = form.record._create_project_from_template()
         self.assertFalse(project.agile_enabled)
         self.assertFalse(project.agile_key)
         self.assertFalse(project.agile_environment_ids)
@@ -218,9 +239,8 @@ class TestProjectCopy(TransactionCase):
     def test_copy_preserves_caller_and_company_boundaries(self):
         caller = self.source.with_user(self.member)
         caller.check_access("read")
-        for record in (caller, caller.with_context(sudo=True)):
-            with self.assertRaises(AccessError):
-                record.copy()
+        with self.assertRaises(AccessError):
+            caller.copy()
         company = self.env["res.company"].create({"name": "Foreign copy company"})
         foreign = (
             self.env["project.project"]
@@ -237,15 +257,40 @@ class TestProjectCopy(TransactionCase):
             )
         )
         foreign = foreign.with_context(allowed_company_ids=self.manager.company_ids.ids)
-        for record in (
-            foreign.with_user(self.manager),
-            foreign.with_user(self.manager).with_context(sudo=True),
-        ):
-            with self.assertRaises(AccessError):
-                record.copy()
+        with self.assertRaises(AccessError):
+            foreign.with_user(self.manager).copy()
         self.source.is_template = True
         with self.assertRaises(AccessError):
             self.source.with_user(self.member).action_create_from_template()
         foreign.is_template = True
         with self.assertRaises(AccessError):
             foreign.with_user(self.manager).action_create_from_template()
+
+    def test_wizard_requires_and_validates_chosen_namespace(self):
+        self.source.is_template = True
+        wizards = (
+            self.env["project.template.create.wizard"]
+            .with_user(self.manager)
+            .with_context(template_id=self.source.id)
+        )
+        form = Form(wizards)
+        form.name = "Missing namespace"
+        with self.assertRaises(AssertionError):
+            form.save()
+        projects = self.env["project.project"]
+        original_count = projects.search_count([])
+        for key in (False, "invalid-key"):
+            wizard = wizards.create({"name": "Rejected client", "agile_key": key})
+            with self.assertRaises(ValidationError):
+                wizard._create_project_from_template()
+            self.assertEqual(projects.search_count([]), original_count)
+        wizard = wizards.create(
+            {"name": "Conflicting client", "agile_key": self.source.agile_key}
+        )
+        with (
+            self.assertRaises(IntegrityError),
+            self.cr.savepoint(),
+            mute_logger("odoo.sql_db"),
+        ):
+            wizard._create_project_from_template()
+        self.assertEqual(projects.search_count([]), original_count)

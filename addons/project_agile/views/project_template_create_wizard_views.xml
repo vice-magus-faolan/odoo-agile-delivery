@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="view_project_template_create_wizard_agile" model="ir.ui.view">
+    <field name="name">project.template.create.wizard.agile</field>
+    <field name="model">project.template.create.wizard</field>
+    <field
+      name="inherit_id"
+      ref="project.project_project_view_form_simplified_template"
+    />
+    <field name="arch" type="xml">
+      <field name="date_start" position="before">
+        <field name="template_id" invisible="1" />
+        <field name="agile_enabled" invisible="1" />
+        <field
+          name="agile_key"
+          invisible="not agile_enabled"
+          required="agile_enabled"
+        />
+      </field>
+    </field>
+  </record>
+</odoo>

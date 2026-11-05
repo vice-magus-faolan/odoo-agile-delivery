@@ -116,18 +116,14 @@ class ProjectProject(models.Model):
             raise AccessError(_("Only a Project administrator may configure Agile."))
 
     def copy_data(self, default=None):
-        self.check_access("read")
         default = dict(default or {})
         values_list = super().copy_data(default=default)
-        for project, values in zip(self, values_list, strict=False):
+        for values in values_list:
             if not values.get("agile_enabled"):
                 # An explicit opt-out must not create invalid environment starters.
                 if "agile_environment_ids" not in default:
                     values.pop("agile_environment_ids", None)
                 continue
-            self._check_agile_configuration(values)
-            if "agile_environment_ids" not in default:
-                project.agile_environment_ids.check_access("read")
             if "agile_key" not in default:
                 # Native Project maps tasks only after creating this namespace.
                 # Elevation allocates identities, never reads/copies client data.

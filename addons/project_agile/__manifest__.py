@@ -14,6 +14,7 @@
         "data/project_copy_sequence.xml",
         "data/environment_tracking_data.xml",
         "views/project_agile_project_views.xml",
+        "views/project_template_create_wizard_views.xml",
         "views/project_agile_task_views.xml",
         "views/project_agile_item_type_views.xml",
         "views/project_agile_stage_views.xml",

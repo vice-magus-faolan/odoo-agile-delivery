@@ -16,7 +16,9 @@ receives the next sequence number in the same ORM transaction and stores the res
 value in an indexed, copied-false, readonly `agile_key` field. A database uniqueness
 constraint will back the ORM invariant. Existing keys will never be recomputed when a
 project key changes; that configuration change is rejected once a project has assigned
-task keys.
+task keys. Before any task key has been assigned, a Project administrator can change the
+Project key subject to the same validation and uniqueness rules. Changing the Project
+display name does not change its key or task namespace.
 
 Cross-project moves of a task that already has an `agile_key` are rejected with an
 actionable `ValidationError`: the key identifies its original Agile project and must not
@@ -30,12 +32,21 @@ because the latter races under concurrent creates. Non-Agile projects do not all
 sequence or receive an Agile key.
 
 Project duplication and native template creation retain Agile enablement, default item
-type and estimation policy. Their copy-data hook allocates a fresh COPY-prefixed Project
-key through a shared native ir.sequence, unless an explicit key is supplied. It skips
-existing keys, including archived or inaccessible Projects, using elevation only for
-identity allocation and existence checks. Source data is copied with caller authority.
-Native task mapping then uses the new Project-local sequence; neither source task keys
-nor sequence progress is copied. Project templates do not issue task keys until used.
+type and estimation policy. When the selected template is Agile, the native Create a
+Project from Template wizard requires an editable Agile key. Its whitelist passes that
+choice to the existing Project domain before copied tasks receive their keys; missing,
+invalid or conflicting choices are rejected by the existing Project validation and
+uniqueness constraint. Ordinary templates do not require or forward an Agile key.
+
+Duplicate and unattended template creation, including Sales, have no Agile key prompt.
+Their copy-data hook allocates a fresh COPYn Project key through a shared native
+ir.sequence unless an explicit programmatic key default is supplied. This generated
+fallback is already permanent when copied tasks receive keys; it is not a temporary
+prefix that an administrator can rename later. Allocation skips existing namespaces,
+including archived or inaccessible Projects, using elevation only for identity
+allocation and existence checks. Source data is copied with caller authority. Native
+task mapping then uses the new Project-local sequence; neither source task keys nor
+sequence progress is copied. Project templates do not issue task keys until used.
 
 ## Alternatives
 
@@ -56,6 +67,4 @@ computed field and does not modify ordinary Project behavior.
 
 ## Open Questions
 
-- Should an administrator be allowed to retire a project key before any task key exists,
-  or should it be immutable from enablement?
 - Is a configurable numeric padding useful before integrations consume keys?

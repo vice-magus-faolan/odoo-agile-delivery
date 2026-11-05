@@ -11,7 +11,7 @@ class ProjectProject(models.Model):
 
     # Keep the explicit source labels/translation keys unchanged during adoption.
     # pylint: disable-next=attribute-string-redundant
-    agile_enabled = fields.Boolean(string="Agile Enabled", copy=False)
+    agile_enabled = fields.Boolean(string="Agile Enabled")
     # pylint: disable-next=attribute-string-redundant
     agile_key = fields.Char(string="Agile Key", copy=False, index=True)
     agile_default_item_type_id = fields.Many2one(
@@ -26,7 +26,7 @@ class ProjectProject(models.Model):
         "project.agile.environment",
         "project_id",
         string="Environments",
-        copy=False,
+        copy=True,
         context={"active_test": False},
     )
 
@@ -114,6 +114,26 @@ class ProjectProject(models.Model):
             "project.group_project_manager"
         ):
             raise AccessError(_("Only a Project administrator may configure Agile."))
+
+    def copy_data(self, default=None):
+        default = dict(default or {})
+        values_list = super().copy_data(default=default)
+        for values in values_list:
+            if not values.get("agile_enabled"):
+                # An explicit opt-out must not create invalid environment starters.
+                if "agile_environment_ids" not in default:
+                    values.pop("agile_environment_ids", None)
+                continue
+            if "agile_key" not in default:
+                # Native Project maps tasks only after creating this namespace.
+                # Elevation allocates identities, never reads/copies client data.
+                sequence = self.env.ref("project_agile.sequence_project_copy").sudo()
+                keys = self.sudo().with_context(active_test=False)
+                key = sequence.next_by_id()
+                while keys.search_count([("agile_key", "=", key)], limit=1):
+                    key = sequence.next_by_id()
+                values["agile_key"] = key
+        return values_list
 
     @api.model_create_multi
     def create(self, vals_list):

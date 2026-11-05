@@ -455,8 +455,8 @@ class TestProjectAgileDomain(TransactionCase):
         action = self.project.with_user(manager).action_create_template_from_project()
         project = self.env["project.project"].browse(action["params"]["project_id"])
         self.assertTrue(project.is_template)
-        # Native copies disable Agile; configuring the template is a separate opt-in.
-        project.with_user(manager).write({"agile_enabled": True, "agile_key": "UNDO"})
+        self.assertTrue(project.agile_enabled)
+        self.assertNotEqual(project.agile_key, self.project.agile_key)
         model = self.env["project.task"]
         parent = model.create(
             {

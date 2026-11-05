@@ -400,8 +400,15 @@ class TestEnvironmentStatus(TransactionCase):
         project_copy = self.projects[0].copy(
             {"agile_enabled": True, "agile_key": "ENVCOPY"}
         )
-        self.assertFalse(project_copy.agile_environment_ids)
-        self.assertFalse(project_copy.task_ids.agile_environment_status_ids)
+        self.assertEqual(len(project_copy.agile_environment_ids), 4)
+        self.assertFalse(
+            project_copy.agile_environment_ids & self.projects[0].agile_environment_ids
+        )
+        copied_lines = project_copy.task_ids.agile_environment_status_ids
+        self.assertTrue(copied_lines)
+        self.assertEqual(set(copied_lines.mapped("status")), {"todo"})
+        self.assertFalse(set(original_ids) & set(copied_lines.ids))
+        self.assertEqual(copied_lines.environment_id.project_id, project_copy)
         self.assertEqual(task.agile_environment_status_ids.ids, original_ids)
         project_template = self.env["project.project"].create(
             {

@@ -58,7 +58,9 @@ class TestProjectCopy(TransactionCase):
     def _environment_settings(self, project):
         return [
             (row.name, row.sequence, row.active, row.is_production)
-            for row in project.agile_environment_ids
+            for row in project.agile_environment_ids.sorted(
+                lambda row: (row.sequence, row.id)
+            )
         ]
 
     def _check_native_copy(self, from_template):
@@ -135,7 +137,10 @@ class TestProjectCopy(TransactionCase):
         self.assertFalse(lines & self.lines)
         self.assertEqual(set(lines.mapped("status")), {"todo"})
         self.assertEqual(lines.actor_id, self.manager)
-        self.assertEqual(lines.environment_id, environments.filtered("active"))
+        self.assertEqual(
+            set(lines.environment_id.ids),
+            set(environments.filtered("active").ids),
+        )
         self.assertEqual(lines.project_id, destination)
         self.assertFalse(lines.message_ids & self.lines.message_ids)
         followup = (

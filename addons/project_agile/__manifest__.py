@@ -1,7 +1,7 @@
 {
     "name": "Agile Project Core",
     "summary": "Opt-in Agile delivery foundations for Odoo Project",
-    "version": "19.0.1.7.0",
+    "version": "19.0.1.8.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
@@ -11,6 +11,7 @@
         "security/ir.model.access.csv",
         "security/project_environment_rules.xml",
         "data/project_agile_item_type_data.xml",
+        "data/project_copy_sequence.xml",
         "data/environment_tracking_data.xml",
         "views/project_agile_project_views.xml",
         "views/project_agile_task_views.xml",

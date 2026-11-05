@@ -29,6 +29,14 @@ Odoo's sequence allocation is used instead of custom counters or Python `max(...
 because the latter races under concurrent creates. Non-Agile projects do not allocate a
 sequence or receive an Agile key.
 
+Project duplication and native template creation retain Agile enablement, default item
+type and estimation policy. Their copy-data hook allocates a fresh COPY-prefixed Project
+key through a shared native ir.sequence, unless an explicit key is supplied. It skips
+existing keys, including archived or inaccessible Projects, using elevation only for
+identity allocation and existence checks. Source data is copied with caller authority.
+Native task mapping then uses the new Project-local sequence; neither source task keys
+nor sequence progress is copied. Project templates do not issue task keys until used.
+
 ## Alternatives
 
 - A global sequence with the project key in a computed prefix: rejected because it does
@@ -42,7 +50,7 @@ sequence or receive an Agile key.
 
 ## Consequences
 
-The implementation creates `ir.sequence` records only for projects that opt in. Sequence
+The implementation creates per-Project sequences only for projects that opt in. Sequence
 gaps are acceptable, as with native Odoo sequences. Key allocation is not a stored
 computed field and does not modify ordinary Project behavior.
 

@@ -47,11 +47,15 @@ for Production applies this same pending rule and requires completion somewhere
 applicable and no completion in any active environment flagged Production in the same
 Project. A Project with no active flagged environment is excluded.
 
-Task copies start fresh statuses. Environment lists and status history are not copied
-with a Project; configure its client environments explicitly. This does not change
-native Agile configuration inheritance. The versioned migration initializes tracking on
-the existing noupdate Configuration/Data import seeds once. Later user choices survive
-updates. No environment list is inferred for an existing client.
+Project duplication and native creation from a Project template copy environment starter
+names, ordering, Active and Production flags, including archived starters, into fresh
+destination-owned rows. Explicit copy defaults override these settings; opting out of
+Agile omits the starter list unless explicitly supplied. Task status lines and chatter
+history are never copied: eligible destination tasks start with fresh To do lines for
+active destination environments only. Source settings and history remain unchanged. The
+versioned migration initializes tracking on the existing noupdate Configuration/Data
+import seeds once. Later user choices survive updates. No environment list is inferred
+for an existing client.
 
 The implementation extends native create/write/template state at the pinned
 [Odoo 19 Community revision](https://github.com/odoo/odoo/tree/8da213dc6785e097f2558dc2d648b588957786a1),

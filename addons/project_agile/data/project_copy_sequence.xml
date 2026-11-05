@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <record id="sequence_project_copy" model="ir.sequence">
+    <field name="name">Copied Agile Project</field>
+    <field name="code">project_agile.project.copy</field>
+    <field name="prefix">COPY</field>
+    <field name="padding">0</field>
+    <field name="company_id" eval="False" />
+  </record>
+</odoo>

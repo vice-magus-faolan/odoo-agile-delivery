@@ -11,3 +11,4 @@ from . import test_solution_portal_http
 from . import test_task_actors
 from . import test_task_actor_tour
 from . import test_solution_discussion
+from . import test_solution_sales

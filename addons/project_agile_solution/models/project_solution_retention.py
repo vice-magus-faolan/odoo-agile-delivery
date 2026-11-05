@@ -61,7 +61,9 @@ class ProjectSolutionRetention(models.Model):
 
     def _check_solution_retention(self):
         """Deny destructive scope changes even when history is currently hidden."""
-        self.sudo(False).check_access("write")
+        # Native workflows may authorize a Project write through sudo. Keep that
+        # authority without bypassing the structural history checks below.
+        self.check_access("write")
         lineages = (
             self.env["project.agile.solution"]
             .sudo()

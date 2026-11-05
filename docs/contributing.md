@@ -23,9 +23,15 @@ suites for changed addons and their transitive manifest and Python import depend
 Prerequisites are installed independently of test selection. The combined installation
 always runs every supported addon suite: addons can override the same ORM model without
 depending on one another. It also selects the six native Project sharing UI cases and
-the timesheet sharing case, so portal regressions fail normal verification and CI.
-Default-branch pushes and `./scripts/verify` without arguments also run every standalone
-suite; ordinary topic pushes do not duplicate PR runs.
+the timesheet sharing case, so portal regressions fail normal verification and CI. A
+separate Solution and optional native Sales registry exercises salesperson Project
+creation from plain templates when the Solution unit suite is selected. It excludes Git
+automation, whose [supported authority profile](git-policy-authority-profiles.md) does
+not include Sales extensions. The independent Solution installation and lifecycle checks
+and the supported all-addon combined registry remain Sales-free; Sales is not a
+production dependency of Solution. Default-branch pushes and `./scripts/verify` without
+arguments also run every standalone suite; ordinary topic pushes do not duplicate PR
+runs.
 
 Use `./scripts/verify --pr BASE_SHA MERGE_SHA` with the merge commit checked out to
 reproduce PR selection, or `./scripts/verify --addons project_scrum_analytics` to focus

@@ -322,6 +322,18 @@ class TestSolutionLineage(TransactionCase):
                 )
                 history.active = False
                 solution.active = False
+                # Denied callers must not learn about hidden history through
+                # a structural ValidationError instead of their AccessError.
+                caller = project.with_user(self.user)
+                self.assertFalse(caller.env.su)
+                caller.check_access("read")
+                for context in ({}, {"solution_trusted": True, "sudo": True}):
+                    with self.assertRaises(AccessError):
+                        caller.with_context(**context).write({"company_id": False})
+                    with self.assertRaises(AccessError):
+                        caller.with_context(**context).unlink()
+                self.assertFalse(solution.active)
+                self.assertFalse(history.active)
                 for caller in (
                     project.with_user(self.manager),
                     project.with_user(self.user).sudo(),

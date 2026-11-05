@@ -281,7 +281,7 @@ class TestProjectCopy(TransactionCase):
         original_count = projects.search_count([])
         for key in (False, "invalid-key"):
             wizard = wizards.create({"name": "Rejected client", "agile_key": key})
-            with self.assertRaises(ValidationError):
+            with self.assertRaises(ValidationError), self.cr.savepoint():
                 wizard._create_project_from_template()
             self.assertEqual(projects.search_count([]), original_count)
         wizard = wizards.create(

@@ -4,7 +4,13 @@ registry.category("web_tour.tours").add("customer_requirement_discussion", {
   steps: () => [
     {trigger: ".o_project_sharing"},
     {trigger: ".o_switch_view.o_list", run: "click"},
-    {trigger: ".o_data_row:contains(Customer Story)", run: "click"},
+    {
+      trigger: '.o_data_row .o_data_cell[name="name"]:contains(Customer Story)',
+      run: "click",
+    },
+    {
+      trigger: ".o_form_view .o_task_name textarea:value(/^Customer Story [AB]$/)",
+    },
     {
       trigger: 'button[name="action_open_customer_requirements"]',
       run: "click",

@@ -173,6 +173,212 @@ class TestCustomerRequirements(CustomerRequirementFixture, TransactionCase):
     _private_payloads = TestSolutionDiscussion._private_payloads
     _assert_payload_hidden = TestSolutionDiscussion._assert_payload_hidden
 
+    def _assert_native_work_readable(self, user):
+        task = self.tasks[0].with_user(user).with_context(active_test=False)
+        self.assertFalse(task.env.su)
+        self.assertEqual(task.search_count([("id", "=", task.id)]), 1)
+        self.assertTrue(task.read(["name"]))
+        project = task.project_id
+        self.assertEqual(project.search_count([("id", "=", project.id)]), 1)
+        self.assertTrue(project.read(["name"]))
+        return task
+
+    def _assert_discussion_and_post_denied(self, task):
+        before = self._shared_messages()
+        with self.assertRaises(AccessError):
+            task.action_customer_requirement_discussion(self.links[0].id)
+        with self.assertRaises(AccessError):
+            task.action_post_customer_requirement(self.links[0].id, "Denied message")
+        self.assertEqual(self._shared_messages(), before)
+
+    def _assert_inactive_source_hidden(self, source):
+        task = self._assert_native_work_readable(self.clients[0])
+        self.assertEqual(
+            [card["link_id"] for card in task.action_customer_requirements()],
+            self.links[0].ids,
+        )
+        source.write({"active": False})
+        for active_test in (True, False):
+            task = self._assert_native_work_readable(self.clients[0]).with_context(
+                active_test=active_test
+            )
+            self.assertFalse(task.action_customer_requirements())
+            self._assert_discussion_and_post_denied(task)
+
+    def test_inactive_solution_is_not_projected_or_postable(self):
+        self.assertTrue(self._thread().active)
+        self._assert_inactive_source_hidden(self._thread().solution_id)
+
+    def test_inactive_requirement_is_not_projected_or_postable(self):
+        self.assertTrue(self._thread().solution_id.active)
+        self._assert_inactive_source_hidden(self._thread())
+
+    def _assert_ineligible_work_denied(self, target, values):
+        # Portal rules themselves hide archived Tasks. A real internal reader
+        # keeps native access so the later shared-work guard must reject them.
+        task = self._assert_native_work_readable(self.analyst)
+        self.assertEqual(
+            [card["link_id"] for card in task.action_customer_requirements()],
+            self.links[0].ids,
+        )
+        target.write(values)
+        for active_test in (True, False):
+            task = self._assert_native_work_readable(self.analyst).with_context(
+                active_test=active_test
+            )
+            with self.assertRaises(AccessError):
+                task.action_customer_requirements()
+            self._assert_discussion_and_post_denied(task)
+
+    def test_archived_task_is_not_shared_work(self):
+        self.assertTrue(self.projects[0].active)
+        self._assert_ineligible_work_denied(self.tasks[0], {"active": False})
+
+    def test_non_agile_project_is_not_shared_work(self):
+        self._assert_ineligible_work_denied(self.projects[0], {"agile_enabled": False})
+        self.assertTrue(self.tasks[0].active)
+
+    def test_task_template_is_not_shared_work(self):
+        self._assert_ineligible_work_denied(self.tasks[0], {"is_template": True})
+        self.assertTrue(self.tasks[0].has_template_ancestor)
+        self.assertFalse(self.tasks[0].has_project_template)
+        self.assertTrue(self.tasks[0].active)
+
+    def test_project_template_is_not_shared_work(self):
+        self._assert_ineligible_work_denied(self.projects[0], {"is_template": True})
+        self.assertTrue(self.tasks[0].has_project_template)
+        self.assertFalse(self.tasks[0].has_template_ancestor)
+        self.assertTrue(self.tasks[0].active)
+
+    def test_exact_collaborator_requires_native_project_read_and_not_just_parent(self):
+        task = self._assert_native_work_readable(self.sibling)
+        followers = self.env["mail.followers"].search(
+            [
+                ("res_model", "=", "project.project"),
+                ("res_id", "=", self.projects[0].id),
+                ("partner_id", "=", self.sibling.partner_id.id),
+            ]
+        )
+        self.assertFalse(followers)
+        with self.assertRaises(AccessError):
+            task.action_customer_requirements()
+        self._assert_discussion_and_post_denied(task)
+        collaborator = self.env["project.collaborator"].create(
+            {
+                "project_id": self.projects[0].id,
+                "partner_id": self.sibling.partner_id.id,
+            }
+        )
+        task = self._assert_native_work_readable(self.sibling)
+        self.assertNotIn(self.sibling.partner_id, self.projects[0].message_partner_ids)
+        self.assertEqual(
+            [card["link_id"] for card in task.action_customer_requirements()],
+            self.links[0].ids,
+        )
+        task.action_post_customer_requirement(self.links[0].id, "Exact collaborator")
+        message = self._shared_messages()
+        self.assertEqual(message.author_id, self.sibling.partner_id)
+        self.assertIn(
+            "Exact collaborator",
+            str(task.action_customer_requirement_discussion(self.links[0].id)),
+        )
+        collaborator.unlink()
+        task = self._assert_native_work_readable(self.sibling)
+        with self.assertRaises(AccessError):
+            task.action_customer_requirements()
+        self._assert_discussion_and_post_denied(task)
+
+    def test_collaborator_without_native_project_read_stays_denied(self):
+        self.env["project.collaborator"].create(
+            {
+                "project_id": self.projects[0].id,
+                "partner_id": self.outsider.partner_id.id,
+            }
+        )
+        self.tasks[0].message_subscribe(partner_ids=self.outsider.partner_id.ids)
+        task = self.tasks[0].with_user(self.outsider)
+        self.assertFalse(task.env.su)
+        self.assertTrue(task.read(["name"]))
+        project = self.projects[0].with_user(self.outsider)
+        self.assertFalse(project.search_count([("id", "=", project.id)]))
+        with self.assertRaises(AccessError):
+            project.read(["name"])
+        with self.assertRaises(AccessError):
+            task.action_customer_requirements()
+        self._assert_discussion_and_post_denied(task)
+
+    def test_shared_subtype_non_comment_stays_private(self):
+        task = self._assert_native_work_readable(self.clients[0])
+        task.action_post_customer_requirement(self.links[0].id, "Visible comment")
+        hidden = self.env["mail.message"].create(
+            {
+                "model": self._thread()._name,
+                "res_id": self._thread().id,
+                "message_type": "notification",
+                "subtype_id": self.env.ref(
+                    "project_agile_solution.mt_requirement_customer"
+                ).id,
+                "body": "PRIVATE_NON_COMMENT",
+            }
+        )
+        self.assertIn(hidden, self._shared_messages())
+        discussion = task.action_customer_requirement_discussion(self.links[0].id)
+        self.assertEqual(
+            [row["text"] for row in discussion["messages"]], ["Visible comment"]
+        )
+        self.assertFalse(discussion["older_before"])
+
+    def test_default_ba_follows_chatter_without_customer_notifications(self):
+        thread = self._thread().with_user(self.analyst)
+        self.analyst.notification_type = "inbox"
+        thread.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+        follower = self.env["mail.followers"].search(
+            [
+                ("res_model", "=", thread._name),
+                ("res_id", "=", thread.id),
+                ("partner_id", "=", self.analyst.partner_id.id),
+            ]
+        )
+        customer = self.env.ref("project_agile_solution.mt_requirement_customer")
+        self.assertFalse(customer.default)
+        self.assertIn(self.env.ref("mail.mt_comment"), follower.subtype_ids)
+        self.assertNotIn(customer, follower.subtype_ids)
+        self.tasks[0].with_user(self.clients[0]).action_post_customer_requirement(
+            self.links[0].id, "Client question found in original chatter"
+        )
+        message = self._shared_messages()
+        self.assertEqual(len(message), 1)
+        self.assertIn(message.with_user(self.analyst), thread.message_ids)
+        self.assertIn("Client question found in original chatter", message.body)
+        notifications = self.env["mail.notification"]
+        self.assertFalse(
+            notifications.search(
+                [
+                    ("mail_message_id", "=", message.id),
+                    ("res_partner_id", "=", self.analyst.partner_id.id),
+                ]
+            )
+        )
+        # The same authorized follower does receive ordinary internal comments;
+        # missing Customer Discussion notification is a subtype choice, not ACL.
+        ordinary = (
+            self._thread()
+            .with_context(mail_notify_force_send=False)
+            .message_post(
+                body="Ordinary internal comment",
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+            )
+        )
+        self.assertTrue(
+            notifications.search(
+                [
+                    ("mail_message_id", "=", ordinary.id),
+                    ("res_partner_id", "=", self.analyst.partner_id.id),
+                ]
+            )
+        )
+
     def test_customer_projection_and_explicit_history_only(self):
         env = self._thread().env
         contexts = env["project.agile.solution.context.revision"]

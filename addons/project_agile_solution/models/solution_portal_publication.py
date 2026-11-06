@@ -9,7 +9,11 @@ from odoo.fields import Domain
 
 from odoo.addons.project_agile.utils import claim_records
 
-from .solution_projection import audience_rows, narrative_text
+from .solution_projection import (
+    CUSTOMER_REQUIREMENT_FIELDS,
+    audience_rows,
+    narrative_text,
+)
 
 INTERNAL = "project.group_project_user"
 STORAGE = "project_agile_solution.group_snapshot_storage"
@@ -18,16 +22,7 @@ STORAGE = "project_agile_solution.group_snapshot_storage"
 def released_payload(revision):
     """Allowlist disclosed bytes, including nested requirement context."""
     source = revision._render_payload()
-    names = (
-        "key",
-        "number",
-        "title",
-        "requirement_type",
-        "description",
-        "priority",
-        "verification_method",
-        "acceptance_expectations",
-    )
+    names = CUSTOMER_REQUIREMENT_FIELDS
     requirements = audience_rows(source.get("requirements", []), "customer")
     members = {row["key"]: row["revision_id"] for row in requirements}
     contexts = []

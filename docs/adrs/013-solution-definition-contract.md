@@ -125,6 +125,41 @@ and
 APIs, alongside the mail seams above. Native ORM and authenticated binary-route
 regressions must retain authorized positives and outsider/revocation negatives.
 
+## Customer requirement discussion on native shared work
+
+Native Task portal pages and the native Project sharing form expose the existing active
+exact requirement edges through a customer-only adapter. The caller must pass fresh
+native Task and Project searches, active company rules and an exact contact Project
+invitation or collaborator check. Commercial-parent access alone is insufficient. Public
+and token-only Task access do not grant requirement projection. Internal callers retain
+their ordinary requirement/link rules.
+
+Only after that authorization may portal adapters elevate the selected Task links to
+project Customer Projection fields. The allowlist is shared with customer publication
+rendering; rationale, source relations, questions, decisions and acceptance events are
+not part of this interface. The adapter does not require a publication or change
+sign-off. Source models still have no portal ACL, and the stable source message,
+follower, attachment, scheduled-message and binary/token guards above remain unchanged.
+
+A new native message subtype marks explicitly customer-shared discussion text. Existing
+comments and notes are not migrated or disclosed. Client posting binds the
+already-authorized exact edge to its original stable requirement identity, uses the
+authenticated partner, clears caller defaults and supplies no chosen recipients, files
+or subscriptions. Its narrow private call into native posting bypasses only the
+source-read prerequisite that portal users intentionally cannot satisfy. Native internal
+recipient filtering remains in force. The internal **Reply to Customer** action uses the
+native composer with that same subtype.
+
+Customer reads return escaped plain text and dates from that subtype only, in pages of
+twenty with an earlier-message cursor. They do not expose raw mail records, attachment
+links, source names or private history. Shared text follows the stable identity across
+exact successor links; every fetch and post rechecks current Task, Project,
+exact-contact and customer-edge eligibility. Losing that eligibility does not grant a
+previous author any ongoing source access. These adapters use native request
+transactions, not a separate publication store or per-revision discussion. Revisit the
+native composer subtype and Task portal hooks against the pinned Odoo revision when
+upgrading.
+
 ## Revision, scope and approval
 
 Documents follow `draft -> review -> approved -> superseded`. Submission freezes actual

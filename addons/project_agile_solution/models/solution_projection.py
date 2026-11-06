@@ -6,6 +6,17 @@ from html.parser import HTMLParser
 from odoo import _, models
 from odoo.exceptions import AccessError, ValidationError
 
+CUSTOMER_REQUIREMENT_FIELDS = (
+    "key",
+    "number",
+    "title",
+    "requirement_type",
+    "description",
+    "priority",
+    "verification_method",
+    "acceptance_expectations",
+)
+
 
 class _NarrativeText(HTMLParser):
     """Discard markup/remote resources; never mark user text safe for QWeb."""

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="mt_requirement_customer" model="mail.message.subtype">
+    <field name="name">Customer Discussion</field>
+    <field
+      name="description"
+    >Text shared with currently invited requirement readers</field>
+    <field name="res_model">project.agile.requirement</field>
+    <field name="default" eval="False" />
+    <field name="internal" eval="False" />
+  </record>
+</odoo>

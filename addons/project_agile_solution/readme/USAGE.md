@@ -54,6 +54,37 @@ also require current source access, including after Project membership is revoke
 A file link or public flag does not share internal Solution content with outsiders.
 Customer publications remain a separate workflow.
 
+## Discuss customer requirements from shared work
+
+Set the exact requirement revision to **Customer Projection** and deliberately
+link it to the native Story or Task. Invite the client contact through native
+Project sharing. The contact needs current access to both the Project and Task;
+an invitation for another contact in the same customer company is insufficient.
+
+In the native shared Project, open the Story and choose **Requirements**. The
+native Task portal also shows **Customer requirements** directly. It displays
+only active linked customer revisions: key, revision, title, description,
+priority, verification method and acceptance expectations. Internal Only
+requirements, rationale, questions, decisions and acceptance evidence stay private.
+No approved document or customer publication is needed to discuss this working
+intent; discussion does not record acceptance.
+
+The client writes a message and chooses **Post to requirement**. Internally,
+open **Project > Requirements** and the same requirement identity to see that
+message in its normal chatter. Use **Reply to Customer** to compose a new shared
+reply with the native composer. Only text from explicitly shared Customer
+Discussion messages appears on the Task page. Ordinary Send message, internal
+notes, old chatter, attachments and scheduled messages remain private. Client
+messages retain the authenticated author and do not subscribe clients to the
+internal source or send them internal notifications.
+
+The page shows twenty shared messages at a time; **Older messages** retrieves
+earlier shared text. Replacing a Task link with a numbered requirement successor
+keeps this same conversation. Removing current Project or Task access removes
+projection and posting access, including for previous authors. Retiring the link
+also removes that exact revision from the shared page. Previously read copies
+cannot be recalled. Native Task chatter remains separate and unchanged.
+
 ## Link delivery work
 
 As a Business analyst or Project administrator with write access to the affected

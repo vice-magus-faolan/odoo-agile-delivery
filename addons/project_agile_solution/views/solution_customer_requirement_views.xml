@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <template id="portal_task_customer_requirements" inherit_id="project.portal_my_task">
+    <xpath expr="//div[@id=&apos;task_chat&apos;]" position="before">
+      <section
+        id="solution_requirements"
+        class="o_customer_requirements"
+        t-if="solution_customer_requirements"
+      >
+        <h3>Customer requirements</h3>
+        <p
+        >Exact linked intent, not approval or acceptance. Only explicitly shared discussion text appears here.</p>
+        <article
+          t-foreach="solution_customer_requirements"
+          t-as="card"
+          class="o_customer_requirement border rounded p-3 mb-3"
+        >
+          <t t-set="requirement" t-value="card[&apos;requirement&apos;]" />
+          <h4><t t-out="requirement[&apos;key&apos;]" /> — <t
+            t-out="requirement[&apos;title&apos;]"
+          /></h4>
+          <p>Revision <t t-out="requirement[&apos;number&apos;]" /> · <t
+            t-out="requirement[&apos;requirement_type&apos;]"
+          /> · <t t-out="requirement[&apos;priority&apos;]" /></p>
+          <pre class="text-wrap" t-out="requirement[&apos;description&apos;]" />
+          <h5>Verification method</h5>
+          <pre class="text-wrap" t-out="requirement[&apos;verification_method&apos;]" />
+          <h5>Acceptance expectations</h5>
+          <pre
+            class="text-wrap"
+            t-out="requirement[&apos;acceptance_expectations&apos;]"
+          />
+          <h5>Shared requirement discussion</h5>
+          <a
+            t-if="card[&apos;discussion&apos;][&apos;older_before&apos;]"
+            t-attf-href="/my/tasks/#{task.id}?solution_link=#{card[&apos;link_id&apos;]}&amp;solution_before=#{card[&apos;discussion&apos;][&apos;older_before&apos;]}#solution_requirements"
+          >Older messages</a>
+          <div
+            t-foreach="card[&apos;discussion&apos;][&apos;messages&apos;]"
+            t-as="message"
+            class="o_customer_requirement_message"
+          >
+            <small t-out="message[&apos;date&apos;]" />
+            <pre class="text-wrap" t-out="message[&apos;text&apos;]" />
+          </div>
+          <form
+            t-attf-action="/my/tasks/#{task.id}/requirement-comment"
+            method="post"
+            class="o_customer_requirement_comment"
+          >
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+            <input
+              type="hidden"
+              name="link_id"
+              t-att-value="card[&apos;link_id&apos;]"
+            />
+            <label
+              t-attf-for="requirement-comment-#{card[&apos;link_id&apos;]}"
+            >Message shared with invited readers of this requirement</label>
+            <textarea
+              t-attf-id="requirement-comment-#{card[&apos;link_id&apos;]}"
+              name="body"
+              required="required"
+              maxlength="10000"
+              class="form-control mb-2"
+            />
+            <button type="submit" class="btn btn-primary">Post to requirement</button>
+          </form>
+        </article>
+      </section>
+    </xpath>
+  </template>
+  <record id="view_shared_task_customer_requirements" model="ir.ui.view">
+    <field name="name">shared.task.customer.requirements</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.project_sharing_project_task_view_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//div[@name=&apos;button_box&apos;]" position="inside">
+        <button
+          name="action_open_customer_requirements"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-comments"
+        >
+          <div class="o_stat_info">
+            <span class="o_stat_text">Requirements</span>
+          </div>
+        </button>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_task_customer_requirements" model="ir.ui.view">
+    <field name="name">task.customer.requirements</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_form2" />
+    <field name="arch" type="xml">
+      <xpath expr="//div[@name=&apos;button_box&apos;]" position="inside">
+        <button
+          name="action_open_customer_requirements"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-comments"
+        >
+          <div class="o_stat_info">
+            <span class="o_stat_text">Customer Requirements</span>
+          </div>
+        </button>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_requirement_customer_reply" model="ir.ui.view">
+    <field name="name">requirement.customer.reply</field>
+    <field name="model">project.agile.requirement</field>
+    <field name="inherit_id" ref="view_requirement_form" />
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button
+          name="action_compose_customer_discussion"
+          type="object"
+          string="Reply to Customer"
+          help="Shares this new message text with current invited readers of linked customer requirements. Ordinary chatter and files remain private."
+        />
+      </xpath>
+    </field>
+  </record>
+</odoo>

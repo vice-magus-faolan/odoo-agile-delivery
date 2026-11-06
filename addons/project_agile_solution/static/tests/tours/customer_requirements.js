@@ -3,7 +3,8 @@ import {registry} from "@web/core/registry";
 registry.category("web_tour.tours").add("customer_requirement_discussion", {
   steps: () => [
     {trigger: ".o_project_sharing"},
-    {trigger: ".o_kanban_record:contains(Customer Story)", run: "click"},
+    {trigger: ".o_switch_view.o_list", run: "click"},
+    {trigger: ".o_data_row:contains(Customer Story)", run: "click"},
     {
       trigger: 'button[name="action_open_customer_requirements"]',
       run: "click",

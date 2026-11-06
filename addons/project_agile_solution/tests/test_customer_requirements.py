@@ -198,7 +198,8 @@ class TestCustomerRequirements(CustomerRequirementFixture, TransactionCase):
                     "solution_id": self._thread().solution_id.id,
                 }
             )
-            contexts |= contexts.create(
+            # Create on the empty model, not the accumulated other-kind rows.
+            contexts |= env["project.agile.solution.context.revision"].create(
                 {
                     "context_id": identity.id,
                     "title": "PRIVATE_CONTEXT_TITLE",
@@ -357,10 +358,19 @@ class TestCustomerRequirements(CustomerRequirementFixture, TransactionCase):
             ]
         ).unlink()
         self.projects[0].message_unsubscribe(partner_ids=self.clients[0].partner_id.ids)
-        # Retained task follow/author privilege cannot replace Project sharing.
+        # Native Project revocation can remove Task followers too; neither
+        # prior authorship nor a Task-only invitation restores Project sharing.
+        self.tasks[0].message_subscribe(partner_ids=self.clients[0].partner_id.ids)
+        self.assertTrue(task.read(["name"]))
         with self.assertRaises(AccessError):
             task.action_post_customer_requirement(self.links[0].id, "Revoked")
         self.projects[0].message_subscribe(partner_ids=self.clients[0].partner_id.ids)
+        self.assertTrue(task.project_id.read(["name"]))
+        self.assertFalse(
+            self.env["project.collaborator"].search(
+                [("project_id", "=", self.projects[0].id)]
+            )
+        )
         self.assertTrue(task.action_customer_requirements())
         rule = self.env["ir.rule"].create(
             {

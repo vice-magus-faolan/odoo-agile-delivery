@@ -50,6 +50,8 @@ class CustomerRequirementFixture:
                     "privacy_visibility": "portal",
                     "company_id": self.env.company.id,
                     "partner_id": client.partner_id.id,
+                    # Native shared views keep the empty-stage group folded.
+                    "type_ids": [Command.create({"name": "Ready", "fold": False})],
                 }
             )
             project.message_subscribe(partner_ids=client.partner_id.ids)
@@ -76,6 +78,7 @@ class CustomerRequirementFixture:
                     ).id,
                 }
             )
+            self.assertEqual(task.stage_id, project.type_ids)
             task.message_subscribe(partner_ids=client.partner_id.ids)
             solution = env["project.agile.solution"].create(
                 {

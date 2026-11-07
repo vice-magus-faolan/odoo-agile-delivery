@@ -1,0 +1,19 @@
+Licensing coverage
+==================
+
+Licences are per addon. LGPL-3 is the established default for independently
+authored Odoo addons; required AGPL licences and third-party notices are retained.
+
+Each addon's __manifest__.py records its licence, and README.md lists the
+modules, dependencies and licences. Each addon includes its applicable GNU
+licence in LICENSE. LGPL addons also include the incorporated GNU GPL terms
+in COPYING. These full texts do not replace individual copyright notices or
+change an existing licence/version declaration.
+
+The MIT notice for the GitHub test fixtures remains at
+addons/project_agile_git_github/tests/fixtures/LICENSE. Retain that notice
+when redistributing the covered fixtures.
+
+This coverage index is not a blanket relicensing grant. Other individually
+licensed material keeps its existing terms; this index does not assign a new
+licence to material without a licence declaration.

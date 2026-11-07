@@ -78,6 +78,11 @@ notes, old chatter, attachments and scheduled messages remain private. Client
 messages retain the authenticated author and do not subscribe clients to the
 internal source or send them internal notifications.
 
+Customer Discussion notifications are not enabled by default. Following a
+requirement alone does not notify a BA when a client posts. With the default
+subscriptions, BAs find new client questions by opening **Project > Requirements**
+and inspecting that requirement's normal chatter.
+
 The page shows twenty shared messages at a time; **Older messages** retrieves
 earlier shared text. Replacing a Task link with a numbered requirement successor
 keeps this same conversation. Removing current Project or Task access removes

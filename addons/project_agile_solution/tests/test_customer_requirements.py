@@ -206,12 +206,12 @@ class TestCustomerRequirements(CustomerRequirementFixture, TransactionCase):
             self._assert_discussion_and_post_denied(task)
 
     def test_inactive_solution_is_not_projected_or_postable(self):
-        self.assertTrue(self._thread().active)
         self._assert_inactive_source_hidden(self._thread().solution_id)
+        self.assertTrue(self._thread().active)
 
     def test_inactive_requirement_is_not_projected_or_postable(self):
-        self.assertTrue(self._thread().solution_id.active)
         self._assert_inactive_source_hidden(self._thread())
+        self.assertTrue(self._thread().solution_id.active)
 
     def _assert_ineligible_work_denied(self, target, values):
         # Portal rules themselves hide archived Tasks. A real internal reader
@@ -231,8 +231,51 @@ class TestCustomerRequirements(CustomerRequirementFixture, TransactionCase):
             self._assert_discussion_and_post_denied(task)
 
     def test_archived_task_is_not_shared_work(self):
-        self.assertTrue(self.projects[0].active)
         self._assert_ineligible_work_denied(self.tasks[0], {"active": False})
+        self.assertTrue(self.projects[0].active)
+
+    def test_reactivated_task_in_archived_project_is_not_shared_work(self):
+        for user in (self.analyst, self.clients[0]):
+            task = self._assert_native_work_readable(user)
+            self.assertEqual(
+                [card["link_id"] for card in task.action_customer_requirements()],
+                self.links[0].ids,
+            )
+            task.action_post_customer_requirement(self.links[0].id, user.login)
+            self.assertIn(
+                user.login,
+                str(task.action_customer_requirement_discussion(self.links[0].id)),
+            )
+
+        project = self.projects[0]
+        project.write({"active": False})
+        self.assertFalse(self.tasks[0].active)
+        # Native Project archival also archives its Tasks. Reactivation must
+        # leave only Project eligibility denying this otherwise-readable work.
+        self.tasks[0].write({"active": True})
+        self.assertTrue(self.tasks[0].active)
+        self.assertFalse(project.active)
+        self.assertEqual(self.tasks[0].project_id, project)
+        self.assertTrue(project.agile_enabled)
+        self.assertFalse(self.tasks[0].has_template_ancestor)
+        self.assertFalse(self.tasks[0].has_project_template)
+        self.assertTrue(self._thread().active)
+        self.assertTrue(self._thread().solution_id.active)
+        self.assertTrue(self.links[0].active)
+        self.assertEqual(self.links[0].requirement_revision_id.audience, "customer")
+        self.assertIn(self.clients[0].partner_id, project.message_partner_ids)
+        for user in (self.analyst, self.clients[0]):
+            for active_test in (True, False):
+                with self.subTest(user=user.login, active_test=active_test):
+                    task = self._assert_native_work_readable(user).with_context(
+                        active_test=active_test
+                    )
+                    self.assertEqual(task.search_count([("id", "=", task.id)]), 1)
+                    self.assertTrue(task.read(["name"]))
+                    self.assertTrue(task.project_id.read(["name"]))
+                    with self.assertRaises(AccessError):
+                        task.action_customer_requirements()
+                    self._assert_discussion_and_post_denied(task)
 
     def test_non_agile_project_is_not_shared_work(self):
         self._assert_ineligible_work_denied(self.projects[0], {"agile_enabled": False})

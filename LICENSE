@@ -1,6 +1,25 @@
 Licensing coverage
 ==================
 
+Original supporting material
+----------------------------
+
+Original project-owned supporting material in this repository is licensed
+under the GNU Lesser General Public License, version 3 (LGPL-3). This covers
+README.md, AGENTS.md, docs/, scripts/ (including probes and tests), config/,
+.github/, root development/tooling configuration and Docker/Compose files,
+and fixtures/oca-document-page/Dockerfile, subject to the exceptions below.
+The complete terms are in addons/project_agile/LICENSE together with the
+incorporated GNU GPL version 3 terms in addons/project_agile/COPYING.
+
+This grant covers the project's own material, not third-party portions,
+separately licensed contributions, or software referenced, downloaded or
+installed by these files. Existing copyright notices and licence/version
+permissions remain intact.
+
+Addons and test fixtures
+-----------------------
+
 Licences are per addon. LGPL-3 is the established default for independently
 authored Odoo addons; required AGPL licences and third-party notices are retained.
 
@@ -14,6 +33,56 @@ The MIT notice for the GitHub test fixtures remains at
 addons/project_agile_git_github/tests/fixtures/LICENSE. Retain that notice
 when redistributing the covered fixtures.
 
-This coverage index is not a blanket relicensing grant. Other individually
-licensed material keeps its existing terms; this index does not assign a new
-licence to material without a licence declaration.
+OCA tooling template material (MIT)
+----------------------------------
+
+The following files contain material copied or adapted from
+OCA/oca-addons-repo-template at revision
+0c2edf1fd55ce731ab786a6ae39d172590c7c573:
+
+  .pre-commit-config.yaml
+  .pylintrc
+  .pylintrc-mandatory
+  .ruff.toml
+  eslint.config.cjs
+  prettier.config.cjs
+
+The upstream template portions retain the MIT licence reproduced below;
+the LGPL grant above applies only to original project-owned additions, not
+as a restriction on the upstream MIT permissions. Retain this attribution
+and notice when redistributing these files or substantial template portions.
+Source and upstream notice:
+https://github.com/OCA/oca-addons-repo-template/tree/0c2edf1fd55ce731ab786a6ae39d172590c7c573
+https://github.com/OCA/oca-addons-repo-template/blob/0c2edf1fd55ce731ab786a6ae39d172590c7c573/LICENSE
+
+MIT License
+
+Copyright (c) 2020 Odoo Community Association
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+External dependencies
+---------------------
+
+Odoo, OCA modules, container images, browser packages and contributor tools
+retain their own licences and notices; this index does not relicense them.
+In particular, fixtures/oca-document-page/Dockerfile fetches OCA/knowledge at
+e4a12c0c99866a5850840941d6f7ae3b3b27280d. The selected document_knowledge,
+document_page and document_page_project modules are AGPL-3; retain their
+upstream notices and any explicit later-version permissions. The project's
+LGPL-3 build recipe does not change those dependency terms.

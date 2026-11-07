@@ -37,9 +37,10 @@ for the Agile core; some optional addons require other optional modules as liste
 
 Each addon includes its full licence text in `addons/<module>/LICENSE`; LGPL-3
 addons also include the incorporated GNU GPL terms in `COPYING`. The
-[licensing coverage index](LICENSE) explains the scope and the retained MIT
-notice for the GitHub test fixtures. Existing manifest and source declarations
-remain authoritative; these packaged texts do not relicense other material.
+[licensing coverage index](LICENSE) also grants LGPL-3 for original project-owned
+supporting material and identifies the retained MIT terms for OCA tooling-template
+portions and GitHub test fixtures. Existing manifest, source and dependency
+declarations remain authoritative; third-party material keeps its own terms.
 
 The Document Page bridges need separately supplied OCA `knowledge` 19.0 modules:
 `document_page_project` depends on `project` and `document_page`; `document_page`

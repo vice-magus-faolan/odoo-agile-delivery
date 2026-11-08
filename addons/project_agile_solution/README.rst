@@ -230,9 +230,10 @@ choose **Confirm This Preview** as the same user. Work is created or
 linked only when you confirm the preview. Changed source content
 requires a fresh preview; confirming an already consumed preview returns
 its existing task rather than creating another. Inspect links under
-**Project > Requirement Work Links**. For an older link of the same
-requirement, use **Adopt Existing Revision** below to replace it and
-retire the old link together.
+**Project > Requirement Work Links**. To move an older active link to
+the same requirement's current sealed head, use **Adopt Existing
+Revision** below to replace it and retire the old link together. For
+other replacements, use the manual replacement workflow below.
 
 Manage task descriptions, criteria, estimates, workflow and Sprint
 allocation on the tasks themselves. Specification changes preserve these
@@ -307,10 +308,17 @@ Project administrator with current write access to B:
    retired with its reason and actor in the same operation; no separate
    save or retirement is needed.
 
-Adoption reuses the current sealed revision; it creates no revision 3. A
-newer working or sealed head, withdrawn link or revoked access rejects
-an unconfirmed dialog without partial changes. Cancel changes no link.
-An identical successful retry returns the same Task, not another edge.
+Adoption selects only a different **current sealed head** of the same
+requirement; it does not select an arbitrary existing revision or the
+latest sealed revision behind a newer draft. If a newer draft head
+exists, adoption is blocked until the head is sealed through the
+ordinary workflow. A Task already linked to that head cannot adopt it
+again, and a manually retired source link cannot be used.
+
+Adoption reuses that exact revision; it creates no revision 3. A newer
+working or sealed head, withdrawn link or revoked access rejects an
+unconfirmed dialog without partial changes. Cancel changes no link. An
+identical successful retry returns the same Task, not another edge.
 Inspect and reopen a stale dialog.
 
 Repeat only for Tasks you choose. Other Tasks, manual Task criteria,
@@ -318,6 +326,32 @@ approved baselines, recorded acceptance and historical Sprint content
 stay unchanged. Adoption grants no approval or acceptance and copies no
 old specification reference. Use **Refine Acceptance** instead when
 changing the current content.
+
+Replace a work link manually
+----------------------------
+
+For a non-head revision, a different requirement, or coverage that must
+name an exact specification, use **Project > Deliberate Task Previews**
+rather than **Adopt Existing Revision**:
+
+1. Create a **Link Existing Native Task** preview for the same Task and
+   the chosen exact **Requirement Revisions**. Set **Document Revision**
+   if the new coverage must name a specification containing those exact
+   requirements.
+2. Save, choose **Review and Confirm**, inspect the selection and choose
+   **Confirm This Preview**. Verify the successor link under **Project >
+   Requirement Work Links** before withdrawing the old coverage.
+3. Open the old link, choose **Retire Working Link**, enter a meaningful
+   **Reason** and choose **Retire With This Reason**. Check **Agile >
+   Exact Requirement Acceptance** on the Task to verify the remaining
+   coverage.
+
+Confirmation and retirement are separate actions in this workflow.
+Confirm the successor first so a rejected preview does not remove
+working coverage. This preserves the old link's history and does not
+change approved baselines or recorded acceptance. A retired exact
+Task/revision edge cannot be reactivated; use a new deliberate
+requirement revision when that exact edge was retired.
 
 Preview the chosen audience
 ---------------------------

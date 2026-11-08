@@ -373,6 +373,96 @@ class TestSolutionTaskTrace(TestSolutionRequirements):
         with self.assertRaises(ValidationError):
             selected.action_adopt_revision(newer.id)
 
+    def test_adoption_rejects_another_requirements_sealed_current_head(self):
+        requirement = self._requirement(title="Selected requirement coverage")
+        target = self._requirement(title="Different requirement sealed head")
+        task = self._task()
+        selected = self._link(requirement, task)
+        self._link(target, self._task())
+        self.assertFalse(selected.env.su)
+        self.assertEqual(selected.env.user, self.manager)
+        self.assertTrue(selected.active)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertNotEqual(target.requirement_id, requirement.requirement_id)
+        self.assertEqual(target.solution_id, selected.solution_id)
+        self.assertEqual(target.company_id, selected.company_id)
+        self.assertTrue(target.sealed)
+        self.assertEqual(target.requirement_id._complete_revisions()[-1], target)
+        active = selected.search([("task_id", "=", task.id)])
+        self.assertEqual(active, selected)
+        fields = ["active", "retired_at", "retired_by_id", "retirement_reason"]
+        before = selected.read(fields, load=None)
+        coverage = task.solution_requirement_acceptance
+        self.assertIn(requirement.title, coverage)
+        self.assertNotIn(target.title, coverage)
+        with self.assertRaises(ValidationError):
+            selected.action_adopt_revision(target.id)
+        self.assertEqual(selected.search([("task_id", "=", task.id)]), active)
+        self.assertEqual(selected.read(fields, load=None), before)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertEqual(task.solution_requirement_acceptance, coverage)
+
+    def test_adoption_rejects_source_already_at_current_sealed_head(self):
+        target = self._requirement(title="Current sealed coverage")
+        task = self._task()
+        selected = self._link(target, task)
+        self.assertFalse(selected.env.su)
+        self.assertEqual(selected.env.user, self.manager)
+        self.assertTrue(selected.active)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertEqual(selected.requirement_revision_id, target)
+        self.assertTrue(target.sealed)
+        self.assertEqual(target.requirement_id._complete_revisions()[-1], target)
+        active = selected.search([("task_id", "=", task.id)])
+        self.assertEqual(active, selected)
+        fields = ["active", "retired_at", "retired_by_id", "retirement_reason"]
+        before = selected.read(fields, load=None)
+        coverage = task.solution_requirement_acceptance
+        self.assertIn(target.title, coverage)
+        with self.assertRaises(ValidationError):
+            selected.action_adopt_revision(target.id)
+        self.assertEqual(selected.search([("task_id", "=", task.id)]), active)
+        self.assertEqual(selected.read(fields, load=None), before)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertEqual(task.solution_requirement_acceptance, coverage)
+
+    def test_adoption_rejects_manually_retired_source_without_resurrection(self):
+        requirement = self._requirement(title="Withdrawn source coverage")
+        task = self._task()
+        selected = self._link(requirement, task)
+        first = self._link(requirement, self._task())
+        first.action_refine_acceptance("Sealed current successor expectations")
+        target = first.sudo()._refinement_link_id.requirement_revision_id.with_user(
+            self.manager
+        )
+        retained = self._link(
+            self._requirement(title="Independent retained coverage"), task
+        )
+        selected.action_retire("Manual withdrawal before adoption")
+        self.assertFalse(selected.env.su)
+        self.assertEqual(selected.env.user, self.manager)
+        self.assertFalse(selected.active)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertNotEqual(target, requirement)
+        self.assertEqual(target.requirement_id, requirement.requirement_id)
+        self.assertEqual(target.solution_id, selected.solution_id)
+        self.assertEqual(target.company_id, selected.company_id)
+        self.assertTrue(target.sealed)
+        self.assertEqual(target.requirement_id._complete_revisions()[-1], target)
+        active = selected.search([("task_id", "=", task.id)])
+        self.assertEqual(active, retained)
+        fields = ["active", "retired_at", "retired_by_id", "retirement_reason"]
+        before = selected.read(fields, load=None)
+        coverage = task.solution_requirement_acceptance
+        self.assertNotIn(requirement.title, coverage)
+        self.assertIn(retained.requirement_revision_id.title, coverage)
+        with self.assertRaises(ValidationError):
+            selected.action_adopt_revision(target.id)
+        self.assertEqual(selected.search([("task_id", "=", task.id)]), active)
+        self.assertEqual(selected.read(fields, load=None), before)
+        self.assertFalse(selected.sudo()._adoption_link_id)
+        self.assertEqual(task.solution_requirement_acceptance, coverage)
+
     def test_task_displays_all_active_exact_acceptance_and_retirement(self):
         first = self._requirement(
             title="Dispatch approval",

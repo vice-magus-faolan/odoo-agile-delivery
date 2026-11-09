@@ -17,6 +17,8 @@ _EVIDENCE_FIELDS = (
 
 
 class ProjectTask(models.Model):
+    # Historical merge evidence is separate from task input fencing.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.task"
 
     git_merge_environment_ids = fields.Many2many(

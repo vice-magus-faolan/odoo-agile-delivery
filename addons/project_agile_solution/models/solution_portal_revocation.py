@@ -25,6 +25,8 @@ def revoke_publications(env, domain):
 
 
 class SolutionPortalFollowers(models.Model):
+    # Grant revocation is separate from discussion and publication locking.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "mail.followers"
 
     def _publication_scopes(self):

@@ -33,6 +33,8 @@ _TASK_FACT_SPECS = {
 class ProjectProject(models.Model):
     """Expose only repositories already visible through the current user's ORM rules."""
 
+    # Read-only Git navigation is separate from environment mapping guards.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.project"
 
     git_repository_ids = fields.One2many(
@@ -72,6 +74,8 @@ class ProjectTask(models.Model):
     fact IDs.
     """
 
+    # Git fact navigation is separate from historical merge evidence.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.task"
 
     git_association_ids = fields.One2many(

@@ -65,6 +65,111 @@ class RequirementTaskLink(models.Model):
         help="Replacement exact edge retained for identical refinement retries.",
     )
 
+    _adoption_link_id = fields.Many2one(
+        "project.agile.requirement.task.link",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        groups="project_agile_solution.group_snapshot_storage",
+        help="Replacement exact edge retained for identical adoption retries.",
+    )
+
+    def _check_adoption_target(self, revision_id, *, current=True):
+        self.ensure_one()
+        caller = self._trace_authority()
+        caller._check_current_trace_read()
+        check_task(caller.task_id, caller.project_id)
+        target = caller._checked_relation(
+            "project.agile.requirement.revision", revision_id
+        )
+        target._check_authority()
+        check_requirements(target | caller.requirement_revision_id, caller.solution_id)
+        if (
+            target.requirement_id != caller.requirement_revision_id.requirement_id
+            or target == caller.requirement_revision_id
+            or not target.sealed
+        ):
+            raise ValidationError(
+                _("Select another sealed revision of this requirement.")
+            )
+        if current and (
+            not caller.active
+            or target.requirement_id._complete_revisions()[-1] != target
+        ):
+            raise ValidationError(
+                _("Coverage changed; reopen Adopt Existing Revision.")
+            )
+        return target
+
+    def action_request_adoption(self):
+        self.ensure_one()
+        caller = self._trace_authority()
+        target = caller.requirement_revision_id.requirement_id._complete_revisions()[-1]
+        caller._check_adoption_target(target.id)
+        wizard = caller.env["project.agile.requirement.refine.wizard"].create(
+            {"link_id": caller.id, "target_revision_id": target.id}
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": wizard._name,
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "view_id": caller.env.ref(
+                "project_agile_solution.view_requirement_adopt_wizard"
+            ).id,
+            "target": "new",
+        }
+
+    def action_adopt_revision(self, revision_id):
+        """Atomically replace this edge with the explicitly inspected existing head."""
+        self.ensure_one()
+        caller = self._trace_authority()
+        with self.env.cr.savepoint():
+            claim_records(caller.task_id, allow_referencing=True)
+            claim_records(caller, allow_referencing=True)
+            source = caller.requirement_revision_id
+            claim_records(source.requirement_id, allow_referencing=True)
+            # The receipt identifies the result, but never grants current access.
+            replacement = caller.browse(caller.sudo()._adoption_link_id.id)
+            target = caller._check_adoption_target(
+                revision_id, current=not bool(replacement)
+            )
+            if replacement:
+                replacement._trace_authority()
+                replacement._check_current_trace_read()
+                if (
+                    replacement.requirement_revision_id != target
+                    or not replacement.active
+                ):
+                    raise ValidationError(
+                        _("This adoption no longer matches the result.")
+                    )
+            else:
+                # Existing edge creation rechecks scope and claims Project,
+                # Solution and exact content. No content revision is allocated.
+                replacement = caller.create(
+                    {
+                        "task_id": caller.task_id.id,
+                        "requirement_revision_id": target.id,
+                        "document_revision_id": False,
+                    }
+                )
+                caller.action_retire(
+                    _(
+                        "Explicitly adopted existing requirement revision %(number)s.",
+                        number=target.number,
+                    )
+                )
+                super(RequirementTaskLink, caller.sudo()).write(
+                    {"_adoption_link_id": replacement.id}
+                )
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "project.task",
+                "res_id": replacement.task_id.id,
+                "view_mode": "form",
+            }
+
     def _check_refinement_source(self):
         self.ensure_one()
         caller = self._trace_authority()
@@ -81,12 +186,9 @@ class RequirementTaskLink(models.Model):
             raise ValidationError(
                 _(
                     "Coverage changed; only an active link to the current sealed "
-                    "head can be refined. To use an existing revision, open "
-                    "Project > Deliberate Task Previews, select Link Existing "
-                    "Native Task and the exact Requirement Revisions, then "
-                    "confirm the replacement and retire the old link with a "
-                    "reason. See the usage guide (USAGE.md): "
-                    "Move another Task to an existing revision."
+                    "head can be refined. To use the existing current sealed "
+                    "head, choose Adopt Existing Revision on this link, inspect "
+                    "its exact target and confirm Adopt This Revision."
                 )
             )
         return caller

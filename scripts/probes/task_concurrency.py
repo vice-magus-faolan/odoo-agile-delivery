@@ -106,6 +106,20 @@ def _apply(env, data):
             .browse(data["link_id"])
             .action_refine_acceptance(data["expectations"])["res_id"]
         )
+    if action == "adopt":
+        return (
+            env["project.agile.requirement.task.link"]
+            .with_user(uid)
+            .browse(data["link_id"])
+            .action_adopt_revision(data["revision_id"])["res_id"]
+        )
+    if action == "new_head":
+        return (
+            env["project.agile.requirement.task.link"]
+            .with_user(uid)
+            .browse(data["link_id"])
+            .requirement_revision_id.requirement_id.action_new_revision()["res_id"]
+        )
     sprint = env["project.sprint"].with_user(uid).browse(data["sprint_id"])
     if action == "relink":
         links = (
@@ -431,6 +445,45 @@ def run_probe(env):
         )
         link = active
     assert revision.requirement_id._complete_revisions().mapped("number") == [1, 2, 3]
+    target = link.requirement_revision_id
+    original = revision._snapshot_values()
+    for advance_head in (False, True):
+        other = task.copy({"name": "SYNTHETIC selected adoption work"})
+        selected = self_links.create(
+            {"task_id": other.id, "requirement_revision_id": revision.id}
+        )
+        selected._check_adoption_target(target.id)
+        proposal = {
+            "uid": manager.id,
+            "task_id": other.id,
+            "link_id": selected.id,
+            "action": "adopt",
+            "revision_id": target.id,
+        }
+        winner = {**proposal, "action": "new_head"} if advance_head else proposal
+        loser = {**proposal, "expect_stale": True} if advance_head else proposal
+        env.cr.commit()
+        result = race(env, winner, loser, ordering="contended")
+        active = self_links.search([("task_id", "=", other.id)])
+        assert len(active) == 1
+        if advance_head:
+            assert active == selected and selected.active
+            assert not selected.sudo()._adoption_link_id
+            assert active.requirement_revision_id == revision
+        else:
+            assert not selected.active and selected.sudo()._adoption_link_id == active
+            assert active.requirement_revision_id == target
+            assert not active.document_revision_id
+        assert revision._snapshot_values() == original
+        assert revision.requirement_id._complete_revisions().mapped("number") == (
+            [1, 2, 3, 4] if advance_head else [1, 2, 3]
+        )
+        results.append(
+            {
+                "operation": "adopt_stale_head" if advance_head else "adopt_retry",
+                "workers": result,
+            }
+        )
     # Stdout is the canonical verifier's result ABI, not an application log.
     print(  # pylint: disable=print-used
         "M8_TASK_INTENT_CONCURRENCY_OK "

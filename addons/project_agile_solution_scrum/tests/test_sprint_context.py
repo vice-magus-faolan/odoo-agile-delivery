@@ -82,6 +82,22 @@ class TestSolutionSprintContext(TestSolutionTaskTrace):
         # Existing linked archived identity remains navigable history but new
         # active links require an active identity.
         requirement.requirement_id.write({"active": True})
+        other = self._task()
+        other_edge = self._link(requirement, other)
+        other.write({"sprint_id": sprint.id})
+        old_context = self._contexts(self._events(other, "added"))
+        old_payload = old_context.payload_json
+        self.assertEqual(old_context.requirement_revision_id, requirement)
+        self._refinement(other_edge, adoption=True).action_confirm()
+        self.assertEqual(old_context.payload_json, old_payload)
+        self.assertEqual(old_context.requirement_revision_id, requirement)
+        self.assertEqual(
+            other_edge.sudo()._adoption_link_id.requirement_revision_id, successor
+        )
+        self.assertIn(
+            "Explicit later evaluation", other.solution_requirement_acceptance
+        )
+        self.assertEqual(self._contexts(committed).payload_json, frozen)
         second = self._task()
         self._link(successor, second)
         second.write({"sprint_id": sprint.id})

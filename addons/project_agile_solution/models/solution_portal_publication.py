@@ -490,6 +490,8 @@ class SolutionPortalRevision(models.Model):
 
 
 class SolutionPortalInvitation(models.Model):
+    # Publication locking is separate from discussion and grant revocation.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "mail.followers"
 
     _portal_publication_head_id = fields.Many2one(

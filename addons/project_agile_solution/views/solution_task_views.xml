@@ -188,6 +188,13 @@
             invisible="not active"
             groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
+          <button
+            name="action_request_adoption"
+            type="object"
+            string="Adopt Existing Revision"
+            invisible="not active"
+            groups="project.group_project_manager,project_agile_solution.group_business_analyst"
+          />
         </header>
       </xpath>
     </field>
@@ -302,6 +309,7 @@
           <field name="previous_expectations" />
           <field
             name="acceptance_expectations"
+            required="1"
             string="Proposed Acceptance Expectations"
           />
         </group>
@@ -310,6 +318,36 @@
             name="action_confirm"
             type="object"
             string="Apply Refinement"
+            class="btn-primary"
+          />
+          <button string="Cancel" special="cancel" />
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="view_requirement_adopt_wizard" model="ir.ui.view">
+    <field name="name">requirement.adopt.wizard.form</field>
+    <field name="model">project.agile.requirement.refine.wizard</field>
+    <field name="priority">20</field>
+    <field name="arch" type="xml">
+      <form string="Adopt Existing Revision">
+        <div
+          class="alert alert-info"
+          role="status"
+        >Adopt this exact existing revision for this Task and retire its old link together. No content revision is created. Other Tasks, history and manual criteria remain unchanged; approval and acceptance are not granted.</div>
+        <group>
+          <field name="link_id" options="{&quot;no_open&quot;: True}" />
+          <field name="task_id" />
+          <field name="previous_expectations" />
+          <field name="target_revision_id" />
+          <field name="target_number" />
+          <field name="target_expectations" />
+        </group>
+        <footer>
+          <button
+            name="action_confirm"
+            type="object"
+            string="Adopt This Revision"
             class="btn-primary"
           />
           <button string="Cancel" special="cancel" />

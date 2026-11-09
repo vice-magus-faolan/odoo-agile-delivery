@@ -21,7 +21,17 @@ class RequirementRefineWizard(models.TransientModel):
         readonly=True,
         compute_sudo=False,
     )
-    acceptance_expectations = fields.Text(required=True)
+    acceptance_expectations = fields.Text()
+    target_revision_id = fields.Many2one(
+        "project.agile.requirement.revision", readonly=True, ondelete="restrict"
+    )
+    target_number = fields.Integer(
+        related="target_revision_id.number", compute_sudo=False
+    )
+    target_expectations = fields.Text(
+        related="target_revision_id.acceptance_expectations", compute_sudo=False
+    )
+    task_id = fields.Many2one(related="link_id.task_id", compute_sudo=False)
     native_link_access = fields.Boolean(
         compute="_compute_link_access",
         search="_search_link_access",
@@ -39,7 +49,18 @@ class RequirementRefineWizard(models.TransientModel):
             .sudo(False)
             .with_context(active_test=False)
         )
+        revisions = (
+            self.env["project.agile.requirement.revision"]
+            .sudo(False)
+            .with_context(active_test=False)
+        )
         accessible = Domain("link_id", "in", links._search([]))
+        accessible &= Domain.OR(
+            [
+                Domain("target_revision_id", "=", False),
+                Domain("target_revision_id", "in", revisions._search([])),
+            ]
+        )
         positive = Domain.OR(
             accessible if item is True else ~accessible
             for item in value
@@ -58,7 +79,14 @@ class RequirementRefineWizard(models.TransientModel):
         caller.check_access("create")
         with self.env.cr.savepoint():
             for values in vals_list:
-                if set(values) - {"link_id", "acceptance_expectations"}:
+                if set(values) - {
+                    "link_id",
+                    "acceptance_expectations",
+                    "target_revision_id",
+                } or (
+                    values.get("target_revision_id")
+                    and "acceptance_expectations" in values
+                ):
                     raise ValidationError(
                         _("Select a work link and proposed expectations only.")
                     )
@@ -67,7 +95,10 @@ class RequirementRefineWizard(models.TransientModel):
                 ]._checked_relation(
                     "project.agile.requirement.task.link", values.get("link_id")
                 )
-                link._check_refinement_source()
+                if values.get("target_revision_id"):
+                    link._check_adoption_target(values["target_revision_id"])
+                else:
+                    link._check_refinement_source()
             return super(RequirementRefineWizard, caller).create(vals_list)
 
     def _check_current_link(self):
@@ -75,6 +106,11 @@ class RequirementRefineWizard(models.TransientModel):
         caller.check_access("read")
         caller.link_id._check_current_trace_read()
         caller.link_id._trace_authority()
+        for wizard in caller:
+            if wizard.target_revision_id:
+                wizard.link_id._check_adoption_target(
+                    wizard.target_revision_id.id, current=False
+                )
         return caller
 
     def read(self, fields=None, load="_classic_read"):
@@ -87,7 +123,9 @@ class RequirementRefineWizard(models.TransientModel):
 
     def write(self, values):
         self._check_current_link()
-        if set(values) - {"acceptance_expectations"}:
+        if values and (
+            self.target_revision_id or set(values) - {"acceptance_expectations"}
+        ):
             raise ValidationError(
                 _("The original work link is immutable; reopen refinement.")
             )
@@ -97,4 +135,6 @@ class RequirementRefineWizard(models.TransientModel):
         self.ensure_one()
         caller = self._check_current_link()
         caller.check_access("write")
+        if caller.target_revision_id:
+            return caller.link_id.action_adopt_revision(caller.target_revision_id.id)
         return caller.link_id.action_refine_acceptance(caller.acceptance_expectations)

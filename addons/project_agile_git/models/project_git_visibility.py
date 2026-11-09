@@ -74,8 +74,6 @@ class ProjectTask(models.Model):
     fact IDs.
     """
 
-    # Git fact navigation is separate from historical merge evidence.
-    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.task"
 
     git_association_ids = fields.One2many(

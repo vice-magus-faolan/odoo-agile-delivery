@@ -182,8 +182,9 @@ administrator with current write access to B:
 Adoption selects only a different **current sealed head** of the same requirement;
 it does not select an arbitrary existing revision or the latest sealed revision
 behind a newer draft. If a newer draft head exists, adoption is blocked until the
-head is sealed through the ordinary workflow. A Task already linked to that head
-cannot adopt it again, and a manually retired source link cannot be used.
+head is sealed through the ordinary workflow.
+A link already at that head cannot adopt it again. A manually retired source link
+cannot be used.
 
 Adoption reuses that exact revision; it creates no revision 3. A newer working or
 sealed head, withdrawn link or revoked access rejects an unconfirmed dialog

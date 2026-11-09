@@ -17,7 +17,7 @@ _EVIDENCE_FIELDS = (
 
 
 class ProjectTask(models.Model):
-    # Historical merge evidence is separate from task input fencing.
+    # Historical merge evidence is separate from Git fact navigation.
     # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.task"
 

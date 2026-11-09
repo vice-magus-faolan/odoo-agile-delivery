@@ -235,14 +235,15 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                 files.unlink()
                 self.assertFalse(files.exists())
 
-    def _incoming_reply(self, parent, sender, body="Native incoming reply"):
+    def _incoming_reply(self, parent_message_id, sender, body="Native incoming reply"):
+        # Freeze the legitimate reference before revoking the original author.
         message = EmailMessage()
         message["From"] = sender
         message["To"] = "discussion@example.test"
         message["Subject"] = "Re: stable Solution discussion"
         message["Message-ID"] = f"<{uuid4()}@example.test>"
-        message["In-Reply-To"] = parent.message_id
-        message["References"] = parent.message_id
+        message["In-Reply-To"] = parent_message_id
+        message["References"] = parent_message_id
         message.set_content(body)
         message.add_attachment(
             b"Native reply file", maintype="text", subtype="plain", filename="reply.txt"
@@ -256,8 +257,10 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
         for identity in (self.requirement, self.document, self.context):
             with self.subTest(model=identity._name):
                 self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
-                parent = self._post(identity)
-                incoming = self._incoming_reply(parent, self.reader.email_formatted)
+                parent_message_id = self._post(identity).message_id
+                incoming = self._incoming_reply(
+                    parent_message_id, self.reader.email_formatted
+                )
                 with self.mock_mail_gateway():
                     result = self.env["mail.thread"].message_process(
                         None, incoming.as_bytes()
@@ -302,7 +305,9 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                     self.portal.email_formatted,
                     "Unknown <unbound@example.test>",
                 ):
-                    rejected = self._incoming_reply(parent, sender, "Rejected reply")
+                    rejected = self._incoming_reply(
+                        parent_message_id, sender, "Rejected reply"
+                    )
                     with (
                         self.mock_mail_gateway(),
                         self.assertRaises(AccessError),
@@ -334,7 +339,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
 
     def test_gateway_rechecks_custom_rules_company_and_active_author(self):
         self.reader.email = "discussion.reader.rules@example.test"
-        parent = self._post(self.requirement)
+        parent_message_id = self._post(self.requirement).message_id
         gateway = self.env["mail.thread"]
         rule = self.env["ir.rule"].create(
             {
@@ -343,7 +348,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                 "domain_force": repr([("id", "!=", self.requirement.id)]),
             }
         )
-        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        incoming = self._incoming_reply(parent_message_id, self.reader.email_formatted)
         with (
             self.mock_mail_gateway(),
             self.assertRaises(AccessError),
@@ -356,7 +361,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
         self.reader.write(
             {"company_ids": [Command.set(other.ids)], "company_id": other.id}
         )
-        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        incoming = self._incoming_reply(parent_message_id, self.reader.email_formatted)
         with (
             self.mock_mail_gateway(),
             self.assertRaises(AccessError),
@@ -370,7 +375,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                 "active": False,
             }
         )
-        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        incoming = self._incoming_reply(parent_message_id, self.reader.email_formatted)
         with (
             self.mock_mail_gateway(),
             self.assertRaises(AccessError),
@@ -397,8 +402,10 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
         self._private_project()
         self.reader.email = "discussion.reader.spoof@example.test"
         for identity in (self.requirement, self.document, self.context):
-            parent = self._post(identity)
-            incoming = self._incoming_reply(parent, self.reader.email_formatted)
+            parent_message_id = self._post(identity).message_id
+            incoming = self._incoming_reply(
+                parent_message_id, self.reader.email_formatted
+            )
             caller = identity.with_user(self.owner).with_context(
                 sudo=True,
                 _solution_gateway_reply={
@@ -461,7 +468,9 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
             messages_before = identity.message_ids.read(
                 ["body", "author_id", "attachment_ids"]
             )
-            files_before = (attachment | pending).read(["datas", "res_model", "res_id"])
+            # Observe unchanged files independently of the revoked reader below.
+            files = (attachment | pending).with_env(self.env)
+            files_before = files.read(["datas", "res_model", "res_id"])
             notifications = self.env["mail.notification"].search(
                 [
                     ("mail_message_id", "in", identity.message_ids.ids),
@@ -490,7 +499,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                 messages_before,
             )
             self.assertEqual(
-                (attachment | pending).read(["datas", "res_model", "res_id"]),
+                files.read(["datas", "res_model", "res_id"]),
                 files_before,
             )
             self.assertEqual(
@@ -1301,7 +1310,7 @@ class TestSolutionDiscussionTour(HttpCase):
             # Even a source reader cannot turn the administrative import API
             # into an RPC path for choosing another mail author.
             incoming = TestSolutionDiscussion._incoming_reply(
-                self, messages, manager.email_formatted
+                self, messages.message_id, manager.email_formatted
             )
             import_denied = self._rpc(
                 "mail.thread",
@@ -1417,8 +1426,12 @@ class TestSolutionDiscussionTour(HttpCase):
                 [identity.ids, reader.partner_id.ids],
                 {"sudo": True, "_solution_gateway_reply": True},
             )
-            self.assertIn("result", removed)
-            self.assertIsNone(removed["result"])
+            # Native JSON-RPC omits the result key for a None return.
+            self.assertEqual(removed["jsonrpc"], "2.0")
+            self.assertEqual(removed["id"], 1)
+            self.assertNotIn("error", removed)
+            self.assertIsNone(removed.get("result"))
+            self.assertFalse(follower.exists())
             still_hidden = self._rpc("mail.message", "read", [messages.ids, ["body"]])
             self.assertEqual(
                 still_hidden["error"]["data"]["name"], "odoo.exceptions.AccessError"

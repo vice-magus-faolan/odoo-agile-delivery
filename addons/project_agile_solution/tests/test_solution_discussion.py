@@ -3,18 +3,20 @@
 import base64
 import json
 from datetime import timedelta
+from email.message import EmailMessage
+from uuid import uuid4
 
 from odoo import Command, fields
 from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, tagged
 from odoo.tests.common import TransactionCase
 
-from odoo.addons.mail.tests.common import mail_new_test_user
+from odoo.addons.mail.tests.common import MockEmail, mail_new_test_user
 
 from .test_solution_render_tour import TestSolutionRenderTour
 
 
-class TestSolutionDiscussion(TransactionCase):
+class TestSolutionDiscussion(TransactionCase, MockEmail):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -232,6 +234,337 @@ class TestSolutionDiscussion(TransactionCase):
                 )
                 files.unlink()
                 self.assertFalse(files.exists())
+
+    def _incoming_reply(self, parent, sender, body="Native incoming reply"):
+        message = EmailMessage()
+        message["From"] = sender
+        message["To"] = "discussion@example.test"
+        message["Subject"] = "Re: stable Solution discussion"
+        message["Message-ID"] = f"<{uuid4()}@example.test>"
+        message["In-Reply-To"] = parent.message_id
+        message["References"] = parent.message_id
+        message.set_content(body)
+        message.add_attachment(
+            b"Native reply file", maintype="text", subtype="plain", filename="reply.txt"
+        )
+        return message
+
+    def test_native_gateway_replies_use_current_author_and_original_thread(self):
+        self._private_project()
+        self.reader.email = "discussion.reader@example.test"
+        self.owner.email = "discussion.outsider@example.test"
+        for identity in (self.requirement, self.document, self.context):
+            with self.subTest(model=identity._name):
+                self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
+                parent = self._post(identity)
+                incoming = self._incoming_reply(parent, self.reader.email_formatted)
+                with self.mock_mail_gateway():
+                    result = self.env["mail.thread"].message_process(
+                        None, incoming.as_bytes()
+                    )
+                self.assertEqual(result, identity.id)
+                reply = self.env["mail.message"].search(
+                    [("message_id", "=", incoming["Message-ID"])]
+                )
+                self.assertEqual(len(reply), 1)
+                self.assertEqual(
+                    (reply.model, reply.res_id), (identity._name, identity.id)
+                )
+                self.assertEqual(reply.author_id, self.reader.partner_id)
+                self.assertEqual(reply.create_uid, self.env.ref("base.user_root"))
+                self.assertEqual(reply.message_type, "email")
+                self.assertIn(
+                    "Native incoming reply", reply.with_user(self.reader).body
+                )
+                self.assertEqual(reply.attachment_ids.name, "reply.txt")
+                self.assertEqual(reply.attachment_ids.raw, b"Native reply file")
+                with self.mock_mail_gateway():
+                    self.assertFalse(
+                        self.env["mail.thread"].message_process(
+                            None, incoming.as_bytes()
+                        )
+                    )
+                self.assertEqual(
+                    self.env["mail.message"].search_count(
+                        [("message_id", "=", incoming["Message-ID"])]
+                    ),
+                    1,
+                )
+                # Authorship/following does not survive native Project revocation.
+                self.project.message_unsubscribe(partner_ids=self.reader.partner_id.ids)
+                self.assertFalse(
+                    identity.with_user(self.reader).search([("id", "=", identity.id)])
+                )
+                before = identity.message_ids
+                for sender in (
+                    self.reader.email_formatted,
+                    self.owner.email_formatted,
+                    self.portal.email_formatted,
+                    "Unknown <unbound@example.test>",
+                ):
+                    rejected = self._incoming_reply(parent, sender, "Rejected reply")
+                    with (
+                        self.mock_mail_gateway(),
+                        self.assertRaises(AccessError),
+                        self.cr.savepoint(),
+                    ):
+                        self.env["mail.thread"].message_process(
+                            None, rejected.as_bytes()
+                        )
+                    self.assertFalse(
+                        self.env["mail.message"].search(
+                            [("message_id", "=", rejected["Message-ID"])]
+                        )
+                    )
+                self.assertEqual(identity.message_ids, before)
+                self._assert_payload_hidden(reply, self.reader, "body")
+                self._assert_payload_hidden(reply.attachment_ids, self.reader, "datas")
+                self.assertFalse(
+                    self.env["mail.notification"].search(
+                        [
+                            ("mail_message_id", "=", reply.id),
+                            (
+                                "res_partner_id",
+                                "in",
+                                (self.owner | self.portal).partner_id.ids,
+                            ),
+                        ]
+                    )
+                )
+
+    def test_gateway_rechecks_custom_rules_company_and_active_author(self):
+        self.reader.email = "discussion.reader.rules@example.test"
+        parent = self._post(self.requirement)
+        gateway = self.env["mail.thread"]
+        rule = self.env["ir.rule"].create(
+            {
+                "name": "Current gateway source rule",
+                "model_id": self.env["ir.model"]._get_id(self.requirement._name),
+                "domain_force": repr([("id", "!=", self.requirement.id)]),
+            }
+        )
+        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        with (
+            self.mock_mail_gateway(),
+            self.assertRaises(AccessError),
+            self.cr.savepoint(),
+        ):
+            gateway.message_process(None, incoming.as_bytes())
+        rule.unlink()
+        other = self.env["res.company"].create({"name": "Gateway other company"})
+        original_company = self.reader.company_id
+        self.reader.write(
+            {"company_ids": [Command.set(other.ids)], "company_id": other.id}
+        )
+        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        with (
+            self.mock_mail_gateway(),
+            self.assertRaises(AccessError),
+            self.cr.savepoint(),
+        ):
+            gateway.message_process(None, incoming.as_bytes())
+        self.reader.write(
+            {
+                "company_ids": [Command.set(original_company.ids)],
+                "company_id": original_company.id,
+                "active": False,
+            }
+        )
+        incoming = self._incoming_reply(parent, self.reader.email_formatted)
+        with (
+            self.mock_mail_gateway(),
+            self.assertRaises(AccessError),
+            self.cr.savepoint(),
+        ):
+            gateway.message_process(None, incoming.as_bytes())
+        self.reader.active = True
+        with self.mock_mail_gateway():
+            self.assertEqual(
+                gateway.message_process(None, incoming.as_bytes()), self.requirement.id
+            )
+        self.assertEqual(
+            self.env["mail.message"]
+            .search(
+                [
+                    ("message_id", "=", incoming["Message-ID"]),
+                ]
+            )
+            .author_id,
+            self.reader.partner_id,
+        )
+
+    def test_gateway_authority_cannot_be_forged_by_public_methods_or_context(self):
+        self._private_project()
+        self.reader.email = "discussion.reader.spoof@example.test"
+        for identity in (self.requirement, self.document, self.context):
+            parent = self._post(identity)
+            incoming = self._incoming_reply(parent, self.reader.email_formatted)
+            caller = identity.with_user(self.owner).with_context(
+                sudo=True,
+                _solution_gateway_reply={
+                    "author_id": self.reader.partner_id.id,
+                    "user_id": self.reader.id,
+                    "targets": [[identity._name, identity.id]],
+                },
+                default_author_id=self.reader.partner_id.id,
+            )
+            before = identity.message_ids
+            with self.assertRaises(AccessError), self.cr.savepoint():
+                caller.message_post(
+                    author_id=self.reader.partner_id.id,
+                    email_from=self.reader.email_formatted,
+                    message_type="email",
+                    body="Spoofed direct post",
+                )
+            with (
+                self.mock_mail_gateway(),
+                self.assertRaisesRegex(
+                    AccessError, "Administrative mail gateway access is required"
+                ),
+                self.cr.savepoint(),
+            ):
+                caller.env["mail.thread"].message_process(None, incoming.as_bytes())
+            with self.assertRaises(AccessError), self.cr.savepoint():
+                identity.with_user(self.env.ref("base.user_root")).message_post(
+                    author_id=self.reader.partner_id.id,
+                    email_from=self.reader.email_formatted,
+                    body="No blanket OdooBot authority",
+                )
+            # Public message_update receives no private provenance either.
+            caller.message_update({"author_id": self.reader.partner_id.id})
+            self.assertEqual(identity.message_ids, before)
+
+    def test_revoked_self_unfollow_only_removes_own_subscription(self):
+        self._private_project()
+        other = self.env["res.company"].create({"name": "Unfollow company"})
+        self.reader.company_ids = [Command.link(other.id)]
+        for identity in (self.requirement, self.document, self.context):
+            self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
+            self._post(identity)
+            identity.message_subscribe(
+                partner_ids=(self.manager | self.owner).partner_id.ids
+            )
+            follower = self.env["mail.followers"].search(
+                [
+                    ("res_model", "=", identity._name),
+                    ("res_id", "=", identity.id),
+                    ("partner_id", "=", self.reader.partner_id.id),
+                ]
+            )
+            self.assertTrue(follower)
+            others = identity.message_follower_ids - follower
+            others_before = others.read(["partner_id", "subtype_ids"])
+            message = identity.message_ids[0]
+            attachment, scheduled, pending = self._private_payloads(
+                identity, self.reader
+            )
+            messages_before = identity.message_ids.read(
+                ["body", "author_id", "attachment_ids"]
+            )
+            files_before = (attachment | pending).read(["datas", "res_model", "res_id"])
+            notifications = self.env["mail.notification"].search(
+                [
+                    ("mail_message_id", "in", identity.message_ids.ids),
+                ]
+            )
+            notifications_before = notifications.read(
+                ["res_partner_id", "is_read", "notification_status"]
+            )
+            self.project.message_unsubscribe(partner_ids=self.reader.partner_id.ids)
+            caller = identity.with_user(self.reader).with_context(
+                allowed_company_ids=other.ids, active_test=False, sudo=True
+            )
+            self.assertFalse(caller.search([("id", "=", identity.id)]))
+            with self.assertRaises(AccessError), self.cr.savepoint():
+                caller.message_unsubscribe((self.reader | self.manager).partner_id.ids)
+            self.assertTrue(follower.exists())
+            with self.assertRaises(AccessError), self.cr.savepoint():
+                caller.message_unsubscribe(self.manager.partner_id.ids)
+            self.assertIsNone(caller.message_unsubscribe(self.reader.partner_id.ids))
+            self.assertFalse(follower.exists())
+            self.assertIsNone(caller.message_unsubscribe(self.reader.partner_id.ids))
+            self.assertEqual(identity.message_follower_ids, others)
+            self.assertEqual(others.read(["partner_id", "subtype_ids"]), others_before)
+            self.assertEqual(
+                identity.message_ids.read(["body", "author_id", "attachment_ids"]),
+                messages_before,
+            )
+            self.assertEqual(
+                (attachment | pending).read(["datas", "res_model", "res_id"]),
+                files_before,
+            )
+            self.assertEqual(
+                notifications.read(
+                    ["res_partner_id", "is_read", "notification_status"]
+                ),
+                notifications_before,
+            )
+            for row, field in (
+                (identity, "name"),
+                (message, "body"),
+                (attachment, "datas"),
+                (pending, "datas"),
+                (scheduled, "body"),
+            ):
+                self._assert_payload_hidden(row, self.reader, field)
+            with self.assertRaises(AccessError):
+                caller.message_post(body="Unfollow is not access")
+            fresh = identity.with_context(mail_notify_force_send=False).message_post(
+                body="After self-unfollow",
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                partner_ids=self.reader.partner_id.ids,
+            )
+            self.assertFalse(
+                self.env["mail.notification"].search(
+                    [
+                        ("mail_message_id", "=", fresh.id),
+                        ("res_partner_id", "=", self.reader.partner_id.id),
+                    ]
+                )
+            )
+
+    def test_question_owner_without_source_access_is_not_automatically_followed(self):
+        self._private_project()
+        self.assertFalse(
+            self.context.with_user(self.owner).search([("id", "=", self.context.id)])
+        )
+        question = self._question()
+        self.assertNotIn(self.owner.partner_id, self.context.message_partner_ids)
+        # Manual/previous followers are retained, including their own subtypes.
+        self.context.message_subscribe(partner_ids=self.owner.partner_id.ids)
+        follower = self.env["mail.followers"].search(
+            [
+                ("res_model", "=", self.context._name),
+                ("res_id", "=", self.context.id),
+                ("partner_id", "=", self.owner.partner_id.id),
+            ]
+        )
+        note = self.env.ref("mail.mt_note")
+        follower.write({"subtype_ids": [Command.set(note.ids)]})
+        question.write({"owner_id": self.reader.id})
+        question.write({"owner_id": self.owner.id})
+        self.assertEqual(follower.subtype_ids, note)
+        self.assertIn(self.reader.partner_id, self.context.message_partner_ids)
+        question.write({"owner_id": self.analyst.id})
+        self.assertNotIn(self.analyst.partner_id, self.context.message_partner_ids)
+        self.project.message_subscribe(partner_ids=self.analyst.partner_id.ids)
+        # Membership changes alone do not subscribe; assignment is the trigger.
+        self.assertNotIn(self.analyst.partner_id, self.context.message_partner_ids)
+        question.write({"owner_id": self.analyst.id})
+        self.assertIn(self.analyst.partner_id, self.context.message_partner_ids)
+        self.assertEqual(follower.subtype_ids, note)
+        message = self._post(self.context, partner_ids=self.owner.partner_id.ids)
+        self.assertFalse(
+            self.env["mail.notification"].search(
+                [
+                    ("mail_message_id", "=", message.id),
+                    ("res_partner_id", "=", self.owner.partner_id.id),
+                ]
+            )
+        )
+        with self.assertRaises(AccessError):
+            self.context.with_user(self.owner).read(["name"])
 
     def _post(self, record, **values):
         return (
@@ -589,7 +922,9 @@ class TestSolutionDiscussion(TransactionCase):
                     with self.assertRaises(AccessError):
                         caller.message_subscribe(partner_ids=user.partner_id.ids)
                     with self.assertRaises(AccessError):
-                        caller.message_unsubscribe(partner_ids=user.partner_id.ids)
+                        caller.message_unsubscribe(
+                            partner_ids=self.manager.partner_id.ids
+                        )
                     with self.assertRaises(AccessError):
                         follower.with_user(user).read(["partner_id"])
                     if user.share:
@@ -963,6 +1298,36 @@ class TestSolutionDiscussionTour(HttpCase):
                 headers={"Content-Type": "application/json"},
             )
             self.assertIn("Browser persistent discussion", visible.text)
+            # Even a source reader cannot turn the administrative import API
+            # into an RPC path for choosing another mail author.
+            incoming = TestSolutionDiscussion._incoming_reply(
+                self, messages, manager.email_formatted
+            )
+            import_denied = self._rpc(
+                "mail.thread",
+                "message_process",
+                [None, incoming.as_string()],
+                {"sudo": True, "_solution_gateway_reply": True},
+            )
+            self.assertEqual(
+                import_denied["error"]["data"]["name"], "odoo.exceptions.AccessError"
+            )
+            self.assertFalse(
+                self.env["mail.message"].search(
+                    [
+                        ("message_id", "=", incoming["Message-ID"]),
+                    ]
+                )
+            )
+            identity.message_subscribe(partner_ids=reader.partner_id.ids)
+            follower = self.env["mail.followers"].search(
+                [
+                    ("res_model", "=", model),
+                    ("res_id", "=", identity.id),
+                    ("partner_id", "=", reader.partner_id.id),
+                ]
+            )
+            self.assertTrue(follower)
             rule = self.env["ir.rule"].create(
                 {
                     "name": "Revoke UI source",
@@ -987,4 +1352,76 @@ class TestSolutionDiscussionTour(HttpCase):
                     denied["error"]["data"]["name"], "odoo.exceptions.AccessError"
                 )
                 self.assertNotIn("Browser persistent discussion", str(denied))
+            forged = self.url_open(
+                "/web/dataset/call_kw",
+                data=json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "call",
+                        "id": 1,
+                        "params": {
+                            "model": model,
+                            "method": "message_post",
+                            "args": [identity.ids],
+                            "kwargs": {
+                                "author_id": manager.partner_id.id,
+                                "email_from": manager.email_formatted,
+                                "message_type": "email",
+                                "body": "RPC forgery",
+                                "context": {
+                                    "sudo": True,
+                                    "_solution_gateway_reply": {"user_id": manager.id},
+                                },
+                            },
+                        },
+                    }
+                ),
+                headers={"Content-Type": "application/json"},
+            ).json()
+            self.assertEqual(
+                forged["error"]["data"]["name"], "odoo.exceptions.AccessError"
+            )
+            self.assertNotIn("Browser persistent discussion", str(forged))
+            native_payload = {
+                "jsonrpc": "2.0",
+                "method": "call",
+                "id": 1,
+                "params": {
+                    "res_model": model,
+                    "res_id": identity.id,
+                    "partner_ids": manager.partner_id.ids,
+                },
+            }
+            denied_removal = self.url_open(
+                "/mail/thread/unsubscribe",
+                data=json.dumps(native_payload),
+                headers={"Content-Type": "application/json"},
+            ).json()
+            self.assertEqual(
+                denied_removal["error"]["data"]["name"], "odoo.exceptions.AccessError"
+            )
+            self.assertTrue(follower.exists())
+            native_payload["params"]["partner_ids"] = reader.partner_id.ids
+            native_removed = self.url_open(
+                "/mail/thread/unsubscribe",
+                data=json.dumps(native_payload),
+                headers={"Content-Type": "application/json"},
+            ).json()
+            self.assertIn("result", native_removed)
+            self.assertNotIn("Browser persistent discussion", str(native_removed))
+            self.assertNotIn("Shared native discussion", str(native_removed))
+            self.assertFalse(follower.exists())
+            removed = self._rpc(
+                model,
+                "message_unsubscribe",
+                [identity.ids, reader.partner_id.ids],
+                {"sudo": True, "_solution_gateway_reply": True},
+            )
+            self.assertIn("result", removed)
+            self.assertIsNone(removed["result"])
+            still_hidden = self._rpc("mail.message", "read", [messages.ids, ["body"]])
+            self.assertEqual(
+                still_hidden["error"]["data"]["name"], "odoo.exceptions.AccessError"
+            )
+            self.assertNotIn("Browser persistent discussion", str(still_hidden))
             rule.unlink()

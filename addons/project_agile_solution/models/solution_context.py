@@ -239,9 +239,10 @@ class SolutionContextRevision(models.Model):
 
     def _subscribe_question_owner(self):
         for record in self.filtered(lambda row: row.kind == "question"):
-            record.context_id.message_subscribe(
-                partner_ids=record.owner_id.partner_id.ids
-            )
+            context = record.context_id
+            partner = record.owner_id.partner_id
+            if context._discussion_recipient_allowed(partner.id):
+                context.message_subscribe(partner_ids=partner.ids)
 
     # Validation is side-effect/error-only; super's value is not its API.
     def _validate_content(self):  # pylint: disable=missing-return

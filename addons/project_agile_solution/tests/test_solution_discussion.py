@@ -4,6 +4,7 @@ import base64
 import json
 from datetime import timedelta
 from email.message import EmailMessage
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from odoo import Command, fields
@@ -254,6 +255,7 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
         self._private_project()
         self.reader.email = "discussion.reader@example.test"
         self.owner.email = "discussion.outsider@example.test"
+        self.portal.email = "discussion.portal@example.test"
         for identity in (self.requirement, self.document, self.context):
             with self.subTest(model=identity._name):
                 self.project.message_subscribe(partner_ids=self.reader.partner_id.ids)
@@ -299,6 +301,14 @@ class TestSolutionDiscussion(TransactionCase, MockEmail):
                     identity.with_user(self.reader).search([("id", "=", identity.id)])
                 )
                 before = identity.message_ids
+                # The native resolver must reject the portal, not resolve a
+                # shared factory mailbox to an otherwise-authorized manager.
+                self.assertEqual(
+                    identity._partner_find_from_emails_single(
+                        [self.portal.email_formatted], no_create=True
+                    ),
+                    self.portal.partner_id,
+                )
                 for sender in (
                     self.reader.email_formatted,
                     self.owner.email_formatted,
@@ -1337,6 +1347,70 @@ class TestSolutionDiscussionTour(HttpCase):
                 ]
             )
             self.assertTrue(follower)
+            native_payload = {
+                "jsonrpc": "2.0",
+                "method": "call",
+                "id": 1,
+                "params": {
+                    "res_model": model,
+                    "res_id": identity.id,
+                    "partner_ids": reader.partner_id.ids,
+                },
+            }
+            native_allowed = self.url_open(
+                "/mail/thread/unsubscribe",
+                data=json.dumps(native_payload),
+                headers={"Content-Type": "application/json"},
+            ).json()
+            self.assertNotIn("error", native_allowed)
+            thread_data = next(
+                row
+                for row in native_allowed["result"]["mail.thread"]
+                if row["id"] == identity.id and row["model"] == model
+            )
+            self.assertFalse(thread_data["selfFollower"])
+            self.assertIn("followersCount", thread_data)
+            self.assertIn("suggestedRecipients", thread_data)
+            self.assertFalse(follower.exists())
+
+            identity.message_subscribe(partner_ids=reader.partner_id.ids)
+            follower = self.env["mail.followers"].search(
+                [
+                    ("res_model", "=", model),
+                    ("res_id", "=", identity.id),
+                    ("partner_id", "=", reader.partner_id.id),
+                ]
+            )
+            self.assertTrue(follower)
+            signed = urlsplit(
+                identity._notify_get_action_link("unfollow", pid=reader.partner_id.id)
+            )
+            unfollow_url = f"{signed.path}?{signed.query}"
+            bad_token = self.url_open(
+                unfollow_url.replace("token=", "token=invalid", 1)
+            )
+            self.assertEqual(bad_token.status_code, 403)
+            self.assertTrue(follower.exists())
+            wrong_partner_url = unfollow_url.replace(
+                f"pid={reader.partner_id.id}&", f"pid={manager.partner_id.id}&", 1
+            )
+            self.assertNotEqual(wrong_partner_url, unfollow_url)
+            bad_partner = self.url_open(wrong_partner_url)
+            self.assertEqual(bad_partner.status_code, 403)
+            self.assertTrue(follower.exists())
+            authorized_get = self.url_open(unfollow_url)
+            self.assertEqual(authorized_get.status_code, 200)
+            self.assertIn("Shared native discussion", authorized_get.text)
+            self.assertFalse(follower.exists())
+            identity.message_subscribe(partner_ids=reader.partner_id.ids)
+            follower = self.env["mail.followers"].search(
+                [
+                    ("res_model", "=", model),
+                    ("res_id", "=", identity.id),
+                    ("partner_id", "=", reader.partner_id.id),
+                ]
+            )
+            self.assertTrue(follower)
             rule = self.env["ir.rule"].create(
                 {
                     "name": "Revoke UI source",
@@ -1344,7 +1418,41 @@ class TestSolutionDiscussionTour(HttpCase):
                     "domain_force": repr([("id", "!=", identity.id)]),
                 }
             )
+            # The old genuine signature cannot disclose a later private rename.
+            observer = identity.with_env(self.env)
+            observer.write({"name": "Newly restricted source name"})
+            self.assertIn("Newly restricted source name", observer.display_name)
+            self.assertFalse(
+                identity.with_user(reader).search([("id", "=", identity.id)])
+            )
+            followers_before = observer.message_follower_ids.read(
+                ["partner_id", "subtype_ids"]
+            )
             self.env.flush_all()
+            denied_get = self.url_open(unfollow_url)
+            self.assertEqual(denied_get.status_code, 403)
+            self.assertNotIn("Newly restricted source name", denied_get.text)
+            self.assertNotIn("Shared native discussion", denied_get.text)
+            self.assertNotIn("Browser persistent discussion", denied_get.text)
+            self.assertTrue(follower.exists())
+            self.assertEqual(
+                observer.message_follower_ids.read(["partner_id", "subtype_ids"]),
+                followers_before,
+            )
+            native_payload["params"]["partner_ids"] = []
+            empty_removal = self.url_open(
+                "/mail/thread/unsubscribe",
+                data=json.dumps(native_payload),
+                headers={"Content-Type": "application/json"},
+            ).json()
+            self.assertNotIn("error", empty_removal)
+            self.assertEqual(empty_removal["result"], {})
+            self.assertEqual(
+                observer.message_follower_ids.read(["partner_id", "subtype_ids"]),
+                followers_before,
+            )
+            self.assertNotIn("Newly restricted source name", str(empty_removal))
+            self.assertNotIn("Browser persistent discussion", str(empty_removal))
             messages_response = self.url_open(
                 "/mail/thread/messages",
                 data=json.dumps(fetch_payload),
@@ -1391,16 +1499,7 @@ class TestSolutionDiscussionTour(HttpCase):
                 forged["error"]["data"]["name"], "odoo.exceptions.AccessError"
             )
             self.assertNotIn("Browser persistent discussion", str(forged))
-            native_payload = {
-                "jsonrpc": "2.0",
-                "method": "call",
-                "id": 1,
-                "params": {
-                    "res_model": model,
-                    "res_id": identity.id,
-                    "partner_ids": manager.partner_id.ids,
-                },
-            }
+            native_payload["params"]["partner_ids"] = manager.partner_id.ids
             denied_removal = self.url_open(
                 "/mail/thread/unsubscribe",
                 data=json.dumps(native_payload),
@@ -1419,7 +1518,19 @@ class TestSolutionDiscussionTour(HttpCase):
             self.assertIn("result", native_removed)
             self.assertNotIn("Browser persistent discussion", str(native_removed))
             self.assertNotIn("Shared native discussion", str(native_removed))
+            self.assertNotIn("Newly restricted source name", str(native_removed))
             self.assertFalse(follower.exists())
+            # A separate native fixture follower makes the dataset RPC remove
+            # something real, while the tested caller remains revoked.
+            follower = self.env["mail.followers"].create(
+                {
+                    "res_model": model,
+                    "res_id": identity.id,
+                    "partner_id": reader.partner_id.id,
+                }
+            )
+            self.assertTrue(follower.exists())
+            self.env.flush_all()
             removed = self._rpc(
                 model,
                 "message_unsubscribe",
@@ -1438,3 +1549,18 @@ class TestSolutionDiscussionTour(HttpCase):
             )
             self.assertNotIn("Browser persistent discussion", str(still_hidden))
             rule.unlink()
+
+        task = (
+            self.env["project.task"]
+            .with_user(manager)
+            .create({"name": "Unrelated native unfollow", "project_id": project.id})
+        )
+        task.message_subscribe(partner_ids=reader.partner_id.ids)
+        signed = urlsplit(
+            task._notify_get_action_link("unfollow", pid=reader.partner_id.id)
+        )
+        self.env.flush_all()
+        native_get = self.url_open(f"{signed.path}?{signed.query}")
+        self.assertEqual(native_get.status_code, 200)
+        self.assertIn("Unrelated native unfollow", native_get.text)
+        self.assertNotIn(reader.partner_id, task.message_partner_ids)

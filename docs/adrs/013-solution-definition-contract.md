@@ -107,7 +107,9 @@ requires current source access and native write authority. Following never grant
 authority. The existing authenticated unsubscribe route returns only the cleared
 self-follower marker after inaccessible self-removal; it does not run native
 source-derived follower/recipient serialization. Readable and unrelated threads retain
-the native response.
+the native response. The signed email-action GET link still requires current source read
+access: its signature does not permit rendering a private source name, and a denied
+request leaves the subscription unchanged.
 
 Incoming replies reuse native parsing, reference routing, sender resolution and posting
 on the existing identity. At the private `_message_route_process` boundary, protected

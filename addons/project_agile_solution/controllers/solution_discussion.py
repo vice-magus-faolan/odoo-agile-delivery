@@ -1,8 +1,10 @@
 """Preserve native self-unfollow without serializing a revoked source."""
 
-from odoo import http
+from odoo import _, http
+from odoo.exceptions import AccessError
 from odoo.http import request
 
+from odoo.addons.mail.controllers.mail import MailController
 from odoo.addons.mail.controllers.thread import ThreadController
 from odoo.addons.mail.tools.discuss import Store
 
@@ -29,3 +31,14 @@ class SolutionDiscussionController(ThreadController):
             )
             .get_result()
         )
+
+
+class SolutionDiscussionMailController(MailController):
+    @http.route()
+    def mail_action_unfollow(self, model, res_id, pid, token, **kwargs):
+        # A signed removal link grants no access to the native sudo-rendered name.
+        if model in DISCUSSION_MODELS and not source_readable(
+            request.env[model].browse(int(res_id))
+        ):
+            raise AccessError(_("Current Solution source access is required."))
+        return super().mail_action_unfollow(model, res_id, pid, token, **kwargs)

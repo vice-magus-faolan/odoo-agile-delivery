@@ -1415,12 +1415,24 @@ class TestSolutionDiscussionTour(HttpCase):
                 {
                     "name": "Revoke UI source",
                     "model_id": self.env["ir.model"]._get_id(model),
-                    "domain_force": repr([("id", "!=", identity.id)]),
+                    "domain_force": (
+                        repr([("id", "!=", identity.id)])
+                        + f" if user.id == {reader.id} else []"
+                    ),
                 }
             )
-            # The old genuine signature cannot disclose a later private rename.
-            observer = identity.with_env(self.env)
+            # Revoke only the reader; a real manager must still be able to
+            # rename after revocation without refreshing the genuine old link.
+            self.env.invalidate_all()
+            observer = identity.with_user(manager)
+            self.assertFalse(observer.env.su)
+            self.assertEqual(observer._check_authority().env.user, manager)
+            self.assertEqual(observer.search([("id", "=", identity.id)]), observer)
+            self.assertFalse(
+                identity.with_user(reader).search([("id", "=", identity.id)])
+            )
             observer.write({"name": "Newly restricted source name"})
+            self.env.invalidate_all()
             self.assertIn("Newly restricted source name", observer.display_name)
             self.assertFalse(
                 identity.with_user(reader).search([("id", "=", identity.id)])

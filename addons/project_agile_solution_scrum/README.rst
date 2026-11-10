@@ -17,7 +17,7 @@ Agile Solution Scrum Context
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution_scrum
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution_scrum
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -39,16 +39,16 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
 
 Install **Agile Solution Scrum Context**
 (``project_agile_solution_scrum``). Follow `Solution
-configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution#configuration>`__
+configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution#configuration>`__
 and `Scrum
-configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#configuration>`__
+configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration>`__
 for the same Agile Project.
 
 Before linking requirements or starting a Sprint, use a Project
@@ -64,10 +64,10 @@ Usage
 1. As a Project administrator, use **Project > Deliberate Task
    Previews** to link exact requirement revisions to the Project tasks
    you plan to schedule. Follow the `Solution
-   workflow <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution#usage>`__
+   workflow <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution#usage>`__
    to review and confirm those links.
 2. Plan work using **Project > Tasks > Sprints** and the `Scrum
-   workflow <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#usage>`__.
+   workflow <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#usage>`__.
    **Start Sprint** records commitment; adding work to an active Sprint
    records added scope. Each new scope event captures the active exact
    requirement links visible at that event, including an optional
@@ -101,7 +101,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_solution_scrum%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_solution_scrum%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -116,6 +116,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution_scrum>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution_scrum>`_ project on GitHub.
 
 You are welcome to contribute.

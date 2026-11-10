@@ -17,7 +17,7 @@ Setting **Webhook Secret** also requires System Administrator access.
    the default. GitHub asynchronous processing needs **Redacted Excerpt**;
    changing the setting later cannot restore payloads for earlier deliveries.
 6. For GitHub deliveries, follow the
-   [GitHub connector configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_github#configuration).
+   [GitHub connector configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_github#configuration).
 
 Redacted excerpts can still contain sensitive business text and unrecognized
 credentials. Keep secrets out of commit messages and other webhook text.

@@ -32,7 +32,7 @@ Projects. Agile does not turn milestones on. Open a milestone's **View Tasks** o
 state, including Done work. Projects without Agile keep the native View Tasks.
 
 For Sprint planning, configure
-[project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum).
+[project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum).
 The **Product Backlog** button on a Sprint narrows this queue to its Project's
 Sprint-eligible work.
 

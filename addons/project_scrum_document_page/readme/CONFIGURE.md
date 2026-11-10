@@ -1,8 +1,8 @@
 Make the OCA 19.0 `document_knowledge`, `document_page` and
 `document_page_project` addons available before installing this bridge. See the
-[adoption decision](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/006-knowledge-relationship-model.md)
+[adoption decision](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/006-knowledge-relationship-model.md)
 for backend selection, then follow the
-[Scrum setup guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#configuration).
+[Scrum setup guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration).
 
 Select **Administrator** under **Project** in user access rights, called Project
 administrator below, to manage Sprints and their retrospective links. OCA

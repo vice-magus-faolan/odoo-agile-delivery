@@ -17,7 +17,7 @@ Agile GitHub Delivery Ingress
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_github
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_github
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -41,13 +41,13 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
 
 First configure the repository using the `Git Facts
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git#configuration>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration>`__.
 Repository configuration and delivery recovery require **Administrator**
 under **Project** in the user access rights, called Project
 administrator below. The person setting **Webhook Secret** must also
@@ -96,7 +96,7 @@ Pushes retain the first 100 commits. For larger pushes, **Omitted Commit
 Count** and **Commit Omission Reason** identify skipped commits, even
 after successful processing or payload cleanup; the branch head still
 updates subject to source ordering. See
-`ADR-011 <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/011-git-facts-and-visibility-contract.md>`__
+`ADR-011 <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/011-git-facts-and-visibility-contract.md>`__
 for technical retention bounds.
 
 Redaction removes recognized credentials but may leave sensitive text or
@@ -206,7 +206,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_github%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_github%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -221,6 +221,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_github>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_github>`_ project on GitHub.
 
 You are welcome to contribute.

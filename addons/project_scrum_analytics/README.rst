@@ -17,7 +17,7 @@ Scrum Analytics
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum_analytics
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum_analytics
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -44,13 +44,13 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
 
 No analytics settings are required. Follow the `Scrum setup
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#configuration>`__
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration>`__
 to configure an Agile Project and its Sprints. Sprint setup and
 lifecycle actions require **Administrator** under **Project** in user
 access rights, called Project administrator below. Project users can
@@ -92,7 +92,7 @@ parent-menu launch path.
 
 As a Project administrator, start and close Sprints through their normal
 actions. Follow the `Scrum completion
-instructions <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#start-and-work>`__
+instructions <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work>`__
 when recording completed work. If a report seems empty, check filters,
 Sprint scope history, Project visibility and available companies before
 comparing metrics.
@@ -103,7 +103,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_scrum_analytics%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_scrum_analytics%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -118,6 +118,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum_analytics>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum_analytics>`_ project on GitHub.
 
 You are welcome to contribute.

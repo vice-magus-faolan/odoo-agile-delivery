@@ -17,7 +17,7 @@ Agile Git Workflow Policy
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_automation
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_automation
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -45,7 +45,7 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
@@ -60,7 +60,7 @@ Project tasks.
 
 1. Configure an active company-scoped Agile Project and a repository
    using the `Git Facts
-   guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git#configuration>`__.
+   guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration>`__.
 
 2. As a Git Policy Manager, open the Project form, **Git Policy**, and
    choose **Enable Dry Run**. Do not select Apply mode for a preview.
@@ -89,10 +89,10 @@ Project tasks.
 
 If activation refuses the installed access rules or Task configuration,
 compare them with `supported permissions and
-extensions <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-authority-profiles.md>`__
+extensions <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-authority-profiles.md>`__
 before approval; additional extensions can have external effects a stage
 write cannot undo. See the `configuration
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-configuration.md>`__
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-configuration.md>`__
 for supported selectors and revocation conditions.
 
 Usage
@@ -104,7 +104,7 @@ choose **Preview Repository (20 PRs)** on a rule. Inspect the resulting
 decisions, their outcomes and reasons. **Project > Configuration > Git
 Policy Dry Runs** lists history. The button examines only the first
 page, not every PR; the `dry-run
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-dry-run.md>`__
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-dry-run.md>`__
 describes pagination and exact evidence requirements.
 
 For a meaningful preview, use an eligible merged PR on the configured
@@ -143,10 +143,10 @@ does not restore approvals. Restoring a backup without **Consumed
 Effects** can move the same tasks twice. Keep policies disabled while
 reconciling that history, then approve a new revision with a new cutoff
 instead of re-enabling an old approval. Follow the `operations
-runbook <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/runbooks/git-policy-operations.md>`__
+runbook <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/runbooks/git-policy-operations.md>`__
 for recovery, history retention and Odoo.sh staging precautions, and the
 `apply
-boundary <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-apply-boundary.md>`__
+boundary <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-apply-boundary.md>`__
 for compatibility and native side effects.
 
 Bug Tracker
@@ -155,7 +155,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_automation%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_automation%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -170,6 +170,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_automation>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_automation>`_ project on GitHub.
 
 You are welcome to contribute.

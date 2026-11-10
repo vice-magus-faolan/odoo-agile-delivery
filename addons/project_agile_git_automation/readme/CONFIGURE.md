@@ -6,7 +6,7 @@ non-superuser execution account with current company membership and actual
 write access to all affected Project tasks.
 
 1. Configure an active company-scoped Agile Project and a repository using the
-   [Git Facts guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git#configuration).
+   [Git Facts guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration).
 2. As a Git Policy Manager, open the Project form, **Git Policy**, and choose
    **Enable Dry Run**. Do not select Apply mode for a preview.
 3. As the intended rule owner, open **Project > Configuration > Git Policy
@@ -28,7 +28,7 @@ write access to all affected Project tasks.
    saved mode and cutoff: approval in Dry Run does not enable task writes.
 
 If activation refuses the installed access rules or Task configuration, compare
-them with [supported permissions and extensions](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-authority-profiles.md)
+them with [supported permissions and extensions](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-authority-profiles.md)
 before approval; additional extensions can have external effects a stage write
-cannot undo. See the [configuration guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-configuration.md)
+cannot undo. See the [configuration guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-configuration.md)
 for supported selectors and revocation conditions.

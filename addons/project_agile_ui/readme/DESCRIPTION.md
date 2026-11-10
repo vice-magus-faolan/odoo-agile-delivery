@@ -5,5 +5,5 @@ work together without replacing ordinary Project or Scrum list and form views.
 The board shows Sprint teams, goals, current points and committed points, plus
 work keys, item types, estimates and parent context. Committed points come from
 Sprint scope history. See the
-[Scrum completion guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#start-and-work)
+[Scrum completion guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work)
 for completing work.

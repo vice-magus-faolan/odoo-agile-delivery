@@ -312,7 +312,7 @@ Restoring access does not reactivate retired publications; issue a new publicati
 Before deleting a group that supplies client portal membership, explicitly revoke
 its publications: group deletion can leave a grant unretired, and group-side
 membership restoration can make it available again. See the group-deletion
-limitation in [ADR 013](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/013-solution-definition-contract.md#authenticated-client-publication-and-decisions).
+limitation in [ADR 013](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/013-solution-definition-contract.md#authenticated-client-publication-and-decisions).
 Downloaded copies cannot be recalled.
 
 ## Name the people served

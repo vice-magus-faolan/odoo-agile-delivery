@@ -9,10 +9,10 @@ the selected backend and bridges in disposable databases.
 The separate check covers installation, update, uninstall and reinstall.
 Validate your installed extensions and Odoo.sh staging separately.
 The
-[adoption decision](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/006-knowledge-relationship-model.md)
+[adoption decision](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/006-knowledge-relationship-model.md)
 records the selected backend and dependency boundary.
 
-Configure an [Agile Project](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration).
+Configure an [Agile Project](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration).
 For this walkthrough, select **Administrator** under **Project** in user access
 rights, called Project administrator below. The caller must also be able to
 read the selected Document Page; creating a root requires OCA Document Page

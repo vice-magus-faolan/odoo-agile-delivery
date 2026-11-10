@@ -1,9 +1,9 @@
 1. As a Project administrator, use **Project > Deliberate Task Previews** to link
    exact requirement revisions to the Project tasks you plan to schedule. Follow the
-   [Solution workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution#usage)
+   [Solution workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution#usage)
    to review and confirm those links.
 2. Plan work using **Project > Tasks > Sprints** and the
-   [Scrum workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#usage).
+   [Scrum workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#usage).
    **Start Sprint** records commitment; adding work to an active Sprint records
    added scope. Each new scope event captures the active exact requirement links
    visible at that event, including an optional document revision and its observed

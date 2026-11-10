@@ -11,7 +11,7 @@
    to a Sprint.
 3. Choose a **Draft Sprint**, then **Assign to Sprint**. Alternatively, drag the
    item onto a Draft Sprint. The board does not assign to Active Sprints; use
-   the [Scrum workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#usage)
+   the [Scrum workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#usage)
    for the supported native assignment paths.
 4. Choose **Return to Product Backlog** on an assigned item to remove it from a
    Draft or Active Sprint. Removal from an Active Sprint records scope history.
@@ -46,4 +46,4 @@ before making another change. If access is denied, check the selected companies
 and ask a Project administrator to check your access. The ordinary lists still
 require the same permissions.
 
-For task completion, follow [Start and work in the Scrum guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#start-and-work).
+For task completion, follow [Start and work in the Scrum guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work).

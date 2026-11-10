@@ -1,4 +1,4 @@
-Follow the [Scrum setup guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum#configuration)
+Follow the [Scrum setup guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration)
 to enable Agile, create an active team and save a Draft Sprint for the Project.
 Setup and Sprint lifecycle actions require **Administrator** under **Project**
 in user access rights, called Project administrator below.

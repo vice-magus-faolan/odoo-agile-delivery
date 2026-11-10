@@ -214,6 +214,13 @@ class SolutionCoverage(models.Model):
             lambda row: row.document_revision_id == self
             and row.decision_source == "portal"
         ).sorted("id", reverse=True)
+        # Internal history access is checked below. Current status is separately
+        # evaluated as each exact recipient, never as the internal report caller.
+        publications = exact.publication_id.filtered(
+            # Discard report-caller defaults and companies, not recipient rules.
+            # pylint: disable-next=context-overridden
+            lambda row: row.with_user(row.recipient_id).with_context({})._can_decide()
+        )
         latest = {}
         history = []
         for event in exact:
@@ -223,7 +230,8 @@ class SolutionCoverage(models.Model):
                 **event._portal_receipt(),
             )
             history.append(receipt)
-            latest.setdefault(event.requirement_revision_id.id, receipt)
+            if event.publication_id in publications:
+                latest.setdefault(event.requirement_revision_id.id, receipt)
         return {
             "authenticated_client_decisions": list(latest.values()),
             "authenticated_client_history": history,

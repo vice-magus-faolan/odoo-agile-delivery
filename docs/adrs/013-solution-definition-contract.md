@@ -444,6 +444,23 @@ correction is available while internally approved; supersession preserves author
 history but rejects new decisions and carries nothing forward. A newer draft alone does
 not invalidate the approved baseline.
 
+Current client decisions are publication-scoped: the latest event for each exact
+requirement on the live publication of the currently designated, authorized signer and
+currently approved baseline. The client page shows that publication's own receipts;
+reissue and signer replacement start with no decisions. Internal coverage uses the same
+caller-bound eligibility as the page and actions to select
+`authenticated_client_decisions`. Its separate `authenticated_client_history` retains
+all exact-baseline portal events, including revoked and former-signer publications.
+Read-only superseded pages retain their own historical receipts, not current decisions.
+Neither view rewrites audit events or carries decisions into a new publication.
+
+The non-mutating eligibility predicate uses the real caller and native publication
+availability, including current company membership, invitation and active sources. It
+also requires the current signer, approved baseline and portal/share role, and rejects
+decision-default context. The form uses that predicate only for presentation. Each
+action freshly checks access, retains the existing claims and rechecks eligibility
+before appending; a previously rendered form is never authority.
+
 Publication issuance and client decisions claim the current Solution and Project source
 owners before accepting active-lineage authority. A winning Solution archive, Project
 archive or Agile disable forces stale transactions through native retry and fresh
@@ -479,6 +496,17 @@ required. Concurrent compound administrator changes beyond these native paths re
 outside that guarantee. Signer changes retire the old signer publications. Regrant
 requires a new publication; audit actors are never reassigned. Downloaded copies cannot
 be recalled.
+
+Known group-deletion limitation: native `res.groups.unlink()` is not intercepted.
+Deleting a group that supplied portal membership can remove access without retiring its
+publications. Restoring membership through the portal group's `user_ids` can then make
+that unretired grant available again: the group-write hook compares pre-write members,
+not newly added users. Restoring through the user's `group_ids` instead detects the
+eligibility transition and retires the grant. This is not fixed by the group-write
+protections above. Explicitly revoke affected publications before deleting such a group,
+then deliberately issue fresh publications after restoring membership. Revisit a narrow
+deletion hook with both restoration paths if this limitation is removed; unrelated
+portal feature toggles must continue to preserve live decisions.
 
 This retained per-recipient copy costs storage but keeps disclosure/revocation policy
 locally understandable without broadening every internal model ACL.

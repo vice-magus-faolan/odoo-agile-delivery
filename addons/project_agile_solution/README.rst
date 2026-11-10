@@ -442,6 +442,12 @@ requirement**. The page shows the authenticated client and server time.
 Decisions concern only these disclosed bytes. Internal approval remains
 separate, including when the client rejects the document.
 
+The page shows only this publication's own decisions. Reissuing the same
+revision or replacing the Client Signer starts with no decisions.
+Internal coverage lists current decisions only for the currently
+authorized signer's live publication; its separate client history
+preserves earlier decisions, including revoked grants.
+
 Reload before correcting an existing decision. Corrections append
 history rather than edit it. A superseded publication is read-only; a
 successor requires a new publication and new decisions. **Download
@@ -451,8 +457,14 @@ report.
 To remove access, open the publication from its Solution Document and
 choose **Revoke Publication**. Removing the exact Project invitation or
 changing the client identity, company access or signer also retires
-affected publications. Restoring access does not reactivate them; issue
-a new publication. Downloaded copies cannot be recalled.
+affected publications. Restoring access does not reactivate retired
+publications; issue a new publication. Before deleting a group that
+supplies client portal membership, explicitly revoke its publications:
+group deletion can leave a grant unretired, and group-side membership
+restoration can make it available again. See the group-deletion
+limitation in `ADR
+013 <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/013-solution-definition-contract.md#authenticated-client-publication-and-decisions>`__.
+Downloaded copies cannot be recalled.
 
 Name the people served
 ----------------------

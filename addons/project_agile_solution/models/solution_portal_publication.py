@@ -253,25 +253,38 @@ class SolutionPortalPublication(models.Model):
         self._revoke()
         return True
 
+    def _can_decide(self):
+        """Observational current-caller eligibility; never a grant or a claim."""
+        self.ensure_one()
+        caller = self.sudo(False)
+        user = caller.env.user
+        if (
+            any(key.startswith("default_") for key in caller.env.context)
+            or not user.share
+            or not user.has_group("base.group_portal")
+        ):
+            return False
+        # Reuse native recipient/contact/company/source and invitation rules.
+        if not caller.search_count([("id", "=", caller.id)]):
+            return False
+        released = caller.sudo()
+        return (
+            released.revision_id.state == "approved"
+            and released.document_id.portal_approver_id == user
+            and released.recipient_id == user
+            and released.partner_id == user.partner_id
+            and not released.revoked_at
+        )
+
     def _decision_caller(self):
         self.ensure_one()
         caller = self._check_read()
         if any(key.startswith("default_") for key in caller.env.context):
             raise ValidationError(_("Decision defaults are not accepted."))
-        user = caller.env.user
-        if not user.has_group("base.group_portal") or not user.share:
-            raise AccessError(_("Authenticate as the designated client signer."))
         released = caller.sudo()
         claim_records(released, allow_referencing=True)
-        baseline = released.revision_id
-        baseline._claim_portal_sources()
-        if (
-            baseline.state != "approved"
-            or baseline.document_id.portal_approver_id != user
-            or released.recipient_id != user
-            or released.partner_id != user.partner_id
-            or released.revoked_at
-        ):
+        released.revision_id._claim_portal_sources()
+        if not caller._can_decide():
             raise AccessError(_("Only the current designated client may decide."))
         return caller
 
@@ -296,11 +309,7 @@ class SolutionPortalPublication(models.Model):
         return {
             "payload": json.loads(caller.payload_json),
             "current": released.revision_id.state == "approved",
-            "can_decide": (
-                released.revision_id.state == "approved"
-                and released.document_id.portal_approver_id == caller.env.user
-                and released.recipient_id == caller.env.user
-            ),
+            "can_decide": caller._can_decide(),
             "document": document._receipt() if document else {"id": False},
             "requirements": {
                 key: heads[str(record_id)]._portal_receipt()

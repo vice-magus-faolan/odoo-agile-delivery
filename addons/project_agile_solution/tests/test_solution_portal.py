@@ -271,6 +271,211 @@ class TestSolutionPortal(TestSolutionRequirements):
         self.assertFalse(self.env["project.agile.requirement.acceptance"].search([]))
         self.assertTrue(self.publication_b.action_decide_document("approved"))
 
+    def _decision_history(self, publications):
+        domain = [("publication_id", "in", publications.ids)]
+        documents = (
+            self.env["project.agile.solution.portal.document.decision"]
+            .with_user(self.manager)
+            .search(domain, order="id")
+        )
+        requirements = (
+            self.env["project.agile.requirement.acceptance"]
+            .with_user(self.manager)
+            .search(domain, order="id")
+        )
+        return (
+            documents.read(
+                [
+                    "publication_id",
+                    "revision_id",
+                    "payload_sha256",
+                    "actor_id",
+                    "partner_id",
+                    "actor_label",
+                    "recorded_at",
+                    "decision",
+                    "comment",
+                    "supersedes_id",
+                ],
+                load=None,
+            ),
+            requirements.read(
+                [
+                    "publication_id",
+                    "publication_sha256",
+                    "portal_partner_id",
+                    "requirement_revision_id",
+                    "document_revision_id",
+                    "decision_source",
+                    "decision",
+                    "authority_label",
+                    "criteria_evaluated",
+                    "evidence",
+                    "recorded_by_id",
+                    "recorded_by_label",
+                    "recorded_at",
+                    "supersedes_id",
+                ],
+                load=None,
+            ),
+        )
+
+    def test_reissue_starts_empty_without_rewriting_client_history(self):
+        key = self.requirement.requirement_id.key
+        document = self.publication.action_decide_document(
+            "approved", comment="Original client A decision"
+        )
+        accepted = self._accept()
+        self.publication_b.action_decide_document("rejected", comment="Only client B")
+        before_b = self.publication_b.action_view()
+        originals = self.publication | self.publication_b
+        history = self._decision_history(originals)
+        self.assertEqual(
+            self.publication.action_view()["document"]["id"], document["id"]
+        )
+        self.assertEqual(
+            self.baseline.action_coverage()["categories"][
+                "authenticated_client_decisions"
+            ][0]["id"],
+            self.publication.action_view()["requirements"][key]["id"],
+        )
+
+        replacement = self._issue()
+        self._assert_denied(self.publication)
+        view = replacement.action_view()
+        self.assertTrue(view["can_decide"])
+        self.assertFalse(view["document"]["id"])
+        self.assertFalse(view["requirements"][key]["id"])
+        coverage = self.baseline.action_coverage()["categories"]
+        self.assertEqual(coverage["authenticated_client_decisions"], [])
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_history"]],
+            [accepted["id"]],
+        )
+        self.assertEqual(self._decision_history(originals), history)
+        self.assertNotIn("Only client B", json.dumps(view))
+        self._assert_denied(replacement.with_user(self.client_b))
+
+        new_document = replacement.action_decide_document("rejected")
+        new_acceptance = self._accept(replacement, decision="rejected")
+        view = replacement.action_view()
+        coverage = self.baseline.action_coverage()["categories"]
+        self.assertEqual(view["document"]["id"], new_document["id"])
+        self.assertEqual(view["requirements"][key]["id"], new_acceptance["id"])
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_decisions"]],
+            [new_acceptance["id"]],
+        )
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_history"]],
+            [new_acceptance["id"], accepted["id"]],
+        )
+        self.assertEqual(self._decision_history(originals), history)
+        self.assertEqual(self.publication_b.action_view(), before_b)
+
+    def test_replacement_signer_never_inherits_former_signer_decisions(self):
+        key = self.requirement.requirement_id.key
+        self.publication.action_decide_document(
+            "approved", comment="Former signer only"
+        )
+        accepted = self._accept(evidence="Former signer evidence")
+        originals = self.publication | self.publication_b
+        history = self._decision_history(originals)
+        before_b = self.publication_b.action_view()
+        self.project.message_subscribe(partner_ids=self.client_b.partner_id.ids)
+        self.document.write({"portal_approver_id": self.client_b.id})
+        replacement = self.publication.with_user(self.client_b).browse(
+            self.baseline.action_issue_portal(self.client_b.id)
+        )
+        self._assert_denied(self.publication)
+        self._assert_denied(replacement.with_user(self.client))
+        view = replacement.action_view()
+        self.assertTrue(view["can_decide"])
+        self.assertFalse(view["document"]["id"])
+        self.assertFalse(view["requirements"][key]["id"])
+        self.assertNotIn("Former signer", json.dumps(view))
+        coverage = self.baseline.action_coverage()["categories"]
+        self.assertEqual(coverage["authenticated_client_decisions"], [])
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_history"]],
+            [accepted["id"]],
+        )
+        self.assertEqual(self._decision_history(originals), history)
+        current = self._accept(replacement, evidence="Replacement signer evidence")
+        coverage = self.baseline.action_coverage()["categories"]
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_decisions"]],
+            [current["id"]],
+        )
+        self.assertEqual(
+            replacement.action_view()["requirements"][key]["id"], current["id"]
+        )
+        self.assertEqual(self._decision_history(originals), history)
+        self.assertEqual(self.publication_b.action_view(), before_b)
+
+    def test_decision_form_and_actions_share_caller_context_and_fresh_authority(self):
+        self.assertFalse(self.publication.env.su)
+        self.assertTrue(self.publication.action_view()["can_decide"])
+        self.assertFalse(self.publication_b.env.su)
+        manager_view = self.publication.with_user(self.manager)
+        self.assertFalse(manager_view.action_view()["can_decide"])
+        with self.assertRaises(AccessError):
+            manager_view.action_decide_document("approved")
+        for name in (
+            "default_actor_id",
+            "default_decision_source",
+            "default_publication_id",
+        ):
+            forged = self.publication.with_context(**{name: self.client_b.id})
+            self.assertFalse(forged.action_view()["can_decide"])
+            with self.assertRaises(ValidationError):
+                forged.action_decide_document("approved")
+            with self.assertRaises(ValidationError):
+                self._accept(forged)
+        self.assertFalse(any(self._decision_history(self.publication)))
+        self.publication.action_decide_document("approved")
+        accepted = self._accept()
+        history = self._decision_history(self.publication)
+        before_b = self.publication_b.action_view()
+        # A previously offered form grants no authority after a native rule edit.
+        rule = self._hide("project.project", self.project)
+        self._assert_denied(self.publication)
+        rule.unlink()
+        self.assertTrue(self.publication.action_view()["can_decide"])
+        self.document.write({"portal_approver_id": False})
+        self._assert_denied(self.publication)
+        self.assertEqual(self._decision_history(self.publication), history)
+        coverage = self.baseline.action_coverage()["categories"]
+        self.assertEqual(coverage["authenticated_client_decisions"], [])
+        self.assertEqual(
+            [row["id"] for row in coverage["authenticated_client_history"]],
+            [accepted["id"]],
+        )
+        self.assertEqual(self.publication_b.action_view(), before_b)
+
+    def test_decision_company_authority_cannot_be_restored_by_context(self):
+        self.assertFalse(self.publication.env.su)
+        self.assertNotEqual(self.client.company_id, self.company)
+        self.assertIn(self.company, self.client.company_ids)
+        self.assertTrue(self.publication.action_view()["can_decide"])
+        self.client.write(
+            {
+                "company_ids": [Command.set(self.other_company.ids)],
+                "company_id": self.other_company.id,
+            }
+        )
+        self.assertNotIn(self.company, self.client.company_ids)
+        for context in ({}, {"allowed_company_ids": self.company.ids, "sudo": True}):
+            caller = self.publication.with_context(**context)
+            with self.assertRaises(AccessError):
+                caller.action_view()
+            with self.assertRaises(AccessError):
+                caller.action_decide_document("approved")
+            with self.assertRaises(AccessError):
+                self._accept(caller)
+        self.assertFalse(any(self._decision_history(self.publication)))
+        self.assertTrue(self.publication_b.action_view()["can_decide"])
+
     def test_native_follower_revocation_reinvite_and_explicit_reissue(self):
         self.publication.action_view()
         self.project.message_unsubscribe(partner_ids=self.client.partner_id.ids)

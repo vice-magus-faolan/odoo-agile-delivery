@@ -85,9 +85,11 @@ propagate to existing documents.
 
 Native `mail.thread` belongs only to requirement, document and context identities, never
 their numbered revisions. Project readers may post without content-editing authority.
-Question revision creation and owner changes subscribe the owner to the stable context.
-Existing followers and subtype preferences are retained; owner changes do not infer
-which subscriptions were manual.
+Question revision creation and owner changes subscribe the owner to the stable context
+only when the existing recipient/source check permits that owner. Assignment grants no
+Project access; a later access grant alone does not trigger subscription. Reassignment
+or native Follow can add it once permitted. Existing manual/previous followers and
+subtype preferences are retained; owner changes do not infer which were manual.
 
 Native mail author, recipient and follower exceptions alone are insufficient for
 Solution isolation. Global message/follower rules constrain only these three models
@@ -98,8 +100,35 @@ retains the current company scope. Native message fetch queries include the same
 domain even when invoked with an elevated mail environment. Direct message field fetches
 also check access because native mail fetch otherwise elevates. Polymorphic mail-row
 relocation checks destination source access as well as existing native checks. Public
-post, subscribe and unsubscribe actions require source read access, including native
-self-unfollow. Following never grants source authority.
+post and subscribe actions require source read access. Unsubscribe retains native
+internal self-removal without reading the source, even after revocation or outside its
+company context. Only the current caller partner is exempt; removing others still
+requires current source access and native write authority. Following never grants source
+authority. The existing authenticated unsubscribe route returns only the cleared
+self-follower marker after inaccessible self-removal; it does not run native
+source-derived follower/recipient serialization. Readable and unrelated threads retain
+the native response. The signed email-action GET link still requires current source read
+access: its signature does not permit rendering a private source name, and a denied
+request leaves the subscription unchanged.
+
+Incoming replies reuse native parsing, reference routing, sender resolution and posting
+on the existing identity. At the private `_message_route_process` boundary, protected
+routes require the native administrative gateway principal. The native-resolved partner
+must have exactly one active internal user with fresh source access under that user's
+permitted companies and rules. A Python-only immutable context value binds that author
+and the exact targets across the native OdooBot switch; posting rechecks current source
+authority. It cannot be constructed by JSON/RPC or a public context flag. Direct public
+import calls cannot impersonate another sender, and OdooBot has no blanket exception.
+Alias policy, native author/From resolution, duplicate handling, attachments and
+recipient filtering remain native. Mail transport sender validation remains the
+administrator's responsibility; this is not an independent email-authentication
+subsystem. New identities are not created from incoming mail.
+
+This private gateway extension is version-sensitive; revisit it with the existing mail
+seams against the pinned
+[`mail.thread`](https://github.com/odoo/odoo/blob/8da213dc6785e097f2558dc2d648b588957786a1/addons/mail/models/mail_thread.py)
+implementation when upgrading Odoo. Native gateway, direct-RPC and revoked self-removal
+regressions cover the authority boundary without using live SMTP.
 
 The native notification-recipient hook rechecks active internal recipients under their
 own source access and permitted companies before inbox/email delivery. External contacts

@@ -1,6 +1,8 @@
 """Native stable-identity discussions, bounded by current source authority."""
 
-from odoo import _, fields, models
+from dataclasses import dataclass
+
+from odoo import _, api, fields, models
 from odoo.exceptions import AccessError
 from odoo.fields import Domain
 
@@ -82,6 +84,58 @@ def check_source_target(env, model, record_id):
         raise AccessError(_("Current Solution source access is required."))
 
 
+@dataclass(frozen=True)
+class _GatewayReply:
+    """Native gateway provenance; JSON contexts cannot construct this value."""
+
+    user: models.BaseModel
+    author_id: int
+    email_from: str
+    targets: frozenset[tuple[str, int]]
+
+
+class SolutionDiscussionGateway(models.AbstractModel):
+    _inherit = "mail.thread"
+
+    @api.model
+    def _message_route_process(self, message, message_dict, routes):
+        targets = frozenset(
+            (model, thread_id)
+            for model, thread_id, _values, _uid, _alias in routes or ()
+            if model in DISCUSSION_MODELS
+        )
+        if not targets:
+            return super()._message_route_process(message, message_dict, routes)
+        # Native fetchmail/admin mailgate is the trusted ingress, not a public
+        # message_process RPC carrying another user's From header.
+        if not self.env.is_system():
+            raise AccessError(_("Administrative mail gateway access is required."))
+        partner = self.env["res.partner"].sudo().browse(message_dict.get("author_id"))
+        users = partner.with_context(active_test=False).user_ids.filtered(
+            lambda user: user.active and not user.share
+        )
+        if len(users) != 1:
+            raise AccessError(_("A current internal Solution author is required."))
+        for model, thread_id in targets:
+            caller = (
+                self.env[model]
+                .with_user(users)
+                .with_context(allowed_company_ids=users.company_ids.ids)
+            )
+            if not thread_id or not source_readable(caller.browse(thread_id)):
+                raise AccessError(_("Current Solution source access is required."))
+        # The native implementation resolves sender/author before this private
+        # boundary and later switches to OdooBot. Bind just that transition.
+        router = self.with_context(
+            _solution_gateway_reply=_GatewayReply(
+                users, partner.id, message_dict.get("email_from"), targets
+            )
+        )
+        return super(SolutionDiscussionGateway, router)._message_route_process(
+            message, message_dict, routes
+        )
+
+
 class SolutionDiscussion(models.AbstractModel):
     _name = "project.agile.solution.discussion"
     _inherit = "mail.thread"
@@ -89,7 +143,22 @@ class SolutionDiscussion(models.AbstractModel):
     _mail_post_access = "read"
 
     def message_post(self, **kwargs):
-        if len(source_readable(self)) != len(self):
+        caller = self
+        gateway = self.env.context.get("_solution_gateway_reply")
+        if isinstance(gateway, _GatewayReply):
+            self.ensure_one()
+            if not (
+                self.env.su
+                and self.env.user == self.env.ref("base.user_root")
+                and (self._name, self.id) in gateway.targets
+                and kwargs.get("author_id") == gateway.author_id
+                and kwargs.get("email_from") == gateway.email_from
+            ):
+                raise AccessError(_("Current Solution source access is required."))
+            caller = self.with_user(gateway.user).with_context(
+                allowed_company_ids=gateway.user.company_ids.ids
+            )
+        if len(source_readable(caller)) != len(self):
             raise AccessError(_("Current Solution source access is required."))
         return super().message_post(**kwargs)
 
@@ -99,8 +168,14 @@ class SolutionDiscussion(models.AbstractModel):
         return super().message_subscribe(partner_ids, subtype_ids)
 
     def message_unsubscribe(self, partner_ids=None):
-        # Native self-unfollow skips source access; Solution operations do not.
-        if len(source_readable(self)) != len(self):
+        # Keep native internal self-removal independent of source/company access.
+        # No source, message or follower contents are read by this exception.
+        self_only = (
+            partner_ids
+            and set(partner_ids) == {self.env.user.partner_id.id}
+            and self.env.user._is_internal()
+        )
+        if partner_ids and not self_only and len(source_readable(self)) != len(self):
             raise AccessError(_("Current Solution source access is required."))
         return super().message_unsubscribe(partner_ids)
 

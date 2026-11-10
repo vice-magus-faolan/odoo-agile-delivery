@@ -44,15 +44,27 @@ Context**, rather than the numbered revision list. The conversation stays with
 the identity when a new revision is created. Messages do not change sealed
 content or approve scope.
 
-A question owner follows its stable context when assigned or changed on the
-working revision. Previous owners remain followers until they unfollow; their
-existing subscription preferences are preserved. Following and mentioning do
-not grant Project or company access. Notifications go only to active internal
-users who can currently read the source; external contacts and raw email
-recipients do not receive these discussions. Chatter files and scheduled messages
-also require current source access, including after Project membership is revoked.
-A file link or public flag does not share internal Solution content with outsiders.
-Customer publications remain a separate workflow.
+With native incoming mail configured, an internal user who can currently read
+that source can also reply by email to its existing conversation. Unknown,
+external, inactive and no-longer-authorized senders cannot post to it. Email
+replies use native sender resolution and remain on the same stable identity;
+they do not create another requirement, document or question.
+
+A question owner automatically follows its stable context when assigned on a
+working revision only if they can currently read the source. Assignment does
+not grant Project or company access. Granting access later does not itself add
+a follower; assign the owner again or let them choose **Follow**. Manual followers
+and previous owners remain subscribed with their existing subtype preferences.
+An internal user who loses access can still remove only their own subscription
+with native **Unfollow**; this does not reveal the source or let them remove
+another follower.
+
+Following and mentioning do not grant access. Notifications go only to active
+internal users who can currently read the source; external contacts and raw
+email recipients do not receive these discussions. Chatter files and scheduled
+messages also require current source access, including after Project membership
+is revoked. A file link or public flag does not share internal Solution content
+with outsiders. Customer publications remain a separate workflow.
 
 ## Discuss customer requirements from shared work
 

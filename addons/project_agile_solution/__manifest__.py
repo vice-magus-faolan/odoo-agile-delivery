@@ -3,7 +3,7 @@
     "summary": (
         "Optional solution documents, immutable baselines and separate approvals"
     ),
-    "version": "19.0.1.12.0",
+    "version": "19.0.1.13.0",
     "author": "Odoo Agile Delivery",
     "category": "Services/Project",
     "license": "LGPL-3",

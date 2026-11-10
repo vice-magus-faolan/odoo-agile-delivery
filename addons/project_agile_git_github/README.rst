@@ -181,6 +181,12 @@ The branch, its commits and its task links stay as they were, so a
 deleted branch keeps its last known head. A later push to a branch with
 the same name goes through the usual ordering checks.
 
+Authenticated tag creation and deletion (``refs/tags/*``) are
+intentionally unsupported. These deliveries are **Discarded** with an
+unsupported-tag reason; they do not create or update branch, commit,
+task-link or ordering facts. Signature, repository and company checks
+still apply, as do the usual replay and payload-retention rules.
+
 Digest-only, oversized-input and purged deliveries have no payload to
 reprocess. After correcting configuration, push again or re-run the
 check so GitHub sends a new delivery; for a PR, send a new supported PR

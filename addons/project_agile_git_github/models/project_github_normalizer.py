@@ -378,6 +378,12 @@ class ProjectGitDelivery(models.Model):
         """Normalize GitHub push branch and commit observations."""
 
         ref = _text(payload.get("ref"))
+        if ref.startswith("refs/tags/"):
+            if len(ref) == len("refs/tags/"):
+                raise GitHubPayloadError("The GitHub push tag ref is empty.")
+            raise GitHubDiscarded(
+                "GitHub tag pushes are unsupported. Git facts are unchanged."
+            )
         if not ref.startswith("refs/heads/") or len(ref) == len("refs/heads/"):
             raise GitHubPayloadError("The GitHub push ref is not a branch ref.")
         branch_name = _github_branch_name(ref.removeprefix("refs/heads/"))

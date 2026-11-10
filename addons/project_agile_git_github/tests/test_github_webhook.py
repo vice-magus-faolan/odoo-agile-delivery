@@ -432,6 +432,198 @@ class TestGitHubWebhook(HttpCase):
             )
         }
 
+    def _tag_payload(self, key, deleted=False):
+        payload = self._branch_deletion_payload("refs/tags/release/" + key)
+        if not deleted:
+            payload.update(
+                after="a" * 40,
+                created=True,
+                deleted=False,
+                head_commit=None,
+                commits=[{"id": "a" * 40, "message": "Release " + key}],
+            )
+        return payload
+
+    def test_tag_creation_and_deletion_are_discarded_without_facts(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        task = self.env["project.task"].create(
+            {"name": "Tags are not task activity", "project_id": self.project.id}
+        )
+        task_fields = ["stage_id", "message_partner_ids", "write_date"]
+        task_before = task.read(task_fields)
+        facts_before = self._github_fact_snapshot()
+        for deleted in (False, True):
+            with self.subTest(deleted=deleted):
+                payload = self._tag_payload(task.agile_key, deleted)
+                delivery_id = "tag-empty-" + str(deleted)
+                raw = json.dumps(payload, separators=(",", ":")).encode()
+                self.assertGreater(len(raw), 4096)
+                delivery = self._post_and_settle_push(payload, delivery_id)
+                self.assertEqual(self._github_fact_snapshot(), facts_before)
+                self.assertEqual(task.read(task_fields), task_before)
+                self.assertEqual(
+                    (delivery.state, delivery.attempt_count), ("discarded", 1)
+                )
+                self.assertEqual(
+                    delivery.error_summary,
+                    "GitHub tag pushes are unsupported. Git facts are unchanged.",
+                )
+                self.assertTrue(delivery.processed_at)
+                self.assertFalse(delivery.lease_token)
+                self.assertFalse(delivery.lease_expires_at)
+                self.assertEqual(
+                    delivery.payload_sha256, hashlib.sha256(raw).hexdigest()
+                )
+                self.assertEqual(delivery.payload_size, len(raw))
+                retained = json.loads(delivery.retained_payload)
+                self.assertEqual(retained["repository"], {"id": 4242})
+                self.assertEqual(retained["ref"], payload["ref"])
+                self.assertNotIn("sender", retained)
+                self.assertNotIn("installation", retained)
+                self.assertNotIn("users.noreply.github.com", delivery.retained_payload)
+                self.assertEqual(self._post(payload, delivery_id).status_code, 202)
+                changed = {**payload, "ref": payload["ref"] + "-changed"}
+                self.assertEqual(self._post(changed, delivery_id).status_code, 409)
+                self.env.invalidate_all()
+                self.assertEqual(delivery.replay_mismatch_count, 1)
+                self.assertEqual(delivery.attempt_count, 1)
+                self.assertEqual(self._github_fact_snapshot(), facts_before)
+        self.assertEqual(self._delivery_count(), 2)
+
+    def test_tags_preserve_existing_facts_through_reprocess_and_purge(self):
+        def adapt(payload, key):
+            payload["ref"] = "refs/heads/feature/" + key
+            payload["commits"][0]["message"] += " " + key
+
+        _normal, _original, task = self._sample_delivery("push", adapt)
+        task_fields = ["stage_id", "message_partner_ids", "write_date"]
+        task_before = task.read(task_fields)
+        before = self._github_fact_snapshot()
+        self.assertTrue(before["project.git.branch"])
+        self.assertTrue(before["project.git.commit"])
+        self.assertTrue(before["project.git.task.association"])
+        for deleted in (False, True):
+            with self.subTest(deleted=deleted):
+                delivery = self._post_and_settle_push(
+                    self._tag_payload(task.agile_key, deleted),
+                    "tag-existing-" + str(deleted),
+                )
+                self.assertEqual(self._github_fact_snapshot(), before)
+                self.assertEqual(delivery.state, "discarded", delivery.error_summary)
+                digest = delivery.payload_sha256
+                delivery.action_reprocess_github_delivery()
+                claimed = self.env["project.git.delivery"]._claim_github_delivery()
+                self.assertEqual(claimed, delivery)
+                claimed._settle_github_delivery()
+                self.env.invalidate_all()
+                self.assertEqual(
+                    (delivery.state, delivery.attempt_count), ("discarded", 2)
+                )
+                self.assertEqual(self._github_fact_snapshot(), before)
+                self.assertEqual(task.read(task_fields), task_before)
+                self.assertEqual(delivery.payload_sha256, digest)
+                reason = delivery.error_summary
+                delivery.retained_until = "2000-01-01 00:00:00"
+                self.assertEqual(
+                    self.env["project.git.delivery"]._purge_expired_github_payloads(), 1
+                )
+                self.assertFalse(delivery.retained_payload)
+                self.assertTrue(delivery.retained_payload_purged_at)
+                self.assertEqual(delivery.payload_sha256, digest)
+                self.assertEqual(delivery.error_summary, reason)
+                self.assertEqual(self._github_fact_snapshot(), before)
+                self.assertEqual(task.read(task_fields), task_before)
+                with self.assertRaises(ValidationError):
+                    delivery.action_reprocess_github_delivery()
+
+    def test_tag_discard_still_requires_repository_authentication(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        payload = self._tag_payload("GHI-1")
+        before = self._github_fact_snapshot()
+        self.assertEqual(
+            self._post(payload, "tag-bad-secret", secret="wrong-secret").status_code,
+            401,
+        )
+        payload["repository"]["id"] = 9999
+        self.assertEqual(self._post(payload, "tag-unknown").status_code, 401)
+        payload["repository"]["id"] = 4242
+        self.repository.active = False
+        self.assertEqual(self._post(payload, "tag-inactive").status_code, 401)
+        self.repository.active = True
+        other_company = self.env["res.company"].create({"name": "Tag company"})
+        other_project = (
+            self.env["project.project"]
+            .with_company(other_company)
+            .create(
+                {
+                    "name": "Other tag Project",
+                    "company_id": other_company.id,
+                    "agile_enabled": True,
+                    "agile_key": "TAG",
+                }
+            )
+        )
+        other_repository = self.env["project.git.repository"].create(
+            {
+                "name": "other-tags",
+                "provider": "github",
+                "provider_repository_id": "4243",
+                "canonical_url": "https://github.com/other/tags",
+                "project_id": other_project.id,
+                "webhook_secret": "other-tag-secret",
+                "retention_policy": "redacted_excerpt",
+            }
+        )
+        payload["repository"]["id"] = 4243
+        self.assertEqual(self._post(payload, "tag-foreign-secret").status_code, 401)
+        self.assertEqual(self._delivery_count(), 0)
+        self.assertEqual(self._github_fact_snapshot(), before)
+        self.assertEqual(
+            self._post(
+                payload, "tag-foreign-valid", secret="other-tag-secret"
+            ).status_code,
+            202,
+        )
+        delivery = self.env["project.git.delivery"]._claim_github_delivery()
+        self.assertEqual(delivery.repository_id, other_repository)
+        self.assertEqual(delivery.repository_id.project_id, other_project)
+        self.assertEqual(delivery.company_id, other_company)
+        delivery._settle_github_delivery()
+        self.env.invalidate_all()
+        self.assertEqual(delivery.state, "discarded", delivery.error_summary)
+        self.assertEqual(self._github_fact_snapshot(), before)
+        self.assertFalse(
+            self.env["project.git.task.association"].search(
+                [("repository_id", "=", other_repository.id)]
+            )
+        )
+
+    def test_malformed_tag_and_other_namespace_refs_still_fail(self):
+        self.repository.retention_policy = "redacted_excerpt"
+        before = self._github_fact_snapshot()
+        for index, ref in enumerate(
+            ("refs/tags/", "refs/tags", "refs/notes/GHI-1", "", None, 42, "x" * 4097)
+        ):
+            with self.subTest(ref=ref):
+                payload = self._tag_payload("GHI-1")
+                payload["ref"] = ref
+                delivery_id = "invalid-tag-ref-" + str(index)
+                self.assertEqual(self._post(payload, delivery_id).status_code, 202)
+                delivery = self.env["project.git.delivery"].search(
+                    [
+                        ("repository_id", "=", self.repository.id),
+                        ("provider_delivery_id", "=", delivery_id),
+                    ]
+                )
+                if delivery.state == "queued":
+                    claimed = self.env["project.git.delivery"]._claim_github_delivery()
+                    self.assertEqual(claimed, delivery)
+                    claimed._settle_github_delivery()
+                    self.env.invalidate_all()
+                self.assertEqual(delivery.state, "failed", delivery.error_summary)
+                self.assertTrue(delivery.error_summary)
+                self.assertEqual(self._github_fact_snapshot(), before)
+
     def test_branch_deletion_without_facts_is_discarded(self):
         self.repository.retention_policy = "redacted_excerpt"
         task = self.env["project.task"].create(

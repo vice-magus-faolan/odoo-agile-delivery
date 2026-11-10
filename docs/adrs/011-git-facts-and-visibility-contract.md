@@ -65,12 +65,23 @@ leases are eligible again. `ir.cron._commit_progress` commits one settled item a
 and leaves remaining work for a later run.
 
 The supported GitHub subset is `push`, `pull_request`, and `check_run`. Missing optional
-push `head_commit`/`commits` and check-run `output` are treated as absent source
-material; when present, those containers must be a JSON object, list, and JSON object
-respectively, or the delivery is terminally malformed. Newer source timestamps replace
-current branch/PR/check values; older observations do not regress them, and
-absent/equal-conflicting timestamps are marked ambiguous rather than guessed.
-Unsupported delivery types are terminally `discarded` with a diagnostic.
+branch-update `head_commit`/`commits` and check-run `output` are treated as absent
+source material; when present, those containers must be a JSON object, list, and JSON
+object respectively, or the delivery is terminally malformed. Branch deletion may carry
+a null head commit. Newer source timestamps replace current branch/PR/check values;
+older observations do not regress them, and absent/equal-conflicting timestamps are
+marked ambiguous rather than guessed. Unsupported delivery types are terminally
+`discarded` with a diagnostic.
+
+Authenticated push events with a bounded, nonempty `refs/tags/` ref are also terminally
+`discarded`, with the reason “GitHub tag pushes are unsupported. Git facts are
+unchanged.” Both creation and deletion stop before branch/commit, task association,
+audit or ordering writes. Tag refs are classified rather than interpreted as branch
+names or URLs; no tag model or full tag-name grammar is introduced. Empty tag refs,
+non-string/oversized refs and other unsupported ref namespaces remain malformed.
+Authentication, repository binding, exact-body replay checks and retention apply before
+this classification; digest-only deliveries remain non-normalizable under the existing
+retention policy. Reprocessing a retained tag repeats the same deliberate discard.
 
 Default payload retention is digest-only. Such a delivery is deliberately
 non-normalizable and terminally visible; a repository must select `redacted_excerpt`

@@ -369,7 +369,7 @@ ul.auto-toc {
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! source digest: sha256:b07993a4ee9147cee7efc72b7888d6f84dc6804fca3d9cb1188098f438e0e648
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -->
-<p><a class="reference external image-reference" href="https://odoo-community.org/page/development-status"><img alt="Beta" src="https://img.shields.io/badge/maturity-Beta-yellow.png" /></a> <a class="reference external image-reference" href="http://www.gnu.org/licenses/lgpl-3.0-standalone.html"><img alt="License: LGPL-3" src="https://img.shields.io/badge/license-LGPL--3-blue.png" /></a> <a class="reference external image-reference" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_automation"><img alt="vice-magus-faolan/odoo-agile-delivery" src="https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github" /></a></p>
+<p><a class="reference external image-reference" href="https://odoo-community.org/page/development-status"><img alt="Beta" src="https://img.shields.io/badge/maturity-Beta-yellow.png" /></a> <a class="reference external image-reference" href="http://www.gnu.org/licenses/lgpl-3.0-standalone.html"><img alt="License: LGPL-3" src="https://img.shields.io/badge/license-LGPL--3-blue.png" /></a> <a class="reference external image-reference" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_automation"><img alt="vice-magus-faolan/odoo-agile-delivery" src="https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github" /></a></p>
 <p>Optional Odoo 19 Community-compatible Git workflow policies, depending
 only on <tt class="docutils literal">project_agile_git</tt>. The addon is LGPL-3 and uses native Odoo
 scheduled actions; GitHub, Scrum, an external queue runner and outbound
@@ -398,7 +398,7 @@ native completion, change Sprint scope or edit estimates.</p>
 </div>
 <div class="section" id="installation">
 <h1><a class="toc-backref" href="#toc-entry-1">Installation</a></h1>
-<p>Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation">repository installation
+<p>Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation">repository installation
 guide</a>.</p>
 </div>
 <div class="section" id="configuration">
@@ -412,7 +412,7 @@ current company membership and actual write access to all affected
 Project tasks.</p>
 <ol class="arabic">
 <li><p class="first">Configure an active company-scoped Agile Project and a repository
-using the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git#configuration">Git Facts
+using the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration">Git Facts
 guide</a>.</p>
 </li>
 <li><p class="first">As a Git Policy Manager, open the Project form, <strong>Git Policy</strong>, and
@@ -442,10 +442,10 @@ not enable task writes.</p>
 </li>
 </ol>
 <p>If activation refuses the installed access rules or Task configuration,
-compare them with <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-authority-profiles.md">supported permissions and
+compare them with <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-authority-profiles.md">supported permissions and
 extensions</a>
 before approval; additional extensions can have external effects a stage
-write cannot undo. See the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-configuration.md">configuration
+write cannot undo. See the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-configuration.md">configuration
 guide</a>
 for supported selectors and revocation conditions.</p>
 </div>
@@ -456,7 +456,7 @@ select the repository and choose <strong>Evaluate Dry Run (20 PRs)</strong>, or
 choose <strong>Preview Repository (20 PRs)</strong> on a rule. Inspect the resulting
 decisions, their outcomes and reasons. <strong>Project &gt; Configuration &gt; Git
 Policy Dry Runs</strong> lists history. The button examines only the first
-page, not every PR; the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-dry-run.md">dry-run
+page, not every PR; the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-dry-run.md">dry-run
 guide</a>
 describes pagination and exact evidence requirements.</p>
 <p>For a meaningful preview, use an eligible merged PR on the configured
@@ -491,10 +491,10 @@ consumed-effect history. Uninstall deletes policy history; reinstall
 does not restore approvals. Restoring a backup without <strong>Consumed
 Effects</strong> can move the same tasks twice. Keep policies disabled while
 reconciling that history, then approve a new revision with a new cutoff
-instead of re-enabling an old approval. Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/runbooks/git-policy-operations.md">operations
+instead of re-enabling an old approval. Follow the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/runbooks/git-policy-operations.md">operations
 runbook</a>
 for recovery, history retention and Odoo.sh staging precautions, and the
-<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/git-policy-apply-boundary.md">apply
+<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/git-policy-apply-boundary.md">apply
 boundary</a>
 for compatibility and native side effects.</p>
 </div>
@@ -503,7 +503,7 @@ for compatibility and native side effects.</p>
 <p>Bugs are tracked on <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues">GitHub Issues</a>.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_automation%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**">feedback</a>.</p>
+<a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_git_automation%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**">feedback</a>.</p>
 <p>Do not contact contributors directly about support or help with technical issues.</p>
 </div>
 <div class="section" id="credits">
@@ -516,7 +516,7 @@ If you spotted it first, help us to smash it by providing a detailed and welcome
 </div>
 <div class="section" id="maintainers">
 <h2><a class="toc-backref" href="#toc-entry-7">Maintainers</a></h2>
-<p>This module is part of the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git_automation">vice-magus-faolan/odoo-agile-delivery</a> project on GitHub.</p>
+<p>This module is part of the <a class="reference external" href="https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git_automation">vice-magus-faolan/odoo-agile-delivery</a> project on GitHub.</p>
 <p>You are welcome to contribute.</p>
 </div>
 </div>

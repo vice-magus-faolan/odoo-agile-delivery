@@ -1,5 +1,5 @@
 Install **Agile Solution Definition** (`project_agile_solution`). Follow
-[role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
+[role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration)
 to assign Business analyst for authoring requirements, documents, revisions and
 Task previews, or combine it with Scrum master for Sprint operations.
 
@@ -14,7 +14,7 @@ approver. Authorship alone never permits returning a review, including your own;
 self-return requires Project administrator access. Current Project, record and
 company access still apply. Only the designated approver may approve.
 
-1. Follow the [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
+1. Follow the [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration)
    to enable **Agile Enabled** on the Project and set its **Agile Key**.
 2. Open **Project > Solution Lineages**. Create a named initiative and select its
    active Agile **Project**. A lineage groups documents and requirements. Approve

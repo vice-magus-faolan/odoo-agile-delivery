@@ -17,7 +17,7 @@ Agile Project Document Page
     :target: http://www.gnu.org/licenses/agpl-3.0-standalone.html
     :alt: License: AGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_document_page
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_document_page
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -45,7 +45,7 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
@@ -60,11 +60,11 @@ deployment's corresponding-source obligations before use. Run
 the selected backend and bridges in disposable databases. The separate
 check covers installation, update, uninstall and reinstall. Validate
 your installed extensions and Odoo.sh staging separately. The `adoption
-decision <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/006-knowledge-relationship-model.md>`__
+decision <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/006-knowledge-relationship-model.md>`__
 records the selected backend and dependency boundary.
 
 Configure an `Agile
-Project <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration>`__.
+Project <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration>`__.
 For this walkthrough, select **Administrator** under **Project** in user
 access rights, called Project administrator below. The caller must also
 be able to read the selected Document Page; creating a root requires OCA
@@ -104,7 +104,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_document_page%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_document_page%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -119,6 +119,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_document_page>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_document_page>`_ project on GitHub.
 
 You are welcome to contribute.

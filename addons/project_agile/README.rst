@@ -17,7 +17,7 @@ Agile Project Core
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -29,7 +29,7 @@ Fibonacci story points, acceptance criteria and an ordered backlog.
 
 Enable Agile separately on each Project. For teams and Sprint planning,
 add `Scrum Project
-Foundation <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum>`__.
+Foundation <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum>`__.
 
 **Table of contents**
 
@@ -40,7 +40,7 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
@@ -168,7 +168,7 @@ its tasks grouped by Agile item type and task state, including Done
 work. Projects without Agile keep the native View Tasks.
 
 For Sprint planning, configure
-`project_scrum <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_scrum>`__.
+`project_scrum <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum>`__.
 The **Product Backlog** button on a Sprint narrows this queue to its
 Project's Sprint-eligible work.
 
@@ -221,7 +221,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -236,6 +236,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile>`_ project on GitHub.
 
 You are welcome to contribute.

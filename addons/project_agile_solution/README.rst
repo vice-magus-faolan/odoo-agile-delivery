@@ -17,7 +17,7 @@ Agile Solution Definition
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-vice--magus--faolan%2Fodoo--agile--delivery-lightgray.png?logo=github
-    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution
+    :target: https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution
     :alt: vice-magus-faolan/odoo-agile-delivery
 
 |badge1| |badge2| |badge3|
@@ -41,14 +41,14 @@ Installation
 ============
 
 Follow the `repository installation
-guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/README.md#installation>`__.
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/README.md#installation>`__.
 
 Configuration
 =============
 
 Install **Agile Solution Definition** (``project_agile_solution``).
 Follow `role assignment in Agile core
-configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration>`__
+configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration>`__
 to assign Business analyst for authoring requirements, documents,
 revisions and Task previews, or combine it with Scrum master for Sprint
 operations.
@@ -66,7 +66,7 @@ requires Project administrator access. Current Project, record and
 company access still apply. Only the designated approver may approve.
 
 1. Follow the `Agile core
-   configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration>`__
+   configuration <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration>`__
    to enable **Agile Enabled** on the Project and set its **Agile Key**.
 2. Open **Project > Solution Lineages**. Create a named initiative and
    select its active Agile **Project**. A lineage groups documents and
@@ -463,7 +463,7 @@ supplies client portal membership, explicitly revoke its publications:
 group deletion can leave a grant unretired, and group-side membership
 restoration can make it available again. See the group-deletion
 limitation in `ADR
-013 <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/013-solution-definition-contract.md#authenticated-client-publication-and-decisions>`__.
+013 <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/013-solution-definition-contract.md#authenticated-client-publication-and-decisions>`__.
 Downloaded copies cannot be recalled.
 
 Name the people served
@@ -489,7 +489,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_solution%0Aversion:%20main/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/new?body=module:%20project_agile_solution%0Aversion:%2019.0/addons%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -504,6 +504,6 @@ Authors
 Maintainers
 -----------
 
-This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_solution>`_ project on GitHub.
+This module is part of the `vice-magus-faolan/odoo-agile-delivery <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution>`_ project on GitHub.
 
 You are welcome to contribute.

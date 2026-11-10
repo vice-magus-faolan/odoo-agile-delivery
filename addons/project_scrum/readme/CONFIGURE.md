@@ -1,11 +1,11 @@
-Follow [role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration)
+Follow [role assignment in Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration)
 to assign Scrum master before managing teams or Sprints, or combine it with
 Business analyst for Solution authoring. A Project administrator can also
 perform Scrum operations. Neither role grants access to a Project or company
 by itself.
 
 1. Have a Project administrator configure an Agile-enabled Project using the
-   [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile#configuration).
+   [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration).
 2. As a Scrum master, open **Project > Tasks > Agile Teams**. Create a team and select
    its Project. The team inherits the Project company.
 3. Have a Project administrator open **Project > Configuration > Agile Item Types**

@@ -22,4 +22,4 @@ Follow the maintained architecture decisions in `docs/adrs/`. In particular:
 
 ## Effects
 
-Do not push, merge, alter `main`, restart shared services, publish, or delete persistent Docker volumes unless the task explicitly authorizes that effect. Docker test containers and disposable verification databases are allowed when the task requests verification.
+Do not push, merge, alter the default branch (`19.0`), restart shared services, publish, or delete persistent Docker volumes unless the task explicitly authorizes that effect. Docker test containers and disposable verification databases are allowed when the task requests verification.

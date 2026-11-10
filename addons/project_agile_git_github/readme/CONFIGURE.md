@@ -1,5 +1,5 @@
 First configure the repository using the
-[Git Facts guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/main/addons/project_agile_git#configuration).
+[Git Facts guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration).
 Repository configuration and delivery recovery require **Administrator** under
 **Project** in the user access rights, called Project administrator below.
 The person setting **Webhook Secret** must also have System Administrator access.
@@ -41,7 +41,7 @@ produce a **Failed** delivery with a diagnostic and no retained payload.
 Pushes retain the first 100 commits. For larger pushes, **Omitted Commit Count**
 and **Commit Omission Reason** identify skipped commits, even after successful
 processing or payload cleanup; the branch head still updates subject to source
-ordering. See [ADR-011](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/main/docs/adrs/011-git-facts-and-visibility-contract.md)
+ordering. See [ADR-011](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/011-git-facts-and-visibility-contract.md)
 for technical retention bounds.
 
 Redaction removes recognized credentials but may leave sensitive text or unknown

@@ -332,9 +332,20 @@
     id="menu_scrum_analytics"
     name="Scrum Analytics"
     parent="project.menu_project_management"
-    action="action_scrum_analytics_report"
     groups="project.group_project_user"
     sequence="30"
+  />
+  <!-- Clear the former parent action on existing installations as well. -->
+  <record id="menu_scrum_analytics" model="ir.ui.menu">
+    <field name="action" eval="False" />
+  </record>
+  <menuitem
+    id="menu_scrum_analytics_report"
+    name="Sprint Report"
+    parent="menu_scrum_analytics"
+    action="action_scrum_analytics_report"
+    groups="project.group_project_user"
+    sequence="5"
   />
   <menuitem
     id="menu_scrum_analytics_timeline"

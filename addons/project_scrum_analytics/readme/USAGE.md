@@ -1,8 +1,7 @@
-The **Project > Tasks > Scrum Analytics** parent menu currently does not open its
-report action; this navigation defect is tracked in
-[#53](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/53).
-The **Burndown & Burnup Timeline** submenu is reachable. The steps below describe
-the Sprint report when opened, rather than a working parent-menu launch path.
+As a Project user, open **Project > Tasks > Scrum Analytics > Sprint Report**.
+For event history, open **Project > Tasks > Scrum Analytics > Burndown & Burnup
+Timeline**. Both reports are read-only and show only the Projects and companies
+you can access.
 
 1. The initial **Active Sprints** filter shows numbers from the Sprint history
    so far. Search by Sprint, Project or team, or group by Project, Team,

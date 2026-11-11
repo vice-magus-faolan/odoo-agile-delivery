@@ -17,7 +17,7 @@
     <field name="name">solution.task.intent.form</field>
     <field name="model">project.agile.solution.task.intent</field>
     <field name="arch" type="xml">
-      <form string="Deliberate Task Preview">
+      <form string="Task Preview">
         <header>
           <button
             name="action_request_confirmation"
@@ -215,7 +215,7 @@
     </field>
   </record>
   <record id="action_solution_task_intent" model="ir.actions.act_window">
-    <field name="name">Deliberate Task Previews</field>
+    <field name="name">Task Previews</field>
     <field name="res_model">project.agile.solution.task.intent</field>
     <field name="view_mode">list,form</field>
   </record>
@@ -226,8 +226,8 @@
   </record>
   <menuitem
     id="menu_solution_task_intent"
-    name="Deliberate Task Previews"
-    parent="project.menu_main_pm"
+    name="Task Previews"
+    parent="menu_solutions"
     action="action_solution_task_intent"
     groups="project.group_project_manager,project_agile_solution.group_business_analyst"
     sequence="88"
@@ -235,7 +235,7 @@
   <menuitem
     id="menu_requirement_task_link"
     name="Requirement Work Links"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_requirement_task_link"
     groups="project.group_project_user"
     sequence="89"

@@ -3,7 +3,7 @@
     "summary": (
         "Optional solution documents, immutable baselines and separate approvals"
     ),
-    "version": "19.0.1.13.0",
+    "version": "19.0.1.13.1",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",

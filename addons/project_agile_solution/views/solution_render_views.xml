@@ -38,10 +38,7 @@
           <page string="Audience Projection">
             <field name="projection_text" readonly="1" />
           </page>
-          <page
-            string="Honest Coverage / Change Impact"
-            invisible="audience != 'internal'"
-          >
+          <page string="Coverage and Changes" invisible="audience != 'internal'">
             <field name="coverage_text" readonly="1" />
           </page>
         </notebook>
@@ -94,7 +91,7 @@
               options="{'no_create': True}"
             />
             <field name="decision" />
-            <field name="authority_label" string="Asserted Authority / Role" />
+            <field name="authority_label" />
             <field name="project_id" />
             <field name="recorded_by_id" required="id" invisible="not id" />
             <field name="recorded_by_label" required="id" invisible="not id" />
@@ -138,7 +135,7 @@
   <menuitem
     id="menu_requirement_acceptance"
     name="Exact Requirement Decisions"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_requirement_acceptance"
     groups="project.group_project_user"
     sequence="88"

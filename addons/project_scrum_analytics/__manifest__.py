@@ -1,7 +1,7 @@
 {
     "name": "Scrum Analytics",
     "summary": "Deterministic Sprint analytics from immutable scope facts",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",

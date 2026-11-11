@@ -22,7 +22,7 @@
           <button
             name="action_new_revision"
             type="object"
-            string="Open / New Working Revision"
+            string="Open or Create Working Revision"
             groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
@@ -248,7 +248,7 @@
   <menuitem
     id="menu_solution_document"
     name="Solution Documents"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_document"
     groups="project.group_project_user"
     sequence="81"
@@ -256,7 +256,7 @@
   <menuitem
     id="menu_solution_revision"
     name="Solution Revisions"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_revision"
     groups="project.group_project_user"
     sequence="82"
@@ -264,7 +264,7 @@
   <menuitem
     id="menu_solution_template"
     name="Solution Narrative Templates"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_template"
     groups="project.group_project_user"
     sequence="83"

@@ -1,4 +1,4 @@
-1. As a Project administrator, use **Project > Deliberate Task Previews** to link
+1. As a Project administrator, use **Project > Solutions > Task Previews** to link
    exact requirement revisions to the Project tasks you plan to schedule. Follow the
    [Solution workflow](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_solution#usage)
    to review and confirm those links.
@@ -18,7 +18,7 @@ Each event keeps its own observed context, including removal, **Completed**,
 reopening and carry-over events. An earlier commitment retains requirement v1
 when a later link selects v2. Draft specification context can be captured and is
 still unapproved. Approve the specification through the Solution workflow and
-record acceptance through **Project > Exact Requirement Decisions** under the
+record acceptance through **Project > Solutions > Exact Requirement Decisions** under the
 Solution acceptance rules.
 
 **No Active Requirement Links** means the event was captured without links;

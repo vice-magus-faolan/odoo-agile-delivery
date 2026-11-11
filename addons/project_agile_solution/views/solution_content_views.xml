@@ -22,7 +22,7 @@
           <button
             name="action_new_revision"
             type="object"
-            string="Open / New Content Revision"
+            string="Open or Create Content Revision"
             groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
@@ -124,7 +124,7 @@
           <button
             name="action_new_revision"
             type="object"
-            string="Open / New Context Revision"
+            string="Open or Create Context Revision"
             groups="project.group_project_manager,project_agile_solution.group_business_analyst"
           />
         </header>
@@ -301,7 +301,7 @@
   <menuitem
     id="menu_requirement"
     name="Requirements"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_requirement"
     groups="project.group_project_user"
     sequence="84"
@@ -309,7 +309,7 @@
   <menuitem
     id="menu_requirement_revision"
     name="Requirement Revisions"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_requirement_revision"
     groups="project.group_project_user"
     sequence="85"
@@ -317,7 +317,7 @@
   <menuitem
     id="menu_solution_context"
     name="Solution Supporting Context"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_context"
     groups="project.group_project_user"
     sequence="86"
@@ -325,7 +325,7 @@
   <menuitem
     id="menu_solution_context_revision"
     name="Context Revisions"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_context_revision"
     groups="project.group_project_user"
     sequence="87"

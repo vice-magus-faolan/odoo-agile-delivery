@@ -97,7 +97,10 @@ class SolutionRevision(models.Model):
         "project.agile.solution.section", "revision_id", copy=False
     )
     based_sow_revision_id = fields.Many2one(
-        "project.agile.solution.revision", ondelete="restrict", check_company=True
+        "project.agile.solution.revision",
+        string="SOW Baseline",
+        ondelete="restrict",
+        check_company=True,
     )
     scope_disposition = fields.Selection(
         [("within", "Within Existing Scope"), ("change", "Explicit Scope Change")],

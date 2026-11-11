@@ -69,6 +69,7 @@ class RequirementAcceptance(models.Model):
     )
 
     authority_label = fields.Char(
+        string="Decision Maker and Role",
         required=True,
         help=(
             "Named authority/role asserted by the exact baseline approver; "

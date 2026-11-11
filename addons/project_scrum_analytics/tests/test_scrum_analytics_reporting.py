@@ -3,6 +3,7 @@ from datetime import timedelta
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools.convert import convert_file
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -258,3 +259,24 @@ class TestScrumAnalyticsReporting(TransactionCase):
         self.assertEqual(sprint.state, "active")
         self.assertEqual(report.state, "active")
         self.assertFalse(sprint.closed_at)
+
+    def test_menu_update_clears_former_parent_action(self):
+        parent = self.env.ref("project_scrum_analytics.menu_scrum_analytics")
+        report_action = self.env.ref(
+            "project_scrum_analytics.action_scrum_analytics_report"
+        )
+        parent.action = report_action
+
+        convert_file(
+            self.env,
+            "project_scrum_analytics",
+            "views/project_scrum_analytics_views.xml",
+            {},
+            mode="update",
+        )
+
+        self.assertFalse(parent.action)
+        self.assertEqual(
+            self.env.ref("project_scrum_analytics.menu_scrum_analytics_report").action,
+            report_action,
+        )

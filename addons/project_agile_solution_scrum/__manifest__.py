@@ -4,7 +4,9 @@
         "Optional frozen exact requirement context at native Sprint scope events"
     ),
     "version": "19.0.1.0.0",
-    "author": "Odoo Agile Delivery",
+    "author": "McCann Hub",
+    "maintainer": "Jimmy McCann",
+    "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project_agile_solution", "project_scrum"],

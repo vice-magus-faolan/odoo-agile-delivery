@@ -4,7 +4,9 @@
         "Opt-in typed Git policies, dry runs and bounded native stage application"
     ),
     "version": "19.0.1.5.0",
-    "author": "Odoo Agile Delivery",
+    "author": "McCann Hub",
+    "maintainer": "Jimmy McCann",
+    "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project_agile_git"],

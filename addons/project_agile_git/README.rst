@@ -164,7 +164,12 @@ Credits
 Authors
 -------
 
-* Odoo Agile Delivery
+* McCann Hub
+
+Contributors
+------------
+
+- Jimmy McCann https://github.com/jabez007
 
 Maintainers
 -----------

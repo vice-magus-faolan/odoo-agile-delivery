@@ -13,7 +13,7 @@ class TestProjectAgileModuleContract(unittest.TestCase):
         manifest = ast.literal_eval((module_root / "__manifest__.py").read_text())
 
         self.assertEqual(manifest["depends"], ["project"])
-        self.assertEqual(manifest["author"], "Odoo Agile Delivery")
+        self.assertEqual(manifest["author"], "McCann Hub")
         self.assertTrue(manifest["installable"])
 
     def test_skeleton_has_no_custom_javascript(self):

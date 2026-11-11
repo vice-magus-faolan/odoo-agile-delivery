@@ -3,7 +3,9 @@
     "summary": "Authenticated GitHub delivery persistence and normalization "
     "for Agile Git Facts",
     "version": "19.0.1.4.0",
-    "author": "Odoo Agile Delivery",
+    "author": "McCann Hub",
+    "maintainer": "Jimmy McCann",
+    "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project_agile_git"],

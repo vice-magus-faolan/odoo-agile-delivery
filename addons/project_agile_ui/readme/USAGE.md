@@ -21,6 +21,30 @@
    list** and **Open Product Backlog list** offer ordinary list and form views.
    The latter keeps the selected team and the board's Sprint-eligible queue.
 
+In Sprint Planning, open the native command palette with **Ctrl+K** (**Command+K**
+on macOS) and search for **Agile**. Commands create work, open Product Backlog or
+Active Sprints, and focus **Find work by key**. **Keyboard commands** on the board
+lists the direct shortcuts: **Alt+Shift+N**, **Alt+Shift+B**, **Alt+Shift+S** and
+**Alt+Shift+F**, respectively. On macOS, use Control instead of Alt. Direct
+shortcuts require focus on the board and pause while typing, composing text or
+using a dialog. Native global shortcuts keep their normal behavior.
+
+Choose **New work item**, enter a **Name** and press **Enter** or **Create**.
+The native Task uses the Project default item type, compatible stage, selected
+team and milestone. Creation requires current Task creation permission and an
+available Agile Project. **Cancel** or **Escape** discards the draft without
+creating work. Focus returns to **New work item**. Saving refreshes the board
+without clearing filters; an item whose default type is not Sprint-eligible may
+be absent from this planning queue. Use the general Product Backlog to find it.
+A rejected save keeps the draft: check the Project defaults and current access,
+or cancel and refresh to select an available team or milestone.
+
+**Find work by key** searches all visible active work in this Project, including
+scheduled items. Type a key or name and select a suggestion or press **Enter**.
+The server rechecks the selected item before opening its native form. **Active
+Sprint** opens the current Active Sprints list, narrowed to the selected team;
+an empty list means no matching visible Active Sprint.
+
 The board displays at most 20 Sprints and 100 assigned items across them, with
 50 backlog items per page. Use the standard lists when the board is incomplete;
 point totals can include work not rendered in its limited item list.

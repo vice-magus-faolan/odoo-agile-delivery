@@ -3,6 +3,7 @@
     <t t-name="project_agile_ui.AgilePlanningBoard">
     <main
       class="o_agile_planning_board"
+      t-ref="board"
       t-att-aria-busy="state.loading ? 'true' : 'false'"
     >
       <header class="o_agile_planning_board__header">
@@ -63,6 +64,43 @@
             <p
             >Grouping covers only the cards loaded so far. Sprint point totals count every task in the Sprint.</p>
           </div>
+        </div>
+        <div t-if="state.project" class="o_agile_planning_board__commands">
+          <button
+            t-if="state.project.can_create_task"
+            type="button"
+            class="btn btn-primary o_agile_planning_board__create"
+            t-att-disabled="!canCreateTask"
+            t-on-click="openQuickCreate"
+          >New work item</button>
+          <button
+            type="button"
+            class="btn btn-secondary o_agile_planning_board__active"
+            t-att-disabled="!commandsAvailable"
+            t-on-click="openActiveSprints"
+          >Active Sprint</button>
+          <label for="agile-planning-work-search">Find work by key</label>
+          <Many2XAutocomplete
+            t-if="commandsAvailable"
+            id="'agile-planning-work-search'"
+            resModel="'project.task'"
+            fieldString="'Work item'"
+            value="''"
+            autoSelect="true"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="workSearchDomain"
+            update.bind="openPickedWork"
+            placeholder="'Key or name in this Project'"
+          />
+          <details class="o_agile_planning_board__shortcuts">
+            <summary>Keyboard commands</summary>
+            <p
+            >Use the native command palette (Ctrl+K, or Command+K on macOS) and search for Agile.</p>
+            <p
+            >With focus on the board: Alt+Shift+N creates work, Alt+Shift+B opens Product Backlog,
+              Alt+Shift+S opens Active Sprints and Alt+Shift+F focuses work search.
+              On macOS, use Control instead of Alt. Shortcuts pause in inputs, editors and dialogs.</p>
+          </details>
         </div>
         <div class="o_agile_planning_board__fallbacks">
           <button
@@ -306,5 +344,42 @@
         </section>
       </div>
     </main>
+  </t>
+    <t t-name="project_agile_ui.QuickCreate">
+    <Dialog title="'New work item'" size="'md'">
+      <p t-esc="props.projectName" />
+      <form t-on-submit.prevent="save">
+        <label for="agile-quick-create-name">Name</label>
+        <input
+          id="agile-quick-create-name"
+          class="form-control"
+          t-ref="name"
+          t-model="state.name"
+          t-att-disabled="state.saving"
+          required="required"
+        />
+        <p
+        >Uses the Project default item type and current team and milestone filters.</p>
+        <p
+          t-if="state.error"
+          role="alert"
+          class="alert alert-danger"
+          t-esc="state.error"
+        />
+        <button
+          type="submit"
+          class="btn btn-primary o_agile_quick_create_save"
+          t-att-disabled="state.saving || !state.name.trim()"
+        >Create</button>
+      </form>
+      <t t-set-slot="footer">
+        <button
+          type="button"
+          class="btn btn-secondary o_agile_quick_create_cancel"
+          t-att-disabled="state.saving"
+          t-on-click="props.close"
+        >Cancel</button>
+      </t>
+    </Dialog>
   </t>
 </templates>

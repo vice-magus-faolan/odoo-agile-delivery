@@ -103,7 +103,7 @@ test("project_agile_ui registers and renders a planning workspace", async () => 
     "Sprint 7\n\nDelivery Team · active\n\nShip the planning board\n\nCurrent: 8 points · Committed: 5 points"
   );
   expect(".o_agile_planning_board__backlog-task").toHaveCount(1);
-  expect(".o_agile_planning_board button").toHaveCount(7);
+  expect(".o_agile_planning_board button").toHaveCount(8);
 });
 
 test("project_agile_ui retains standard navigation fallbacks", async () => {

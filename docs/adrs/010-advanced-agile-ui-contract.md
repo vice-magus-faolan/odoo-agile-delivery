@@ -87,6 +87,30 @@ buttons/links, visible focus and announced loading/errors. Narrow layouts stack 
 mandatory horizontal dragging. Keyboard buttons provide every supported planning action;
 drag/drop is an alternative, not the only control.
 
+## Context-aware keyboard work
+
+The optional planning action registers board-lifetime commands through Odoo 19
+`useCommand`, including its native hotkey registration. It does not replace the palette
+or global shortcuts. Direct shortcuts are scoped to the board, without
+editable-protection bypass or global registration; native hotkeys exclude IME
+composition and inactive dialog contexts. The visible help exposes the same commands to
+keyboard and pointer users.
+
+Name-only quick create uses native `Dialog` and current-user Task ORM creation. The
+Project resolver and team/milestone resolvers are rechecked when saving; caller defaults
+are discarded before native Task defaults, key allocation and validation run. No Task is
+created by opening or canceling the dialog. Successful creation reloads the current
+filtered snapshot, including when the default type is absent from the Sprint-eligible
+queue. A rejected save preserves the draft; a failed post-save refresh never offers the
+same submitted draft as unsaved work.
+
+Work lookup uses native `Many2XAutocomplete` and the existing Task key-first
+`name_search`, scoped to the Project, not the loaded page or Sprint. Navigation
+re-resolves the selected Task as the current caller in the current Project. Active
+Sprint navigation reuses the native Sprint action with current-state and optional team
+narrowing instead of selecting an arbitrary Sprint. Cached command availability is
+presentation only; it grants neither creation nor read access.
+
 ## Verification and consequences
 
 Keep native Python permission/company/cursor/payload/atomic-change regressions, Hoot

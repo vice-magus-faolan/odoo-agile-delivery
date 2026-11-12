@@ -13,6 +13,12 @@ Starting a Sprint therefore freezes commitment and appends immutable
 `project.sprint.scope.event` records with Sprint, Task, observed points, timestamp,
 actor and optional reason.
 
+Starting includes every still-assigned Task, whether live or archived. After Sprint,
+Project and company authorization, activation enumerates the full assignment set,
+restores the caller environment and requires read access before freezing commitment or
+emitting events. Hidden assigned work rejects the whole start rather than silently
+narrowing history. The same selection supplies commitment and initial completion facts.
+
 Native Task state `1_done` means completion. Entering it records `completed`; leaving it
 records `reopened`. Folded stages and `is_closed` are not completion signals:
 `1_canceled` is closed but not completed. Pre-write values make repeated writes
@@ -46,3 +52,7 @@ explanation; Milestones have different lifecycle meaning. The immutable event le
 instead supports the additive analytics defined in ADR-009 and requires explicit access,
 retention and trusted correction boundaries. Native Task and Project permissions remain
 authoritative.
+
+Archive-inclusive activation is forward-only. Already-active and closed Sprints retain
+their stored commitment and events, including any earlier omissions of Tasks archived
+before start. No automatic backfill, recomputation or historical repair is performed.

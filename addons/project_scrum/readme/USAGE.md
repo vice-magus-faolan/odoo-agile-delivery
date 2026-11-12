@@ -35,8 +35,10 @@ Use **Agile Team** in search to focus on your team. The **Active Sprint** search
 filter excludes Draft and Closed Sprints; **Sprint Backlog** still includes history.
 
 As a Scrum master or Project administrator, choose **Start Sprint**. Close any Active Sprint for
-the same Project/team first. Starting freezes the committed task set and records
-**Committed** events. Tasks already in **Done** state also receive **Completed** events.
+the same Project/team first. Starting freezes all assigned tasks, including archived
+work, and records **Committed** events. You need read access to every assigned task;
+otherwise the Sprint stays Draft without commitment or events. Tasks already in
+**Done** state, including archived tasks, also receive **Completed** events.
 
 To complete a task, set its state to **Done**. Merely moving it to a stage named
 Done does not change its state.
@@ -62,3 +64,7 @@ Open **Scope History** on the Sprint to read immutable events with task, observe
 points, actor, time and an optional carry-over target column. Closed Sprint
 assignments are frozen; later task state or estimate changes do not rewrite history.
 There is no reopen action.
+
+Archive-inclusive starting commitment applies to newly started Sprints. Existing
+Active and Closed Sprints keep their original commitment and events; earlier gaps
+for tasks archived before start are not automatically repaired.

@@ -65,6 +65,192 @@ class TestProjectScrumDomain(TransactionCase):
         self.assertEqual(events.task_id, self.task)
         self.assertEqual(events.story_points, 5)
 
+    def test_archived_at_start_commitment_survives_both_close_dispositions(self):
+        manager = mail_new_test_user(
+            self.env,
+            "Archive commitment manager",
+            groups="project.group_project_manager",
+        )
+        for disposition in ("product_backlog", "draft_sprint"):
+            with self.subTest(disposition=disposition), self.env.cr.savepoint():
+                archived = self.task.copy(
+                    {"name": "Archived unfinished", "agile_story_points": 3}
+                )
+                canceled = self.task.copy(
+                    {
+                        "name": "Archived canceled",
+                        "state": "1_canceled",
+                        "agile_story_points": 2,
+                    }
+                )
+                done = self.task.copy(
+                    {"name": "Live done", "state": "1_done", "agile_story_points": 1}
+                )
+                archived_done = self.task.copy(
+                    {
+                        "name": "Archived done",
+                        "state": "1_done",
+                        "agile_story_points": 8,
+                    }
+                )
+                tasks = self.task | archived | canceled | done | archived_done
+                sprint = self._create_sprint(
+                    "Source", task_ids=[Command.set(tasks.ids)]
+                )
+                target = self._create_sprint("Target")
+                (archived | canceled | archived_done).write({"active": False})
+                self.assertEqual(set(sprint.task_ids.ids), set((self.task | done).ids))
+
+                self.assertTrue(sprint.with_user(manager).action_start())
+
+                commitment = sprint.with_context(active_test=False).committed_task_ids
+                self.assertEqual(set(commitment.ids), set(tasks.ids))
+                events = sprint.scope_event_ids.sorted("id")
+                committed = events.filtered(
+                    lambda event: event.event_type == "committed"
+                )
+                completed = events.filtered(
+                    lambda event: event.event_type == "completed"
+                )
+                self.assertEqual(len(committed), 5)
+                self.assertEqual(set(committed.task_id.ids), set(tasks.ids))
+                self.assertEqual(
+                    {event.task_id.id: event.story_points for event in committed},
+                    {
+                        self.task.id: 5,
+                        archived.id: 3,
+                        canceled.id: 2,
+                        done.id: 1,
+                        archived_done.id: 8,
+                    },
+                )
+                self.assertEqual(len(completed), 2)
+                self.assertEqual(
+                    set(completed.task_id.ids), set((done | archived_done).ids)
+                )
+                self.assertEqual(sorted(completed.mapped("story_points")), [1, 8])
+                self.assertEqual(events.actor_id, manager)
+                self.assertLess(max(committed.ids), min(completed.ids))
+                history = events.read()
+
+                action = sprint.with_user(manager).action_close()
+                values = {"unfinished_disposition": disposition}
+                if disposition == "draft_sprint":
+                    values["target_sprint_id"] = target.id
+                wizard = (
+                    self.env[action["res_model"]]
+                    .with_user(manager)
+                    .with_context(**action["context"])
+                    .create(values)
+                )
+                self.assertEqual(wizard.unfinished_task_count, 3)
+                self.assertEqual(sprint.state, "active")
+                self.assertFalse(sprint.closed_at)
+                self.assertEqual(tasks.sprint_id, sprint)
+                self.assertEqual(events.read(), history)
+                self.assertEqual(sprint.scope_event_ids, events)
+                self.assertTrue(wizard.action_confirm())
+
+                unfinished = self.task | archived | canceled
+                expected_target = (
+                    target
+                    if disposition == "draft_sprint"
+                    else self.env["project.sprint"]
+                )
+                self.assertEqual(unfinished.sprint_id, expected_target)
+                self.assertEqual((done | archived_done).sprint_id, sprint)
+                self.assertFalse(
+                    any((archived | canceled | archived_done).mapped("active"))
+                )
+                self.assertEqual(sprint.state, "closed")
+                self.assertTrue(sprint.closed_at)
+                self.assertEqual(
+                    set(sprint.with_context(active_test=False).committed_task_ids.ids),
+                    set(tasks.ids),
+                )
+                carry_type = (
+                    "carried_to_sprint"
+                    if disposition == "draft_sprint"
+                    else "carried_to_backlog"
+                )
+                carry = sprint.scope_event_ids - events
+                self.assertEqual(len(carry), 3)
+                self.assertEqual(set(carry.task_id.ids), set(unfinished.ids))
+                self.assertEqual(set(carry.mapped("event_type")), {carry_type})
+                self.assertEqual(carry.carryover_target_sprint_id, expected_target)
+                self.assertEqual(carry.actor_id, manager)
+                self.assertEqual(events.read(), history)
+                self.assertFalse(target.committed_task_ids)
+                self.assertFalse(target.scope_event_ids)
+                frozen = sprint.scope_event_ids.read()
+                with self.assertRaises(ValidationError):
+                    sprint.with_user(manager).action_start()
+                self.assertEqual(sprint.scope_event_ids.read(), frozen)
+                # Next iteration starts from the same live unfinished work.
+                self.task.write({"sprint_id": False})
+
+    def test_archived_done_at_start_closes_directly_without_carry_out(self):
+        manager = mail_new_test_user(
+            self.env, "Archived done manager", groups="project.group_project_manager"
+        )
+        self.task.write({"state": "1_done"})
+        sprint = self._create_sprint(
+            "Done source", task_ids=[Command.set(self.task.ids)]
+        )
+        self.task.active = False
+
+        sprint.with_user(manager).action_start()
+
+        self.assertEqual(
+            sprint.with_context(active_test=False).committed_task_ids, self.task
+        )
+        self.assertEqual(
+            sprint.scope_event_ids.mapped("event_type"), ["committed", "completed"]
+        )
+        history = sprint.scope_event_ids.read()
+        self.assertIs(sprint.with_user(manager).action_close(), True)
+        self.assertEqual(sprint.state, "closed")
+        self.assertEqual(self.task.sprint_id, sprint)
+        self.assertEqual(sprint.scope_event_ids.read(), history)
+        self.task.write({"state": "01_in_progress", "agile_story_points": 8})
+        self.assertEqual(sprint.scope_event_ids.read(), history)
+
+    def test_start_rejects_hidden_archived_assignment_without_partial_history(self):
+        manager = mail_new_test_user(
+            self.env, "Restricted start manager", groups="project.group_project_manager"
+        )
+        hidden = self.task.copy({"name": "Hidden archived assignment"})
+        tasks = self.task | hidden
+        sprint = self._create_sprint(
+            "Restricted source", task_ids=[Command.set(tasks.ids)]
+        )
+        hidden.active = False
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide archived starting work",
+                "model_id": self.env["ir.model"]._get_id("project.task"),
+                "domain_force": repr([("id", "!=", hidden.id)]),
+            }
+        )
+        caller = sprint.with_user(manager)
+        caller.check_access("write")
+        self.assertFalse(
+            self.env["project.task"]
+            .with_user(manager)
+            .with_context(active_test=False)
+            .search([("id", "=", hidden.id)])
+        )
+        for active_test in (True, False):
+            with self.subTest(active_test=active_test):
+                with self.assertRaises(AccessError):
+                    caller.with_context(active_test=active_test).action_start()
+                self.assertEqual(sprint.state, "draft")
+                self.assertFalse(
+                    sprint.with_context(active_test=False).committed_task_ids
+                )
+                self.assertFalse(sprint.scope_event_ids)
+                self.assertEqual(tasks.sprint_id, sprint)
+
     @mute_logger("odoo.sql_db")
     def test_only_one_team_sprint_can_be_active_per_project(self):
         first = self._create_sprint("Sprint 1")
@@ -87,7 +273,7 @@ class TestProjectScrumDomain(TransactionCase):
         second = self._create_sprint(
             "Rejected Sprint", task_ids=[Command.set(self.task.ids)]
         )
-        self.task.write({"state": "1_done"})
+        self.task.write({"state": "1_done", "active": False})
         first.action_start()
         manager = mail_new_test_user(
             self.env, "Rejected start manager", groups="project.group_project_manager"
@@ -105,7 +291,7 @@ class TestProjectScrumDomain(TransactionCase):
             "project_sprint_active_project_team_unique",
         )
         self.assertEqual(second.state, "draft")
-        self.assertFalse(second.committed_task_ids)
+        self.assertFalse(second.with_context(active_test=False).committed_task_ids)
         self.assertFalse(second.scope_event_ids)
         self.assertEqual(self.task.sprint_id, second)
         self.assertEqual(self.task.state, "1_done")

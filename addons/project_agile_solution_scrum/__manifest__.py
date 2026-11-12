@@ -3,7 +3,7 @@
     "summary": (
         "Optional frozen exact requirement context at native Sprint scope events"
     ),
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",

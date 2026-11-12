@@ -16,10 +16,10 @@ company access still apply. Only the designated approver may approve.
 
 1. Follow the [Agile core configuration](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile#configuration)
    to enable **Agile Enabled** on the Project and set its **Agile Key**.
-2. Open **Project > Solution Lineages**. Create a named initiative and select its
+2. Open **Project > Solutions > Solution Lineages**. Create a named initiative and select its
    active Agile **Project**. A lineage groups documents and requirements. Approve
    its document baselines separately using the workflow below.
-3. Open **Project > Solution Documents**. Create a document with the same
+3. Open **Project > Solutions > Solution Documents**. Create a document with the same
    **Solution**, a **Name**, and **Kind**: **Solution Specification / Internal
    Brief** or **Statement of Work**. Set **Approver** to an active internal
    Project administrator who can access and edit the Project and document. Only

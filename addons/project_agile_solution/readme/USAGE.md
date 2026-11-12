@@ -3,23 +3,23 @@
 Use a Business analyst or Project administrator account with the Project access
 described in Configuration. The following example starts with a Solution Specification / Internal Brief.
 
-1. In **Project > Requirements**, create a requirement with **Name** and
-   **Solution**. Save, then choose **Open / New Content Revision**. Fill **Title**,
+1. In **Project > Solutions > Requirements**, create a requirement with **Name** and
+   **Solution**. Save, then choose **Open or Create Content Revision**. Fill **Title**,
    **Requirement Type** (Functional or Nonfunctional), **Priority**, **Audience**,
    **Description**, **Rationale**, **Verification Method**, and **Acceptance
    Expectations**. Save the exact content revision. Link it to delivery work
    using the task preview workflow below.
-2. In **Project > Solution Documents**, open your document and choose
-   **Open / New Working Revision**. Edit **Title** and add sections under
+2. In **Project > Solutions > Solution Documents**, open your document and choose
+   **Open or Create Working Revision**. Edit **Title** and add sections under
    **Ordered Narrative**, including their **Audience** and **Body**. Alternatively,
    **Copy Template Sections** lets you select a starting template and **Confirm**
    the copy. Later template changes do not update the copied sections.
 3. Under **Exact Requirements**, select the requirement revision you just saved.
    Under **Exact Supporting Context**, optionally select content prepared through
-   **Project > Solution Supporting Context** and **Open / New Context Revision**.
+   **Project > Solutions > Solution Supporting Context** and **Open or Create Context Revision**.
    Questions can name an owner, planning significance and existing Spike tasks.
    Approve any additional scope through a successor document baseline.
-4. If a SOW exists, set **Based Sow Revision** to its currently approved revision.
+4. If a SOW exists, set **SOW Baseline** to its currently approved revision.
    Use **Scope Disposition** and **Scope Change Reason** to describe an explicit
    change. Expanded specification scope needs a separately approved successor
    SOW marked **Explicit Scope Change**.
@@ -39,7 +39,7 @@ described in Configuration. The following example starts with a Solution Specifi
 
 Project users with access to a requirement, Solution document or supporting
 context can use **Send message**, mentions and **Follow** on its identity form.
-Open **Project > Requirements**, **Solution Documents** or **Solution Supporting
+Open **Project > Solutions > Requirements**, **Solution Documents** or **Solution Supporting
 Context**, rather than the numbered revision list. The conversation stays with
 the identity when a new revision is created. Messages do not change sealed
 content or approve scope.
@@ -82,7 +82,7 @@ No approved document or customer publication is needed to discuss this working
 intent; discussion does not record acceptance.
 
 The client writes a message and chooses **Post to requirement**. Internally,
-open **Project > Requirements** and the same requirement identity to see that
+open **Project > Solutions > Requirements** and the same requirement identity to see that
 message in its normal chatter. Use **Reply to Customer** to compose a new shared
 reply with the native composer. Only text from explicitly shared Customer
 Discussion messages appears on the Task page. Ordinary Send message, internal
@@ -92,7 +92,7 @@ internal source or send them internal notifications.
 
 Customer Discussion notifications are not enabled by default. Following a
 requirement alone does not notify a BA when a client posts. With the default
-subscriptions, BAs find new client questions by opening **Project > Requirements**
+subscriptions, BAs find new client questions by opening **Project > Solutions > Requirements**
 and inspecting that requirement's normal chatter.
 
 The page shows twenty shared messages at a time; **Older messages** retrieves
@@ -106,7 +106,7 @@ cannot be recalled. Native Task chatter remains separate and unchanged.
 
 As a Business analyst or Project administrator with write access to the affected
 tasks, open
-**Project > Deliberate Task Previews**. Create a preview with **Solution**,
+**Project > Solutions > Task Previews**. Create a preview with **Solution**,
 **Operation** (**Link Existing Native Task** or **Create Native Task**), **Name**, and one to
 twenty exact **Requirement Revisions**. Select **Task** for existing work; for
 new work, select **Agile Item Type** and optionally **Description**. An optional
@@ -124,7 +124,7 @@ Save, choose **Review and Confirm**, inspect the proposed work, then choose
 **Confirm This Preview** as the same user. Work is created or linked only when
 you confirm the preview. Changed source content requires a fresh preview;
 confirming an already consumed preview returns its existing task rather than
-creating another. Inspect links under **Project > Requirement Work Links**. To
+creating another. Inspect links under **Project > Solutions > Requirement Work Links**. To
 move an older active link to the same requirement's current sealed head, use
 **Adopt Existing Revision** below to replace it and retire the old link together.
 For other replacements, use the manual replacement workflow below.
@@ -155,7 +155,7 @@ editing task criteria does not change the client-agreed requirement revision.
 ## Refine linked acceptance expectations
 
 As a Business analyst or Project administrator with current Task write access,
-open the selected active link under **Project > Requirement Work Links**.
+open the selected active link under **Project > Solutions > Requirement Work Links**.
 
 1. Choose **Refine Acceptance**. Inspect the original exact expectations and the
    selected work link in the dialog.
@@ -184,7 +184,7 @@ If Tasks A and B link requirement revision 1, refining A creates sealed revision
 2 for A only. B stays on revision 1. As a Business analyst or Project
 administrator with current write access to B:
 
-1. Open the old link for B under **Project > Requirement Work Links** and choose
+1. Open the old link for B under **Project > Solutions > Requirement Work Links** and choose
    **Adopt Existing Revision**. Inspect **Task**, **Previous Expectations**,
    **Target Revision**, **Target Number** (2) and **Target Expectations**.
 2. Choose **Adopt This Revision**. B opens; verify **Agile > Exact Requirement
@@ -211,7 +211,7 @@ reference. Use **Refine Acceptance** instead when changing the current content.
 ## Replace a work link manually
 
 For a non-head revision, a different requirement, or coverage that must name an
-exact specification, use **Project > Deliberate Task Previews** rather than
+exact specification, use **Project > Solutions > Task Previews** rather than
 **Adopt Existing Revision**:
 
 1. Create a **Link Existing Native Task** preview for the same Task and the chosen
@@ -219,7 +219,7 @@ exact specification, use **Project > Deliberate Task Previews** rather than
    must name a specification containing those exact requirements.
 2. Save, choose **Review and Confirm**, inspect the selection and choose
    **Confirm This Preview**. Verify the successor link under
-   **Project > Requirement Work Links** before withdrawing the old coverage.
+   **Project > Solutions > Requirement Work Links** before withdrawing the old coverage.
 3. Open the old link, choose **Retire Working Link**, enter a meaningful **Reason**
    and choose **Retire With This Reason**. Check **Agile > Exact Requirement
    Acceptance** on the Task to verify the remaining coverage.
@@ -232,12 +232,12 @@ use a new deliberate requirement revision when that exact edge was retired.
 
 ## Preview the chosen audience
 
-1. Open the exact document revision through **Project > Solution Revisions**
+1. Open the exact document revision through **Project > Solutions > Solution Revisions**
    and choose **Preview / Coverage**. Project users need current access to the
    revision and every required reference, including archived references.
 2. Select **Internal** or **Redacted Customer**. For internal change comparison,
    select an approved or superseded **Baseline** of the same document. Read
-   **Honest Coverage / Change Impact** for missing links, older revisions,
+   **Coverage and Changes** for missing links, older revisions,
    unresolved questions and explicit decisions.
 3. Choose **Render Selected Audience** for HTML output. Draft and review output
    remains unapproved; approved or superseded output uses that exact frozen
@@ -260,10 +260,10 @@ specification baseline may record its decisions, with current Project, record
 and company access. Changing the document Approver does not transfer that past
 authority.
 
-1. Open **Project > Exact Requirement Decisions** and create a record.
+1. Open **Project > Solutions > Exact Requirement Decisions** and create a record.
 2. Select **Requirement Revision** and its currently approved specification
    **Document Revision**. The requirement must be included in that exact baseline.
-3. Set **Decision** to **Accepted**, supply **Asserted Authority / Role**,
+3. Set **Decision** to **Accepted**, supply **Decision Maker and Role**,
    **Criteria Evaluated**, and nonempty manual **Evidence**. Save. The recorder
    and UTC decision time are recorded automatically.
 

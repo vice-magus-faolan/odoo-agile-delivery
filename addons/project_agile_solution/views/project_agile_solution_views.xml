@@ -41,9 +41,16 @@
     <field name="view_mode">list,form</field>
   </record>
   <menuitem
+    id="menu_solutions"
+    name="Solutions"
+    parent="project.menu_main_pm"
+    groups="project.group_project_user"
+    sequence="80"
+  />
+  <menuitem
     id="menu_solution_lineage"
     name="Solution Lineages"
-    parent="project.menu_main_pm"
+    parent="menu_solutions"
     action="action_solution_lineage"
     groups="project.group_project_user"
     sequence="80"

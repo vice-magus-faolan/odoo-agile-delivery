@@ -1,11 +1,13 @@
-"""Native browser preview/report journeys for all three synthetic narratives."""
+"""Native browser preview/report and Solution navigation journeys."""
 
 import copy
 import json
 from pathlib import Path
 
 from odoo import Command
+from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, tagged
+from odoo.tools.convert import convert_file
 
 from odoo.addons.mail.tests.common import mail_new_test_user
 
@@ -238,3 +240,107 @@ class TestSolutionRenderTour(HttpCase):
             draft.invalidate_recordset()
             self.assertEqual(draft.action_read_snapshot(), before)
         self.assertEqual(draft.state, "review")
+
+    def _navigate_solutions(self, user, tour):
+        seeded = seed_scenario(
+            self.env, self.manager, self.env.company, self.scenarios[0]
+        )
+        project = seeded["project"]
+        project.privacy_visibility = "followers"
+        project.message_subscribe(partner_ids=user.partner_id.ids)
+        other_company = self.env["res.company"].create({"name": "Navigation company"})
+        hidden = self.env["project.agile.solution"]
+        for name, company in (
+            ("Private Solution navigation", self.env.company),
+            ("Other company Solution navigation", other_company),
+        ):
+            hidden_project = self.env["project.project"].create(
+                {
+                    "name": name,
+                    "company_id": company.id,
+                    "agile_key": f"NAV{company.id}{len(hidden)}",
+                    "agile_enabled": True,
+                    "privacy_visibility": "followers",
+                }
+            )
+            hidden |= self.env["project.agile.solution"].create(
+                {"name": name, "project_id": hidden_project.id}
+            )
+        # Make the foreign-company control otherwise visible at Project level.
+        hidden[-1].project_id.message_subscribe(partner_ids=user.partner_id.ids)
+        caller = hidden.with_user(user).with_context(
+            allowed_company_ids=user.company_ids.ids
+        )
+        self.assertFalse(caller.search([("id", "in", hidden.ids)]))
+        for row in caller:
+            with self.assertRaises(AccessError):
+                row.read(["name"])
+        before = seeded["spec"].action_read_snapshot()
+        self.start_tour("/odoo", tour, login=user.login)
+        seeded["spec"].invalidate_recordset()
+        self.assertEqual(seeded["spec"].action_read_snapshot(), before)
+        self.assertEqual(seeded["spec"].state, "approved")
+
+    def test_native_solutions_reader_navigation(self):
+        self.assertFalse(self.reader.has_group("project.group_project_manager"))
+        self._navigate_solutions(self.reader, "solution_navigation_reader")
+
+    def test_native_solutions_analyst_navigation(self):
+        analyst = mail_new_test_user(
+            self.env,
+            "solution_navigation_analyst",
+            groups="project_agile_solution.group_business_analyst",
+        )
+        self.assertFalse(analyst.has_group("project.group_project_manager"))
+        self._navigate_solutions(analyst, "solution_navigation_author")
+
+    def test_solution_menu_populated_update_and_role_visibility(self):
+        module = "project_agile_solution"
+        folder = self.env.ref(f"{module}.menu_solutions")
+        root = self.env.ref("project.menu_main_pm")
+        names = (
+            "solution_lineage",
+            "solution_document",
+            "solution_revision",
+            "solution_template",
+            "requirement",
+            "requirement_revision",
+            "solution_context",
+            "solution_context_revision",
+            "solution_task_intent",
+            "requirement_task_link",
+            "requirement_acceptance",
+        )
+        leaves = self.env["ir.ui.menu"].browse(
+            [self.env.ref(f"{module}.menu_{name}").id for name in names]
+        )
+        original_groups = {menu.id: menu.group_ids for menu in leaves}
+        leaves.write({"parent_id": root.id})
+        for file in (
+            "project_agile_solution_views.xml",
+            "solution_document_views.xml",
+            "solution_content_views.xml",
+            "solution_task_views.xml",
+            "solution_render_views.xml",
+        ):
+            convert_file(self.env, module, f"views/{file}", {}, mode="update")
+        self.assertFalse(folder.action)
+        self.assertEqual(folder.parent_id, root)
+        self.assertEqual(
+            folder.child_id, leaves.sorted(lambda row: (row.sequence, row.id))
+        )
+        for name, menu in zip(names, leaves, strict=True):
+            self.assertEqual(menu.parent_id, folder)
+            self.assertEqual(menu.action, self.env.ref(f"{module}.action_{name}"))
+            self.assertEqual(menu.group_ids, original_groups[menu.id])
+        employee = mail_new_test_user(
+            self.env, "solution_navigation_employee", groups="base.group_user"
+        )
+        for user, expected in (
+            (employee, self.env["ir.ui.menu"]),
+            (self.reader, leaves - self.env.ref(f"{module}.menu_solution_task_intent")),
+            (self.manager, leaves),
+        ):
+            menus = self.env["ir.ui.menu"].with_user(user).load_menus(False)
+            self.assertEqual(set(leaves.ids) & menus.keys(), set(expected.ids))
+            self.assertEqual(folder.id in menus, bool(expected))

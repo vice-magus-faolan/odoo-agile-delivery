@@ -7,7 +7,7 @@ you can access.
    so far. Search by Sprint, Project or team, or group by Project, Team,
    Sprint Status or Sprint End Date.
 2. Remove **Active Sprints** and select **Closed Sprints** to review completed
-   Sprints. The current **Trusted Closed Replay** filter selects closed Sprints
+   Sprints. The **Closed with Final Numbers** filter selects closed Sprints
    with a recorded close time. Their metrics stop there; later task edits do
    not rewrite them. Do not use a draft report or an older closed Sprint without
    a close time as a final historical total.

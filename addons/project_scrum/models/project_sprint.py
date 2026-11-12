@@ -196,10 +196,17 @@ class ProjectSprint(models.Model):
         active_sprint_message = _(
             "Only one Sprint can be active for a project and Agile team."
         )
-        self.committed_task_ids = [fields.Command.set(self.task_ids.ids)]
-        self._append_scope_events("committed", self.task_ids)
+        tasks = self.env["project.task"].with_context(active_test=False)
+        # Freeze all assigned work, including archived Tasks. Hidden assignments
+        # must reject the start, not silently produce an incomplete commitment.
+        assigned = (
+            tasks.sudo().search([("sprint_id", "=", self.id)]).with_env(tasks.env)
+        )
+        assigned.check_access("read")
+        self.committed_task_ids = [fields.Command.set(assigned.ids)]
+        self._append_scope_events("committed", assigned)
         self._append_scope_events(
-            "completed", self.task_ids.filtered(lambda task: task.state == "1_done")
+            "completed", assigned.filtered(lambda task: task.state == "1_done")
         )
         try:
             self._set_lifecycle_state("active")

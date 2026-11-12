@@ -473,8 +473,11 @@ Sprint</strong> search filter excludes Draft and Closed Sprints; <strong>Sprint
 Backlog</strong> still includes history.</p>
 <p>As a Scrum master or Project administrator, choose <strong>Start Sprint</strong>.
 Close any Active Sprint for the same Project/team first. Starting
-freezes the committed task set and records <strong>Committed</strong> events. Tasks
-already in <strong>Done</strong> state also receive <strong>Completed</strong> events.</p>
+freezes all assigned tasks, including archived work, and records
+<strong>Committed</strong> events. You need read access to every assigned task;
+otherwise the Sprint stays Draft without commitment or events. Tasks
+already in <strong>Done</strong> state, including archived tasks, also receive
+<strong>Completed</strong> events.</p>
 <p>To complete a task, set its state to <strong>Done</strong>. Merely moving it to a
 stage named Done does not change its state.</p>
 <p>In an Active Sprint, membership changes record <strong>Added</strong> or <strong>Removed</strong>
@@ -497,6 +500,10 @@ stays on the closed Sprint. With no unfinished work, closing is direct.</p>
 observed points, actor, time and an optional carry-over target column.
 Closed Sprint assignments are frozen; later task state or estimate
 changes do not rewrite history. There is no reopen action.</p>
+<p>Archive-inclusive starting commitment applies to newly started Sprints.
+Existing Active and Closed Sprints keep their original commitment and
+events; earlier gaps for tasks archived before start are not
+automatically repaired.</p>
 </div>
 </div>
 <div class="section" id="bug-tracker">

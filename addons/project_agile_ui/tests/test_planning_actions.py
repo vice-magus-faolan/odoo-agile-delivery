@@ -641,3 +641,32 @@ class TestProjectAgilePlanningActions(TransactionCase):
             )
 
         self.assertFalse(self.first_task.sprint_id)
+
+    def test_read_page_size_does_not_expand_atomic_mutation_limit(self):
+        tasks = self.env["project.task"].create(
+            [
+                {
+                    "name": f"Bounded mutation {i}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.eligible_type.id,
+                }
+                for i in range(21)
+            ]
+        )
+        snapshot = self._snapshot()
+        versions = {
+            "tasks": {
+                str(item["id"]): item["version"]
+                for item in snapshot["backlog"]["items"]
+                if item["id"] in tasks.ids
+            },
+            "sprints": {
+                str(self.sprint.id): self._sprint_item(snapshot, self.sprint)["version"]
+            },
+        }
+        with self.assertRaisesRegex(ValidationError, "no more than 20"):
+            self._change(
+                "assign", tasks.ids, sprint_id=self.sprint.id, versions=versions
+            )
+        self.assertFalse(tasks.sprint_id)
+        self.assertFalse(self.sprint.scope_event_ids)

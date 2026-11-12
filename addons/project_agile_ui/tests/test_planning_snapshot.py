@@ -326,3 +326,225 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.assertEqual(action["type"], "ir.actions.client")
         self.assertEqual(action["tag"], "project_agile_ui.planning")
         self.assertEqual(action["context"], {"project_id": self.project.id})
+
+    def test_all_windows_are_reachable_with_cold_bounded_pages(self):
+        teams = (
+            self.env["project.agile.team"].create(
+                [
+                    {"name": f"Page team {i}", "project_id": self.project.id}
+                    for i in range(105)
+                ]
+            )
+            | self.team
+        )
+        sprints = self.env["project.sprint"].create(
+            [
+                {
+                    "name": f"Page Sprint {i}",
+                    "project_id": self.project.id,
+                    "team_id": self.team.id,
+                }
+                for i in range(23)
+            ]
+        )
+        tasks = self.env["project.task"].create(
+            [
+                {
+                    "name": f"Page assigned {i}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.eligible_type.id,
+                    "sprint_id": sprints[-1].id if i < 205 else sprints[0].id,
+                    "agile_backlog_sequence": i // 3,
+                }
+                for i in range(310)
+            ]
+        )
+        backlog = (
+            self.env["project.task"].create(
+                [
+                    {
+                        "name": f"Page backlog {i}",
+                        "project_id": self.project.id,
+                        "agile_item_type_id": self.eligible_type.id,
+                    }
+                    for i in range(105)
+                ]
+            )
+            | self.backlog_task
+        )
+        user = mail_new_test_user(
+            self.env, "Page planner", groups="project.group_project_user"
+        )
+        model = self.env["project.project"].with_user(user)
+        model.get_agile_planning_snapshot(self.project.id)
+        options, seen_sprints, seen_tasks = {}, [], []
+        while True:
+            self.env.flush_all()
+            self.env.invalidate_all()
+            count = self.cr.sql_log_count
+            page = model.get_agile_planning_snapshot(self.project.id, **options)
+            self.assertLessEqual(self.cr.sql_log_count - count, 12)
+            self.assertLessEqual(len(page["sprints"]), 20)
+            rows = page["sprints"]
+            seen_sprints.extend(row["id"] for row in rows)
+            while True:
+                self.assertLessEqual(sum(len(row["items"]) for row in rows), 100)
+                seen_tasks.extend(item["id"] for row in rows for item in row["items"])
+                for row in rows:
+                    self.assertEqual(
+                        row["item_count"],
+                        205
+                        if row["id"] == sprints[-1].id
+                        else 105
+                        if row["id"] == sprints[0].id
+                        else 0,
+                    )
+                if not page["pages"]["tasks"]:
+                    break
+                self.env.invalidate_all()
+                count = self.cr.sql_log_count
+                page = model.get_agile_planning_snapshot(
+                    self.project.id, **options, task_cursor=page["pages"]["tasks"]
+                )
+                self.assertLessEqual(self.cr.sql_log_count - count, 12)
+                rows = page["sprints"]
+            if not page["pages"]["sprints"]:
+                break
+            options = {"sprint_cursor": page["pages"]["sprints"]}
+        first = model.get_agile_planning_snapshot(self.project.id)
+        second = model.get_agile_planning_snapshot(
+            self.project.id, sprint_cursor=first["pages"]["sprints"]
+        )
+        self.env.invalidate_all()
+        count = self.cr.sql_log_count
+        combined = model.get_agile_planning_snapshot(
+            self.project.id,
+            sprint_cursor=first["pages"]["sprints"],
+            task_cursor=second["pages"]["tasks"],
+            team_cursor=first["pages"]["teams"],
+        )
+        self.assertLessEqual(self.cr.sql_log_count - count, 13)
+        self.assertEqual(sum(len(row["items"]) for row in combined["sprints"]), 5)
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(
+                self.project.id, task_cursor=second["pages"]["tasks"]
+            )
+        self.assertEqual(seen_sprints, list(reversed(sprints.ids)))
+        self.assertEqual(len(seen_tasks), len(set(seen_tasks)))
+        self.assertEqual(set(seen_tasks), set(tasks.ids))
+        seen_teams, cursor = [], False
+        while True:
+            page = model.get_agile_planning_snapshot(
+                self.project.id, team_cursor=cursor
+            )
+            seen_teams.extend(row["id"] for row in page["teams"])
+            cursor = page["pages"]["teams"]
+            if not cursor:
+                break
+        self.assertEqual(seen_teams, sorted(teams.ids))
+        seen_backlog, cursor = [], False
+        while True:
+            page = model.get_agile_planning_snapshot(self.project.id, cursor)
+            seen_backlog.extend(row["id"] for row in page["backlog"]["items"])
+            cursor = page["backlog"]["next_cursor"]
+            if not cursor:
+                break
+        self.assertEqual(seen_backlog, sorted(backlog.ids))
+
+    def test_page_tokens_bind_scope_anchor_and_planning_revision(self):
+        sprints = self.env["project.sprint"].create(
+            [
+                {
+                    "name": f"Token Sprint {i}",
+                    "project_id": self.project.id,
+                    "team_id": self.team.id,
+                }
+                for i in range(21)
+            ]
+        )
+        first = self._snapshot()
+        token = first["pages"]["sprints"]
+        model = self.env["project.project"]
+        for cursor in (True, {}, {**token, "id": True}, {**token, "version": "old"}):
+            with self.assertRaises(ValidationError):
+                model.get_agile_planning_snapshot(self.project.id, sprint_cursor=cursor)
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(
+                self.project.id, team_id=self.team.id, sprint_cursor=token
+            )
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(self.project.id, team_cursor=token)
+        anchor = sprints.browse(token["id"])
+        anchor.name = "Changed page anchor"
+        self.env.flush_all()
+        # write_date has transaction-clock resolution; use the versioned planning
+        # revision to exercise a guaranteed cross-page invalidation as well.
+        self.project.agile_planning_backlog_revision += 1
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(self.project.id, sprint_cursor=token)
+
+    def test_filtered_counts_and_points_exclude_hidden_assigned_work(self):
+        self.project.allow_milestones = True
+        milestone = self.env["project.milestone"].create(
+            {
+                "name": "Scoped release",
+                "project_id": self.project.id,
+            }
+        )
+        sprint = self._create_sprint()
+        visible = self.env["project.task"].create(
+            [
+                {
+                    "name": f"Visible scoped work {i}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.eligible_type.id,
+                    "sprint_id": sprint.id,
+                    "milestone_id": milestone.id,
+                    "agile_story_points": 3,
+                }
+                for i in range(101)
+            ]
+        )
+        hidden = self._create_task(
+            "Hidden scoped work",
+            sprint_id=sprint.id,
+            milestone_id=milestone.id,
+            agile_story_points=8,
+        )
+        self._create_task(
+            "Other release work", sprint_id=sprint.id, agile_story_points=5
+        )
+        sprint.action_start()
+        user = mail_new_test_user(
+            self.env,
+            "Scoped page planner",
+            groups="project.group_project_user,project.group_project_milestone",
+        )
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide one planning task",
+                "model_id": self.env["ir.model"]._get_id("project.task"),
+                "domain_force": repr([("id", "!=", hidden.id)]),
+            }
+        )
+        page = (
+            self.env["project.project"]
+            .with_user(user)
+            .get_agile_planning_snapshot(self.project.id, milestone_id=milestone.id)
+        )
+        row = page["sprints"][0]
+        self.assertEqual([item["id"] for item in row["items"]], visible[:100].ids)
+        self.assertEqual(row["item_count"], 101)
+        self.assertEqual(row["current_points"], 3 * 101)
+        self.assertEqual(row["committed_points"], 3 * 101)
+        cursor = page["pages"]["tasks"]
+        model = self.env["project.project"].with_user(user)
+        with self.assertRaises(ValidationError):
+            model.get_agile_planning_snapshot(self.project.id, task_cursor=cursor)
+        final = model.get_agile_planning_snapshot(
+            self.project.id, milestone_id=milestone.id, task_cursor=cursor
+        )["sprints"][0]
+        self.assertEqual([item["id"] for item in final["items"]], visible[100:].ids)
+        self.assertEqual(final["item_count"], 101)
+        self.assertEqual(final["current_points"], 3 * 101)
+        self.assertEqual(final["committed_points"], 3 * 101)

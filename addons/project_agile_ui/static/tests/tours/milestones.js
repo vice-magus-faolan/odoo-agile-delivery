@@ -123,6 +123,10 @@ registry.category("web_tour.tours").add("agile_milestone_form_contents", {
 registry.category("web_tour.tours").add("agile_planning_keyboard", {
   steps: () => [
     {trigger: ".o_agile_planning_board__backlog-task:contains(Keyboard existing work)"},
+    {trigger: ".o_agile_planning_board", run: "press Control+k"},
+    {trigger: ".o_command_palette_search input", run: "edit Agile: Find work by key"},
+    {trigger: ".o_command:contains(Agile: Find work by key)", run: "press Enter"},
+    {trigger: "#agile-planning-work-search:focus"},
     {trigger: "#agile-planning-team", run: "selectByLabel Keyboard team"},
     {trigger: ".o_agile_planning_board:not([aria-busy=true])"},
     {trigger: "#agile-planning-milestone", run: "edit Keyboard release"},
@@ -184,3 +188,21 @@ registry.category("web_tour.tours").add("agile_planning_keyboard", {
     },
   ],
 });
+
+for (const [name, command, target] of [
+  [
+    "active",
+    "Agile: Active Sprint",
+    ".o_list_view .o_data_row:contains(Keyboard active Sprint)",
+  ],
+  ["backlog", "Agile: Product Backlog", ".o_list_view .o_group_header"],
+]) {
+  registry.category("web_tour.tours").add(`agile_keyboard_${name}`, {
+    steps: () => [
+      {trigger: ".o_agile_planning_board__create:enabled", run: "press Control+k"},
+      {trigger: ".o_command_palette_search input", run: `edit ${command}`},
+      {trigger: `.o_command:contains(${command})`, run: "press Enter"},
+      {trigger: target},
+    ],
+  });
+}

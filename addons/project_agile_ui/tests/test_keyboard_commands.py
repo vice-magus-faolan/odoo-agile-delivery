@@ -139,7 +139,7 @@ class TestPlanningKeyboardCommands(HttpCase):
             count,
         )
 
-    def test_current_scope_is_checked_after_work_moves_or_access_is_revoked(self):
+    def test_current_scope_is_checked_after_archival_or_access_revocation(self):
         project = self.env["project.project"].create(
             {
                 "name": "Private keyboard work",
@@ -148,10 +148,8 @@ class TestPlanningKeyboardCommands(HttpCase):
                 "agile_key": "PRIVATEKEY",
             }
         )
-        # A real supported move invalidates the old autocomplete selection.
-        self.task.write(
-            {"agile_team_id": False, "milestone_id": False, "project_id": project.id}
-        )
+        # Archival invalidates a previously visible autocomplete selection.
+        self.task.active = False
         with self.assertRaises(AccessError):
             self.project.with_user(self.user).action_open_agile_planning_task(
                 self.task.id
@@ -160,6 +158,17 @@ class TestPlanningKeyboardCommands(HttpCase):
             self.env["project.project"].with_user(self.user).create_agile_planning_task(
                 project.id, "No hidden work"
             )
+        self.task.active = True
+        self.project.privacy_visibility = "followers"
+        self.env.invalidate_all()
+        with self.assertRaises(AccessError):
+            self.project.with_user(self.user).action_open_agile_planning_task(
+                self.task.id
+            )
+        with self.assertRaises(AccessError):
+            self._create()
+        self.project.privacy_visibility = "employees"
+        self.env.invalidate_all()
         self.assertEqual(
             self.project.with_user(self.user).action_open_agile_planning_backlog()[
                 "res_model"
@@ -213,6 +222,12 @@ class TestPlanningKeyboardCommands(HttpCase):
             "agile_planning_keyboard",
             login=self.user.login,
         )
+        for command in ("active", "backlog"):
+            self.start_tour(
+                f"/odoo/action-{action.id}",
+                f"agile_keyboard_{command}",
+                login=self.user.login,
+            )
         tasks = self.env["project.task"].search([("project_id", "=", self.project.id)])
         self.assertEqual(len(tasks), before + 1)
         self.assertFalse(

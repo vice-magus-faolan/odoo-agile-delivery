@@ -7,7 +7,14 @@ import {registry} from "@web/core/registry";
 import {useService} from "@web/core/utils/hooks";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
 import {Many2XAutocomplete} from "@web/views/fields/relational_utils";
-import {Component, onWillStart, onWillUnmount, useRef, useState} from "@odoo/owl";
+import {
+  Component,
+  onWillStart,
+  onWillUnmount,
+  useEffect,
+  useRef,
+  useState,
+} from "@odoo/owl";
 
 export const PLANNING_ACTION_TAG = "project_agile_ui.planning";
 const DRAG_DATA_TYPE = "text/plain";
@@ -62,6 +69,7 @@ function emptyState() {
     teamId: false,
     milestone: false,
     groupMilestones: false,
+    restoreCreateFocus: false,
   };
 }
 
@@ -90,13 +98,30 @@ export class AgilePlanningBoard extends Component {
       [_t("Agile: Active Sprint"), "alt+shift+s", () => this.openActiveSprints()],
       [_t("Agile: Find work by key"), "alt+shift+f", () => this.focusWorkSearch()],
     ]) {
-      useCommand(name, action, {
-        hotkey,
-        isAvailable: () => this.commandsAvailable && (!available || available()),
-        hotkeyOptions: {area: () => this.boardRef.el},
-      });
+      useCommand(
+        name,
+        async () => {
+          await action();
+        },
+        {
+          hotkey,
+          isAvailable: () => this.commandsAvailable && (!available || available()),
+          hotkeyOptions: {area: () => this.boardRef.el},
+        }
+      );
     }
 
+    // The pre-open refresh can disable and blur the launching button. Restore
+    // focus after the dialog and any post-save refresh have finished rendering.
+    useEffect(
+      () => {
+        if (this.state.restoreCreateFocus && this.canCreateTask) {
+          this.boardRef.el.querySelector(".o_agile_planning_board__create").focus();
+          this.state.restoreCreateFocus = false;
+        }
+      },
+      () => [this.state.restoreCreateFocus, this.state.loading]
+    );
     onWillStart(() => this.load());
     onWillUnmount(() => {
       this.requestSequence += 1;
@@ -117,21 +142,29 @@ export class AgilePlanningBoard extends Component {
     }
     const options = {...this.selectionOptions};
     this.boardRef.el.querySelector(".o_agile_planning_board__create").focus();
-    this.dialog.add(AgileQuickCreate, {
-      projectName: this.state.project.name,
-      create: (name) =>
-        this.orm.call(
-          "project.project",
-          "create_agile_planning_task",
-          [this.projectId, name],
-          options
-        ),
-      onCreated: async () => {
-        if (await this.load()) {
-          this.state.status = _t("Work item created. Current filters are unchanged.");
-        }
+    this.dialog.add(
+      AgileQuickCreate,
+      {
+        projectName: this.state.project.name,
+        create: (name) =>
+          this.orm.call(
+            "project.project",
+            "create_agile_planning_task",
+            [this.projectId, name],
+            options
+          ),
+        onCreated: async () => {
+          if (await this.load()) {
+            this.state.status = _t("Work item created. Current filters are unchanged.");
+          }
+        },
       },
-    });
+      {
+        onClose: () => {
+          this.state.restoreCreateFocus = true;
+        },
+      }
+    );
   }
 
   workSearchDomain() {

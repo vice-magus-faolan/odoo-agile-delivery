@@ -426,12 +426,17 @@ class ProjectProject(models.Model):
         # Bind related-task visibility to the caller before aggregating history.
         # Native event rules alone do not establish visibility of each source task.
         visible_tasks = self.env["project.task"]._search(task_domain)
+        # Pair each event with its Tasks current Sprint, not any loaded Sprint.
+        # The window is bounded; this adds predicates, not per-Sprint queries.
+        current_assignments = Domain.OR(
+            Domain("sprint_id", "=", sprint.id)
+            & Domain("task_id.sprint_id", "=", sprint.id)
+            for sprint in sprints
+        )
         rows = self.env["project.sprint.scope.event"]._read_group(
-            [
-                ("sprint_id", "in", sprints.ids),
-                ("event_type", "=", "committed"),
-                ("task_id", "in", visible_tasks),
-            ],
+            current_assignments
+            & Domain("event_type", "=", "committed")
+            & Domain("task_id", "in", visible_tasks),
             ["sprint_id"],
             ["story_points:sum"],
         )

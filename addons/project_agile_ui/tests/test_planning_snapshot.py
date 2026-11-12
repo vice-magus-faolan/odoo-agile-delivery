@@ -102,6 +102,69 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.assertEqual(backlog_item["item_type"], self.eligible_type.display_name)
         self.assertIsNone(backlog_item["parent"])
 
+    def test_committed_points_follow_current_sprint_not_loaded_window(self):
+        first = self._create_sprint("Original commitment")
+        second = self._create_sprint("Destination draft")
+        moved = self._create_task("Moved X", agile_story_points=5)
+        retained = self._create_task("Retained Y", agile_story_points=3)
+        planner = mail_new_test_user(
+            self.env, "Moving planner", groups="project.group_project_manager"
+        )
+        (moved | retained).with_user(planner).assign_product_backlog_to_sprint(first)
+        first.with_user(planner).action_start()
+        events = first.scope_event_ids
+        event_fields = [
+            "sprint_id",
+            "task_id",
+            "event_type",
+            "story_points",
+            "previous_story_points",
+            "actor_id",
+            "event_at",
+            "reason",
+            "carryover_target_sprint_id",
+        ]
+        history = events.read(event_fields, load=None)
+        committed_ids = first.committed_task_ids.ids
+        reader = mail_new_test_user(
+            self.env, "Moved work reader", groups="project.group_project_user"
+        )
+        model = self.env["project.project"].with_user(reader)
+        before = model.get_agile_planning_snapshot(self.project.id)
+        original = next(row for row in before["sprints"] if row["id"] == first.id)
+        self.assertEqual(
+            (original["current_points"], original["committed_points"]), (8, 8)
+        )
+
+        moved.with_user(planner).return_sprint_tasks_to_product_backlog()
+        moved.with_user(planner).assign_product_backlog_to_sprint(
+            second, draft_only=True
+        )
+        self.assertEqual(moved.sprint_id, second)
+        self.assertEqual(retained.sprint_id, first)
+        totals = []
+        for destination_visible in (True, False):
+            if not destination_visible:
+                for index in range(20):
+                    self._create_sprint(f"Newer draft {index}")
+            self.env.flush_all()
+            self.env.invalidate_all()
+            page = model.get_agile_planning_snapshot(self.project.id)
+            rows = {row["id"]: row for row in page["sprints"]}
+            self.assertEqual(second.id in rows, destination_visible)
+            original = rows[first.id]
+            self.assertEqual([item["id"] for item in original["items"]], retained.ids)
+            totals.append((original["current_points"], original["committed_points"]))
+            self.assertEqual(events.read(event_fields, load=None), history)
+            self.assertEqual(first.committed_task_ids.ids, committed_ids)
+            self.assertEqual(
+                first.scope_event_ids.filtered(
+                    lambda event: event.event_type == "committed"
+                ),
+                events,
+            )
+        self.assertEqual(totals, [(3, 3), (3, 3)])
+
     def test_snapshot_includes_active_sprints_for_multiple_active_teams(self):
         second_team = self.env["project.agile.team"].create(
             {"name": "Second Planning Team", "project_id": self.project.id}
@@ -482,6 +545,46 @@ class TestProjectAgilePlanningSnapshot(TransactionCase):
         self.project.agile_planning_backlog_revision += 1
         with self.assertRaises(ValidationError):
             model.get_agile_planning_snapshot(self.project.id, sprint_cursor=token)
+
+    def test_page_anchor_must_belong_to_current_domain(self):
+        first = self._create_sprint("In-scope anchor")
+        other_team = self.env["project.agile.team"].create(
+            {"name": "Other accessible team", "project_id": self.project.id}
+        )
+        outside = self._create_sprint("Outside team filter", team=other_team)
+        user = mail_new_test_user(
+            self.env, "Anchor scope reader", groups="project.group_project_user"
+        )
+        self.env.flush_all()
+        model = self.env["project.project"].with_user(user)
+        outside.with_user(user).check_access("read")
+        scope = {
+            "project": self.project.id,
+            "team": self.team.id,
+            "milestone": False,
+            "revision": self.project.agile_planning_backlog_revision,
+            "page": "sprints",
+        }
+        valid = {"id": first.id, "version": str(first.write_date), "scope": scope}
+        accepted = model.get_agile_planning_snapshot(
+            self.project.id, team_id=self.team.id, sprint_cursor=valid
+        )
+        self.assertFalse(accepted["sprints"])
+        for anchor in (outside, first):
+            if anchor == first:
+                first.with_user(self.env.user).action_start()
+                first.with_user(self.env.user)._close_with_disposition(
+                    "product_backlog"
+                )
+            token = {"id": anchor.id, "version": str(anchor.write_date), "scope": scope}
+            with self.assertRaisesRegex(
+                ValidationError, "The planning page changed. Refresh and retry."
+            ):
+                model.get_agile_planning_snapshot(
+                    self.project.id, team_id=self.team.id, sprint_cursor=token
+                )
+        page = model.get_agile_planning_snapshot(self.project.id)
+        self.assertEqual([row["id"] for row in page["sprints"]], outside.ids)
 
     def test_filtered_counts_and_points_exclude_hidden_assigned_work(self):
         self.project.allow_milestones = True

@@ -35,6 +35,9 @@ class TestProjectAgileUiModuleContract(TransactionCase):
                 "project_agile_ui/static/src/planning_board.js",
                 "project_agile_ui/static/src/planning_board.xml",
                 "project_agile_ui/static/src/planning_board.scss",
+                "project_agile_ui/static/src/swimlane_board.js",
+                "project_agile_ui/static/src/swimlane_board.xml",
+                "project_agile_ui/static/src/swimlane_board.scss",
             ],
         )
         self.assertTrue(

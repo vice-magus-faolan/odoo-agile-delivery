@@ -19,6 +19,18 @@
             <span class="o_stat_text">Sprint Planning</span>
           </div>
         </button>
+        <button
+          name="action_open_agile_swimlanes"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-table"
+          groups="project.group_project_user"
+          invisible="not agile_enabled or not active or is_template"
+        >
+          <div class="o_stat_info">
+            <span class="o_stat_text">Active Sprint board</span>
+          </div>
+        </button>
       </xpath>
     </field>
   </record>

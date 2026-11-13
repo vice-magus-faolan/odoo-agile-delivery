@@ -54,13 +54,21 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
         },
       },
       {trigger: "#agile-swimlane-team", run: "edit Swim team"},
-      {trigger: ".o-autocomplete--dropdown-item:contains(Swim team)", run: "click"},
+      {
+        trigger:
+          ".o-autocomplete--dropdown-item:contains(Swim team):not(:contains(Other))",
+        run: "click",
+      },
       {
         trigger:
           ".o_agile_swimlanes:not([aria-busy=true]) .o_agile_swimlanes__total:contains(Showing 4 of 4)",
       },
       {trigger: "#agile-swimlane-sprint", run: "edit Swim Sprint"},
-      {trigger: ".o-autocomplete--dropdown-item:contains(Swim Sprint)", run: "click"},
+      {
+        trigger:
+          ".o-autocomplete--dropdown-item:contains(Swim Sprint):not(:contains(Other))",
+        run: "click",
+      },
       {
         trigger:
           ".o_agile_swimlanes:not([aria-busy=true]) .o_agile_swimlanes__total:contains(Showing 4 of 4)",

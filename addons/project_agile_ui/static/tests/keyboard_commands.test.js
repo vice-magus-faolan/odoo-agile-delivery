@@ -34,7 +34,7 @@ async function shortcut(key) {
   await animationFrame();
 }
 
-test("project_agile_ui native keyboard create cancel restores focus and never creates", async () => {
+test("project_agile_ui explicit Cancel restores focus and never creates", async () => {
   const calls = [];
   await mountBoard(async (model, method) => {
     calls.push(method);
@@ -47,7 +47,7 @@ test("project_agile_ui native keyboard create cancel restores focus and never cr
   await shortcut("n");
   await shortcut("b");
   expect(".modal").toHaveCount(1);
-  await press("Escape");
+  await contains(".o_agile_quick_create_cancel").click();
   await animationFrame();
   expect(".modal").toHaveCount(0);
   expect(".o_agile_planning_board__create").toBeFocused();
@@ -65,6 +65,7 @@ for (const keys of ["Enter", ["Control", "Enter"]]) {
     await animationFrame();
     await contains(".o_agile_planning_board__create").click();
     await contains("#agile-quick-create-name").edit("Saved work", {confirm: false});
+    expect("#agile-quick-create-name").toBeFocused();
     await press(keys);
     await animationFrame();
     expect(".modal").toHaveCount(0);

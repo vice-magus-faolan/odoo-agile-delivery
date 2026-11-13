@@ -65,6 +65,57 @@ class EpicProgressFixture:
 
 @tagged("post_install", "-at_install", "agile_epic_progress")
 class TestEpicProgress(EpicProgressFixture, TransactionCase):
+    def test_default_project_estimation_policy(self):
+        project = self.env["project.project"].create(
+            {
+                "name": "Default estimation client",
+                "agile_enabled": True,
+                "agile_key": "DEFAULTPROGRESS",
+                "privacy_visibility": "employees",
+            }
+        )
+        self.assertEqual(project.agile_estimation_method, "none")
+        epic = self.tasks.create(
+            {
+                "name": "Default estimation Epic",
+                "project_id": project.id,
+                "agile_item_type_id": self.epic_type.id,
+            }
+        )
+        work = self.tasks.create(
+            [
+                {
+                    "name": "Delivered default Story",
+                    "project_id": project.id,
+                    "parent_id": epic.id,
+                    "agile_item_type_id": self.story_type.id,
+                    "state": "1_done",
+                },
+                {
+                    "name": "Open untyped default work",
+                    "project_id": project.id,
+                    "parent_id": epic.id,
+                    "agile_item_type_id": False,
+                },
+            ]
+        )
+        self.assertEqual(work[0].agile_item_type_id, self.story_type)
+        self.assertFalse(work[1].agile_item_type_id)
+        self.assertFalse(any(work.mapped("agile_story_points")))
+        # Keep zero estimates and the same caller cache across policy changes.
+        for method, point_items in [("none", 0), ("fibonacci", 2), ("none", 0)]:
+            if project.agile_estimation_method != method:
+                project.write({"agile_estimation_method": method})
+            self._assert_work(epic, work, 1, 0, 0, point_items)
+            self.assertEqual(epic.agile_progress["point_items"], point_items)
+            self.assertEqual(epic.agile_progress_items, "1 / 2 items")
+            self.assertEqual(
+                epic.agile_progress_points,
+                "0 / 0 known points; 2 unestimated"
+                if point_items
+                else "No story-point work",
+            )
+
     def test_nested_mixed_estimates_and_read_only_rollup(self):
         feature = self._task(
             "Feature", item_type=self.feature_type, agile_story_points=55

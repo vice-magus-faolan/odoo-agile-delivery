@@ -70,7 +70,9 @@ class ProjectTask(models.Model):
 
     @api.model
     def _agile_leaf_progress(self, task):
-        points_work = not task.agile_item_type_id or task.agile_uses_story_points
+        points_work = task.project_id.agile_estimation_method == "fibonacci" and (
+            not task.agile_item_type_id or task.agile_uses_story_points
+        )
         points = task.agile_effective_story_points if points_work else 0
         done = task.state == "1_done"
         return {
@@ -86,6 +88,7 @@ class ProjectTask(models.Model):
         "project_id",
         "project_id.active",
         "project_id.agile_enabled",
+        "project_id.agile_estimation_method",
         "project_id.task_ids",
         "project_id.task_ids.parent_id",
         "project_id.task_ids.state",

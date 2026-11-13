@@ -417,7 +417,7 @@
     <t t-name="project_agile_ui.QuickCreate">
     <Dialog title="'New work item'" size="'md'" canDismiss="() => !state.saving">
       <p t-esc="props.projectName" />
-      <form t-on-submit.prevent="save">
+      <form t-att-id="formId" t-on-submit.prevent="save">
         <label for="agile-quick-create-name">Name</label>
         <input
           id="agile-quick-create-name"
@@ -435,13 +435,14 @@
           class="alert alert-danger"
           t-esc="state.error"
         />
+      </form>
+      <t t-set-slot="footer">
         <button
           type="submit"
+          t-att-form="formId"
           class="btn btn-primary o_agile_quick_create_save"
           t-att-disabled="state.saving || !state.name.trim()"
         >Create</button>
-      </form>
-      <t t-set-slot="footer">
         <button
           type="button"
           class="btn btn-secondary o_agile_quick_create_cancel"

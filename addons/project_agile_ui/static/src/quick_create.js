@@ -28,6 +28,7 @@ export class AgileQuickCreate extends Component {
 
   setup() {
     this.state = useState({name: "", saving: false, error: false});
+    this.formId = `agile-quick-create-${this.env.dialogData.id}`;
     this.nameRef = useRef("name");
     onMounted(() => this.nameRef.el.focus());
   }

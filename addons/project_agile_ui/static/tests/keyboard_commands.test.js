@@ -54,27 +54,35 @@ test("project_agile_ui native keyboard create cancel restores focus and never cr
   expect(calls).toEqual(["get_agile_planning_snapshot", "get_agile_planning_snapshot"]);
 });
 
-test("project_agile_ui quick create preserves selection and refreshes only after save", async () => {
-  const calls = [];
-  const board = await mountBoard(async (...args) => {
-    calls.push(args);
-    return args[1] === "create_agile_planning_task" ? 99 : snapshot;
+for (const keys of ["Enter", ["Control", "Enter"]]) {
+  test(`project_agile_ui quick create preserves selection refresh and focus with ${keys}`, async () => {
+    const calls = [];
+    const board = await mountBoard(async (...args) => {
+      calls.push(args);
+      return args[1] === "create_agile_planning_task" ? 99 : snapshot;
+    });
+    board.state.teamId = 3;
+    await animationFrame();
+    await contains(".o_agile_planning_board__create").click();
+    await contains("#agile-quick-create-name").edit("Saved work", {confirm: false});
+    await press(keys);
+    await animationFrame();
+    expect(".modal").toHaveCount(0);
+    expect(board.state.teamId).toBe(3);
+    expect(".o_agile_planning_board__create").toBeFocused();
+    expect(calls).toEqual([
+      ["project.project", "get_agile_planning_snapshot", [42, false]],
+      ["project.project", "get_agile_planning_snapshot", [42, false], {team_id: 3}],
+      [
+        "project.project",
+        "create_agile_planning_task",
+        [42, "Saved work"],
+        {team_id: 3},
+      ],
+      ["project.project", "get_agile_planning_snapshot", [42, false], {team_id: 3}],
+    ]);
   });
-  board.state.teamId = 3;
-  await animationFrame();
-  await contains(".o_agile_planning_board__create").click();
-  await contains("#agile-quick-create-name").edit("Saved work", {confirm: false});
-  await press("Enter");
-  await animationFrame();
-  expect(".modal").toHaveCount(0);
-  expect(board.state.teamId).toBe(3);
-  expect(calls).toEqual([
-    ["project.project", "get_agile_planning_snapshot", [42, false]],
-    ["project.project", "get_agile_planning_snapshot", [42, false], {team_id: 3}],
-    ["project.project", "create_agile_planning_task", [42, "Saved work"], {team_id: 3}],
-    ["project.project", "get_agile_planning_snapshot", [42, false], {team_id: 3}],
-  ]);
-});
+}
 
 test("project_agile_ui denied save retains draft and does not pretend success", async () => {
   await mountBoard(async (model, method) => {

@@ -6,6 +6,22 @@ is read-only. Use native subtasks for hierarchy and dependencies for blocking
 relationships. Agile parent and child tasks must belong to the same Project and
 follow the parent type policy.
 
+For an Epic or other container, open the **Agile** tab and read **Visible work
+progress**. It shows Done items over total items, and completed over total known
+story points. **Contributing work** opens the matching items across the full
+hierarchy, not only the first planning page. Optional task-list columns show the
+same summaries. Reload an open view after another user changes work.
+
+Only visible, active, non-template work in the same active Agile Project contributes.
+Canceled work and branches through archived, canceled or inaccessible parents are
+excluded. Each terminal visible item counts once; a container with contributing
+children contributes no estimate of its own. If none of its children qualifies,
+that item becomes terminal. The Epic itself never counts. These are your visible
+totals, not a claim about hidden work. Hours contribute items but no story points;
+zero point estimates are labeled unestimated, so known points are only a subtotal.
+Empty work and work without applicable story points have separate labels rather
+than a percentage. Summaries do not complete parents or change Sprint history.
+
 Task selectors show `[KEY] Task name` and accept a full key or key prefix.
 An exact key match appears first, even when many keys share its prefix.
 Enabling Agile assigns keys to existing non-template tasks, including archived

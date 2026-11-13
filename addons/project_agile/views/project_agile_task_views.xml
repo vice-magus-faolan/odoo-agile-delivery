@@ -32,6 +32,17 @@
       </xpath>
       <xpath expr="//page[@name=&apos;description_page&apos;]" position="after">
         <page name="agile" string="Agile" invisible="not agile_project_enabled">
+          <group string="Visible work progress" name="agile_progress">
+            <field name="agile_progress_items" readonly="1" />
+            <field name="agile_progress_points" readonly="1" />
+            <button
+              name="action_agile_progress_work"
+              type="object"
+              string="Contributing work"
+              class="btn-link"
+              invisible="not id"
+            />
+          </group>
           <field
             name="agile_acceptance_criteria"
             type="html"
@@ -51,6 +62,16 @@
       <xpath expr="//field[@name=&apos;name&apos;]" position="after">
         <field name="agile_project_enabled" column_invisible="True" />
         <field name="agile_key" optional="show" invisible="not agile_project_enabled" />
+        <field
+          name="agile_progress_items"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
+        <field
+          name="agile_progress_points"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
         <field
           name="agile_item_type_id"
           optional="hide"

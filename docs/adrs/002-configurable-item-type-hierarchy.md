@@ -57,3 +57,22 @@ Authored drafts, explicit defaults and saved task edits remain unchanged. A one-
 versioned upgrade initializes existing Story configuration from the same static HTML
 file used by native XML installation. A deleted seed is skipped; subsequent upgrades
 preserve administrator edits and clearing.
+
+## Visible descendant progress
+
+Progress lives on native tasks and works with configured types at any depth. The
+caller-visible forest contains active, non-canceled, non-template tasks in the same
+active Agile Project. Missing or excluded intermediate nodes disconnect their branches.
+Each terminal node contributes one item and only its own effective points; containers
+never add estimates on top of their children. A node whose children are all excluded
+becomes terminal. The inspected root is not its own contributor. Only native Done counts
+as completed, unlike native closed-child counters which include Canceled. Hours count
+only as items; untyped work follows the existing Project point policy, and zero points
+mean unestimated rather than complete evidence.
+
+Nonstored, non-sudo fields reduce one caller-bound ORM forest bottom-up for the
+requested roots. Recursive dependencies invalidate ancestor summaries after native
+edits; reloads resolve current authority. No elevated total is persisted. The same
+forest supplies the ordinary list drilldown without planning-page limits. Native
+counters, task states and immutable Sprint events are unchanged. Native form/list views
+avoid a second planning client and keep the core independent of Scrum/UI.

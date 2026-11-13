@@ -1,7 +1,7 @@
 {
     "name": "Agile Planning UI",
     "summary": "Optional Odoo frontend for authoritative Agile planning",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.3.1",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",

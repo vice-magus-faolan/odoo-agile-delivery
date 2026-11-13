@@ -4,6 +4,7 @@ from psycopg2.errors import SerializationFailure
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, ConcurrencyError, ValidationError
+from odoo.fields import Domain
 
 _BACKLOG_PAGE_SIZE = 50
 _MAX_MUTATION_TASKS = 20
@@ -24,7 +25,15 @@ class ProjectProject(models.Model):
 
     @api.model
     def get_agile_planning_snapshot(
-        self, project_id, cursor=False, team_id=False, milestone_id=False
+        self,
+        project_id,
+        cursor=False,
+        team_id=False,
+        milestone_id=False,
+        *,
+        sprint_cursor=False,
+        task_cursor=False,
+        team_cursor=False,
     ):
         """Return the current user's bounded read-only planning data for one project."""
         project = self._get_available_agile_planning_project(project_id)
@@ -42,10 +51,21 @@ class ProjectProject(models.Model):
             raise ValidationError(
                 self.env._("The Product Backlog changed. Refresh and retry.")
             )
-        sprints = self._get_agile_planning_sprints(project, team)
-        sprint_tasks = self._get_agile_planning_sprint_tasks(sprints, milestone)
-        current_points = self._get_current_sprint_points(sprints)
-        committed_points = self._get_committed_sprint_points(sprints)
+        scope = {
+            "project": project.id,
+            "team": team.id or False,
+            "milestone": milestone.id or False,
+            "revision": project.agile_planning_backlog_revision,
+        }
+        sprints, next_sprint = self._get_agile_planning_sprints(
+            project, team, sprint_cursor, scope
+        )
+        task_domain = self._agile_planning_sprint_task_domain(sprints, milestone)
+        sprint_tasks, next_task = self._get_agile_planning_sprint_tasks(
+            sprints, task_domain, task_cursor, scope
+        )
+        current_points, item_counts = self._get_current_sprint_points(task_domain)
+        committed_points = self._get_committed_sprint_points(sprints, task_domain)
         backlog_tasks, next_cursor = self._get_agile_planning_backlog(
             project, cursor_values, team, milestone
         )
@@ -63,12 +83,16 @@ class ProjectProject(models.Model):
                 ["name"],
             )
         milestone_names = {row.id: row.name for row in milestones}
-        teams = (
-            self.env["project.agile.team"].search_fetch(
-                [("project_id", "=", project.id)], ["name", "active"], limit=100
-            )
-            | team
+        teams, next_team = self._agile_planning_page(
+            "project.agile.team",
+            [("project_id", "=", project.id)],
+            ["name", "active", "write_date"],
+            [("id", "asc")],
+            100,
+            team_cursor,
+            {**scope, "page": "teams"},
         )
+        teams |= team
 
         return {
             "project": {
@@ -80,6 +104,11 @@ class ProjectProject(models.Model):
             if milestone
             else False,
             "teams": [{"id": row.id, "name": row.name} for row in teams],
+            "pages": {
+                "sprints": next_sprint,
+                "tasks": next_task,
+                "teams": next_team,
+            },
             "sprints": [
                 {
                     "id": sprint.id,
@@ -92,6 +121,7 @@ class ProjectProject(models.Model):
                         self._serialize_agile_planning_task(task, milestone_names)
                         for task in sprint_tasks[sprint.id]
                     ],
+                    "item_count": item_counts.get(sprint.id, 0),
                     "current_points": current_points.get(sprint.id, 0.0),
                     "committed_points": committed_points.get(sprint.id, 0.0),
                 }
@@ -275,8 +305,65 @@ class ProjectProject(models.Model):
             )
         return self
 
-    def _get_agile_planning_sprints(self, project, team=False):
-        return self.env["project.sprint"].search_fetch(
+    def _agile_planning_page(
+        self, model, domain, field_names, ordering, limit, cursor, scope
+    ):
+        """Page a caller-bound relation; a cursor is position, never authority.
+
+        Validate its anchor in the current domain before deriving the keyset.
+        Only non-null integer/selection keys are used by these three callers.
+        """
+        records = self.env[model]
+        domain = Domain(domain)
+        if cursor is not False and cursor is not None:
+            if (
+                not isinstance(cursor, dict)
+                or set(cursor) != {"id", "version", "scope"}
+                or type(cursor["id"]) is not int
+                or cursor["id"] <= 0
+                or not isinstance(cursor["version"], str)
+                or cursor["scope"] != scope
+            ):
+                raise ValidationError(
+                    self.env._("The planning page is invalid. Refresh and retry.")
+                )
+            anchor = records.search_fetch(
+                domain & Domain("id", "=", cursor["id"]),
+                list(dict.fromkeys([*field_names, *(key for key, _ in ordering)])),
+                limit=1,
+            )
+            if not anchor or str(anchor.write_date) != cursor["version"]:
+                raise ValidationError(
+                    self.env._("The planning page changed. Refresh and retry.")
+                )
+            after, prefix = Domain.FALSE, Domain.TRUE
+            for key, direction in ordering:
+                after |= prefix & Domain(
+                    key, ">" if direction == "asc" else "<", anchor[key]
+                )
+                prefix &= Domain(key, "=", anchor[key])
+            domain &= after
+        page = records.search_fetch(
+            domain,
+            field_names,
+            limit=limit + 1,
+            order=", ".join(f"{key} {direction}" for key, direction in ordering),
+        )
+        visible = page[:limit]
+        continuation = (
+            {
+                "id": visible[-1].id,
+                "version": str(visible[-1].write_date),
+                "scope": scope,
+            }
+            if len(page) > limit
+            else False
+        )
+        return visible, continuation
+
+    def _get_agile_planning_sprints(self, project, team, cursor, scope):
+        return self._agile_planning_page(
+            "project.sprint",
             [
                 ("project_id", "=", project.id),
                 ("company_id", "in", [False, *self.env.companies.ids]),
@@ -285,18 +372,23 @@ class ProjectProject(models.Model):
             ]
             + ([("team_id", "=", team.id)] if team else []),
             ["name", "team_id", "state", "goal", "write_date"],
-            limit=_SPRINT_LIMIT,
-            order="state, date_start desc, id desc",
+            [("state", "asc"), ("id", "desc")],
+            _SPRINT_LIMIT,
+            cursor,
+            {**scope, "page": "sprints"},
         )
 
-    def _get_agile_planning_sprint_tasks(self, sprints, milestone=False):
-        tasks = self.env["project.task"].search_fetch(
-            [
-                ("sprint_id", "in", sprints.ids),
-                ("company_id", "in", [False, *self.env.companies.ids]),
-                ("active", "=", True),
-            ]
-            + ([("milestone_id", "=", milestone.id)] if milestone else []),
+    def _agile_planning_sprint_task_domain(self, sprints, milestone=False):
+        return [
+            ("sprint_id", "in", sprints.ids),
+            ("company_id", "in", [False, *self.env.companies.ids]),
+            ("active", "=", True),
+        ] + ([("milestone_id", "=", milestone.id)] if milestone else [])
+
+    def _get_agile_planning_sprint_tasks(self, sprints, domain, cursor, scope):
+        tasks, next_cursor = self._agile_planning_page(
+            "project.task",
+            domain,
             [
                 "name",
                 "agile_key",
@@ -309,25 +401,42 @@ class ProjectProject(models.Model):
                 "milestone_id",
                 "write_date",
             ],
-            limit=_SPRINT_TASK_LIMIT,
-            order="agile_backlog_sequence, id",
+            [("agile_backlog_sequence", "asc"), ("id", "asc")],
+            _SPRINT_TASK_LIMIT,
+            cursor,
+            {**scope, "page": "tasks", "sprints": sprints.ids},
         )
         result = {sprint.id: self.env["project.task"] for sprint in sprints}
         for task in tasks:
             result[task.sprint_id.id] |= task
-        return result
+        return result, next_cursor
 
-    def _get_current_sprint_points(self, sprints):
+    def _get_current_sprint_points(self, domain):
         rows = self.env["project.task"]._read_group(
-            [("sprint_id", "in", sprints.ids)],
+            domain,
             ["sprint_id"],
-            ["agile_effective_story_points:sum"],
+            ["agile_effective_story_points:sum", "__count"],
         )
-        return {sprint.id: points or 0.0 for sprint, points in rows}
+        return (
+            {sprint.id: points or 0.0 for sprint, points, _ in rows},
+            {sprint.id: count for sprint, _, count in rows},
+        )
 
-    def _get_committed_sprint_points(self, sprints):
+    def _get_committed_sprint_points(self, sprints, task_domain):
+        # Bind related-task visibility to the caller before aggregating history.
+        # Native event rules alone do not establish visibility of each source task.
+        visible_tasks = self.env["project.task"]._search(task_domain)
+        # Pair each event with its Tasks current Sprint, not any loaded Sprint.
+        # The window is bounded; this adds predicates, not per-Sprint queries.
+        current_assignments = Domain.OR(
+            Domain("sprint_id", "=", sprint.id)
+            & Domain("task_id.sprint_id", "=", sprint.id)
+            for sprint in sprints
+        )
         rows = self.env["project.sprint.scope.event"]._read_group(
-            [("sprint_id", "in", sprints.ids), ("event_type", "=", "committed")],
+            current_assignments
+            & Domain("event_type", "=", "committed")
+            & Domain("task_id", "in", visible_tasks),
             ["sprint_id"],
             ["story_points:sum"],
         )

@@ -27,6 +27,23 @@
               t-esc="team.name"
             />
           </select>
+          <div t-if="state.project" class="o_agile_planning_board__team-pages">
+            <button
+              t-if="state.pageCursors.team_cursor"
+              type="button"
+              class="btn btn-link"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('teams', true)"
+            >First teams</button>
+            <button
+              t-if="state.pages.teams"
+              type="button"
+              class="btn btn-secondary o_agile_planning_board__next-teams"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('teams')"
+            >Next teams</button>
+            <span t-if="state.pages.teams">More teams are available.</span>
+          </div>
           <div
             t-if="state.project?.allow_milestones"
             class="o_agile_planning_board__milestones"
@@ -61,7 +78,7 @@
               t-on-click="openReleaseContents"
             >Release contents</button>
             <p
-            >Grouping covers only the cards loaded so far. Sprint point totals count every task in the Sprint.</p>
+            >Grouping covers only the cards loaded so far. Sprint counts and points use the current filters and visible work.</p>
           </div>
         </div>
         <div class="o_agile_planning_board__fallbacks">
@@ -121,6 +138,47 @@
           aria-labelledby="agile-planning-sprints"
         >
           <h2 id="agile-planning-sprints">Sprints</h2>
+          <div
+            t-if="state.pages.sprints or state.pageCursors.sprint_cursor"
+            class="o_agile_planning_board__sprint-pages"
+          >
+            <p>This is a page of Sprints, not the complete planning board.</p>
+            <button
+              t-if="state.pageCursors.sprint_cursor"
+              type="button"
+              class="btn btn-link"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('sprints', true)"
+            >First Sprints</button>
+            <button
+              t-if="state.pages.sprints"
+              type="button"
+              class="btn btn-secondary o_agile_planning_board__next-sprints"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('sprints')"
+            >Next Sprints</button>
+          </div>
+          <div
+            t-if="state.pages.tasks or state.pageCursors.task_cursor"
+            class="o_agile_planning_board__task-pages"
+          >
+            <p
+            >Assigned items are paged across the Sprints below. An empty column on this page may have items on another page.</p>
+            <button
+              t-if="state.pageCursors.task_cursor"
+              type="button"
+              class="btn btn-link"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('tasks', true)"
+            >First assigned items</button>
+            <button
+              t-if="state.pages.tasks"
+              type="button"
+              class="btn btn-secondary o_agile_planning_board__next-tasks"
+              t-att-disabled="planningUnavailable"
+              t-on-click="() => this.navigatePage('tasks')"
+            >Next assigned items</button>
+          </div>
           <p t-if="!state.sprints.length">No visible draft or active Sprints.</p>
           <div
             t-foreach="state.sprints"
@@ -145,10 +203,21 @@
               </p>
               <p>
                                 Current: <span t-esc="sprint.current_points" /> points ·
-                                Committed: <span
+                                Committed for visible assigned work: <span
                 t-esc="sprint.committed_points"
               /> points
                             </p>
+              <p
+                t-if="sprint.item_count !== undefined"
+                class="o_agile_planning_board__item-count"
+              >
+                Showing <span t-esc="sprint.items.length" /> of <span
+                t-esc="sprint.item_count"
+              /> visible assigned items in this Sprint.
+                <span
+                t-if="sprint.items.length &lt; sprint.item_count"
+              >Use assigned-item pages to reach the other items.</span>
+              </p>
               <t
                 t-foreach="groupTasks(sprint.items)"
                 t-as="milestoneGroup"

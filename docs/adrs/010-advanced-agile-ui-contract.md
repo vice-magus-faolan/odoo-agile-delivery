@@ -29,14 +29,30 @@ and native record permissions. It rejects unavailable Projects and invalid typed
 IDs/cursors without exposing hidden metadata. Context does not grant authority; there is
 no caller-selected model, method, field set or company. An optional team identity is
 resolved by current-user ORM within that Project/company; it narrows selection, never
-grants authority. The selector returns at most 100 active teams.
+grants authority. The selector pages through active teams, 100 per request plus the
+selected team when it lies outside the current window.
 
 The snapshot returns at most 20 visible Draft/Active Sprints with active teams, 100
-assigned items across those Sprints and 50 Product Backlog items per page. Native Task
+assigned items across those Sprints and 50 Product Backlog items per page. Independent
+Sprint, assigned-item and team continuation controls expose every window without
+increasing those bounds. Sprint pages use state then descending ID rather than mutable
+start dates; assigned items use sequence then ID and teams use ID. The client replaces
+these windows and can restart each at its first page. Each Sprint carries a
+caller-filtered active assigned-item count, so omitted work is explicit even when the
+current page contains none of its cards. New page cursors bind Project, team, milestone,
+planning revision, page kind and current anchor ID/write version. Assigned-item cursors
+also bind the Sprint window. The server re-resolves the anchor under current caller
+rules before deriving the keyset; invalid, unavailable or changed anchors and mismatched
+scopes reject. Lookahead is one row per page, not global materialization. Cursors
+describe live positions, not frozen membership: native edits outside planning may change
+the visible set; refresh restarts navigation. Native Task
 identity/key/type/points/parent context and form navigation remain bounded projections.
-Current points come from Task assignment; committed points come from immutable committed
-events, not browser arithmetic. Totals may include work omitted from the capped item
-list.
+Current points and counts share one grouped query over the same active, caller-visible,
+company/milestone-filtered assigned Tasks as the card pages. Committed points sum
+immutable committed events for that same currently assigned Task scope through a
+caller-bound Task subquery. They are not the whole historical Sprint commitment after
+removals; native Sprint history retains that evidence. Totals include other pages, never
+hidden or out-of-filter Tasks.
 
 The general native Product Backlog action/search includes active, unscheduled,
 non-template Agile work, excluding native Done and Canceled states, irrespective of item
@@ -52,9 +68,13 @@ Reads use batched current-user ORM queries and grouped sums rather than per-card
 queries. Fetch the fields consumed by card and version serialization together, including
 Task team and Sprint identity and write timestamps, instead of implicit full-record
 reads. Keep the native payload/query-budget regressions, including increased team/card
-counts with empty ORM caches; representative snapshots remain bounded to ten SQL
-queries, not a full-render or deployment latency SLA. Native Sprint and planning-scoped
-backlog lists remain read/navigation fallbacks with the same permissions.
+counts with empty ORM caches; representative snapshots remain bounded to ten SQL queries
+on initial pages, plus at most one anchor lookup for each active new continuation (up to
+thirteen queries with all three cursors), not a full-render or deployment latency SLA.
+Initial budgets are preserved: counts share the existing points aggregation, and
+continuation lookups validate current scope without per-card queries. Native Sprint and
+planning-scoped backlog lists remain read/navigation fallbacks with the same
+permissions.
 
 ## Explicit planning changes
 
@@ -99,17 +119,22 @@ keyboard and pointer users.
 Name-only quick create uses native `Dialog` and current-user Task ORM creation. The
 Project resolver and team/milestone resolvers are rechecked when saving; caller defaults
 are discarded before native Task defaults, key allocation and validation run. No Task is
-created by opening or canceling the dialog. Successful creation reloads the current
-filtered snapshot, including when the default type is absent from the Sprint-eligible
-queue. A rejected save preserves the draft; a failed post-save refresh never offers the
-same submitted draft as unsaved work.
+created by opening or canceling before Save. A component-local native Dialog subclass
+guards its Escape/header dismissal boundary while the create request is pending; a
+native dismiss-hook return cannot veto closing. It reads live save state rather than
+waiting for a render. This prevents false cancellation, not an in-flight server
+rollback. Successful creation reloads the current filtered snapshot, including when the
+default type is absent from the Sprint-eligible queue. A rejected save preserves the
+draft; a failed post-save refresh never offers the same submitted draft as unsaved work.
+Failed creation restores dismissal.
 
 Work lookup uses native `Many2XAutocomplete` and the existing Task key-first
 `name_search`, scoped to the Project, not the loaded page or Sprint. Navigation
 re-resolves the selected Task as the current caller in the current Project. Active
 Sprint navigation reuses the native Sprint action with current-state and optional team
-narrowing instead of selecting an arbitrary Sprint. Cached command availability is
-presentation only; it grants neither creation nor read access.
+narrowing instead of selecting an arbitrary Sprint. Its awaited response is discarded
+after request-sequence, Project or team changes, including unmount. Cached command
+availability is presentation only; it grants neither creation nor read access.
 
 ## Verification and consequences
 

@@ -32,12 +32,14 @@ using a dialog. Native global shortcuts keep their normal behavior.
 Choose **New work item**, enter a **Name** and press **Enter** or **Create**.
 The native Task uses the Project default item type, compatible stage, selected
 team and milestone. Creation requires current Task creation permission and an
-available Agile Project. **Cancel** or **Escape** discards the draft without
-creating work. Focus returns to **New work item**. Saving refreshes the board
-without clearing filters; an item whose default type is not Sprint-eligible may
-be absent from this planning queue. Use the general Product Backlog to find it.
-A rejected save keeps the draft: check the Project defaults and current access,
-or cancel and refresh to select an available team or milestone.
+available Agile Project. Before saving, **Cancel**, **Escape** or the header close
+button discards the draft without creating work. While saving, dismissal is
+unavailable: wait for the result rather than treating a pending create as canceled.
+Focus returns to **New work item** after closing. Saving refreshes the board without
+clearing filters; an item whose default type is not Sprint-eligible may be absent
+from this planning queue. Use the general Product Backlog to find it.
+A rejected save keeps the draft and restores dismissal: check the Project defaults
+and current access, or cancel and refresh to select an available team or milestone.
 
 **Find work by key** searches all visible active work in this Project, including
 scheduled items. Type a key or name and select a suggestion or press **Enter**.
@@ -45,18 +47,28 @@ The server rechecks the selected item before opening its native form. **Active
 Sprint** opens the current Active Sprints list, narrowed to the selected team;
 an empty list means no matching visible Active Sprint.
 
-The board displays at most 20 Sprints and 100 assigned items across them, with
-50 backlog items per page. Use the standard lists when the board is incomplete;
-point totals can include work not rendered in its limited item list.
-The team selector lists up to 100 active teams for this Project; use native task
-search for other teams. Assignment inherits a Sprint team only for unteamed work;
+Use **Next Sprints** to reach Sprints beyond the current 20-Sprint page.
+Use **Next assigned items** to reach work beyond the current 100-card page across
+those Sprints, including a single Sprint with more than 100 items. Each Sprint
+shows how many of its visible, filtered items are on the current page and its
+complete count. An empty column on one page does not mean the Sprint is empty.
+**First Sprints** and **First assigned items** return to the beginning.
+The team selector shows up to 100 active teams at a time; choose **Next teams**
+to reach more, or **First teams** to start again. The selected team remains available.
+These controls replace the current window; backlog paging still adds 50 items at
+a time. Sprints are ordered by state and descending identity, teams by identity,
+and assigned items by backlog sequence then identity.
+Assignment inherits a Sprint team only for unteamed work;
 an incompatible team selection is refused without moving any work.
 
 For a Project using native milestones, choose **Milestone** to filter both backlog
 and Sprint cards. Type a name and select a suggestion or press Enter. Clearing the
 field restores all milestones. Changing milestones restarts backlog paging and
 keeps the selected team. **Group loaded items by milestone** groups only the cards
-already loaded, not the complete release. Sprint point totals remain unfiltered.
+already loaded, not the complete release. Sprint counts and current points use the
+selected milestone and caller-visible active assigned work. Commitment points
+show committed events for that same currently assigned, visible task scope;
+use native Sprint history for the complete historical commitment.
 Clear the milestone filter and grouping to reorder work; assignment and return
 remain available. **Open Product Backlog list** keeps the milestone and team.
 Choose **Release contents** for the selected milestone's full native task list,
@@ -65,7 +77,7 @@ Milestone controls and badges are absent when the Project disables milestones.
 
 After a rejected change, the board refreshes. Review current placement before
 retrying. If a page load fails, **Retry** requests that page again; a changed
-backlog reloads the first page. If a stale-data warning appears, reload the page or reopen Sprint Planning
+planning page reloads the first page. If a stale-data warning appears, reload the page or reopen Sprint Planning
 before making another change. If access is denied, check the selected companies
 and ask a Project administrator to check your access. The ordinary lists still
 require the same permissions.

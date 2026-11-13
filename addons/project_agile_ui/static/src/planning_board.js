@@ -59,6 +59,9 @@ function emptyState() {
     loading: true,
     project: false,
     retryCursor: false,
+    retryPages: {},
+    pageCursors: {},
+    pages: {},
     sprints: [],
     stale: false,
     status: _t("Loading Sprint Planning"),
@@ -193,16 +196,27 @@ export class AgilePlanningBoard extends Component {
     if (!this.commandsAvailable) {
       return;
     }
+    const requestSequence = this.requestSequence;
+    const projectId = this.projectId;
+    const teamId = this.state.teamId;
     const action = await this.orm.call(
       "project.project",
       "action_open_agile_planning_active_sprints",
-      [[this.projectId]],
-      {team_id: this.state.teamId || false}
+      [[projectId]],
+      {team_id: teamId || false}
     );
+    if (
+      requestSequence !== this.requestSequence ||
+      projectId !== this.projectId ||
+      teamId !== this.state.teamId ||
+      !this.commandsAvailable
+    ) {
+      return;
+    }
     return this.actionService.doAction(action);
   }
 
-  async load(cursor = false) {
+  async load(cursor = false, pageCursors = {}) {
     if (!Number.isInteger(this.projectId) || this.projectId <= 0) {
       this.state.loading = false;
       this.state.error = _t("Sprint Planning needs an available Agile project.");
@@ -216,16 +230,19 @@ export class AgilePlanningBoard extends Component {
     this.state.failure = false;
     this.state.status = _t("Loading Sprint Planning");
     try {
+      const options = {...this.selectionOptions, ...pageCursors};
       const snapshot = await this.orm.call(
         "project.project",
         "get_agile_planning_snapshot",
         [this.projectId, cursor],
-        ...(Object.keys(this.selectionOptions).length ? [this.selectionOptions] : [])
+        ...(Object.keys(options).length ? [options] : [])
       );
       if (requestSequence !== this.requestSequence) {
         return false;
       }
       this.applySnapshot(snapshot, cursor);
+      this.state.pageCursors = pageCursors;
+      this.state.retryPages = {};
       this.state.retryCursor = false;
       this.state.stale = false;
       this.state.status = _t("Sprint Planning loaded");
@@ -235,13 +252,14 @@ export class AgilePlanningBoard extends Component {
         return false;
       }
       const failure = planningLoadFailure(error);
-      if (cursor && failure === "permanent") {
+      if ((cursor || Object.keys(pageCursors).length) && failure === "permanent") {
         this.state.retryCursor = false;
         return this.load();
       }
       this.state.failure = failure;
       this.state.error = planningLoadErrorMessage(this.state.failure);
       this.state.retryCursor = cursor;
+      this.state.retryPages = pageCursors;
       this.state.stale = Boolean(this.state.project);
       this.state.status = this.state.stale
         ? _t("Showing stale Sprint Planning data")
@@ -262,6 +280,7 @@ export class AgilePlanningBoard extends Component {
     }
     this.state.teams = snapshot.teams || [];
     this.state.sprints = snapshot.sprints;
+    this.state.pages = snapshot.pages || {};
     if (!cursor) {
       this.state.backlog = snapshot.backlog;
       return;
@@ -379,6 +398,8 @@ export class AgilePlanningBoard extends Component {
         return;
       }
       this.applySnapshot(snapshot);
+      this.state.pageCursors = {};
+      this.state.assignmentTargets = {};
       this.state.stale = false;
       this.state.status = _t("Sprint Planning updated");
     } catch {
@@ -521,7 +542,7 @@ export class AgilePlanningBoard extends Component {
   }
 
   retry() {
-    return this.load(this.state.retryCursor);
+    return this.load(this.state.retryCursor, this.state.retryPages);
   }
 
   selectTeam(event) {
@@ -538,7 +559,31 @@ export class AgilePlanningBoard extends Component {
   }
 
   loadMore() {
-    return this.load(this.state.backlog.next_cursor);
+    return this.load(this.state.backlog.next_cursor, this.state.pageCursors);
+  }
+
+  navigatePage(kind, first = false) {
+    if (this.planningUnavailable) {
+      return;
+    }
+    const cursors = {...this.state.pageCursors};
+    const key = {sprints: "sprint_cursor", tasks: "task_cursor", teams: "team_cursor"}[
+      kind
+    ];
+    if (!key || (!first && !this.state.pages[kind])) {
+      return;
+    }
+    if (first) {
+      delete cursors[key];
+    } else {
+      cursors[key] = this.state.pages[kind];
+    }
+    if (kind === "sprints") {
+      delete cursors.task_cursor;
+    }
+    this.state.assignmentTargets = {};
+    this.endDrag();
+    return this.load(false, cursors);
   }
 
   openSprint(sprint) {

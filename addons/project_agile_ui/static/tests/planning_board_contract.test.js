@@ -100,7 +100,7 @@ test("project_agile_ui registers and renders a planning workspace", async () => 
   expect(".o_agile_planning_board").toHaveAttribute("aria-busy", "false");
   expect(".o_agile_planning_board__sprint").toHaveCount(1);
   expect(".o_agile_planning_board__sprint").toHaveText(
-    "Sprint 7\n\nDelivery Team · active\n\nShip the planning board\n\nCurrent: 8 points · Committed: 5 points"
+    "Sprint 7\n\nDelivery Team · active\n\nShip the planning board\n\nCurrent: 8 points · Committed for visible assigned work: 5 points"
   );
   expect(".o_agile_planning_board__backlog-task").toHaveCount(1);
   expect(".o_agile_planning_board button").toHaveCount(8);
@@ -535,7 +535,7 @@ test("project_agile_ui milestone grouping is loaded-only and disables reorder, n
     1
   );
   expect(".o_agile_planning_board__milestones").toHaveText(
-    /Grouping covers only the cards loaded so far\. Sprint point totals count every task in the Sprint\./
+    /Grouping covers only the cards loaded so far\. Sprint counts and points use the current filters and visible work\./
   );
   expect(".o_agile_planning_board__backlog-dropzone .list-group-numbered").toHaveCount(
     0
@@ -624,4 +624,72 @@ test("project_agile_ui ignores late milestone pages and removes disabled control
   expect(component.state.milestone).toBe(false);
   expect(".o_agile_planning_board__milestones").toHaveCount(0);
   expect(".o_agile_planning_board__milestone").toHaveCount(0);
+});
+
+test("project_agile_ui bounded controls navigate every window and retain backlog continuation", async () => {
+  const token = {id: 100, version: "v", scope: {}};
+  const calls = [];
+  const component = await setupPlanningBoard({
+    call: async (...args) => {
+      calls.push(args);
+      const options = args[3] || {};
+      return {
+        ...snapshot,
+        teams: options.team_cursor ? [{id: 101, name: "Last team"}] : snapshot.teams,
+        sprints: [
+          {
+            ...snapshot.sprints[0],
+            id: options.sprint_cursor ? 27 : 7,
+            item_count: 101,
+            items: options.task_cursor
+              ? [{...snapshot.backlog.items[0], id: 111, name: "Last assigned item"}]
+              : [],
+          },
+        ],
+        pages: {
+          sprints: options.sprint_cursor ? false : token,
+          tasks: options.task_cursor ? false : token,
+          teams: options.team_cursor ? false : token,
+        },
+        backlog: {...snapshot.backlog, next_cursor: token},
+      };
+    },
+  });
+  expect(".o_agile_planning_board__item-count").toHaveText(/Showing 0 of 101/);
+  await contains(".o_agile_planning_board__next-tasks").click();
+  expect(".o_agile_planning_board__sprint-task").toHaveText(/Last assigned item/);
+  expect(calls.at(-1)[3]).toEqual({task_cursor: token});
+  await component.loadMore();
+  expect(calls.at(-1)[2]).toEqual([42, token]);
+  expect(calls.at(-1)[3]).toEqual({task_cursor: token});
+  await contains(".o_agile_planning_board__next-sprints").click();
+  expect(calls.at(-1)[3]).toEqual({sprint_cursor: token});
+  expect(component.state.sprints[0].id).toBe(27);
+  await contains(".o_agile_planning_board__next-teams").click();
+  expect("#agile-planning-team option[value='101']").toHaveText("Last team");
+  await contains("#agile-planning-team").select("101");
+  expect(calls.at(-1)[3]).toEqual({team_id: 101});
+  expect(component.state.pageCursors).toEqual({});
+});
+
+test("project_agile_ui cancels late assigned and team pages after filter changes", async () => {
+  const pending = [];
+  const component = await setupPlanningBoard({
+    call: async (model, method, args, options) => {
+      if (options?.task_cursor || options?.team_cursor) {
+        return new Promise((resolve) => pending.push(resolve));
+      }
+      return snapshot;
+    },
+  });
+  for (const kind of ["tasks", "teams"]) {
+    component.state.pages[kind] = {id: 100};
+    const old = component.navigatePage(kind);
+    await component.selectTeam({target: {value: "4"}});
+    pending.shift()({...assignedSnapshot, teams: [{id: 999, name: "Old filter"}]});
+    await old;
+    expect(component.state.sprints[0].items).toEqual([]);
+    expect(component.state.teams).toEqual(snapshot.teams);
+    expect(component.state.pageCursors).toEqual({});
+  }
 });

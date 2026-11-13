@@ -165,3 +165,93 @@ test("project_agile_ui stale load removes commands and rechecks create access", 
   expect(".modal").toHaveCount(0);
   expect(".o_agile_planning_board__create").not.toBeEnabled();
 });
+
+for (const succeeds of [true, false]) {
+  test(`project_agile_ui pending create blocks native Escape and header dismissal ${succeeds}`, async () => {
+    let finish = null;
+    let fail = null;
+    let creates = 0;
+    const pending = new Promise((resolve, reject) => {
+      finish = resolve;
+      fail = reject;
+    });
+    const board = await mountBoard(async (model, method) => {
+      if (method === "create_agile_planning_task") {
+        creates += 1;
+        return pending;
+      }
+      return snapshot;
+    });
+    board.state.teamId = 3;
+    await animationFrame();
+    await contains(".o_agile_planning_board__create").click();
+    await contains("#agile-quick-create-name").edit("Pending draft", {confirm: false});
+    await press("Enter");
+    await animationFrame();
+    expect(".o_agile_quick_create_save").not.toBeEnabled();
+    expect(".o_agile_quick_create_cancel").not.toBeEnabled();
+    await press("Escape");
+    await animationFrame();
+    expect(".modal").toHaveCount(1);
+    await contains(".modal-header .btn-close").click();
+    expect(".modal").toHaveCount(1);
+    document
+      .querySelector(".modal form")
+      .dispatchEvent(new Event("submit", {bubbles: true, cancelable: true}));
+    await animationFrame();
+    expect(creates).toBe(1);
+    if (succeeds) {
+      finish(99);
+    } else {
+      fail(new Error("Current access denied"));
+    }
+    await animationFrame();
+    if (succeeds) {
+      expect(".modal").toHaveCount(0);
+      expect(board.state.teamId).toBe(3);
+    } else {
+      expect("#agile-quick-create-name").toHaveValue("Pending draft");
+      expect(".modal [role=alert]").toHaveText(/current access/);
+      expect(".o_agile_quick_create_save").toBeEnabled();
+      expect(".o_agile_quick_create_cancel").toBeEnabled();
+      await contains(".modal-header .btn-close").click();
+      expect(".modal").toHaveCount(0);
+    }
+    expect(".o_agile_planning_board__create").toBeFocused();
+    expect(creates).toBe(1);
+  });
+}
+
+test("project_agile_ui Active Sprint discards a stale team response and retains healthy navigation", async () => {
+  let finish = null;
+  let delayed = true;
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const actions = [];
+  const requests = [];
+  await mountBoard(
+    async (model, method, args, options) => {
+      if (method === "action_open_agile_planning_active_sprints") {
+        requests.push(options);
+        return delayed ? pending : {name: "Current team"};
+      }
+      return snapshot;
+    },
+    (action) => {
+      actions.push(action);
+    }
+  );
+  document.querySelector(".o_agile_planning_board__create").focus();
+  await shortcut("s");
+  expect(requests).toEqual([{team_id: false}]);
+  await contains("#agile-planning-team").select("3");
+  finish({name: "Obsolete team"});
+  await animationFrame();
+  expect(actions).toEqual([]);
+  delayed = false;
+  document.querySelector(".o_agile_planning_board__create").focus();
+  await shortcut("s");
+  expect(requests).toEqual([{team_id: false}, {team_id: 3}]);
+  expect(actions).toEqual([{name: "Current team"}]);
+});

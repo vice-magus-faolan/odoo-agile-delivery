@@ -4,9 +4,21 @@ import {Component, onMounted, useRef, useState} from "@odoo/owl";
 import {Dialog} from "@web/core/dialog/dialog";
 import {_t} from "@web/core/l10n/translation";
 
+class QuickCreateDialog extends Dialog {
+  static props = {...Dialog.props, canDismiss: Function};
+
+  dismiss() {
+    // Native dismiss hooks cannot veto close. Guard the actual Escape/header
+    // boundary, reading live save state even before the next render.
+    if (this.props.canDismiss()) {
+      return super.dismiss();
+    }
+  }
+}
+
 export class AgileQuickCreate extends Component {
   static template = "project_agile_ui.QuickCreate";
-  static components = {Dialog};
+  static components = {Dialog: QuickCreateDialog};
   static props = {
     close: Function,
     projectName: String,

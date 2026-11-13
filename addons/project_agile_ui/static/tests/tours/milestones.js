@@ -189,6 +189,54 @@ registry.category("web_tour.tours").add("agile_planning_keyboard", {
   ],
 });
 
+registry.category("web_tour.tours").add("agile_planning_pages", {
+  steps: () => [
+    {trigger: ".o_agile_planning_board__sprint:contains(Tour Sprint 020)"},
+    {trigger: ".o_agile_planning_board__item-count:contains(Showing 100 of 101)"},
+    {trigger: ".o_agile_planning_board__next-tasks", run: "click"},
+    {trigger: ".o_agile_planning_board__sprint-task:contains(Tour assigned 100)"},
+    {trigger: ".o_agile_planning_board__item-count:contains(Showing 1 of 101)"},
+    {trigger: ".o_agile_planning_board__next-sprints", run: "click"},
+    {trigger: ".o_agile_planning_board__sprint:contains(Tour Sprint 000)"},
+    {trigger: ".o_agile_planning_board__next-teams", run: "click"},
+    {
+      trigger:
+        ".o_agile_planning_board:not([aria-busy='true']) #agile-planning-team:has(option:contains(Tour team 100))",
+      run() {
+        const option = [
+          ...document.querySelectorAll("#agile-planning-team option"),
+        ].find((row) => row.textContent.includes("Tour team 100"));
+        const select = option.parentElement;
+        select.value = option.value;
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+      },
+    },
+    {
+      trigger: ".o_agile_planning_board:not([aria-busy='true']) #agile-planning-team",
+      run() {
+        const select = document.querySelector("#agile-planning-team");
+        select.value = "";
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+      },
+    },
+    {trigger: ".o_agile_planning_board__backlog-task:contains(Tour backlog 049)"},
+    {trigger: "button:contains(Load more backlog items)", run: "click"},
+    {trigger: ".o_agile_planning_board__backlog-task:contains(Tour backlog 099)"},
+    {trigger: "button:contains(Load more backlog items)", run: "click"},
+    {
+      trigger: ".o_agile_planning_board__backlog-task:contains(Tour backlog 100)",
+      run() {
+        if (
+          document.querySelectorAll(".o_agile_planning_board__backlog-task").length !==
+          101
+        ) {
+          throw new Error("Backlog continuation must retain all 101 distinct cards");
+        }
+      },
+    },
+  ],
+});
+
 for (const [name, command, target] of [
   [
     "active",

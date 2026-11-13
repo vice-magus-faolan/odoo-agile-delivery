@@ -31,6 +31,7 @@ class TestProjectAgileUiModuleContract(TransactionCase):
         self.assertEqual(
             manifest["assets"]["web.assets_backend"],
             [
+                "project_agile_ui/static/src/quick_create.js",
                 "project_agile_ui/static/src/planning_board.js",
                 "project_agile_ui/static/src/planning_board.xml",
                 "project_agile_ui/static/src/planning_board.scss",

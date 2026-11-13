@@ -120,6 +120,75 @@ registry.category("web_tour.tours").add("agile_milestone_form_contents", {
   ],
 });
 
+registry.category("web_tour.tours").add("agile_planning_keyboard", {
+  steps: () => [
+    {trigger: ".o_agile_planning_board__backlog-task:contains(Keyboard existing work)"},
+    {trigger: ".o_agile_planning_board", run: "press Control+k"},
+    {trigger: ".o_command_palette_search input", run: "edit Agile: Find work by key"},
+    {trigger: ".o_command:contains(Agile: Find work by key)", run: "press Enter"},
+    {trigger: "#agile-planning-work-search:focus"},
+    {trigger: "#agile-planning-team", run: "selectByLabel Keyboard team"},
+    {trigger: ".o_agile_planning_board:not([aria-busy=true])"},
+    {trigger: "#agile-planning-milestone", run: "edit Keyboard release"},
+    {
+      trigger: ".o-autocomplete--dropdown-item:contains(Keyboard release)",
+      run: "click",
+    },
+    {
+      trigger:
+        ".o_agile_planning_board:not([aria-busy=true]) .o_agile_planning_board__create:enabled",
+      run() {
+        document.querySelector(".o_agile_planning_board__create").focus();
+      },
+    },
+    {trigger: ".o_agile_planning_board__create:focus", run: "press Alt+Shift+n"},
+    {trigger: "#agile-quick-create-name:focus", run: "edit Keyboard canceled work"},
+    {trigger: "#agile-quick-create-name", run: "press Alt+Shift+b"},
+    {trigger: "#agile-quick-create-name", run: "press Escape"},
+    {trigger: ".o_agile_planning_board__create:focus", run: "press Alt+Shift+n"},
+    {trigger: "#agile-quick-create-name:focus", run: "edit Keyboard saved work"},
+    {trigger: "#agile-quick-create-name", run: "press Enter"},
+    {
+      trigger: ".o_agile_planning_board__backlog-task:contains(Keyboard saved work)",
+      run() {
+        const team = document.querySelector("#agile-planning-team");
+        const milestone = document.querySelector("#agile-planning-milestone");
+        if (
+          !team.selectedOptions[0].textContent.includes("Keyboard team") ||
+          milestone.value !== "Keyboard release"
+        ) {
+          throw new Error("Quick create lost the current filters");
+        }
+      },
+    },
+    {trigger: ".o_agile_planning_board__create:focus", run: "press Alt+Shift+f"},
+    {trigger: "#agile-planning-work-search:focus", run: "press Alt+Shift+n"},
+    {
+      trigger: "#agile-planning-work-search:focus",
+      async run(actions) {
+        const card = [
+          ...document.querySelectorAll(".o_agile_planning_board__backlog-task"),
+        ].find((row) => row.textContent.includes("Keyboard saved work"));
+        const key = card.querySelector("button span").textContent;
+        await actions.edit(key.toLowerCase());
+      },
+    },
+    {trigger: ".o-autocomplete--dropdown-item:contains(Keyboard saved work)"},
+    {trigger: "#agile-planning-work-search", run: "press Enter"},
+    {
+      trigger: ".o_form_view .o_field_widget[name=name] textarea",
+      run() {
+        const name = document.querySelector(
+          ".o_form_view .o_field_widget[name=name] textarea"
+        );
+        if (name.value !== "Keyboard saved work") {
+          throw new Error("Key search did not open the created native Task");
+        }
+      },
+    },
+  ],
+});
+
 registry.category("web_tour.tours").add("agile_planning_pages", {
   steps: () => [
     {trigger: ".o_agile_planning_board__sprint:contains(Tour Sprint 020)"},
@@ -167,3 +236,21 @@ registry.category("web_tour.tours").add("agile_planning_pages", {
     },
   ],
 });
+
+for (const [name, command, target] of [
+  [
+    "active",
+    "Agile: Active Sprint",
+    ".o_list_view .o_data_row:contains(Keyboard active Sprint)",
+  ],
+  ["backlog", "Agile: Product Backlog", ".o_list_view .o_group_header"],
+]) {
+  registry.category("web_tour.tours").add(`agile_keyboard_${name}`, {
+    steps: () => [
+      {trigger: ".o_agile_planning_board__create:enabled", run: "press Control+k"},
+      {trigger: ".o_command_palette_search input", run: `edit ${command}`},
+      {trigger: `.o_command:contains(${command})`, run: "press Enter"},
+      {trigger: target},
+    ],
+  });
+}

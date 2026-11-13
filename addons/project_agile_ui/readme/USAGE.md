@@ -21,6 +21,32 @@
    list** and **Open Product Backlog list** offer ordinary list and form views.
    The latter keeps the selected team and the board's Sprint-eligible queue.
 
+In Sprint Planning, open the native command palette with **Ctrl+K** (**Command+K**
+on macOS) and search for **Agile**. Commands create work, open Product Backlog or
+Active Sprints, and focus **Find work by key**. **Keyboard commands** on the board
+lists the direct shortcuts: **Alt+Shift+N**, **Alt+Shift+B**, **Alt+Shift+S** and
+**Alt+Shift+F**, respectively. On macOS, use Control instead of Alt. Direct
+shortcuts require focus on the board and pause while typing, composing text or
+using a dialog. Native global shortcuts keep their normal behavior.
+
+Choose **New work item**, enter a **Name** and press **Enter** or **Create**.
+The native Task uses the Project default item type, compatible stage, selected
+team and milestone. Creation requires current Task creation permission and an
+available Agile Project. Before saving, **Cancel**, **Escape** or the header close
+button discards the draft without creating work. While saving, dismissal is
+unavailable: wait for the result rather than treating a pending create as canceled.
+Focus returns to **New work item** after closing. Saving refreshes the board without
+clearing filters; an item whose default type is not Sprint-eligible may be absent
+from this planning queue. Use the general Product Backlog to find it.
+A rejected save keeps the draft and restores dismissal: check the Project defaults
+and current access, or cancel and refresh to select an available team or milestone.
+
+**Find work by key** searches all visible active work in this Project, including
+scheduled items. Type a key or name and select a suggestion or press **Enter**.
+The server rechecks the selected item before opening its native form. **Active
+Sprint** opens the current Active Sprints list, narrowed to the selected team;
+an empty list means no matching visible Active Sprint.
+
 Use **Next Sprints** to reach Sprints beyond the current 20-Sprint page.
 Use **Next assigned items** to reach work beyond the current 100-card page across
 those Sprints, including a single Sprint with more than 100 items. Each Sprint

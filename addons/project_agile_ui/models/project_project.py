@@ -99,6 +99,7 @@ class ProjectProject(models.Model):
                 "id": project.id,
                 "name": project.display_name,
                 "allow_milestones": bool(show_milestones),
+                "can_create_task": self.env["project.task"].has_access("create"),
             },
             "milestone": {"id": milestone.id, "name": milestone.name}
             if milestone
@@ -188,6 +189,61 @@ class ProjectProject(models.Model):
                 "allow_milestones": self.allow_milestones,
             },
         }
+
+    def action_open_agile_planning_active_sprints(self, team_id=False):
+        """Open current Active Sprints without choosing an arbitrary team."""
+        action = self.action_open_agile_planning_sprints()
+        team = self._get_agile_planning_team(self, team_id)
+        action["name"] = self.env._("Active Sprint")
+        action["domain"] += [("state", "=", "active"), ("team_id.active", "=", True)]
+        if team:
+            action["domain"].append(("team_id", "=", team.id))
+        return action
+
+    def action_open_agile_planning_task(self, task_id):
+        """Re-resolve a picked work item as the current reader before navigation."""
+        self._check_agile_planning_project()
+        if not isinstance(task_id, int) or isinstance(task_id, bool) or task_id <= 0:
+            raise ValidationError(self.env._("Choose a valid work item."))
+        task = self.env["project.task"].search(
+            [("id", "=", task_id), ("project_id", "=", self.id)], limit=1
+        )
+        if not task:
+            raise AccessError(self.env._("The work item is unavailable."))
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.task",
+            "res_id": task.id,
+            "views": [(False, "form")],
+            "target": "current",
+        }
+
+    @api.model
+    def create_agile_planning_task(
+        self, project_id, name, team_id=False, milestone_id=False
+    ):
+        """Create name-only work through native defaults and Task validation."""
+        project = self._get_available_agile_planning_project(project_id)
+        team = self._get_agile_planning_team(project, team_id)
+        milestone = self._get_agile_planning_milestone(project, milestone_id)
+        if team and not team.active:
+            raise AccessError(self.env._("The Agile planning team is unavailable."))
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError(self.env._("Enter a work item name."))
+        # Caller context must not inject placement, identity or privileged defaults.
+        tasks = self.env["project.task"].with_context(
+            {}, allowed_company_ids=self.env.companies.ids, lang=self.env.lang
+        )
+        tasks.check_access("create")
+        task = tasks.create(
+            {
+                "name": name.strip(),
+                "project_id": project.id,
+                "agile_team_id": team.id or False,
+                "milestone_id": milestone.id or False,
+            }
+        )
+        return task.id
 
     @api.model
     def _get_agile_planning_milestone(self, project, milestone_id):

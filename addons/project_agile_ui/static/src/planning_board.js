@@ -1,11 +1,20 @@
 /** @odoo-module **/
 
+import {useCommand} from "@web/core/commands/command_hook";
+import {AgileQuickCreate} from "@project_agile_ui/quick_create";
 import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
 import {useService} from "@web/core/utils/hooks";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
 import {Many2XAutocomplete} from "@web/views/fields/relational_utils";
-import {Component, onWillStart, onWillUnmount, useState} from "@odoo/owl";
+import {
+  Component,
+  onWillStart,
+  onWillUnmount,
+  useEffect,
+  useRef,
+  useState,
+} from "@odoo/owl";
 
 export const PLANNING_ACTION_TAG = "project_agile_ui.planning";
 const DRAG_DATA_TYPE = "text/plain";
@@ -63,6 +72,7 @@ function emptyState() {
     teamId: false,
     milestone: false,
     groupMilestones: false,
+    restoreCreateFocus: false,
   };
 }
 
@@ -74,14 +84,136 @@ export class AgilePlanningBoard extends Component {
   setup() {
     this.actionService = useService("action");
     this.orm = useService("orm");
+    this.dialog = useService("dialog");
+    this.boardRef = useRef("board");
     this.state = useState(emptyState());
     this.projectId = this.props.action.context?.project_id;
     this.requestSequence = 0;
 
+    for (const [name, hotkey, action, available] of [
+      [
+        _t("Agile: New work item"),
+        "alt+shift+n",
+        () => this.openQuickCreate(),
+        () => this.canCreateTask,
+      ],
+      [_t("Agile: Product Backlog"), "alt+shift+b", () => this.openBacklogFallback()],
+      [_t("Agile: Active Sprint"), "alt+shift+s", () => this.openActiveSprints()],
+      [_t("Agile: Find work by key"), "alt+shift+f", () => this.focusWorkSearch()],
+    ]) {
+      useCommand(
+        name,
+        async () => {
+          await action();
+        },
+        {
+          hotkey,
+          isAvailable: () => this.commandsAvailable && (!available || available()),
+          hotkeyOptions: {area: () => this.boardRef.el},
+        }
+      );
+    }
+
+    // The pre-open refresh can disable and blur the launching button. Restore
+    // focus after the dialog and any post-save refresh have finished rendering.
+    useEffect(
+      () => {
+        if (this.state.restoreCreateFocus && this.canCreateTask) {
+          this.boardRef.el.querySelector(".o_agile_planning_board__create").focus();
+          this.state.restoreCreateFocus = false;
+        }
+      },
+      () => [this.state.restoreCreateFocus, this.state.loading]
+    );
     onWillStart(() => this.load());
     onWillUnmount(() => {
       this.requestSequence += 1;
     });
+  }
+
+  get commandsAvailable() {
+    return Boolean(this.state.project) && !this.planningUnavailable;
+  }
+
+  get canCreateTask() {
+    return this.commandsAvailable && Boolean(this.state.project.can_create_task);
+  }
+
+  async openQuickCreate() {
+    if (!this.canCreateTask || !(await this.load()) || !this.canCreateTask) {
+      return;
+    }
+    const options = {...this.selectionOptions};
+    this.boardRef.el.querySelector(".o_agile_planning_board__create").focus();
+    this.dialog.add(
+      AgileQuickCreate,
+      {
+        projectName: this.state.project.name,
+        create: (name) =>
+          this.orm.call(
+            "project.project",
+            "create_agile_planning_task",
+            [this.projectId, name],
+            options
+          ),
+        onCreated: async () => {
+          if (await this.load()) {
+            this.state.status = _t("Work item created. Current filters are unchanged.");
+          }
+        },
+      },
+      {
+        onClose: () => {
+          this.state.restoreCreateFocus = true;
+        },
+      }
+    );
+  }
+
+  workSearchDomain() {
+    return [["project_id", "=", this.projectId]];
+  }
+
+  focusWorkSearch() {
+    if (this.commandsAvailable) {
+      this.boardRef.el.querySelector("#agile-planning-work-search").focus();
+    }
+  }
+
+  async openPickedWork(records) {
+    if (!records?.length || !this.commandsAvailable) {
+      return;
+    }
+    const action = await this.orm.call(
+      "project.project",
+      "action_open_agile_planning_task",
+      [[this.projectId], records[0].id]
+    );
+    return this.actionService.doAction(action);
+  }
+
+  async openActiveSprints() {
+    if (!this.commandsAvailable) {
+      return;
+    }
+    const requestSequence = this.requestSequence;
+    const projectId = this.projectId;
+    const teamId = this.state.teamId;
+    const action = await this.orm.call(
+      "project.project",
+      "action_open_agile_planning_active_sprints",
+      [[projectId]],
+      {team_id: teamId || false}
+    );
+    if (
+      requestSequence !== this.requestSequence ||
+      projectId !== this.projectId ||
+      teamId !== this.state.teamId ||
+      !this.commandsAvailable
+    ) {
+      return;
+    }
+    return this.actionService.doAction(action);
   }
 
   async load(cursor = false, pageCursors = {}) {

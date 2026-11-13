@@ -7,3 +7,4 @@ from . import test_environment_tour
 from . import test_milestones
 from . import test_description_templates
 from . import test_project_copy
+from . import test_epic_progress

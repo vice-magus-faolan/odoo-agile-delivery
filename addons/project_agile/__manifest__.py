@@ -1,7 +1,7 @@
 {
     "name": "Agile Project Core",
     "summary": "Opt-in Agile delivery foundations for Odoo Project",
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.9.0",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
@@ -26,6 +26,7 @@
         "web.assets_tests": [
             "project_agile/static/tests/tours/item_type_kanban.js",
             "project_agile/static/tests/tours/environment_status.js",
+            "project_agile/static/tests/tours/epic_progress.js",
         ]
     },
     "installable": True,

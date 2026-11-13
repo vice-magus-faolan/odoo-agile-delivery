@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
+  <record id="view_task_list_agile_progress" model="ir.ui.view">
+    <field name="name">project.task.list.agile.progress</field>
+    <field name="model">project.task</field>
+    <field name="arch" type="xml">
+      <list string="Contributing work" create="false">
+        <field name="agile_key" />
+        <field name="name" />
+        <field name="agile_item_type_id" />
+        <field name="state" />
+        <field
+          name="agile_story_points"
+          invisible="agile_item_type_id and not agile_uses_story_points"
+        />
+        <field name="agile_uses_story_points" column_invisible="True" />
+        <field name="allocated_hours" widget="float_time" optional="hide" />
+      </list>
+    </field>
+  </record>
+
   <record id="view_task_form_agile" model="ir.ui.view">
     <field name="name">project.task.form.agile</field>
     <field name="model">project.task</field>
@@ -32,6 +51,17 @@
       </xpath>
       <xpath expr="//page[@name=&apos;description_page&apos;]" position="after">
         <page name="agile" string="Agile" invisible="not agile_project_enabled">
+          <group string="Visible work progress" name="agile_progress">
+            <field name="agile_progress_items" readonly="1" />
+            <field name="agile_progress_points" readonly="1" />
+            <button
+              name="action_agile_progress_work"
+              type="object"
+              string="Contributing work"
+              class="btn-link"
+              invisible="not id"
+            />
+          </group>
           <field
             name="agile_acceptance_criteria"
             type="html"
@@ -51,6 +81,16 @@
       <xpath expr="//field[@name=&apos;name&apos;]" position="after">
         <field name="agile_project_enabled" column_invisible="True" />
         <field name="agile_key" optional="show" invisible="not agile_project_enabled" />
+        <field
+          name="agile_progress_items"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
+        <field
+          name="agile_progress_points"
+          optional="hide"
+          invisible="not agile_project_enabled"
+        />
         <field
           name="agile_item_type_id"
           optional="hide"

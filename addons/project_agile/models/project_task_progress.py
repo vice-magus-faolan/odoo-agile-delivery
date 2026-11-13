@@ -6,6 +6,8 @@ from odoo import api, fields, models
 
 
 class ProjectTask(models.Model):
+    # Read-only progress aggregation is separate from task lifecycle guards.
+    # pylint: disable-next=consider-merging-classes-inherited
     _inherit = "project.task"
 
     agile_progress = fields.Json(compute="_compute_agile_progress", compute_sudo=False)

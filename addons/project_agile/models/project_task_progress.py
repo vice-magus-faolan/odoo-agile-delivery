@@ -8,19 +8,15 @@ from odoo import api, fields, models
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
-    agile_progress = fields.Json(
-        compute="_compute_agile_progress", compute_sudo=False, recursive=True
-    )
+    agile_progress = fields.Json(compute="_compute_agile_progress", compute_sudo=False)
     agile_progress_items = fields.Char(
         compute="_compute_agile_progress",
         compute_sudo=False,
-        recursive=True,
         string="Completed / total items",
     )
     agile_progress_points = fields.Char(
         compute="_compute_agile_progress",
         compute_sudo=False,
-        recursive=True,
         string="Completed / total story points",
     )
     agile_progress_root_id = fields.Many2one(
@@ -85,21 +81,23 @@ class ProjectTask(models.Model):
         }
 
     @api.depends(
-        "child_ids.agile_progress",
-        "parent_id",
         "project_id",
         "project_id.active",
         "project_id.agile_enabled",
-        "state",
-        "active",
-        "has_template_ancestor",
-        "has_project_template",
-        "agile_item_type_id",
-        "agile_uses_story_points",
-        "agile_effective_story_points",
+        "project_id.task_ids",
+        "project_id.task_ids.parent_id",
+        "project_id.task_ids.state",
+        "project_id.task_ids.active",
+        "project_id.task_ids.has_template_ancestor",
+        "project_id.task_ids.has_project_template",
+        "project_id.task_ids.agile_item_type_id",
+        "project_id.task_ids.agile_uses_story_points",
+        "project_id.task_ids.agile_effective_story_points",
     )
     @api.depends_context("uid", "company")
     def _compute_agile_progress(self):
+        # Project-scoped dependencies invalidate even uncomputed intermediate
+        # ancestors. Recursive fields would force a query per requested root.
         by_id, children = self._agile_progress_forest()
         empty = dict.fromkeys(
             ["items", "done", "points", "done_points", "point_items", "unestimated"], 0
@@ -192,6 +190,13 @@ class ProjectTask(models.Model):
             "name": self.env._("Contributing work"),
             "res_model": "project.task",
             "view_mode": "list,form",
+            "views": [
+                (
+                    self.env.ref("project_agile.view_task_list_agile_progress").id,
+                    "list",
+                ),
+                (False, "form"),
+            ],
             "domain": [("agile_progress_root_id", "=", self.id)],
-            "context": {"create": False, "active_test": True},
+            "context": {"create": False, "active_test": True, "group_by": []},
         }

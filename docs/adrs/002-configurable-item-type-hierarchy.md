@@ -71,8 +71,9 @@ only as items; untyped work follows the existing Project point policy, and zero 
 mean unestimated rather than complete evidence.
 
 Nonstored, non-sudo fields reduce one caller-bound ORM forest bottom-up for the
-requested roots. Recursive dependencies invalidate ancestor summaries after native
-edits; reloads resolve current authority. No elevated total is persisted. The same
-forest supplies the ordinary list drilldown without planning-page limits. Native
-counters, task states and immutable Sprint events are unchanged. Native form/list views
-avoid a second planning client and keep the core independent of Scrum/UI.
+requested roots. Project-scoped native field dependencies invalidate summaries even when
+an intermediate container has never been read, while keeping multi-root reads batched.
+Reloads resolve current authority. No elevated total is persisted. The same forest
+supplies the ordinary list drilldown without planning-page limits. Native counters, task
+states and immutable Sprint events are unchanged. Native form/list views avoid a second
+planning client and keep the core independent of Scrum/UI.

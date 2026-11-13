@@ -135,10 +135,17 @@ class TestAgileSwimlanes(HttpCase):
             load=None,
         )
 
-    def test_nearest_epic_multi_owner_and_unique_totals_preserve_native_work(self):
-        before = self.visible.read(
+    def _placement(self):
+        """Snapshot native placement without imposing an assignee order."""
+        rows = self.visible.read(
             ["parent_id", "user_ids", "sprint_id", "stage_id"], load=None
         )
+        for row in rows:
+            row["user_ids"] = sorted(row["user_ids"])
+        return rows
+
+    def test_nearest_epic_multi_owner_and_unique_totals_preserve_native_work(self):
+        before = self._placement()
         history = self._history()
         epic = self._snapshot()
         self.assertEqual(epic["total"], len(self.visible))
@@ -156,12 +163,7 @@ class TestAgileSwimlanes(HttpCase):
             sum(len(row["items"]) for row in owners["lanes"]), owners["total"]
         )
         self.assertEqual(self._ids(owners), set(self.visible.ids))
-        self.assertEqual(
-            before,
-            self.visible.read(
-                ["parent_id", "user_ids", "sprint_id", "stage_id"], load=None
-            ),
-        )
+        self.assertEqual(before, self._placement())
         self.assertEqual(history, self._history())
 
     def test_complete_navigation_and_matching_native_drilldowns(self):
@@ -342,9 +344,7 @@ class TestAgileSwimlanes(HttpCase):
         self.assertEqual(self._ids(snapshot), set((self.visible | leaf).ids))
 
     def test_real_two_axis_grouping_filters_and_keyboard_journey(self):
-        before = self.visible.read(
-            ["parent_id", "user_ids", "sprint_id", "stage_id"], load=None
-        )
+        before = self._placement()
         history = self._history()
         action = self.env["ir.actions.act_window"].create(
             {
@@ -357,10 +357,5 @@ class TestAgileSwimlanes(HttpCase):
         self.start_tour(
             f"/odoo/action-{action.id}", "agile_swimlanes", login=self.user.login
         )
-        self.assertEqual(
-            before,
-            self.visible.read(
-                ["parent_id", "user_ids", "sprint_id", "stage_id"], load=None
-            ),
-        )
+        self.assertEqual(before, self._placement())
         self.assertEqual(history, self._history())

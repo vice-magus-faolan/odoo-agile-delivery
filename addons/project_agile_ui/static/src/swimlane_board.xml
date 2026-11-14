@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+  <t t-name="project_agile_ui.AgileSwimlaneBoard">
+    <main class="o_agile_swimlanes" t-att-aria-busy="state.loading ? 'true' : 'false'">
+      <h1>Active Sprint board</h1>
+      <p t-if="state.snapshot" t-esc="state.snapshot.project.name" />
+      <div class="o_agile_swimlanes__filters">
+        <div>
+          <label for="agile-swimlane-grouping">Swimlanes</label>
+          <select
+            id="agile-swimlane-grouping"
+            class="form-select"
+            t-on-change="selectGrouping"
+          >
+            <option
+              value="epic"
+              t-att-selected="state.grouping === 'epic'"
+            >Epic</option>
+            <option
+              value="assignee"
+              t-att-selected="state.grouping === 'assignee'"
+            >Assignee</option>
+          </select>
+        </div>
+        <div>
+          <label for="agile-swimlane-team">Agile Team</label>
+          <Many2XAutocomplete
+            id="'agile-swimlane-team'"
+            resModel="'project.agile.team'"
+            fieldString="'Agile Team'"
+            value="state.team?.display_name || ''"
+            autoSelect="true"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="teamDomain"
+            update.bind="selectTeam"
+            placeholder="'All teams'"
+          />
+        </div>
+        <div>
+          <label for="agile-swimlane-sprint">Active Sprint</label>
+          <Many2XAutocomplete
+            t-key="state.team?.id || 0"
+            id="'agile-swimlane-sprint'"
+            resModel="'project.sprint'"
+            fieldString="'Active Sprint'"
+            value="state.sprint?.display_name || ''"
+            autoSelect="true"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="sprintDomain"
+            update.bind="selectSprint"
+            placeholder="'All Active Sprints'"
+          />
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary o_agile_swimlanes__refresh"
+          t-on-click="() => this.load()"
+        >Refresh / first items</button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          t-att-disabled="state.loading || !state.snapshot"
+          t-on-click="openActiveSprints"
+        >Open Active Sprints list</button>
+        <button
+          type="button"
+          class="btn btn-secondary o_agile_swimlanes__list"
+          t-att-disabled="state.loading || !state.snapshot"
+          t-on-click="() => this.openList()"
+        >All filtered work</button>
+      </div>
+      <p
+      >Presentation only: changing lanes does not change parents or assignees. Open a work item to edit its stage in the native Task form. Dragging between stages or lanes is not supported.</p>
+      <p
+        t-if="state.grouping === 'epic'"
+      >Epic lanes use the nearest readable Epic in the item's hierarchy, including the item itself. Unavailable ancestry is labeled separately from No Epic.</p>
+      <p
+        t-else=""
+      >Each item appears once. Items with several owners use Multiple assignees, not one copy per owner.</p>
+      <p t-if="state.loading" role="status">Loading Active Sprint work…</p>
+      <p
+        t-if="state.error"
+        role="alert"
+        class="alert alert-danger"
+        t-esc="state.error"
+      />
+      <t t-if="state.snapshot">
+        <p class="o_agile_swimlanes__total" role="status" aria-live="polite">
+          Showing <t t-esc="state.snapshot.shown" /> of <t
+          t-esc="state.snapshot.total"
+        /> unique visible items.
+          Lane and cell counts cover this page only. Use Next items for more lanes and cards, or All filtered work for the complete list.
+        </p>
+        <button
+          t-if="state.snapshot.next_cursor"
+          type="button"
+          class="btn btn-secondary o_agile_swimlanes__next"
+          t-on-click="() => this.load(state.snapshot.next_cursor)"
+        >Next items</button>
+        <p
+          t-if="!state.snapshot.shown"
+        >No visible work matches these Active Sprint filters.</p>
+        <div
+          t-else=""
+          class="o_agile_swimlanes__scroll"
+          tabindex="0"
+          role="region"
+          aria-label="Stage and swimlane matrix"
+        >
+          <table class="table table-bordered">
+            <caption>Active Sprint work by lane and stage — current page</caption>
+            <thead>
+              <tr>
+                <th scope="col">Lane / items on this page</th>
+                <th
+                  t-foreach="state.snapshot.stages"
+                  t-as="stage"
+                  t-key="stage.id"
+                  scope="col"
+                  t-esc="stage.name"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                t-foreach="state.snapshot.lanes"
+                t-as="lane"
+                t-key="lane.id"
+                class="o_agile_swimlanes__lane"
+              >
+                <th scope="row">
+                  <span t-esc="lane.name" /> · <span
+                  t-esc="lane.items.length"
+                /> on this page
+                  <button
+                  type="button"
+                  class="btn btn-link"
+                  t-on-click="() => this.openList(lane)"
+                >Open lane page</button>
+                </th>
+                <td t-foreach="state.snapshot.stages" t-as="stage" t-key="stage.id">
+                  <span class="visually-hidden"><t t-esc="stage.name" />: <t
+                    t-esc="cellItems(lane, stage).length"
+                  /> items on this page</span>
+                  <ul class="list-unstyled">
+                    <li
+                      t-foreach="cellItems(lane, stage)"
+                      t-as="task"
+                      t-key="task.id"
+                      class="o_agile_swimlanes__card"
+                      t-att-data-task-id="task.id"
+                    >
+                      <button
+                        type="button"
+                        class="btn btn-link"
+                        t-on-click="() => this.openTask(task)"
+                      ><t t-esc="task.key" /> · <t t-esc="task.name" /></button>
+                    </li>
+                  </ul>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </t>
+    </main>
+  </t>
+</templates>

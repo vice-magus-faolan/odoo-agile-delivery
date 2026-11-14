@@ -1,0 +1,39 @@
+.o_agile_swimlanes {
+  overflow: auto;
+  padding: 1rem;
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    > div {
+      min-width: 12rem;
+    }
+  }
+
+  &__scroll {
+    overflow-x: auto;
+    margin-top: 1rem;
+  }
+
+  th,
+  td {
+    min-width: 12rem;
+    vertical-align: top;
+  }
+
+  &__card {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary, #714b67);
+    outline-offset: 2px;
+  }
+}

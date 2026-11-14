@@ -136,6 +136,61 @@ narrowing instead of selecting an arbitrary Sprint. Its awaited response is disc
 after request-sequence, Project or team changes, including unmount. Cached command
 availability is presentation only; it grants neither creation nor read access.
 
+## Active Sprint stage and lane matrix
+
+The separate `project_agile_ui.swimlanes` client action is opt-in from the Project form.
+It reuses the current-user Project/team resolvers, keyset paging helper,
+`Many2XAutocomplete`, native Task forms and list actions. Standard Kanban grouping alone
+does not provide a stage-by-hierarchy matrix; the optional action renders one semantic
+table, without a global Kanban patch or another frontend framework.
+
+`get_agile_swimlane_snapshot` selects active non-template Tasks from caller-visible
+Active Sprints with active teams in one available Agile Project/current-company scope. A
+caller-bound Sprint subquery preserves Sprint record rules independently of Task
+visibility. Optional team/Sprint identities are re-resolved; presentation and context
+never grant authority. Card pages and the unique full-filter count use the same domain.
+Each page contains at most 50 cards and therefore at most 50 lanes and 50 occupied stage
+columns. The existing anchor/version cursor binds Project, team, Sprint, grouping and
+planning revision; First/Next navigation replaces the window. Changing filters or
+grouping restarts it. These are live positions, not a frozen history or a completeness
+claim after concurrent edits.
+
+Epic identity is the seeded Epic item type's XML ID, not its translated label or
+configurable code. Each card uses its nearest caller-readable Epic, including itself.
+Ancestors are fetched in batches in the same Project/company; traversal stops at
+unreadable/missing ancestry. Resolution inspects the card itself plus at most 32
+ancestors and retains the card under an explicit unavailable-context lane when that
+bound prevents classification. No-Epic is reserved for a traversed root without an Epic.
+One assigned user gives one user lane; no assignees gives Unassigned; two or more
+assignees gives one Multiple-assignees lane. Full assignment cardinality comes from one
+elevated `user_ids` read restricted to the already caller-authorized card window. Native
+Many2many reads can filter hidden users, so caller-visible membership cannot establish
+cardinality. The transaction-shared relation cache is invalidated before this read and
+again afterward, avoiding both stale filtered membership and retained privileged
+membership. Single-assignee names are resolved only by caller-bound user searches; an
+unreadable single assignee yields Assignee unavailable, without an ID or name. Task
+discovery, stages and ancestry remain caller-bound. Every card belongs to exactly one
+lane and stage cell, so no projection duplicates authoritative item totals.
+
+Lane/cell counts and their drilldowns intentionally cover only the displayed window. The
+full-filter native list uses the same predicates and current caller, with at most 100
+matching Sprint identities serialized across JSON; a larger scope requires selecting one
+Sprint before list navigation. The board itself continues paging across the complete
+scope. Empty configured stages are not added to this occupied-stage matrix. Full
+per-lane historical/whole-Sprint aggregates are not inferred from a page; native Sprint
+history remains unchanged. This avoids a persisted grouping index or unbounded ancestry
+scan; revisit if complete cross-page lane aggregates become a product requirement.
+
+Presentation is read-only: no stage/parent/assignee mutation RPC or drag/drop
+interpretation is introduced. Native Task edits retain current authority and per-type
+stage validation. The action clears old cards during every request, discards late
+responses/navigation after filter changes or unmount, and exposes safe errors,
+First/Next controls, semantic headers, ordinary focusable buttons and a labeled scroll
+region. The existing planning snapshot/query budgets are unchanged; the separate matrix
+adds bounded ancestry reads, not an extension to that snapshot's ten-query contract.
+Native ORM/window/permission regressions, Hoot rendering/stale-request coverage and a
+real non-admin browser tour cover this boundary through normal addon discovery.
+
 ## Verification and consequences
 
 Keep native Python permission/company/cursor/payload/atomic-change regressions, Hoot

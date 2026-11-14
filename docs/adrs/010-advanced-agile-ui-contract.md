@@ -158,13 +158,19 @@ claim after concurrent edits.
 Epic identity is the seeded Epic item type's XML ID, not its translated label or
 configurable code. Each card uses its nearest caller-readable Epic, including itself.
 Ancestors are fetched in batches in the same Project/company; traversal stops at
-unreadable/missing ancestry. Resolution is bounded to 32 ancestors/steps and retains the
-card under an explicit unavailable-context lane when that bound prevents classification.
-No-Epic is reserved for a traversed root without an Epic. One assigned user gives one
-user lane; no assignees gives Unassigned; two or more assignees gives one
-Multiple-assignees lane. Unreadable user names are not obtained through elevated related
-reads. Every card belongs to exactly one lane and stage cell, so no projection
-duplicates authoritative item totals.
+unreadable/missing ancestry. Resolution inspects the card itself plus at most 32
+ancestors and retains the card under an explicit unavailable-context lane when that
+bound prevents classification. No-Epic is reserved for a traversed root without an Epic.
+One assigned user gives one user lane; no assignees gives Unassigned; two or more
+assignees gives one Multiple-assignees lane. Full assignment cardinality comes from one
+elevated `user_ids` read restricted to the already caller-authorized card window. Native
+Many2many reads can filter hidden users, so caller-visible membership cannot establish
+cardinality. The transaction-shared relation cache is invalidated before this read and
+again afterward, avoiding both stale filtered membership and retained privileged
+membership. Single-assignee names are resolved only by caller-bound user searches; an
+unreadable single assignee yields Assignee unavailable, without an ID or name. Task
+discovery, stages and ancestry remain caller-bound. Every card belongs to exactly one
+lane and stage cell, so no projection duplicates authoritative item totals.
 
 Lane/cell counts and their drilldowns intentionally cover only the displayed window. The
 full-filter native list uses the same predicates and current caller, with at most 100

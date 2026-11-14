@@ -92,6 +92,34 @@ test("project_agile_ui swimlane navigation re-resolves native actions", async ()
   expect(actions).toHaveLength(2);
 });
 
+test("project_agile_ui swimlane team changes clear a selected Sprint in state and RPC", async () => {
+  const calls = [];
+  const board = await mountBoard(async (...args) => {
+    calls.push(args);
+    return snapshot;
+  });
+  await board.selectTeam([{id: 7, display_name: "Original team"}]);
+  await board.selectSprint([{id: 19, display_name: "Selected Sprint"}]);
+  expect(board.state.sprint.id).toBe(19);
+  expect(calls.at(-1)[3]).toEqual({
+    team_id: 7,
+    sprint_id: 19,
+    grouping: "epic",
+    cursor: false,
+  });
+  await board.load(snapshot.next_cursor);
+  await board.selectTeam([{id: 8, display_name: "New team"}]);
+  expect(board.state.team.id).toBe(8);
+  expect(board.state.sprint).toBe(false);
+  expect(board.state.cursor).toBe(false);
+  expect(calls.at(-1)).toEqual([
+    "project.project",
+    "get_agile_swimlane_snapshot",
+    [42],
+    {team_id: 8, sprint_id: false, grouping: "epic", cursor: false},
+  ]);
+});
+
 test("project_agile_ui swimlane filters discard late snapshots and unavailable data", async () => {
   let resolveOld = null;
   const oldRequest = new Promise((resolve) => {

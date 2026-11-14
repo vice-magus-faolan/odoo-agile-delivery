@@ -331,17 +331,334 @@ class TestAgileSwimlanes(HttpCase):
         with self.assertRaises(AccessError):
             self._snapshot()
 
-    def test_deep_hierarchy_keeps_card_and_labels_unknown_context(self):
+    def test_epic_at_exactly_32_ancestors_resolves_but_33_is_unknown(self):
         parent = self.epic
-        for depth in range(34):
+        for depth in range(31):
             parent = self._task(
                 f"Deep context {depth}", parent_id=parent.id, sprint_id=False
             )
-        leaf = self._task("Deep visible card", parent_id=parent.id)
+        at_bound = self._task("Epic 32 ancestors away", parent_id=parent.id)
+        beyond = self._task("Epic 33 ancestors away", parent_id=at_bound.id)
         snapshot = self._snapshot()
-        unknown = next(row for row in snapshot["lanes"] if row["id"] == "unknown")
-        self.assertIn(leaf.id, [row["id"] for row in unknown["items"]])
-        self.assertEqual(self._ids(snapshot), set((self.visible | leaf).ids))
+        lanes = {
+            lane["id"]: {row["id"] for row in lane["items"]}
+            for lane in snapshot["lanes"]
+        }
+        self.assertEqual(lanes[f"epic:{self.epic.id}"], {self.nested.id, at_bound.id})
+        self.assertEqual(lanes["unknown"], {beyond.id})
+        self.assertEqual(
+            self._ids(snapshot), set((self.visible | at_bound | beyond).ids)
+        )
+
+    def test_hidden_assignees_preserve_cardinality_without_disclosure(self):
+        hidden_only = self._task(
+            "Unavailable owner work", user_ids=[Command.set(self.other_user.ids)]
+        )
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide other swim user",
+                "model_id": self.env["ir.model"]._get_id("res.users"),
+                "domain_force": repr([("id", "!=", self.other_user.id)]),
+            }
+        )
+        self.env.invalidate_all()
+        reader_tasks = (self.visible | hidden_only).with_user(self.user)
+        self.assertFalse(
+            self.env["res.users"]
+            .with_user(self.user)
+            .search([("id", "=", self.other_user.id)])
+        )
+        placement = reader_tasks.sudo().read(
+            ["parent_id", "sprint_id", "stage_id", "user_ids"], load=None
+        )
+        history = self._history()
+        reader_tasks.invalidate_recordset(["user_ids"])
+        # Warm the relation through the same caller-bound read as the producer.
+        reader_tasks.env["project.task"].search_fetch(
+            [("id", "in", reader_tasks.ids)], ["name", "user_ids"]
+        )
+        # Warm the real caller-filtered relation; elevation must not reuse it.
+        self.assertFalse(hidden_only.with_user(self.user).user_ids)
+        self.assertEqual(self.shared.with_user(self.user).user_ids.ids, self.user.ids)
+        snapshot = self._snapshot(grouping="assignee")
+        reader_tasks.env["project.task"].search_fetch(
+            [("id", "in", reader_tasks.ids)], ["name", "user_ids"]
+        )
+        self.assertFalse(hidden_only.with_user(self.user).user_ids)
+        self.assertEqual(self.shared.with_user(self.user).user_ids.ids, self.user.ids)
+        lanes = {
+            lane["id"]: {row["id"] for row in lane["items"]}
+            for lane in snapshot["lanes"]
+        }
+        self.assertEqual(lanes["multiple"], {self.shared.id})
+        self.assertEqual(lanes["unknown"], {hidden_only.id})
+        self.assertEqual(lanes[f"user:{self.user.id}"], {self.solo.id, self.nested.id})
+        self.assertEqual(lanes["none"], {self.unassigned.id})
+        self.assertEqual(snapshot["total"], len(reader_tasks))
+        self.assertEqual(snapshot["shown"], len(reader_tasks))
+        self.assertEqual(self._ids(snapshot), set(reader_tasks.ids))
+        self.assertEqual(
+            sum(len(lane["items"]) for lane in snapshot["lanes"]), len(reader_tasks)
+        )
+        self.assertNotIn(self.other_user.name, json.dumps(snapshot))
+        self.assertNotIn(f"user:{self.other_user.id}", lanes)
+        reader_tasks.invalidate_recordset(["user_ids"])
+        self.assertEqual(
+            placement,
+            reader_tasks.sudo().read(
+                ["parent_id", "sprint_id", "stage_id", "user_ids"], load=None
+            ),
+        )
+        self.assertEqual(history, self._history())
+
+    def test_draft_sprint_work_is_excluded_from_snapshot_and_list(self):
+        draft = self.env["project.sprint"].create(
+            {
+                "name": "Draft swim",
+                "project_id": self.project.id,
+                "team_id": self.teams[0].id,
+            }
+        )
+        task = self._task("Draft work", sprint_id=draft.id)
+        self.assertIn(
+            task,
+            self.env["project.task"]
+            .with_user(self.user)
+            .search([("id", "=", task.id)]),
+        )
+        snapshot = self._snapshot()
+        self.assertEqual(self._ids(snapshot), set(self.visible.ids))
+        self.assertEqual(snapshot["total"], len(self.visible))
+        action = self.project.with_user(self.user).action_open_agile_swimlane_tasks()
+        self.assertEqual(
+            set(
+                self.env["project.task"]
+                .with_user(self.user)
+                .search(action["domain"])
+                .ids
+            ),
+            set(self.visible.ids),
+        )
+
+    def test_hidden_stage_keeps_task_in_unavailable_column(self):
+        self.env["ir.rule"].create(
+            {
+                "name": "Hide swim Doing stage",
+                "model_id": self.env["ir.model"]._get_id("project.task.type"),
+                "domain_force": repr([("id", "!=", self.stages[1].id)]),
+            }
+        )
+        self.env.invalidate_all()
+        self.assertFalse(
+            self.env["project.task.type"]
+            .with_user(self.user)
+            .search([("id", "=", self.stages[1].id)])
+        )
+        snapshot = self._snapshot()
+        self.assertEqual(self._ids(snapshot), set(self.visible.ids))
+        self.assertEqual(snapshot["total"], len(self.visible))
+        self.assertNotIn(self.stages[1].name, json.dumps(snapshot))
+        self.assertEqual(
+            {stage["id"] for stage in snapshot["stages"]}, {0, self.stages[0].id}
+        )
+        nested = next(
+            item
+            for lane in snapshot["lanes"]
+            for item in lane["items"]
+            if item["id"] == self.nested.id
+        )
+        self.assertEqual(nested["stage_id"], 0)
+
+    def test_archived_independent_epic_ancestors_are_batched(self):
+        second = self.env["project.task"].create(
+            {
+                "name": "Second archived Epic",
+                "project_id": self.project.id,
+                "agile_item_type_id": self.epic_type.id,
+            }
+        )
+        (self.epic | second).write({"active": False})
+        self.visible.write({"active": True})
+        first_child = self._task("First archived Epic child", parent_id=self.epic.id)
+        second_child = self._task("Second archived Epic child", parent_id=second.id)
+        # Both parents are independently necessary in the same fetch frontier.
+        snapshot = self._snapshot()
+        lanes = {
+            lane["id"]: {row["id"] for row in lane["items"]}
+            for lane in snapshot["lanes"]
+        }
+        self.assertIn(first_child.id, lanes[f"epic:{self.epic.id}"])
+        self.assertEqual(lanes[f"epic:{second.id}"], {second_child.id})
+        self.assertEqual(
+            self._ids(snapshot), set((self.visible | first_child | second_child).ids)
+        )
+
+    def test_native_list_accepts_100_sprints_and_rejects_101(self):
+        teams = self.env["project.agile.team"].create(
+            [
+                {"name": f"Bound team {index}", "project_id": self.project.id}
+                for index in range(99)
+            ]
+        )
+        extra = self.env["project.sprint"].create(
+            [
+                {
+                    "name": f"Bound Sprint {index}",
+                    "project_id": self.project.id,
+                    "team_id": team.id,
+                }
+                for index, team in enumerate(teams)
+            ]
+        )
+        extra[:98].action_start()
+        reader = self.project.with_user(self.user)
+        action = reader.action_open_agile_swimlane_tasks()
+        json.dumps(action)
+        sprint_condition = next(
+            condition[2]
+            for condition in action["domain"]
+            if isinstance(condition, (tuple, list)) and condition[0] == "sprint_id"
+        )
+        self.assertEqual(set(sprint_condition), set((self.sprints | extra[:98]).ids))
+        extra[-1].action_start()
+        with self.assertRaises(ValidationError):
+            reader.action_open_agile_swimlane_tasks()
+        selected = reader.action_open_agile_swimlane_tasks(sprint_id=self.sprints[0].id)
+        self.assertEqual(
+            set(
+                self.env["project.task"]
+                .with_user(self.user)
+                .search(selected["domain"])
+                .ids
+            ),
+            set((self.visible - self.other).ids),
+        )
+
+    def test_lane_window_requires_list_container(self):
+        reader = self.project.with_user(self.user)
+        for invalid in ((self.solo.id,), {"id": self.solo.id}, str(self.solo.id), True):
+            with self.subTest(value=invalid), self.assertRaises(ValidationError):
+                reader.action_open_agile_swimlane_tasks(task_ids=invalid)
+
+    def test_lane_window_rejects_more_than_50_ids(self):
+        reader = self.project.with_user(self.user)
+        reader.action_open_agile_swimlane_tasks(task_ids=[self.solo.id] * 50)
+        with self.assertRaises(ValidationError):
+            reader.action_open_agile_swimlane_tasks(task_ids=[self.solo.id] * 51)
+
+    def test_lane_window_requires_integer_ids_not_bool(self):
+        for invalid in (True, False, str(self.solo.id), float(self.solo.id), None):
+            with self.subTest(value=invalid), self.assertRaises(ValidationError):
+                self.project.with_user(self.user).action_open_agile_swimlane_tasks(
+                    task_ids=[invalid]
+                )
+
+    def test_lane_window_requires_positive_ids(self):
+        for invalid in (0, -self.solo.id):
+            with self.subTest(value=invalid), self.assertRaises(ValidationError):
+                self.project.with_user(self.user).action_open_agile_swimlane_tasks(
+                    task_ids=[invalid]
+                )
+        empty = self.project.with_user(self.user).action_open_agile_swimlane_tasks(
+            task_ids=[]
+        )
+        self.assertFalse(
+            self.env["project.task"].with_user(self.user).search(empty["domain"])
+        )
+
+    def test_cursor_binds_sprint_even_when_anchor_is_in_both_scopes(self):
+        self.env["project.task"].create(
+            [
+                {
+                    "name": f"Sprint cursor {index}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.item_type.id,
+                    "sprint_id": self.sprints[0].id,
+                }
+                for index in range(51)
+            ]
+        )
+        cursor = self._snapshot()["next_cursor"]
+        self.assertTrue(cursor)
+        self.assertIn(
+            cursor["id"],
+            self.env["project.task"]
+            .with_user(self.user)
+            .search([("sprint_id", "=", self.sprints[0].id)])
+            .ids,
+        )
+        self.assertTrue(self._snapshot(sprint_id=self.sprints[0].id)["next_cursor"])
+        with self.assertRaises(ValidationError):
+            self._snapshot(cursor=cursor, sprint_id=self.sprints[0].id)
+
+    def test_cursor_binds_revision_after_real_planning_change(self):
+        self.env["project.task"].create(
+            [
+                {
+                    "name": f"Revision cursor {index}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.item_type.id,
+                    "sprint_id": self.sprints[0].id,
+                }
+                for index in range(51)
+            ]
+        )
+        cursor = self._snapshot()["next_cursor"]
+        self.assertTrue(cursor)
+        anchor = self.env["project.task"].browse(cursor["id"])
+        anchor_version = anchor.write_date
+        revision = self.project.agile_planning_backlog_revision
+        model = self.env["project.project"].with_user(self.user)
+        model.apply_agile_planning_change(
+            self.project.id,
+            "return",
+            self.other.ids,
+            expected_versions={
+                "tasks": {
+                    str(self.other.id): model._agile_planning_record_version(self.other)
+                },
+                "sprints": {
+                    str(self.sprints[1].id): model._agile_planning_record_version(
+                        self.sprints[1]
+                    )
+                },
+            },
+        )
+        self.assertFalse(self.other.sprint_id)
+        self.assertEqual(anchor.write_date, anchor_version)
+        self.assertEqual(self.project.agile_planning_backlog_revision, revision + 1)
+        with self.assertRaises(ValidationError):
+            self._snapshot(cursor=cursor)
+
+    def test_assignee_projection_queries_do_not_grow_per_card(self):
+        self.env.flush_all()
+        self.env.invalidate_all()
+        before = self.cr.sql_log_count
+        small = self._snapshot(grouping="assignee")
+        small_queries = self.cr.sql_log_count - before
+        self.assertEqual(small["shown"], 5)
+        extra = self.env["project.task"].create(
+            [
+                {
+                    "name": f"Batched owner {index}",
+                    "project_id": self.project.id,
+                    "agile_item_type_id": self.item_type.id,
+                    "sprint_id": self.sprints[0].id,
+                    "user_ids": [Command.clear()],
+                }
+                for index in range(45)
+            ]
+        )
+        self.env.flush_all()
+        self.env.invalidate_all()
+        before = self.cr.sql_log_count
+        large = self._snapshot(grouping="assignee")
+        large_queries = self.cr.sql_log_count - before
+        self.assertEqual(large["shown"], 50)
+        self.assertEqual(large["total"], 50)
+        self.assertEqual(self._ids(large), set((self.visible | extra).ids))
+        self.assertGreater(small_queries, 0)
+        self.assertLessEqual(large_queries, small_queries)
 
     def test_real_two_axis_grouping_filters_and_keyboard_journey(self):
         before = self._placement()

@@ -12,7 +12,6 @@ _CARD_FIELDS = [
     "agile_item_type_id",
     "parent_id",
     "stage_id",
-    "user_ids",
     "write_date",
 ]
 
@@ -141,7 +140,8 @@ class ProjectProject(models.Model):
 
     def _agile_swimlane_epic(self, task, known, epic_id):
         current = task
-        for _depth in range(_ANCESTOR_LIMIT):
+        # Inspect the card itself, then at most 32 fetched ancestors.
+        for _depth in range(_ANCESTOR_LIMIT + 1):
             if epic_id and current.agile_item_type_id.id == epic_id:
                 return f"epic:{current.id}", f"{current.agile_key} · {current.name}"
             if not current.parent_id:
@@ -163,23 +163,36 @@ class ProjectProject(models.Model):
                 )
                 for row in tasks
             }
-        # Multiple owners are one explicit lane, not duplicated cards or a
-        # fictitious primary assignee. Resolve names only through caller searches.
-        single_ids = {row.user_ids.id for row in tasks if len(row.user_ids) == 1}
+        # Only these caller-authorized cards may supply assignment cardinality.
+        # Native Many2many reads filter hidden users, and their cache is shared
+        # across sudo environments. Discard both a warmed filtered value and the
+        # privileged result; never elevate Task discovery or user-name reads.
+        tasks.invalidate_recordset(["user_ids"])
+        try:
+            assignments = {
+                row["id"]: row["user_ids"]
+                for row in tasks.sudo().read(["user_ids"], load=None)
+            }
+        finally:
+            tasks.invalidate_recordset(["user_ids"])
+        single_ids = {ids[0] for ids in assignments.values() if len(ids) == 1}
         users = (
             self.env["res.users"]
             .with_context(active_test=False)
             .search_fetch([("id", "in", list(single_ids))], ["name"], limit=_CARD_LIMIT)
         )
         names = {row.id: row.name for row in users}
-        return {row.id: self._agile_swimlane_assignee(row, names) for row in tasks}
+        return {
+            task_id: self._agile_swimlane_assignee(user_ids, names)
+            for task_id, user_ids in assignments.items()
+        }
 
-    def _agile_swimlane_assignee(self, task, names):
-        if not task.user_ids:
+    def _agile_swimlane_assignee(self, user_ids, names):
+        if not user_ids:
             return "none", self.env._("Unassigned")
-        if len(task.user_ids) > 1:
+        if len(user_ids) > 1:
             return "multiple", self.env._("Multiple assignees")
-        user_id = task.user_ids.id
+        user_id = user_ids[0]
         if user_id not in names:
             return "unknown", self.env._("Assignee unavailable")
         return f"user:{user_id}", names[user_id]

@@ -97,8 +97,10 @@ Epic lanes use the nearest readable item of the seeded Epic type, including the
 item itself. Descendants below a Story or Feature remain under that Epic. Work
 with no Epic ancestor uses **No Epic**. An unreadable ancestor, or ancestry beyond
 32 levels, uses **Epic context unavailable** instead of claiming that no Epic
-exists. Assignee lanes show one-owner work under that person, work without owners
-under **Unassigned**, and work with several owners once under **Multiple
+exists. Assignee lanes show one-owner work under that person when their name can
+be displayed. If a sole owner cannot be displayed, the work uses **Assignee
+unavailable** without revealing that person's identity. Work without owners uses
+**Unassigned**, and work with several owners appears once under **Multiple
 assignees**. Open the native Task to inspect its assignments.
 
 The board shows at most 50 distinct items per page, ordered by identity. Lane

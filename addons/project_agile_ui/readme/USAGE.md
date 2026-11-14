@@ -83,3 +83,42 @@ and ask a Project administrator to check your access. The ordinary lists still
 require the same permissions.
 
 For task completion, follow [Start and work in the Scrum guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work).
+
+## Active Sprint swimlanes
+
+From the same Project form, choose **Active Sprint board**. Ordinary **Sprint
+Planning** and **Active Sprint** lists remain available. Choose **Epic** or
+**Assignee** under **Swimlanes**; stages remain columns in both presentations.
+**Agile Team** and **Active Sprint** narrow the work. Type a name and choose a
+suggestion or press **Enter**; clearing a selector restores all matching work.
+Changing the team clears the selected Sprint.
+
+Epic lanes use the nearest readable item of the seeded Epic type, including the
+item itself. Descendants below a Story or Feature remain under that Epic. Work
+with no Epic ancestor uses **No Epic**. An unreadable ancestor, or ancestry beyond
+32 levels, uses **Epic context unavailable** instead of claiming that no Epic
+exists. Assignee lanes show one-owner work under that person, work without owners
+under **Unassigned**, and work with several owners once under **Multiple
+assignees**. Open the native Task to inspect its assignments.
+
+The board shows at most 50 distinct items per page, ordered by identity. Lane
+and stage columns describe that window; their counts are page counts. The
+**unique visible items** total covers the complete current filter, not just this
+page. **Next items** reaches additional cards and lanes; **Refresh / first
+items** starts again. **Open lane page** opens exactly that lane's displayed
+items. **All filtered work** opens the complete matching native list. If more
+than 100 Active Sprints match, select one Sprint before opening a native work
+list; the board's item paging still works across all matching Sprints.
+
+Changing presentation never changes parents or assignees. The board does not
+support dragging between stages or lanes. Activate a card with a click or
+**Tab**, then **Enter**, to open its native Task form; native access and
+per-item-type stage rules still govern edits. Stage columns appear for the
+current page's work, not every configured empty stage. Use the ordinary Project
+Kanban for its full stage configuration. All controls are keyboard accessible;
+the labeled matrix can be focused and scrolled on narrow screens.
+
+After native edits, refresh the board to see current placement. An unavailable
+page clears its cards instead of presenting stale work under new filters. Use
+**Refresh / first items** after a changed page, or ask a Project administrator to
+check Project, team, Sprint and company access after a denial.

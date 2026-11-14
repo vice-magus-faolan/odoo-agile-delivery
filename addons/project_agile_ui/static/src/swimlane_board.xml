@@ -73,7 +73,7 @@
       >Presentation only: changing lanes does not change parents or assignees. Open a work item to edit its stage in the native Task form. Dragging between stages or lanes is not supported.</p>
       <p
         t-if="state.grouping === 'epic'"
-      >Epic lanes use the nearest readable Epic in the item's hierarchy, including the item itself. Unavailable ancestry is labeled separately from No Epic.</p>
+      >Epic lanes use the nearest readable Epic in the item&apos;s hierarchy, including the item itself. Unavailable ancestry is labeled separately from No Epic.</p>
       <p
         t-else=""
       >Each item appears once. Items with several owners use Multiple assignees, not one copy per owner.</p>
@@ -85,6 +85,35 @@
         t-esc="state.error"
       />
       <t t-if="state.snapshot">
+        <section
+          t-if="state.snapshot.wip_enabled"
+          class="o_agile_swimlanes__wip"
+          aria-label="Advisory WIP limits"
+          aria-live="polite"
+        >
+          <h2>Advisory WIP — visible open work</h2>
+          <p
+          >Counts cover all pages and lanes in the selected Project, team and Active Sprint scope. Archived, Done and Canceled work is excluded. Hidden work is not counted. Limits never block Task changes.</p>
+          <p t-if="!state.snapshot.wip.length">No stage limits configured.</p>
+          <ul class="list-unstyled">
+            <li
+              t-foreach="state.snapshot.wip"
+              t-as="policy"
+              t-key="policy.id"
+              t-att-class="policy.overflow ? 'alert alert-warning' : ''"
+              t-att-data-wip-stage-id="policy.id"
+              t-att-role="policy.overflow ? 'alert' : undefined"
+            >
+              <strong t-esc="policy.name" />: <t
+              t-esc="policy.count"
+            /> visible open / <t t-esc="policy.limit" /> advisory limit.
+              <span t-if="policy.overflow">Over limit by <t
+              t-esc="policy.overflow"
+            />.</span>
+              <span t-else="">Within limit.</span>
+            </li>
+          </ul>
+        </section>
         <p class="o_agile_swimlanes__total" role="status" aria-live="polite">
           Showing <t t-esc="state.snapshot.shown" /> of <t
           t-esc="state.snapshot.total"
@@ -117,8 +146,23 @@
                   t-as="stage"
                   t-key="stage.id"
                   scope="col"
-                  t-esc="stage.name"
-                />
+                >
+                  <span t-esc="stage.name" />
+                  <t
+                    t-set="policy"
+                    t-value="state.snapshot.wip?.find((row) => row.id === stage.id)"
+                  />
+                  <span
+                    t-if="policy"
+                    class="d-block"
+                    t-att-class="policy.overflow ? 'text-danger' : ''"
+                  >
+                    <t t-esc="policy.count" /> / <t
+                    t-esc="policy.limit"
+                  /> visible open · advisory
+                    <strong t-if="policy.overflow"> — Over limit</strong>
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>

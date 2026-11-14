@@ -661,6 +661,16 @@ class TestAgileSwimlanes(HttpCase):
         self.assertLessEqual(large_queries, small_queries)
 
     def test_real_two_axis_grouping_filters_and_keyboard_journey(self):
+        self.project.write(
+            {
+                "agile_wip_enabled": True,
+                "agile_wip_limit_ids": [
+                    Command.create({"stage_id": stage.id, "limit": 1})
+                    for stage in self.stages
+                ],
+            }
+        )
+
         before = self._placement()
         history = self._history()
         action = self.env["ir.actions.act_window"].create(

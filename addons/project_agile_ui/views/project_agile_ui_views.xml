@@ -32,6 +32,36 @@
           </div>
         </button>
       </xpath>
+      <xpath expr="//sheet/notebook" position="inside">
+        <page
+          string="Advisory WIP"
+          name="agile_wip"
+          groups="project.group_project_manager"
+          invisible="not agile_enabled"
+        >
+          <group>
+            <field name="agile_wip_enabled" />
+          </group>
+          <p
+          >Limits only warn on the Active Sprint board. They never block Task changes.</p>
+          <p
+          >Counts cover your visible open work in the selected Project, team and Active Sprint scope, across all pages and lanes. Hidden work is not counted.</p>
+          <field
+            name="agile_wip_limit_ids"
+            context="{&quot;default_project_id&quot;: id}"
+          >
+            <list editable="bottom">
+              <field name="project_id" column_invisible="True" />
+              <field
+                name="stage_id"
+                domain="[(&quot;project_ids&quot;, &quot;in&quot;, [parent.id])]"
+                options="{&quot;no_create&quot;: True}"
+              />
+              <field name="limit" />
+            </list>
+          </field>
+        </page>
+      </xpath>
     </field>
   </record>
 </odoo>

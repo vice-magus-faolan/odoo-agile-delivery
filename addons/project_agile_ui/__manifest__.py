@@ -1,14 +1,18 @@
 {
     "name": "Agile Planning UI",
     "summary": "Optional Odoo frontend for authoritative Agile planning",
-    "version": "19.0.1.5.0",
+    "version": "19.0.1.6.0",
     "author": "McCann Hub",
     "maintainer": "Jimmy McCann",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
     "category": "Services/Project",
     "license": "LGPL-3",
     "depends": ["project_scrum"],
-    "data": ["views/project_agile_ui_views.xml"],
+    "data": [
+        "security/ir.model.access.csv",
+        "security/project_wip_rules.xml",
+        "views/project_agile_ui_views.xml",
+    ],
     "assets": {
         "web.assets_backend": [
             "project_agile_ui/static/src/quick_create.js",

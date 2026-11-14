@@ -124,3 +124,25 @@ After native edits, refresh the board to see current placement. An unavailable
 page clears its cards instead of presenting stale work under new filters. Use
 **Refresh / first items** after a changed page, or ask a Project administrator to
 check Project, team, Sprint and company access after a denial.
+
+
+### Advisory WIP warnings
+
+When enabled by a Project administrator, **Advisory WIP — visible open work**
+shows each configured stage, its full-scope count, advisory limit and any excess.
+**Over limit** also appears on an occupied stage header. Equality is within the
+limit. The summary includes empty and off-page configured stages even when this
+page has no cards there; lane and cell counts still describe only this page.
+
+WIP counts cover your visible active, non-template work in the selected Project,
+team and Active Sprints with active teams, across every page and lane. Done and
+Canceled tasks do not count; folding a stage does not by itself close its work.
+All assigned item types count under the same native stage rules. Unstaged work
+has no stage limit. Archived work and Draft or Closed Sprints do not count.
+Hidden tasks, Sprints and stages do not supply privileged totals or identities.
+These are your visible-scope counts, not global enforced capacity.
+
+Refresh after editing work or settings. Filters narrow the count; changing lanes
+or pages does not. A stage removed from the Project no longer contributes a WIP
+summary until it is linked again. Limits never block creation, bulk stage moves,
+leaving a stage or completion, and viewing warnings changes no Sprint history.

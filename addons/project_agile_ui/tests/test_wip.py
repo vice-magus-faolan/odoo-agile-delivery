@@ -332,6 +332,142 @@ class TestAdvisoryWip(TransactionCase):
         self.teams[1].write({"active": False})
         self.assertEqual(self._snapshot()["wip"][0]["count"], 0)
 
+    def _make_project_read_only_for_manager(self, project):
+        self.env["ir.rule"].create(
+            {
+                "name": "Deny WIP fixture Project writes",
+                "model_id": self.env["ir.model"]._get_id("project.project"),
+                "domain_force": repr([("id", "!=", project.id)]),
+                "perm_read": False,
+                "perm_write": True,
+                "perm_create": False,
+                "perm_unlink": False,
+            }
+        )
+        self.env.invalidate_all()
+        subject = project.with_user(self.manager)
+        self.assertFalse(subject.env.su)
+        self.assertTrue(subject.env.user.has_group("project.group_project_manager"))
+        subject.check_access("read")
+        self.assertFalse(subject.has_access("write"))
+        return subject
+
+    def test_create_requires_project_write_access(self):
+        project = self._make_project_read_only_for_manager(self.project)
+        stage = self.stages[0].with_user(self.manager)
+        stage.check_access("read")
+        self.assertTrue(project.agile_enabled)
+        self.assertIn(project, stage.project_ids)
+        policies = self.env["project.agile.wip.limit"].with_user(self.manager)
+        domain = [("project_id", "=", project.id), ("stage_id", "=", stage.id)]
+        self.assertFalse(policies.search(domain))
+        with self.assertRaises(AccessError), self.cr.savepoint():
+            policies.create(
+                {"project_id": project.id, "stage_id": stage.id, "limit": 2}
+            )
+        self.assertFalse(policies.search(domain))
+
+    def test_unlink_requires_project_configuration_access(self):
+        self._enable()
+        policy = self.project.agile_wip_limit_ids[0].with_user(self.manager)
+        project = self._make_project_read_only_for_manager(self.project)
+        policy.check_access("read")
+        policy.check_access("unlink")
+        policy.stage_id.check_access("read")
+        self.assertEqual(policy.project_id, project)
+        with self.assertRaises(AccessError), self.cr.savepoint():
+            policy.unlink()
+        self.assertEqual(policy.exists(), policy)
+        self.assertEqual(policy.project_id, project)
+
+    def test_policy_cannot_move_to_readable_project_with_shared_stage(self):
+        self._enable()
+        destination = self.env["project.project"].create(
+            {
+                "name": "Read-only WIP destination",
+                "agile_enabled": True,
+                "agile_key": "WIPDEST",
+                "privacy_visibility": "employees",
+                "company_id": self.project.company_id.id,
+            }
+        )
+        policy = self.project.agile_wip_limit_ids[0].with_user(self.manager)
+        policy.stage_id.write({"project_ids": [Command.link(destination.id)]})
+        destination = self._make_project_read_only_for_manager(destination)
+        source = self.project.with_user(self.manager)
+        source.check_access("write")
+        policy.check_access("write")
+        policy.stage_id.check_access("read")
+        self.assertTrue(destination.agile_enabled)
+        self.assertIn(source, policy.stage_id.project_ids)
+        self.assertIn(destination, policy.stage_id.project_ids)
+        self.assertFalse(
+            self.env["project.agile.wip.limit"]
+            .with_user(self.manager)
+            .search([("project_id", "=", destination.id)])
+        )
+        with (
+            self.assertRaisesRegex(
+                ValidationError, "A WIP limit cannot move to another Project"
+            ),
+            self.cr.savepoint(),
+        ):
+            policy.write({"project_id": destination.id})
+        self.assertEqual(policy.project_id, source)
+
+    def test_non_agile_project_rejected_with_belonging_stage(self):
+        project = self.env["project.project"].create(
+            {"name": "Plain WIP Project", "privacy_visibility": "employees"}
+        )
+        stage = self.env["project.task.type"].create(
+            {"name": "Plain WIP stage", "project_ids": [Command.link(project.id)]}
+        )
+        project = project.with_user(self.manager)
+        stage = stage.with_user(self.manager)
+        self.assertFalse(project.env.su)
+        self.assertTrue(project.env.user.has_group("project.group_project_manager"))
+        project.check_access("write")
+        stage.check_access("read")
+        self.assertFalse(project.agile_enabled)
+        self.assertIn(project, stage.project_ids)
+        policies = self.env["project.agile.wip.limit"].with_user(self.manager)
+        domain = [("project_id", "=", project.id), ("stage_id", "=", stage.id)]
+        self.assertFalse(policies.search(domain))
+        with (
+            self.assertRaisesRegex(
+                ValidationError, "Choose a stage belonging to this Agile Project"
+            ),
+            self.cr.savepoint(),
+        ):
+            policies.create(
+                {"project_id": project.id, "stage_id": stage.id, "limit": 2}
+            )
+        self.assertFalse(policies.search(domain))
+
+    def test_summary_excludes_detached_but_readable_stage(self):
+        self._enable()
+        other_project = self.env["project.project"].create(
+            {"name": "Shared WIP stage Project", "privacy_visibility": "employees"}
+        )
+        stage = self.stages[1]
+        stage.write({"project_ids": [Command.link(other_project.id)]})
+        policy = self.project.agile_wip_limit_ids.filtered(
+            lambda row: row.stage_id == stage
+        ).with_user(self.reader)
+        self.assertFalse(policy.env.su)
+        policy.check_access("read")
+        self.assertIn(stage.id, {row["id"] for row in self._snapshot()["wip"]})
+        stage.write({"project_ids": [Command.unlink(self.project.id)]})
+        stage = stage.with_user(self.reader)
+        stage.check_access("read")
+        other_project.with_user(self.reader).check_access("read")
+        self.assertIn(other_project, stage.project_ids)
+        self.assertNotIn(self.project, stage.project_ids)
+        self.assertEqual(policy.exists(), policy)
+        policy.check_access("read")
+        self.assertEqual(policy.stage_id, stage)
+        self.assertNotIn(stage.id, {row["id"] for row in self._snapshot()["wip"]})
+
     def test_project_administrator_still_requires_native_project_write_access(self):
         self._enable()
         policy = self.project.agile_wip_limit_ids[0]

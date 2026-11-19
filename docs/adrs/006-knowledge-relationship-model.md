@@ -26,8 +26,10 @@ OCA owns content, editor, page history, category hierarchy, templates, groups, c
 rules, archive/delete behavior and the existing Project-page relation. Do not copy,
 fork, vendor or replace those generic features. The local bridges supply narrow
 Project-root and Sprint-retrospective relationships, not a second page-body store or
-generic connector. Release-note relationships remain deferred with release management in
-ADR-005.
+generic connector. A link between a release-notes page and a milestone is not
+implemented.
+[ADR-005](005-release-version-model.md#conditions-for-reconsidering-unsupported-capabilities)
+lists what that link would need.
 
 `document_page_project` owns `document.page.project_id`, Project page relations and
 counts, and `document_page_project.action_document_page_projects`. A Project root or

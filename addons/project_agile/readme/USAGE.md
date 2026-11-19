@@ -47,6 +47,13 @@ Projects. Agile does not turn milestones on. Open a milestone's **View Tasks** o
 **Release contents** button to see its tasks grouped by Agile item type and task
 state, including Done work. Projects without Agile keep the native View Tasks.
 
+Each Task has at most one milestone. Contents reflect your current visible work,
+not a frozen published version; **Reached** marks a planning checkpoint, not a
+deployment. Do not use it as shipment evidence. For migration or published-version
+requirements, check the [release/version limits](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/005-release-version-model.md)
+before mapping data: multiple fix versions, immutable publication and linked release
+notes are not supplied by this workflow.
+
 For Sprint planning, configure
 [project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum).
 The **Product Backlog** button on a Sprint narrows this queue to its Project's

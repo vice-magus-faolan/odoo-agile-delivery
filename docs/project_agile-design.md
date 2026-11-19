@@ -103,7 +103,10 @@ dependencies of the core. Standard views remain usable without custom OWL.
 Use existing documentation backends for general knowledge, not a custom wiki.
 Relationships, templates and navigation may connect Projects, Tasks, retrospective and
 future release notes without copying page/editor/history engines. Prefer extending
-suitable native/OCA capabilities after checking exact APIs and licenses. Release
-management and Jira migration remain deferred; see
-[ADR-005](adrs/005-release-version-model.md). The optional Document Page relationships
-are defined in [ADR-006](adrs/006-knowledge-relationship-model.md).
+suitable native/OCA capabilities after checking exact APIs and licenses. Native
+milestones already support release planning, filtering and live contents navigation when
+the Project enables Milestones. They are not immutable published versions. Multiple fix
+versions per Task, publication/corrections and linked release notes remain outside the
+delivered contract; see [ADR-005](adrs/005-release-version-model.md) for classifications
+and conditional next steps. Jira migration remains deferred. The optional Document Page
+relationships are defined in [ADR-006](adrs/006-knowledge-relationship-model.md).

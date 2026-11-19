@@ -1,5 +1,25 @@
 import {registry} from "@web/core/registry";
 
+function assertWip(count, overflow) {
+  const summary = document.querySelector(".o_agile_swimlanes__wip");
+  const doing = [...summary.querySelectorAll("li")].find((row) =>
+    row.textContent.includes("Swim Todo")
+  );
+  if (
+    !doing ||
+    !doing.textContent.includes(`${count} visible open / 1 advisory limit`) ||
+    !doing.textContent.includes(`Over limit by ${overflow}`)
+  ) {
+    throw new Error(
+      "Full-scope advisory WIP must follow filters, not lanes or hidden work"
+    );
+  }
+  const header = document.querySelector("thead").textContent;
+  if (!header.includes(`${count} / 1 visible open`) || !header.includes("Over limit")) {
+    throw new Error("Overflow must remain clear on the occupied stage header");
+  }
+}
+
 registry.category("web_tour.tours").add("agile_swimlanes", {
   steps: () => {
     let originalIds = [];
@@ -35,6 +55,7 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
           if (new Set(originalIds).size !== 5 || originalIds.length !== 5) {
             throw new Error("The rendered board must show five unique work items");
           }
+          assertWip(4, 3);
         },
       },
       {trigger: "#agile-swimlane-grouping", run: "selectByLabel Assignee"},
@@ -51,6 +72,7 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
           ) {
             throw new Error("Changing presentation lost or duplicated work");
           }
+          assertWip(4, 3);
         },
       },
       {trigger: "#agile-swimlane-team", run: "edit Swim team"},
@@ -62,6 +84,9 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
       {
         trigger:
           ".o_agile_swimlanes:not([aria-busy=true]) .o_agile_swimlanes__total:contains(Showing 4 of 4)",
+        run() {
+          assertWip(3, 2);
+        },
       },
       {trigger: "#agile-swimlane-sprint", run: "edit Swim Sprint"},
       {
@@ -82,6 +107,7 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
               "Team and Active Sprint filters must narrow the same cards and total"
             );
           }
+          assertWip(3, 2);
           document.querySelector(".o_agile_swimlanes__refresh").focus();
         },
       },

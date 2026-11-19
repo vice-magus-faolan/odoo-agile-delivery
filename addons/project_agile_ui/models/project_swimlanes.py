@@ -101,6 +101,8 @@ class ProjectProject(models.Model):
         lanes = self._agile_swimlane_lanes(project, tasks, grouping)
         return {
             "project": {"id": project.id, "name": project.display_name},
+            "wip_enabled": project.agile_wip_enabled,
+            "wip": project._agile_wip_summary(domain),
             "total": self.env["project.task"].search_count(domain),
             "shown": len(tasks),
             "next_cursor": continuation,

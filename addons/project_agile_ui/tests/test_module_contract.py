@@ -27,7 +27,14 @@ class TestProjectAgileUiModuleContract(TransactionCase):
         module_root = Path(__file__).resolve().parents[1]
         manifest = ast.literal_eval((module_root / "__manifest__.py").read_text())
 
-        self.assertEqual(manifest["data"], ["views/project_agile_ui_views.xml"])
+        self.assertEqual(
+            manifest["data"],
+            [
+                "security/ir.model.access.csv",
+                "security/project_wip_rules.xml",
+                "views/project_agile_ui_views.xml",
+            ],
+        )
         self.assertEqual(
             manifest["assets"]["web.assets_backend"],
             [

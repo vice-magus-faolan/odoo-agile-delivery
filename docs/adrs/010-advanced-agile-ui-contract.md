@@ -205,3 +205,34 @@ duplicated domain rules, a mandatory document backend, and a separate frontend t
 framework. The additive board costs explicit bounded service/action contracts but keeps
 native work and history authoritative. Richer provider/document controls, automatic
 planning and changed backlog eligibility are not supplied by this ADR.
+
+## Advisory stage WIP
+
+The optional UI addon owns Project opt-in and unique positive Project/stage limit rows.
+Configuration uses native Project-administrator authority plus actual Project write
+access, including direct row/default operations. Rows use the same caller-bound native
+Project visibility search pattern as environment configuration, with company rules; they
+grant no Task visibility. Copies do not inherit policy. Stage/type eligibility remains
+ADR-014, independent of WIP.
+
+The swimlane snapshot reuses its complete authoritative Project/team/Active-Sprint
+domain and adds native `state not in [1_done, 1_canceled]` only for WIP aggregation. One
+caller-bound Task `_read_group` supplies stage counts. No sudo discovery/counts,
+per-card queries, page IDs, lane cardinality or privileged totals are used. Readable
+configured stages linked to this Project appear in a separate summary, including
+zero/off-page stages; ordinary stage columns remain occupied-page columns. Folding is
+presentation, not completion. All item types in the assigned scope count; Tasks without
+a stage have no applicable stage limit. Hidden stages are not serialized.
+
+The UI labels full visible-scope open counts separately from page card/cell counts.
+Overflow is `max(0, count - limit)` and equality is within limit. Refresh re-reads
+policy and work; changing team/Sprint narrows scope, while paging/grouping does not.
+These live reads are not an atomic capacity reservation or hidden-work aggregate.
+Lowering a limit can warn immediately without changing existing work. Disabling retains
+rows. Removed Project/stage links suppress stale rows until restored.
+
+No Task mutation hooks, blocking mode, coordination locks or Sprint-history writes are
+added. Native Task create/write/bulk/complete and per-type stage checks retain their
+existing authority and behavior. Ordinary configuration plus a read-only projection
+avoids a second workflow engine; revisit enforcement only with an explicitly different
+policy and concurrency/visibility contract.

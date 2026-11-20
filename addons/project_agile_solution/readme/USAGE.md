@@ -3,10 +3,12 @@
 Use a business analyst (BA) or Project administrator account with the Project access
 described in Configuration. The following example starts with a Solution Specification / Internal Brief.
 
-When a document or task link references a requirement or context revision, that
-revision is frozen: nobody can edit its content. To change it, create a new
-numbered revision of the same requirement or context. The latest revision is
-the one with the highest revision number; it may still be an editable draft.
+Selecting a requirement or context revision in a draft document does not freeze
+it. **Submit for Review** freezes the document and its selected content revisions.
+Creating a confirmed Task link also freezes its exact requirement revision, even
+without document approval. Nobody can edit frozen content; create a new numbered
+revision of the same requirement or context instead. The latest revision is the
+one with the highest revision number; it may still be an editable draft.
 
 1. In **Project > Solutions > Requirements**, create a requirement with **Name** and
    **Solution**. Save, then choose **Open or Create Content Revision**. Fill **Title**,
@@ -33,7 +35,7 @@ the one with the highest revision number; it may still be an editable draft.
    Revision**. To request edits, a Project administrator with current access uses
    **Return with Reason**, enters **Reason** and chooses **Confirm**. Business
    analysts can edit and resubmit the returned draft, but cannot return a review,
-   including their own. Requirement and context content already frozen by a reference
+   including their own. Requirement and context content frozen at submission or by another workflow
    stays frozen; revise it through its stable identity instead.
 6. For later changes, open the approved revision and choose **New Working
    Revision**. Create successor requirement and context revisions as needed and

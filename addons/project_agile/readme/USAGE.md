@@ -42,10 +42,17 @@ Task search provides **Agile Work**, **Agile Item Type** and **Agile Project** f
 or groupings.
 
 For Projects using native **Milestones**, the backlog shows each task's milestone.
-Use the native **Milestone** search field and grouping to focus on a release across
-Projects. Agile does not turn milestones on. Open a milestone's **View Tasks** or
-**Release contents** button to see its tasks grouped by Agile item type and task
-state, including Done work. Projects without Agile keep the native View Tasks.
+Search by milestone name to see milestones with the same name in several Projects.
+Each Project keeps its own milestone. Agile does not turn milestones on.
+Open a milestone's **View Tasks** or **Release contents** button to see its tasks
+grouped by Agile item type and task state. The list includes Done and Cancelled work
+and leaves out archived Tasks and templates. Projects without Agile keep the native
+View Tasks.
+
+Each Task has at most one milestone. **Release contents** lists the Tasks you can see
+now. It is not a frozen record of a published version. **Reached** marks a planning
+checkpoint, not a deployment. Before mapping migration data or relying on published
+versions, check the [release and version limits](https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/005-release-version-model.md).
 
 For Sprint planning, configure
 [project_scrum](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum).

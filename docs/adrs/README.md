@@ -7,6 +7,7 @@ Implemented decisions:
 - [ADR-002 Configurable Item-Type Hierarchy](002-configurable-item-type-hierarchy.md)
 - [ADR-003 Sprint Scope History](003-sprint-scope-history-strategy.md)
 - [ADR-004 Teams and Active Sprints](004-agile-team-multiple-active-sprints.md)
+- [ADR-005 Native milestone releases and version limits](005-release-version-model.md)
 - [ADR-006 OCA Document Page Relationships](006-knowledge-relationship-model.md)
 - [ADR-009 Scrum Analytics](009-scrum-analytics-semantics.md)
 - [ADR-010 Agile Planning UI](010-advanced-agile-ui-contract.md)
@@ -16,7 +17,8 @@ Implemented decisions:
 - [ADR-014 Item-Type Estimation and Stages](014-item-type-estimation-and-stages.md)
 - [ADR-015 Client Environment Status](015-client-environment-status.md)
 
-Deferred: [ADR-005 Release / Version Model](005-release-version-model.md).
+ADR-005 records the deliberately unsupported version capabilities and when to reconsider
+them.
 
 Superseded proposals retained for rationale:
 [ADR-007 OCA Git adoption](007-oca-project-git-adoption-strategy.md) and

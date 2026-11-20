@@ -146,6 +146,7 @@ are AGPL-3; review those license obligations when choosing this backend.
 
 - [Solution history, access and recovery](docs/runbooks/solution-operations.md)
 - [Document Page setup](addons/project_agile_document_page/README.rst#configuration)
+- [Native milestone releases and version limits](docs/adrs/005-release-version-model.md)
 - [Git dry-run behavior](docs/git-policy-dry-run.md) and
   [apply boundary](docs/git-policy-apply-boundary.md)
 - [Contributor setup and checks](docs/contributing.md)

@@ -103,7 +103,11 @@ dependencies of the core. Standard views remain usable without custom OWL.
 Use existing documentation backends for general knowledge, not a custom wiki.
 Relationships, templates and navigation may connect Projects, Tasks, retrospective and
 future release notes without copying page/editor/history engines. Prefer extending
-suitable native/OCA capabilities after checking exact APIs and licenses. Release
-management and Jira migration remain deferred; see
-[ADR-005](adrs/005-release-version-model.md). The optional Document Page relationships
-are defined in [ADR-006](adrs/006-knowledge-relationship-model.md).
+suitable native/OCA capabilities after checking exact APIs and licenses. Native
+milestones already support release planning, filtering and live contents navigation when
+the Project enables Milestones. They are not immutable published versions. See
+[ADR-005](adrs/005-release-version-model.md) for the supported workflow, deliberately
+unsupported capabilities and conditions for reconsidering them.
+[Jira migration](https://github.com/vice-magus-faolan/odoo-agile-delivery/issues/103)
+remains deferred. The optional Document Page relationships are defined in
+[ADR-006](adrs/006-knowledge-relationship-model.md).

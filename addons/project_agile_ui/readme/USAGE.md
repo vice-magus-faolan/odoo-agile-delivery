@@ -66,13 +66,15 @@ and Sprint cards. Type a name and select a suggestion or press Enter. Clearing t
 field restores all milestones. Changing milestones restarts backlog paging and
 keeps the selected team. **Group loaded items by milestone** groups only the cards
 already loaded, not the complete release. Sprint counts and current points use the
-selected milestone and caller-visible active assigned work. Commitment points
-show committed events for that same currently assigned, visible task scope;
-use native Sprint history for the complete historical commitment.
+active Tasks in that Sprint that you can see and that match the selected milestone.
+Committed points sum the commitment events of those same Tasks; use native Sprint
+history for the full historical commitment.
 Clear the milestone filter and grouping to reorder work; assignment and return
 remain available. **Open Product Backlog list** keeps the milestone and team.
-Choose **Release contents** for the selected milestone's full native task list,
-grouped by item type and task state, including completed and scheduled work.
+**Release contents** opens the same grouped list as the milestone form: every Task
+you can see in that milestone, not only the loaded cards or the selected team.
+It lists Tasks in every state, including Done and Cancelled, and leaves out archived
+Tasks and templates.
 Milestone controls and badges are absent when the Project disables milestones.
 
 After a rejected change, the board refreshes. Review current placement before

@@ -1,9 +1,19 @@
 Installation assigns no **Git Policy Manager** members and creates no rules.
-An authorized administrator must explicitly grant that capability to the rule
-owner and a different approver. It includes Project administrator permissions;
-Project administrator access alone is not sufficient. Use an active internal,
-non-superuser execution account with current company membership and actual
-write access to all affected Project tasks.
+
+## Assign Git Policy Manager
+
+As a Settings administrator, enable developer mode and open **Settings > Users
+& Companies > Users**. Open the intended rule owner and add **Git Policy Manager**
+under the user's technical groups, then save. Repeat for a different approver.
+This group has no user-form privilege selector: it is not a choice in the
+**Project** access selector. It also grants Project Administrator permissions;
+assign it only to authorized policy owners and approvers. Project administrator
+access alone does not grant Git Policy Manager.
+
+Use an active internal, non-superuser execution account with current company
+membership and actual write access to all affected Project tasks.
+
+## Configure and approve a rule
 
 1. Configure an active company-scoped Agile Project and a repository using the
    [Git Facts guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_agile_git#configuration).

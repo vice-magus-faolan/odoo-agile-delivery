@@ -1,8 +1,10 @@
 from lxml import etree
+from psycopg2 import IntegrityError
 
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools import mute_logger
 from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
@@ -50,6 +52,94 @@ class TestProjectAgileDomain(TransactionCase):
                 **values,
             }
         )
+
+    def test_project_key_create_rejects_invalid_length_and_grammar(self):
+        for enabled in (False, True):
+            for key in (
+                "A",
+                "ABCDEFGHIJK",
+                "lower",
+                "1A",
+                "AB_C",
+                "AB-C",
+                " AB",
+                "AB ",
+                "AB\n",
+            ):
+                with (
+                    self.subTest(enabled=enabled, key=key),
+                    self.assertRaises(ValidationError),
+                ):
+                    self.env["project.project"].create(
+                        {
+                            "name": "Invalid prefix",
+                            "agile_enabled": enabled,
+                            "agile_key": key,
+                        }
+                    )
+
+    def test_project_key_write_rejects_invalid_length_and_grammar(self):
+        project = self.env["project.project"].create({"name": "Prefix configuration"})
+        for enabled in (False, True):
+            project.write({"agile_enabled": enabled, "agile_key": "VALID"})
+            for key in (
+                "A",
+                "ABCDEFGHIJK",
+                "lower",
+                "1A",
+                "AB_C",
+                "AB-C",
+                " AB",
+                "AB ",
+                "AB\n",
+            ):
+                with (
+                    self.subTest(enabled=enabled, key=key),
+                    self.assertRaises(ValidationError),
+                ):
+                    project.write({"agile_key": key})
+                self.assertEqual(project.agile_key, "VALID")
+                self.assertEqual(project.agile_enabled, enabled)
+
+    def test_project_key_boundaries_preserve_exact_task_identity(self):
+        for key in ("A2", "A123456789"):
+            with self.subTest(key=key):
+                created = self._create_agile_project("Created at boundary", key)
+                task = self.env["project.task"].create(
+                    {"name": "Boundary work", "project_id": created.id}
+                )
+                self.assertEqual(task.agile_key, f"{key}-1")
+                project = self.env["project.project"].create(
+                    {"name": "Written at boundary"}
+                )
+                # A distinct valid prefix keeps the uniqueness constraint independent.
+                written_key = "B" + key[1:]
+                project.write({"agile_enabled": True, "agile_key": written_key})
+                self.assertEqual(project.agile_key, written_key)
+                with self.assertRaises(ValidationError):
+                    created.write({"agile_key": written_key})
+                self.assertEqual((created.agile_key, task.agile_key), (key, f"{key}-1"))
+                with (
+                    self.assertRaises(IntegrityError),
+                    self.cr.savepoint(),
+                    mute_logger("odoo.sql_db"),
+                ):
+                    self._create_agile_project("Duplicate prefix", key)
+
+    def test_project_key_defaults_and_optional_enablement(self):
+        model = self.env["project.project"]
+        ordinary = model.create({"name": "Ordinary without prefix"})
+        self.assertFalse(ordinary.agile_key)
+        with self.assertRaises(ValidationError):
+            ordinary.write({"agile_enabled": True})
+        for key in ("A", "ABCDEFGHIJK"):
+            with self.subTest(key=key), self.assertRaises(ValidationError):
+                model.with_context(default_agile_key=key).create(
+                    {"name": "Invalid default"}
+                )
+        ordinary.write({"agile_key": "OPTIONAL"})
+        ordinary.write({"agile_enabled": True})
+        self.assertEqual(ordinary.agile_key, "OPTIONAL")
 
     def test_agile_task_receives_immutable_key(self):
         task = self._create_task("Implement key allocation")

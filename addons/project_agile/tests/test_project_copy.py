@@ -111,9 +111,9 @@ class TestProjectCopy(TransactionCase):
             with Form(wizards.with_context(template_id=source.id)) as form:
                 form.name = "Chosen client rollout"
                 self.assertTrue(form.agile_enabled)
-                form.agile_key = "CLIENTCHOICE"
+                form.agile_key = "CLIENTKEY"
             destination = form.record._create_project_from_template()
-            self.assertEqual(destination.agile_key, "CLIENTCHOICE")
+            self.assertEqual(destination.agile_key, "CLIENTKEY")
         else:
             destination = caller.copy()
             self.assertTrue(destination.agile_key.startswith("COPY"))
@@ -179,13 +179,13 @@ class TestProjectCopy(TransactionCase):
         caller = self.source.with_user(self.manager)
         copied = caller.copy(
             {
-                "agile_key": "COPYEXPLICIT",
+                "agile_key": "EXPLICIT",
                 "agile_default_item_type_id": False,
                 "agile_estimation_method": "none",
                 "agile_environment_ids": [Command.create({"name": "Pilot"})],
             }
         )
-        self.assertEqual(copied.agile_key, "COPYEXPLICIT")
+        self.assertEqual(copied.agile_key, "EXPLICIT")
         self.assertFalse(copied.agile_default_item_type_id)
         self.assertEqual(copied.agile_estimation_method, "none")
         self.assertEqual(copied.agile_environment_ids.mapped("name"), ["Pilot"])
@@ -213,7 +213,7 @@ class TestProjectCopy(TransactionCase):
 
     def test_allocator_skips_archived_foreign_namespace(self):
         sequence = self.env.ref("project_agile.sequence_project_copy")
-        sequence.write({"prefix": "COPYCOLLIDE", "number_next": 1})
+        sequence.write({"prefix": "COLLIDE", "number_next": 1})
         company = self.env["res.company"].create({"name": "Reserved key company"})
         hidden = (
             self.env["project.project"]
@@ -224,7 +224,7 @@ class TestProjectCopy(TransactionCase):
                     "active": False,
                     "company_id": company.id,
                     "agile_enabled": True,
-                    "agile_key": "COPYCOLLIDE1",
+                    "agile_key": "COLLIDE1",
                 }
             )
         )
@@ -232,9 +232,9 @@ class TestProjectCopy(TransactionCase):
         with self.assertRaises(AccessError):
             hidden.with_user(self.manager).check_access("read")
         copied = self.source.with_user(self.manager).copy()
-        self.assertEqual(copied.agile_key, "COPYCOLLIDE2")
+        self.assertEqual(copied.agile_key, "COLLIDE2")
         self.assertEqual(copied.company_id, self.source.company_id)
-        self.assertEqual(hidden.agile_key, "COPYCOLLIDE1")
+        self.assertEqual(hidden.agile_key, "COLLIDE1")
 
     def test_copy_preserves_caller_and_company_boundaries(self):
         caller = self.source.with_user(self.member)
@@ -251,7 +251,7 @@ class TestProjectCopy(TransactionCase):
                     "privacy_visibility": "employees",
                     "company_id": company.id,
                     "agile_enabled": True,
-                    "agile_key": "COPYFOREIGN",
+                    "agile_key": "FOREIGNCPY",
                     "agile_environment_ids": [Command.create({"name": "Foreign UAT"})],
                 }
             )

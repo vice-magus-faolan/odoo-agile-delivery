@@ -276,10 +276,10 @@ class TestItemTypePolicy(TransactionCase):
             .with_user(manager)
             .create(
                 [
-                    {"name": "Enable missing", "agile_key": "ENABLEMISSING"},
+                    {"name": "Enable missing", "agile_key": "ENMISSING"},
                     {
                         "name": "Enable chosen",
-                        "agile_key": "ENABLECHOSEN",
+                        "agile_key": "ENCHOSEN",
                         "agile_default_item_type_id": self.story.id,
                     },
                 ]
@@ -303,7 +303,7 @@ class TestItemTypePolicy(TransactionCase):
         retained = self.env["project.project"].create(
             {
                 "name": "Archived choice",
-                "agile_key": "ENABLEARCHIVED",
+                "agile_key": "ENARCHIVE",
                 "agile_default_item_type_id": self.story.id,
             }
         )
@@ -311,7 +311,7 @@ class TestItemTypePolicy(TransactionCase):
         self.assertEqual(retained.agile_default_item_type_id, self.story)
         task_type.active = False
         missing = self.env["project.project"].create(
-            {"name": "Archived seed", "agile_key": "ENABLEARCHIVEDSEED"}
+            {"name": "Archived seed", "agile_key": "ENARCHSEED"}
         )
         missing.write({"agile_enabled": True})
         self.assertFalse(missing.agile_default_item_type_id)

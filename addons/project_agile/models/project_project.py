@@ -3,7 +3,7 @@ import re
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-_AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*$")
+_AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 
 
 class ProjectProject(models.Model):
@@ -45,7 +45,8 @@ class ProjectProject(models.Model):
             ):
                 raise ValidationError(
                     _(
-                        "The Agile key must start with an uppercase letter and "
+                        "The Agile key must be 2 to 10 characters, start with an "
+                        "uppercase letter and "
                         "contain only uppercase letters and digits."
                     )
                 )

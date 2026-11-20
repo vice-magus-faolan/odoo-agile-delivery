@@ -5,7 +5,7 @@
    to its stable Agile key. Visibility and counters follow your access rights.
    The GitHub connector guide explains which source fields can establish links.
 3. As a Project administrator, open the repository and choose **Deliveries**.
-   Inspect **Provider Delivery Id**, **Event Type**, **State**, **Attempt Count**,
+   Inspect **Provider Delivery**, **Event Type**, **State**, **Attempt Count**,
    **Next Retry At** and **Error Summary** when facts have not appeared.
 
 Facts are read-only observations. **Ordering State** identifies **Stale** or
@@ -25,7 +25,7 @@ PRs** opens source details. In Tasks search, **Merged into, not Production**
 finds tasks with a merge into the selected environment but none into any visible
 production mapping in that Project; a production mapping is required. Typed
 names match the whole name, ignoring case, so UAT does not match Pre-UAT.
-The tab and filter follow your access rights; the BA's manual **Environments**
+The tab and filter follow your access rights; the task's manual **Environments**
 panel stays separate.
 
 A merge is not a deployment or proof that all task code is present. Only PRs

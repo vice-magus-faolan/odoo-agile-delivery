@@ -184,7 +184,7 @@ def run_probe(env):
         {
             "name": "SYNTHETIC content races",
             "agile_enabled": True,
-            "agile_key": "M8CONTENTRACE",
+            "agile_key": "M8CONTENT",
             "company_id": env.company.id,
             "privacy_visibility": "employees",
         }

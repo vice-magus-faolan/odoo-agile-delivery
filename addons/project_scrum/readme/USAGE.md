@@ -11,7 +11,7 @@ records added scope. Alternatively, users with task write access can edit the
 **Sprint** field. Tasks can join only a Draft or Active Sprint in their own Project
 and company.
 
-Set **Agile Team** on a task to separate BA and development work within one
+Set **Agile Team** on a task to separate business analyst (BA) and development work within one
 Project. Leave it empty when ownership is not yet known. Assignment gives an
 unteamed task the Sprint's team; work already owned by another team is refused.
 When assigning a selection, either every task moves or none does. Returning work

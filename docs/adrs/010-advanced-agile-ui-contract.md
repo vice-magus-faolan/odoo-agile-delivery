@@ -23,7 +23,7 @@ historical finding does not pin future verifier builds.
 
 ## Snapshot and authority
 
-`project.project.get_agile_planning_snapshot(project_id, cursor=False, team_id=False)`
+`project.project.get_agile_planning_snapshot(project_id, cursor=False, team_id=False, milestone_id=False, *, sprint_cursor=False)`
 resolves one active, non-template Agile Project as the current user with current company
 and native record permissions. It rejects unavailable Projects and invalid typed
 IDs/cursors without exposing hidden metadata. Context does not grant authority; there is

@@ -5,7 +5,7 @@
     ),
     "version": "19.0.1.0.1",
     "author": "McCann Hub",
-    "maintainer": "Jimmy McCann",
+    "maintainer": "jabez007",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
     "category": "Services/Project",
     "license": "LGPL-3",

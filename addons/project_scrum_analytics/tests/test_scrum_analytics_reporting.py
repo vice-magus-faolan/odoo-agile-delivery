@@ -154,7 +154,7 @@ class TestScrumAnalyticsReporting(TransactionCase):
                 "name": "Foreign reporting project",
                 "privacy_visibility": "followers",
                 "agile_enabled": True,
-                "agile_key": "FOREIGNREPORT",
+                "agile_key": "FORREPORT",
             }
         )
         foreign_team = self.env["project.agile.team"].create(
@@ -175,7 +175,7 @@ class TestScrumAnalyticsReporting(TransactionCase):
                 "privacy_visibility": "employees",
                 "company_id": other_company.id,
                 "agile_enabled": True,
-                "agile_key": "OTHERREPORT",
+                "agile_key": "OTHREPORT",
             }
         )
         other_team = self.env["project.agile.team"].create(

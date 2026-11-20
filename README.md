@@ -32,7 +32,7 @@ for the Agile core; some optional addons require other optional modules as liste
 | `project_agile_git` | Repository, branch, commit, pull-request and check visibility on Projects and Tasks | `project_agile` | LGPL-3 |
 | `project_agile_git_github` | Signed GitHub webhooks, scheduled processing and recovery | `project_agile_git` | LGPL-3 |
 | `project_agile_git_automation` | Approved Task-stage rules, dry-run previews and audit controls | `project_agile_git` | LGPL-3 |
-| `project_agile_solution` | SOW/spec baselines, versioned requirements, Task links, reports and recorded acceptance | `project_agile` | LGPL-3 |
+| `project_agile_solution` | SOW/spec baselines, versioned requirements, Task links, reports and recorded acceptance | `project_agile`, `portal` | LGPL-3 |
 | `project_agile_solution_scrum` | Frozen requirement context in Sprint scope history | `project_agile_solution`, `project_scrum` | LGPL-3 |
 
 Each addon includes its full licence text in `addons/<module>/LICENSE`; LGPL-3
@@ -45,7 +45,7 @@ declarations remain authoritative; third-party material keeps its own terms.
 The Document Page bridges need separately supplied OCA `knowledge` 19.0 modules:
 `document_page_project` depends on `project` and `document_page`; `document_page`
 depends on `mail`, `document_knowledge` and `html_editor`; `document_knowledge`
-depends on `base`. The selected OCA modules and both bridges are AGPL-3.
+depends on `base`.
 Solution documents can be installed independently of Document Page.
 
 GitHub ingress records Git facts. The separate policy addon applies approved Task-stage
@@ -128,8 +128,9 @@ and concurrency tests. It automatically removes its owned containers, volumes an
 networks on exit and checks that teardown completed.
 
 
-External process/lifecycle checks and standalone planning-race usage are documented
-in [the probe guide](scripts/probes/README.md).
+The planning-race probe runs as part of `./scripts/verify`, not as a standalone
+command. See [the probe guide](scripts/probes/README.md) for external process and
+lifecycle checks.
 
 Verify the optional OCA Document Page bridges separately:
 
@@ -139,8 +140,8 @@ Verify the optional OCA Document Page bridges separately:
 
 The fixture pins OCA `knowledge` 19.0 at
 `e4a12c0c99866a5850840941d6f7ae3b3b27280d` in
-`fixtures/oca-document-page/Dockerfile`. Its selected OCA modules and the two bridges
-are AGPL-3; review those license obligations when choosing this backend.
+`fixtures/oca-document-page/Dockerfile`. See the license table above and each
+bridge description for the backend license boundary.
 
 ## Guides and architecture
 

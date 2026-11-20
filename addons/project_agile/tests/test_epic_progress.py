@@ -70,7 +70,7 @@ class TestEpicProgress(EpicProgressFixture, TransactionCase):
             {
                 "name": "Default estimation client",
                 "agile_enabled": True,
-                "agile_key": "DEFAULTPROGRESS",
+                "agile_key": "DEFPROG",
                 "privacy_visibility": "employees",
             }
         )
@@ -234,7 +234,7 @@ class TestEpicProgress(EpicProgressFixture, TransactionCase):
                 "name": "Foreign client",
                 "company_id": company.id,
                 "agile_enabled": True,
-                "agile_key": "FOREIGNPROGRESS",
+                "agile_key": "FOREIGNPRG",
                 "privacy_visibility": "employees",
             }
         )

@@ -71,7 +71,7 @@ def seed_fixture(bridge):
     from task_concurrency import seed
 
     manager, project, solution, requirement = seed(
-        env, "M8LIFEBRIDGE" if bridge else "M8LIFECORE"
+        env, "M8LIFEBRG" if bridge else "M8LIFECORE"
     )
     project.write({"agile_estimation_method": "fibonacci"})
     requirement.write({"audience": "customer"})

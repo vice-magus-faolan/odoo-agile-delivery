@@ -59,7 +59,7 @@ class TestEnvironmentTour(HttpCase):
             {
                 "name": "Second environment tour client",
                 "agile_enabled": True,
-                "agile_key": "ENVTOURSECOND",
+                "agile_key": "ENVTOUR2",
                 "privacy_visibility": "employees",
             }
         )

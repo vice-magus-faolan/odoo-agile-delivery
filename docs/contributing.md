@@ -1,9 +1,14 @@
 # Contributor checks
 
-This private suite targets Odoo 19 Community. Its tooling is derived from the OCA addon
+This suite targets Odoo 19 Community. Its tooling is derived from the OCA addon
 repository template at `0c2edf1fd55ce731ab786a6ae39d172590c7c573`, rendered explicitly
 for `19.0`. This is OCA-aligned tooling, not a claim of full OCA conformity. Existing
 addon licenses and authorship remain unchanged.
+
+Use a full Git clone with the prior revisions listed in `PRIOR_SOURCE_COMMITS` in
+`scripts/verify` available locally. The populated-upgrade checks extract those
+revisions; a shallow clone is insufficient. For an existing shallow clone, run
+`git fetch --unshallow` before verification.
 
 Use Python 3.12 and install the pinned entrypoint in an isolated environment:
 
@@ -44,10 +49,18 @@ Commit source changes before using selection, which reads the checked-out Git re
 Shared tooling, unknown paths, manifest changes, deletions, renames and failed
 comparison analysis run every suite. An invalid supported dependency graph stops
 verification with an error. A docs-only PR runs the selector tests, skips Odoo
-verification and passes the job. The Community verifier excludes Document Page bridges
-while their optional backend is unavailable. Native test failures fail the job. All
-standalone installations, populated upgrades, external concurrency probes and
-uninstall/reinstall checks run in both full and focused modes.
+verification and passes the job. Docs-only paths are Markdown and reStructuredText files
+under `docs/`, root `README.md`, `LICENSE` and `COPYING`, addon-root
+`addons/*/README.md` and `addons/*/README.rst`, and Markdown or reStructuredText
+fragments under `addons/*/readme/`. A change to `AGENTS.md` or
+`scripts/probes/README.md` runs the full suite. Generated
+`addons/*/static/description/index.html` changes select the owning addon rather than
+counting as docs-only.
+
+The Community verifier excludes Document Page bridges while their optional backend is
+unavailable. Native test failures fail the job. All standalone installations, populated
+upgrades, external concurrency probes and uninstall/reinstall checks run in both full
+and focused modes.
 
 Use local checks for focused development feedback and failure diagnosis. Until issue #7,
 `prefer-env-translation` (`W8161`) remains advisory in the optional pylint hook, with

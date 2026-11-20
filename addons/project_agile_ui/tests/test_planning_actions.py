@@ -17,7 +17,7 @@ class TestProjectAgilePlanningActions(TransactionCase):
                 "privacy_visibility": "employees",
                 "company_id": self.env.company.id,
                 "agile_enabled": True,
-                "agile_key": "INTERACTIVE",
+                "agile_key": "INTERACT",
             }
         )
         self.team = self.env["project.agile.team"].create(

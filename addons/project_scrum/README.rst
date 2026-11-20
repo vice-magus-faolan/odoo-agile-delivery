@@ -91,12 +91,12 @@ Active Sprints and records added scope. Alternatively, users with task
 write access can edit the **Sprint** field. Tasks can join only a Draft
 or Active Sprint in their own Project and company.
 
-Set **Agile Team** on a task to separate BA and development work within
-one Project. Leave it empty when ownership is not yet known. Assignment
-gives an unteamed task the Sprint's team; work already owned by another
-team is refused. When assigning a selection, either every task moves or
-none does. Returning work to Product Backlog keeps its team. Filter or
-group the backlog by **Agile Team**.
+Set **Agile Team** on a task to separate business analyst (BA) and
+development work within one Project. Leave it empty when ownership is
+not yet known. Assignment gives an unteamed task the Sprint's team; work
+already owned by another team is refused. When assigning a selection,
+either every task moves or none does. Returning work to Product Backlog
+keeps its team. Filter or group the backlog by **Agile Team**.
 
 As a Scrum master or Project administrator, choose **Sprint Backlog** to
 review assigned work. When the Project uses milestones, this task list
@@ -180,7 +180,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

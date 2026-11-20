@@ -16,12 +16,16 @@ change an AST; identifiers, operators and literal values do. Live `ir.model.data
 queries resolve identities rather than stale XML-ID lookup caches. Native XML-ID
 mappings, rules, ACLs and group edits revoke epochs.
 
-Runtime baseline evidence was read from a fresh standalone disposable database, not
-inferred from another Odoo version. The native Project security source hash remains
+Historical baseline evidence was read from a fresh standalone disposable database
+running Odoo 19.0.20260926, not inferred from another Odoo build. For that build, the
+native Project security source hash is
 `34698c4ee327698a9056e7e6ee0e7beec9bc2a0d7c4c89eb4919fe50e9441cb8`; base security is
 `9d63f5ec1fbd084b036b8f94a3d7a258055f57a605a1d3135a42446d042363db`. The baseline
 includes auto-installed `project_todo.task_edition_rule_internal`. Approval/current
 validation repeat the checked-in definitions against the actual installed database.
+`Dockerfile.verify` uses the floating `odoo:19.0` image, so these historical hashes do
+not assert identical files in later builds. Read the actual Odoo build in the
+verification log when comparing runtime evidence.
 
 Supported native dependencies and observers:
 
@@ -47,8 +51,8 @@ table. Its create/write/unlink paths can alter Task assignees without Task.write
 native alias mutations may leave a previously cached Task.user_ids value stale. Fixed
 revoke-only alias hooks observe those paths; tests explicitly invalidate that cache
 before verifying actual assignment removal. Task.personal_stage_type_ids edits are
-conservatively observed too. Exact installed
-`addons/project/models/project_task_stage_personal.py` SHA-256:
+conservatively observed too. In the inspected Odoo 19.0.20260926 build,
+`addons/project/models/project_task_stage_personal.py` SHA-256 is:
 `c16d187608ae206cd530f93ff43a6515fedfb562f7d64a984c587ff0fc48b034`. A matching table
 alias/registry profile is not an access grant or evidence of a completed apply
 concurrency proof.
@@ -60,8 +64,8 @@ revoke all epochs after normal authorization and successful `super()`, including
 LINK/UNLINK/SET/CLEAR, without a context bypass. The sibling inverse `rule_groups` edits
 the same relation as `ir.rule.groups`; it and `model_access` changes are observed as
 security changes too. Registry metadata for both implication fields and rule_groups must
-match the checked-in stored scalar-relation profile. Exact installed
-`addons/base/models/res_groups.py` SHA-256:
+match the checked-in stored scalar-relation profile. In the inspected Odoo 19.0.20260926
+build, `addons/base/models/res_groups.py` SHA-256 is:
 `6111f736f19922033582ade995c7e05da21615e0b35a55407862882a910950cc`. Denied mutations and
 enclosing transaction rollback leave native relations and approval history unchanged.
 

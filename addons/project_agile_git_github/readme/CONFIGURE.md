@@ -8,7 +8,7 @@ GitHub webhook setup requires permission to administer that repository webhook.
 1. In **Project > Tasks > Git Repositories**, select the repository.
    Set **Provider** to **GitHub**, check **Project** and **Company**, and run
    `gh api repos/OWNER/REPO --jq .id`. Enter the returned number in
-   **Provider Repository Id**. Keep the repository active and set
+   **Provider Repository**. Keep the repository active and set
    **Canonical Url** to its `https://github.com/` repository URL.
 2. Select **Redacted Excerpt** in **Retention Policy** before sending events.
    **Digest Only** saves delivery metadata but leaves no payload for scheduled

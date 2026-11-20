@@ -417,11 +417,11 @@ Administrator access.</p>
 <ol class="arabic simple">
 <li>Enable Agile on the Project and configure its stable task-key prefix.</li>
 <li>Open <strong>Project &gt; Tasks &gt; Git Repositories</strong> and create a repository.
-Enter <strong>Name</strong>, <strong>Provider</strong>, <strong>Provider Repository Id</strong>, <strong>Project</strong>
+Enter <strong>Name</strong>, <strong>Provider</strong>, <strong>Provider Repository</strong>, <strong>Project</strong>
 and <strong>Canonical Url</strong>. <strong>Company</strong> follows the selected Project.</li>
 <li>For GitHub, run <tt class="docutils literal">gh api repos/OWNER/REPO <span class="pre">--jq</span> .id</tt> and enter the
-returned number in <strong>Provider Repository Id</strong>. Each provider
-repository can be mapped only once.</li>
+returned number in <strong>Provider Repository</strong>. Each provider repository
+can be mapped only once.</li>
 <li>Set <strong>Canonical Url</strong> to the HTTPS repository URL on <tt class="docutils literal">github.com</tt>,
 <tt class="docutils literal">gitlab.com</tt> or <tt class="docutils literal">bitbucket.org</tt>, matching <strong>Provider</strong>, for
 example <tt class="docutils literal"><span class="pre">https://github.com/example/delivery</span></tt>. Fact links are
@@ -467,7 +467,7 @@ linked to its stable Agile key. Visibility and counters follow your
 access rights. The GitHub connector guide explains which source
 fields can establish links.</li>
 <li>As a Project administrator, open the repository and choose
-<strong>Deliveries</strong>. Inspect <strong>Provider Delivery Id</strong>, <strong>Event Type</strong>,
+<strong>Deliveries</strong>. Inspect <strong>Provider Delivery</strong>, <strong>Event Type</strong>,
 <strong>State</strong>, <strong>Attempt Count</strong>, <strong>Next Retry At</strong> and <strong>Error Summary</strong>
 when facts have not appeared.</li>
 </ol>
@@ -488,8 +488,8 @@ mappings. <strong>Observed merged PRs</strong> opens source details. In Tasks se
 selected environment but none into any visible production mapping in
 that Project; a production mapping is required. Typed names match the
 whole name, ignoring case, so UAT does not match Pre-UAT. The tab and
-filter follow your access rights; the BA’s manual <strong>Environments</strong> panel
-stays separate.</p>
+filter follow your access rights; the task’s manual <strong>Environments</strong>
+panel stays separate.</p>
 <p>A merge is not a deployment or proof that all task code is present. Only
 PRs linked by task keys in their title, body or head branch count: put
 promoted task keys in the release PR body when merging UAT into
@@ -520,7 +520,7 @@ If you spotted it first, help us to smash it by providing a detailed and welcome
 <div class="section" id="contributors">
 <h2><a class="toc-backref" href="#toc-entry-9">Contributors</a></h2>
 <ul class="simple">
-<li>Jimmy McCann <a class="reference external" href="https://github.com/jabez007">https://github.com/jabez007</a></li>
+<li>jabez007 <a class="reference external" href="https://github.com/jabez007">https://github.com/jabez007</a></li>
 </ul>
 </div>
 <div class="section" id="maintainers">

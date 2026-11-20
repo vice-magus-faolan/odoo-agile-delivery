@@ -1,7 +1,7 @@
 # Git policy apply boundary
 
-Odoo 19 Community-compatible, optional LGPL-3 private-suite addon. Installation creates
-no default rule and does not activate task changes.
+Odoo 19 Community-compatible, optional LGPL-3 suite addon. Installation creates no
+default rule and does not activate task changes.
 
 ## Execution and recovery
 

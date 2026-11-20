@@ -110,7 +110,7 @@ class TestAgileMilestones(TransactionCase):
             {
                 "name": "Private Release",
                 "agile_enabled": True,
-                "agile_key": "PRIVRELEASE",
+                "agile_key": "PRIVREL",
                 "allow_milestones": True,
                 "privacy_visibility": "followers",
             }

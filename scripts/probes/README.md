@@ -18,11 +18,19 @@ Use only disposable databases; these probes commit synthetic data.
 - `planning_concurrency_{probe,worker}.py`: assign/return, reorder and team/Sprint
   ownership versus Task placement races with established transaction snapshots.
 
-Run from the repository root with Docker Compose v2 available:
+Use a full Git clone with the prior revisions listed in `PRIOR_SOURCE_COMMITS` in
+`scripts/verify` available locally; a shallow clone is insufficient. Run from the
+repository root with Docker Compose v2 available:
 
-`./scripts/verify` runs the core probes, including planning races, after ordinary addon
+```bash
+./scripts/verify
+```
+
+The verifier runs the core probes, including planning races, after ordinary addon
 installation in its disposable database.
 
-The item-type upgrade needs the prior Git revision selected in `scripts/verify`. The
-verifier extracts its addons into a temporary directory and updates the same populated
-disposable database with the current checkout.
+The item-type upgrades need the prior revisions listed in `PRIOR_SOURCE_COMMITS` in
+`scripts/verify`. The verifier extracts each prior revision into a temporary directory
+and updates the same populated disposable database with the current checkout. The
+planning-race probe runs only through this verifier, which creates its required
+database; it has no standalone invocation.

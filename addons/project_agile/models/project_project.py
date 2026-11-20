@@ -3,7 +3,7 @@ import re
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 
-_AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*$")
+_AGILE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 
 
 class ProjectProject(models.Model):
@@ -40,12 +40,16 @@ class ProjectProject(models.Model):
         for project in self:
             if project.agile_enabled and not project.agile_key:
                 raise ValidationError(_("An Agile project requires an Agile key."))
+
+    def _check_agile_key_format(self):
+        for project in self:
             if project.agile_key and not _AGILE_KEY_PATTERN.fullmatch(
                 project.agile_key
             ):
                 raise ValidationError(
                     _(
-                        "The Agile key must start with an uppercase letter and "
+                        "The Agile key must be 2 to 10 characters, start with an "
+                        "uppercase letter and "
                         "contain only uppercase letters and digits."
                     )
                 )
@@ -145,7 +149,12 @@ class ProjectProject(models.Model):
         for values in vals_list:
             self._check_agile_configuration(defaults | values)
         vals_list = [dict(values) for values in vals_list]
+        key_defaults = self.default_get(["agile_key"])
         for values in vals_list:
+            # Use native field normalization, including context/default values.
+            self.new(
+                {"agile_key": values.get("agile_key", key_defaults.get("agile_key"))}
+            )._check_agile_key_format()
             if (
                 values.get("agile_enabled", defaults.get("agile_enabled"))
                 and "agile_default_item_type_id" not in values
@@ -202,10 +211,17 @@ class ProjectProject(models.Model):
     def write(self, values):
         self._check_agile_configuration(values)
         if "agile_key" in values:
+            candidate = self.new({"agile_key": values["agile_key"]})
+            changing = self.filtered(
+                lambda project: project.agile_key != candidate.agile_key
+            )
+            # Historical namespaces stay usable; only new identities must conform.
+            if changing:
+                candidate._check_agile_key_format()
             # Existence only: archived or inaccessible identities also pin the key.
             task_model = self.env["project.task"].sudo().with_context(active_test=False)
-            for project in self:
-                if values["agile_key"] != project.agile_key and task_model.search_count(
+            for project in changing:
+                if task_model.search_count(
                     [("project_id", "=", project.id), ("agile_key", "!=", False)],
                     limit=1,
                 ):

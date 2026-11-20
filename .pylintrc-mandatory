@@ -15,7 +15,7 @@ license-allowed=AGPL-3,GPL-2,GPL-2 or any later version,GPL-3,GPL-3 or any later
 valid-odoo-versions=19.0
 
 [MESSAGES CONTROL]
-# Temporary issue #1 exception: prefer-env-translation (W8161) remains enabled
+# Pending issue #7: prefer-env-translation (W8161) remains enabled
 # in .pylintrc and reported by the optional hook, but does not gate this list.
 # Issue #7 must assess language fallback compatibility and exercise multilingual
 # helper/sanitized-context paths before this preference becomes mandatory again.

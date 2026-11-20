@@ -26,7 +26,7 @@ for index, (winner_action, loser_action, ordering) in enumerate(
         ("relink", "close", "committed"),
     )
 ):
-    manager, project, solution, revision = seed(env, "M8SCOPERACE" + str(index))
+    manager, project, solution, revision = seed(env, "M8SCOPE" + str(index))
     task = (
         env["project.task"]
         .with_user(manager)
@@ -144,7 +144,7 @@ for index, (winner_action, loser_action) in enumerate(
         ("change_target", "close"),
     )
 ):
-    manager, project, solution, revision = seed(env, "SCRUMCLOSE" + str(index))
+    manager, project, solution, revision = seed(env, "SCLOSE" + str(index))
     team = (
         env["project.agile.team"]
         .with_user(manager)

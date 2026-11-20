@@ -128,7 +128,7 @@ class TestAgileRoles(TransactionCase):
         )
         copied.write({"agile_estimation_method": "fibonacci"})
         self.assertEqual(copied.agile_estimation_method, "fibonacci")
-        copied.write({"agile_enabled": True, "agile_key": "TRUSTEDENABLE"})
+        copied.write({"agile_enabled": True, "agile_key": "TRSTENABLE"})
         self.assertEqual(
             copied.agile_default_item_type_id,
             self.env.ref("project_agile.project_agile_item_type_task"),
@@ -253,16 +253,16 @@ class TestAgileProjectSharing(TransactionCase):
         caller = self.env["project.task"].with_user(user)
         self.assertFalse(caller.env.su)
         defaults = self.env["ir.default"].with_user(user)
-        defaults.set("project.task", "agile_key", "PERSONALKEY-1", user_id=True)
+        defaults.set("project.task", "agile_key", "PERSONAL-1", user_id=True)
         self.assertEqual(
-            defaults._get_model_defaults("project.task")["agile_key"], "PERSONALKEY-1"
+            defaults._get_model_defaults("project.task")["agile_key"], "PERSONAL-1"
         )
         agile_project = self.env["project.project"].create(
             {
                 "name": "Personal default key namespace",
                 "privacy_visibility": "employees",
                 "agile_enabled": True,
-                "agile_key": "PERSONALKEY",
+                "agile_key": "PERSONAL",
             }
         )
         plain = caller.with_context(default_project_id=self.project.id).create(
@@ -280,21 +280,21 @@ class TestAgileProjectSharing(TransactionCase):
         )
         self.assertFalse(orphan.project_id)
         self.assertFalse(orphan.agile_key)
-        self.assertFalse(caller.name_search("PERSONALKEY-1", operator="="))
+        self.assertFalse(caller.name_search("PERSONAL-1", operator="="))
         genuine = caller.with_context(default_project_id=agile_project.id).create(
             {"name": "Genuine work with personal key default"}
         )
-        self.assertEqual(genuine.agile_key, "PERSONALKEY-1")
+        self.assertEqual(genuine.agile_key, "PERSONAL-1")
         for number, task in enumerate((plain, following, orphan), start=2):
             task.write({"project_id": agile_project.id})
-            self.assertEqual(task.agile_key, f"PERSONALKEY-{number}")
+            self.assertEqual(task.agile_key, f"PERSONAL-{number}")
         for task in genuine | plain | following | orphan:
             self.assertEqual(
                 dict(caller.name_search(task.agile_key, operator="=")),
                 {task.id: task.display_name},
             )
         self.assertEqual(
-            defaults._get_model_defaults("project.task")["agile_key"], "PERSONALKEY-1"
+            defaults._get_model_defaults("project.task")["agile_key"], "PERSONAL-1"
         )
 
     def test_keyed_labels_preserve_portal_field_security(self):

@@ -1,7 +1,14 @@
 ## Build and approve a specification
 
-Use a Business analyst or Project administrator account with the Project access
+Use a business analyst (BA) or Project administrator account with the Project access
 described in Configuration. The following example starts with a Solution Specification / Internal Brief.
+
+Selecting a requirement or context revision in a draft document does not freeze
+it. **Submit for Review** freezes the document and its selected content revisions.
+Creating a confirmed Task link also freezes its exact requirement revision, even
+without document approval. Nobody can edit frozen content; create a new numbered
+revision of the same requirement or context instead. The latest revision is the
+one with the highest revision number; it may still be an editable draft.
 
 1. In **Project > Solutions > Requirements**, create a requirement with **Name** and
    **Solution**. Save, then choose **Open or Create Content Revision**. Fill **Title**,
@@ -28,8 +35,8 @@ described in Configuration. The following example starts with a Solution Specifi
    Revision**. To request edits, a Project administrator with current access uses
    **Return with Reason**, enters **Reason** and chooses **Confirm**. Business
    analysts can edit and resubmit the returned draft, but cannot return a review,
-   including their own. Requirement and context content already sealed by a reference
-   stays sealed; revise it through its stable identity instead.
+   including their own. Requirement and context content frozen at submission or by another workflow
+   stays frozen; revise it through its stable identity instead.
 6. For later changes, open the approved revision and choose **New Working
    Revision**. Create successor requirement and context revisions as needed and
    select them in the new draft. Approving the successor marks the previous
@@ -41,7 +48,7 @@ Project users with access to a requirement, Solution document or supporting
 context can use **Send message**, mentions and **Follow** on its identity form.
 Open **Project > Solutions > Requirements**, **Solution Documents** or **Solution Supporting
 Context**, rather than the numbered revision list. The conversation stays with
-the identity when a new revision is created. Messages do not change sealed
+the identity when a new revision is created. Messages do not change frozen
 content or approve scope.
 
 With native incoming mail configured, an internal user who can currently read
@@ -125,7 +132,7 @@ Save, choose **Review and Confirm**, inspect the proposed work, then choose
 you confirm the preview. Changed source content requires a fresh preview;
 confirming an already consumed preview returns its existing task rather than
 creating another. Inspect links under **Project > Solutions > Requirement Work Links**. To
-move an older active link to the same requirement's current sealed head, use
+move an older active link to the same requirement's latest revision, once frozen, use
 **Adopt Existing Revision** below to replace it and retire the old link together.
 For other replacements, use the manual replacement workflow below.
 
@@ -163,24 +170,25 @@ open the selected active link under **Project > Solutions > Requirement Work Lin
    The Task opens; its **Agile** tab shows the new exact expectations under
    **Exact Requirement Acceptance**. No separate save or relinking is needed.
 
-Apply creates a sealed numbered successor, links it to this Task and retires the
+Apply creates a frozen numbered successor, links it to this Task and retires the
 old link together. Other linked Tasks remain on their own selected revisions.
 Manual Task criteria, approved documents, recorded acceptance and historical
 Sprint event content do not change. The new link has no old specification
 reference or inherited approval/acceptance: select the successor in a new document
 revision and follow the ordinary approval workflow when agreement is required.
 
-Refinement requires a link to the current sealed requirement head. If another
-author created a newer revision or retired the link, the old dialog is rejected
-without partial changes. Reopening an older active link does not move it to the
-head; use the explicit replacement workflow below when adopting existing content.
+Refinement requires a link to the latest requirement revision, which must be
+frozen. If another author created a newer revision or retired the link, the old
+dialog is rejected without partial changes. Reopening an older active link does
+not move it to the latest revision; use the explicit replacement workflow below
+when adopting existing content.
 An identical retry returns the same Task without another successor; a different
 proposal on an already refined link is rejected. Cancel changes no requirement
 or work link.
 
 ## Move another Task to an existing revision
 
-If Tasks A and B link requirement revision 1, refining A creates sealed revision
+If Tasks A and B link requirement revision 1, refining A creates frozen revision
 2 for A only. B stays on revision 1. As a Business analyst or Project
 administrator with current write access to B:
 
@@ -191,15 +199,15 @@ administrator with current write access to B:
    Acceptance** shows exactly revision 2. The old link is retired with its reason
    and actor in the same operation; no separate save or retirement is needed.
 
-Adoption selects only a different **current sealed head** of the same requirement;
-it does not select an arbitrary existing revision or the latest sealed revision
-behind a newer draft. If a newer draft head exists, adoption is blocked until the
-head is sealed through the ordinary workflow.
-A link already at that head cannot adopt it again. A manually retired source link
-cannot be used.
+Adoption selects only the **latest revision** of the same requirement, and that
+revision must be frozen. It cannot select an arbitrary older revision, including
+a frozen one behind a newer draft. If the latest revision is a draft, adoption
+is blocked until that revision is frozen through the ordinary workflow. A link
+already at the latest revision cannot adopt it again. A manually retired source
+link cannot be used.
 
-Adoption reuses that exact revision; it creates no revision 3. A newer working or
-sealed head, withdrawn link or revoked access rejects an unconfirmed dialog
+Adoption reuses that exact revision; it creates no revision 3. A newer draft or
+frozen revision, withdrawn link or revoked access rejects an unconfirmed dialog
 without partial changes. Cancel changes no link. An identical successful retry
 returns the same Task, not another edge. Inspect and reopen a stale dialog.
 
@@ -210,7 +218,7 @@ reference. Use **Refine Acceptance** instead when changing the current content.
 
 ## Replace a work link manually
 
-For a non-head revision, a different requirement, or coverage that must name an
+For an older revision, a different requirement, or coverage that must name an
 exact specification, use **Project > Solutions > Task Previews** rather than
 **Adopt Existing Revision**:
 

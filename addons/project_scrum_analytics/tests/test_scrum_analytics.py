@@ -282,7 +282,7 @@ class TestScrumAnalytics(TransactionCase):
                 "privacy_visibility": "employees",
                 "company_id": other_company.id,
                 "agile_enabled": True,
-                "agile_key": "OTHERCOMPANY",
+                "agile_key": "OTHERCO",
             }
         )
         other_team = self.env["project.agile.team"].create(

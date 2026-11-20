@@ -414,7 +414,7 @@ class TestEnvironmentStatus(TransactionCase):
             {
                 "name": "Template",
                 "agile_enabled": True,
-                "agile_key": "ENVTEMPLATE",
+                "agile_key": "ENVTEMPL",
                 "is_template": True,
             }
         )

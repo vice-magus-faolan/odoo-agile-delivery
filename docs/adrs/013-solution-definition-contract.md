@@ -202,13 +202,13 @@ rewritten by ORM, import, RPC, relational commands, context or ordinary sudo; co
 creates a successor. Direct lifecycle-state writes are rejected even for superuser;
 private actions change lifecycle metadata only after authorization.
 
-Requirement/context content seals when used in review, confirmed Task intent/link,
-Sprint capture or acceptance. Returning a document does not unseal reused content.
-Unchanged sealed revisions may be reused; editing creates a numbered successor.
-Snapshots retain actual nested content, original labels and source-template
-version/content, not only pointers to mutable names. Rename/archive affects navigation
-rather than stored bytes. A digest is not protection against trusted server code or
-database administrators.
+Selecting requirement/context membership in a draft document does not seal content.
+Content seals on document submission, confirmed Task intent/link, Sprint capture or
+acceptance. Returning a document does not unseal reused content. Unchanged sealed
+revisions may be reused; editing creates a numbered successor. Snapshots retain actual
+nested content, original labels and source-template version/content, not only pointers
+to mutable names. Rename/archive affects navigation rather than stored bytes. A digest
+is not protection against trusted server code or database administrators.
 
 SOW is optional. When one exists, a specification selects an independently approved
 exact SOW revision and records scope disposition and rationale. SOW approval does not
@@ -332,13 +332,14 @@ implies complete coverage nor substitutes the latest revision.
 
 ## Cheap refinement without changing agreed content
 
-Keep sealing at first exact reference, rather than delaying it until document approval:
-a Task link must continue to mean the content actually selected, even before approval.
-Automatically carrying every active link forward would change other Tasks without their
-authors selecting new intent. Instead, a Business analyst with current write authority
-refines one selected active work link in two steps: open **Refine Acceptance**, then
-edit the proposed expectations and **Apply Refinement**. The dialog shows the original
-exact expectations and explains the selected Task boundary before confirmation.
+Seal on document submission or confirmed Task link creation, rather than delaying until
+document approval. Draft document membership alone does not seal content; a confirmed
+Task link must mean the content actually selected, even before approval. Automatically
+carrying every active link forward would change other Tasks without their authors
+selecting new intent. Instead, a Business analyst with current write authority refines
+one selected active work link in two steps: open **Refine Acceptance**, then edit the
+proposed expectations and **Apply Refinement**. The dialog shows the original exact
+expectations and explains the selected Task boundary before confirmation.
 
 Apply creates and seals a numbered requirement successor, links that exact content to
 the selected Task and retires the original edge with an audit reason, together in one

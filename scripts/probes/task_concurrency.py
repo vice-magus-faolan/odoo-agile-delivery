@@ -388,7 +388,7 @@ def run_probe(env):
     results.append({"operation": "stale_source", "workers": stale})
     # New public refinement action: identical submissions converge, different
     # proposals cannot overwrite a winner after real native transaction retry.
-    manager, project, _solution, revision = seed(env, "M8REFINERACE")
+    manager, project, _solution, revision = seed(env, "M8REFINE")
     task = (
         env["project.task"]
         .with_user(manager)

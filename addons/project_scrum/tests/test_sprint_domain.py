@@ -1071,7 +1071,7 @@ class TestProjectScrumDomain(TransactionCase):
                 {
                     "name": "Existing native client",
                     "privacy_visibility": "employees",
-                    "agile_key": "ENABLESCRUM",
+                    "agile_key": "ENSCRUM",
                 }
             )
         )

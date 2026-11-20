@@ -600,7 +600,7 @@ def _first_issue_races(env, manager, project, solution, requirement, secondary):
 def run_portal_probe(env):
     from task_concurrency import seed
 
-    manager, project, solution, requirement = seed(env, "M8PORTALRACE")
+    manager, project, solution, requirement = seed(env, "M8PORTAL")
     requirement.write({"audience": "customer"})
     project.write({"privacy_visibility": "portal"})
     secondary = env["res.company"].create({"name": "SYNTHETIC portal race secondary"})

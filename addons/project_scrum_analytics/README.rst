@@ -51,11 +51,10 @@ Configuration
 
 No analytics settings are required. Follow the `Scrum setup
 guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration>`__
-to configure an Agile Project and its Sprints. Sprint setup and
-lifecycle actions require **Administrator** under **Project** in user
-access rights, called Project administrator below. Project users can
-read reports for accessible Projects and available companies; reports
-and timeline points cannot be edited manually.
+for Project configuration and the roles needed to set up and run
+Sprints. Project users can read reports for accessible Projects and
+available companies; reports and timeline points cannot be edited
+manually.
 
 Usage
 =====
@@ -87,8 +86,9 @@ the Projects and companies you can access.
    summing them does not give a Sprint total. Use the Sprint report for
    totals.
 
-As a Project administrator, start and close Sprints through their normal
-actions. Follow the `Scrum completion
+Follow the `Scrum setup and role
+guide <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration>`__
+for Sprint setup and lifecycle permissions, and the `Scrum completion
 instructions <https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work>`__
 when recording completed work. If a report seems empty, check filters,
 Sprint scope history, Project visibility and available companies before
@@ -115,7 +115,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

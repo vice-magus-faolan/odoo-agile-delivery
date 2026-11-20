@@ -4,10 +4,10 @@ Setting **Webhook Secret** also requires System Administrator access.
 
 1. Enable Agile on the Project and configure its stable task-key prefix.
 2. Open **Project > Tasks > Git Repositories** and create a repository. Enter
-   **Name**, **Provider**, **Provider Repository Id**, **Project** and
+   **Name**, **Provider**, **Provider Repository**, **Project** and
    **Canonical Url**. **Company** follows the selected Project.
 3. For GitHub, run `gh api repos/OWNER/REPO --jq .id` and enter the returned
-   number in **Provider Repository Id**. Each provider repository can be mapped
+   number in **Provider Repository**. Each provider repository can be mapped
    only once.
 4. Set **Canonical Url** to the HTTPS repository URL on `github.com`,
    `gitlab.com` or `bitbucket.org`, matching **Provider**, for example

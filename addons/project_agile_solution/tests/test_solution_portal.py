@@ -822,7 +822,7 @@ class TestSolutionPortal(TestSolutionRequirements):
         rule.unlink()
         project = self._project(
             "Companyless client",
-            "SYNPORTALSHARED",
+            "SHAREDPORT",
             self.env["res.company"],
             privacy="portal",
         )

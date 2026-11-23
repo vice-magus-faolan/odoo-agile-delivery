@@ -5,8 +5,9 @@ described in Configuration. The following example starts with a Solution Specifi
 
 Selecting a requirement or context revision in a draft document does not freeze
 it. **Submit for Review** freezes the document and its selected content revisions.
-Creating a confirmed Task link also freezes its exact requirement revision, even
-without document approval. Nobody can edit frozen content; create a new numbered
+The content revision form shows frozen content as **Sealed**; errors call it a
+"sealed revision". Creating a confirmed Task link also freezes its exact
+requirement revision, even without document approval. Nobody can edit frozen content; create a new numbered
 revision of the same requirement or context instead. The latest revision is the
 one with the highest revision number; it may still be an editable draft.
 

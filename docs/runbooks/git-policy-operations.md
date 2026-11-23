@@ -10,8 +10,9 @@ Rating, email-template and SMS-template target stages are refused. Git ingress a
 normalization remain observations, not Task writes.
 
 A Settings administrator assigns **Git Policy Manager** to the owner and a different
-approver through technical groups in developer mode, not the **Project** access
-selector. Follow
+approver. Enable developer mode, open the user's **Access Rights** tab and select **Git
+Policy Manager** under **Extra Rights**. Save and repeat for the other person. This
+group is not in the **Project** access selector. Follow
 [Assign Git Policy Manager](../../addons/project_agile_git_automation/README.rst#assign-git-policy-manager)
 for the steps and its Project Administrator implication. Installation assigns nobody and
 enables no rules. Project administrator access alone is insufficient. Use a

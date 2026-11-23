@@ -2,10 +2,10 @@ Installation assigns no **Git Policy Manager** members and creates no rules.
 
 ## Assign Git Policy Manager
 
-As a Settings administrator, enable developer mode and open **Settings > Users
-& Companies > Users**. Open the intended rule owner and add **Git Policy Manager**
-under the user's technical groups, then save. Repeat for a different approver.
-This group has no user-form privilege selector: it is not a choice in the
+As a Settings administrator, open **Settings > Users & Companies > Users**
+and open the intended rule owner. Enable developer mode, open the user's
+**Access Rights** tab and select **Git Policy Manager** under **Extra Rights**.
+Save, then repeat for a different approver. This group is not a choice in the
 **Project** access selector. It also grants Project Administrator permissions;
 assign it only to authorized policy owners and approvers. Project administrator
 access alone does not grant Git Policy Manager.

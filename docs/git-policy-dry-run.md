@@ -44,18 +44,19 @@ removal. A provider implementation outside that reviewed trust boundary requires
 separate review; this addon does not add an ingress adapter.
 
 The private sealer re-resolves fixed-model records in its own current-user environment.
-The delivery must be processed, have a real attempt and no active lease. Its receipt
-time must be no later than its settlement time, which must be no later than the server
-time. Its digest and size must satisfy the configured bounds, and its repository,
-company and source event must match exactly. A fake processed flag alone is
-insufficient. PR identity and the complete 40- or 64-character hexadecimal head SHA are
-preserved without repair. The current delivery audit must identify the exact PR,
-repository-local immutable key and current Task. Its outcome must be Associated or
-Already Associated, and its source must be the PR title, body or head branch. An old
-immutable association is not proof of the current PR's keys. Raw PR strings are never
-reparsed by policy to choose Tasks. Only normalized association and audit records supply
-candidates. Wrong scope, stale links, absent provenance, unprocessed or unsettled
-receipts and seals produced by public calls or context values are rejected.
+The delivery must be processed and have a real attempt. It must have no lease token or
+lease expiry, a valid SHA-256 digest, and a payload size from 1 to 262,144 bytes. These
+bounds are fixed, not configurable. Its receipt time must be no later than its
+settlement time, which must be no later than the server time. Its repository, company
+and source event must match exactly. A fake processed flag alone is insufficient. PR
+identity and the complete 40- or 64-character hexadecimal head SHA are preserved without
+repair. The current delivery audit must identify the exact PR, repository-local
+immutable key and current Task. Its outcome must be Associated or Already Associated,
+and its source must be the PR title, body or head branch. An old immutable association
+is not proof of the current PR's keys. Raw PR strings are never reparsed by policy to
+choose Tasks. Only normalized association and audit records supply candidates. Wrong
+scope, stale links, absent provenance, unprocessed or unsettled receipts and seals
+produced by public calls or context values are rejected.
 
 One version-1 immutable PR and Task evidence bundle stores the exact normalized PR,
 bounded current audit references, and up to twenty check references with their receipt

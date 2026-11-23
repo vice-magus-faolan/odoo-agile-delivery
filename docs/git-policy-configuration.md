@@ -9,7 +9,9 @@ Run mode.
 ## Roles and supported configuration
 
 A Settings administrator assigns **Git Policy Manager** to the intended rule owner and a
-different approver through the user's technical groups in developer mode. Follow
+different approver. Enable developer mode, open the user's **Access Rights** tab and
+select **Git Policy Manager** under **Extra Rights**. Save and repeat for the other
+person. Follow
 [Assign Git Policy Manager](../addons/project_agile_git_automation/README.rst#assign-git-policy-manager)
 for the steps and its Project Administrator implication. It is not a choice in the
 **Project** access selector. Project administrator access alone does not allow policy

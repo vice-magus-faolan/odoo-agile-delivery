@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+  <t t-name="project_agile_ui.AgileRoadmap">
+    <main
+      class="o_agile_roadmap"
+      t-att-aria-busy="state.loading ? &apos;true&apos; : &apos;false&apos;"
+    >
+      <h1>Epic and release roadmap</h1>
+      <p
+      >Read-only plan. Dates come from native records, not Sprint boundaries. Task times and window boundaries are UTC.</p>
+      <div class="o_agile_roadmap_filters">
+        <div>
+          <label for="roadmap-project">Project</label>
+          <Many2XAutocomplete
+            id="&apos;roadmap-project&apos;"
+            resModel="&apos;project.project&apos;"
+            fieldString="&apos;Project&apos;"
+            value="state.project?.display_name || &apos;&apos;"
+            autoSelect="true"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="projectDomain"
+            update.bind="selectProject"
+          />
+        </div>
+        <div>
+          <label for="roadmap-from">From (UTC)</label>
+          <input
+            id="roadmap-from"
+            class="form-control"
+            type="date"
+            t-model="state.dateFrom"
+            t-on-change="() => this.load()"
+          />
+        </div>
+        <div>
+          <label for="roadmap-to">Through (UTC)</label>
+          <input
+            id="roadmap-to"
+            class="form-control"
+            type="date"
+            t-model="state.dateTo"
+            t-on-change="() => this.load()"
+          />
+        </div>
+        <div>
+          <label for="roadmap-mode">Work dates</label>
+          <select id="roadmap-mode" class="form-select" t-on-change="changeMode">
+            <option
+              value="window"
+              t-att-selected="state.mode === &apos;window&apos;"
+            >Dated window</option>
+            <option
+              value="unscheduled"
+              t-att-selected="state.mode === &apos;unscheduled&apos;"
+            >Unscheduled</option>
+          </select>
+        </div>
+        <div>
+          <label for="roadmap-type">Item type</label>
+          <Many2XAutocomplete
+            id="&apos;roadmap-type&apos;"
+            resModel="&apos;project.agile.item.type&apos;"
+            fieldString="&apos;Item type&apos;"
+            value="state.itemType?.display_name || &apos;&apos;"
+            autoSelect="true"
+            placeholder="&apos;All types&apos;"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="typeDomain"
+            update.bind="selectType"
+          />
+        </div>
+        <div>
+          <label for="roadmap-team">Agile Team</label>
+          <Many2XAutocomplete
+            t-key="state.project?.id || 0"
+            id="&apos;roadmap-team&apos;"
+            resModel="&apos;project.agile.team&apos;"
+            fieldString="&apos;Agile Team&apos;"
+            value="state.team?.display_name || &apos;&apos;"
+            autoSelect="true"
+            placeholder="&apos;All teams&apos;"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="teamDomain"
+            update.bind="selectTeam"
+          />
+        </div>
+        <div t-if="state.snapshot?.show_milestones">
+          <label for="roadmap-milestone">Milestone</label>
+          <Many2XAutocomplete
+            t-key="state.project?.id || 0"
+            id="&apos;roadmap-milestone&apos;"
+            resModel="&apos;project.milestone&apos;"
+            fieldString="&apos;Milestone&apos;"
+            value="state.milestone?.display_name || &apos;&apos;"
+            autoSelect="true"
+            placeholder="&apos;All milestones&apos;"
+            activeActions="{create: false, createEdit: false, write: false}"
+            getDomain.bind="milestoneDomain"
+            update.bind="selectMilestone"
+          />
+        </div>
+        <div>
+          <label for="roadmap-group">Group this work page by</label>
+          <select id="roadmap-group" class="form-select" t-model="state.grouping">
+            <option value="type">Item type</option>
+            <option value="team">Agile Team</option>
+            <option
+              value="milestone"
+              t-if="state.snapshot?.show_milestones"
+            >Milestone</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary o_agile_roadmap_refresh"
+          t-on-click="() => this.load()"
+        >Refresh / first pages</button>
+        <button
+          type="button"
+          class="btn btn-secondary o_agile_roadmap_list"
+          t-att-disabled="state.loading || !state.project?.id"
+          t-on-click="openList"
+        >All filtered work — all dates</button>
+      </div>
+      <p t-if="state.loading" role="status">Loading roadmap…</p>
+      <p
+        t-if="state.error"
+        role="alert"
+        class="alert alert-danger"
+        t-esc="state.error"
+      />
+      <t t-if="state.snapshot">
+        <section aria-label="Native Project interval">
+          <h2 t-esc="state.snapshot.project.name" />
+          <p class="o_agile_roadmap_project_dates">Project planned interval:
+            <t
+            t-if="state.snapshot.project.start &amp;&amp; state.snapshot.project.end"
+          ><t t-esc="state.snapshot.project.start" /> → <t
+            t-esc="state.snapshot.project.end"
+          /></t>
+            <t t-else="">Unscheduled — no complete Project interval</t>
+          </p>
+          <div class="o_agile_roadmap_track" aria-hidden="true">
+            <span
+              class="o_agile_roadmap_bar"
+              t-att-style="timelineStyle(state.snapshot.project.start, state.snapshot.project.end)"
+            />
+          </div>
+        </section>
+        <section aria-label="Planned work">
+          <h2>Epics and open work</h2>
+          <p
+            t-if="!state.snapshot.native_task_start"
+          >Native task planned starts are unavailable in this installation. Work has deadline markers, not invented intervals.</p>
+          <p
+            class="o_agile_roadmap_work_total"
+            role="status"
+            aria-live="polite"
+          >Showing <t t-esc="state.snapshot.work.items.length" /> of <t
+            t-esc="state.snapshot.work.total"
+          /> visible work items in this selection. Groups describe this page only.</p>
+          <p
+          >Use Unscheduled for work without a deadline. All filtered work includes other date windows and missing dates. Closed, archived and template work is excluded.</p>
+          <button
+            t-if="state.snapshot.work.next_cursor"
+            type="button"
+            class="btn btn-secondary o_agile_roadmap_next_work"
+            t-on-click="() => this.load(state.snapshot.work.next_cursor, state.milestoneCursor)"
+          >Next work</button>
+          <p
+            t-if="!state.snapshot.work.items.length"
+          >No visible work matches this selection.</p>
+          <div
+            role="region"
+            aria-label="Work dates"
+            tabindex="0"
+            class="table-responsive"
+          >
+            <table class="table">
+              <caption>Current work page — native dates (UTC)</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Work</th>
+                  <th scope="col">Parent</th>
+                  <th scope="col">Planned start</th>
+                  <th scope="col">Deadline</th>
+                  <th scope="col">Window position</th>
+                </tr>
+              </thead>
+              <tbody t-foreach="groups" t-as="group" t-key="group.id">
+                <tr>
+                  <th colspan="5" scope="rowgroup"><t t-esc="group.name" /> — <t
+                    t-esc="group.items.length"
+                  /> on this page</th>
+                </tr>
+                <tr
+                  t-foreach="group.items"
+                  t-as="item"
+                  t-key="item.id"
+                  t-att-data-task-id="item.id"
+                >
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-link"
+                      t-on-click="() => this.openWork(item)"
+                    ><t t-esc="item.key" /> · <t t-esc="item.name" /></button>
+                  </td>
+                  <td>
+                    <t t-if="item.parent" t-esc="item.parent.name" />
+                    <t t-elif="item.parent_unavailable">Parent unavailable</t>
+                    <t t-else="">No parent</t>
+                  </td>
+                  <td>
+                    <t t-if="item.start" t-esc="item.start" />
+                    <t t-else="">Not planned</t>
+                  </td>
+                  <td>
+                    <t t-if="item.end" t-esc="item.end" />
+                    <t t-else="">Unscheduled — no deadline</t>
+                  </td>
+                  <td>
+                    <div class="o_agile_roadmap_track" aria-hidden="true">
+                      <span
+                        class="o_agile_roadmap_bar"
+                        t-att-style="timelineStyle(item.start, item.end)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section t-if="state.snapshot.show_milestones" aria-label="Release milestones">
+          <h2>Release milestones</h2>
+          <p
+          >Project milestones use their own deadlines and Reached state, independent of work type and team filters. They are not Sprint ends or detected deployments.</p>
+          <p class="o_agile_roadmap_release_total" role="status">Showing <t
+            t-esc="state.snapshot.milestones.items.length"
+          /> of <t
+            t-esc="state.snapshot.milestones.total"
+          /> visible milestones in this selection.</p>
+          <button
+            t-if="state.snapshot.milestones.next_cursor"
+            type="button"
+            class="btn btn-secondary o_agile_roadmap_next_release"
+            t-on-click="() => this.load(state.taskCursor, state.snapshot.milestones.next_cursor)"
+          >Next milestones</button>
+          <ul class="list-unstyled">
+            <li
+              t-foreach="state.snapshot.milestones.items"
+              t-as="milestone"
+              t-key="milestone.id"
+              t-att-data-milestone-id="milestone.id"
+            >
+              <button
+              type="button"
+              class="btn btn-link"
+              t-on-click="() => this.openMilestone(milestone)"
+              t-esc="milestone.name"
+            /> ·
+              <t t-if="milestone.date" t-esc="milestone.date" /><t
+              t-else=""
+            >Unscheduled</t> ·
+              <t t-if="milestone.reached">Reached</t><t t-else="">Not reached</t>
+            </li>
+          </ul>
+        </section>
+      </t>
+    </main>
+  </t>
+</templates>

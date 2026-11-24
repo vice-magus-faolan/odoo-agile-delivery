@@ -1,0 +1,33 @@
+.o_agile_roadmap {
+  overflow: auto;
+  padding: 1rem;
+
+  .o_agile_roadmap_filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    > div {
+      min-width: 10rem;
+    }
+  }
+
+  .o_agile_roadmap_track {
+    min-width: 10rem;
+    background: var(--body-bg, #eee);
+  }
+
+  .o_agile_roadmap_bar {
+    display: block;
+    height: 0.75rem;
+    background: var(--primary, #714b67);
+    min-width: 2px;
+  }
+
+  button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}

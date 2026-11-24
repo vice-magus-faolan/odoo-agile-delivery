@@ -26,15 +26,13 @@ Optional Odoo 19 Community bridge designating one OCA Document Page as
 the documentation root for an Agile Project. It depends on
 ``project_agile`` and OCA ``document_page_project``, which requires
 ``document_page`` and ``document_knowledge``. The bridge and these OCA
-modules declare AGPL-3 licenses.
+modules use AGPL-3; review the combined deployment's
+corresponding-source obligations before use.
 
 Pages retain the native OCA editor, hierarchy, revision history and
 Project relation. Clearing the root designation does not delete or
 reparent the page. This is a Project-page bridge, not a Task-page
 connector or an Enterprise Knowledge integration.
-
-Before public or production use, review the combined deployment's AGPL-3
-corresponding-source obligations as recorded in the adoption decision.
 
 **Table of contents**
 
@@ -54,12 +52,11 @@ Make the OCA 19.0 ``document_knowledge``, ``document_page`` and
 ``document_page_project`` addons available before installing this
 bridge. Use the selected OCA ``knowledge`` commit
 ```e4a12c0c99866a5850840941d6f7ae3b3b27280d`` <https://github.com/OCA/knowledge/tree/e4a12c0c99866a5850840941d6f7ae3b3b27280d>`__.
-All three OCA modules and this bridge use AGPL-3. Review the combined
-deployment's corresponding-source obligations before use. Run
-``./scripts/verify-oca-document-page`` from the repository root to check
-the selected backend and bridges in disposable databases. The separate
-check covers installation, update, uninstall and reinstall. Validate
-your installed extensions and Odoo.sh staging separately. The `adoption
+Run ``./scripts/verify-oca-document-page`` from the repository root to
+check the selected backend and bridges in disposable databases. The
+separate check covers installation, update, uninstall and reinstall.
+Validate your installed extensions and Odoo.sh staging separately. The
+`adoption
 decision <https://github.com/vice-magus-faolan/odoo-agile-delivery/blob/19.0/docs/adrs/006-knowledge-relationship-model.md>`__
 records the selected backend and dependency boundary.
 
@@ -119,7 +116,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

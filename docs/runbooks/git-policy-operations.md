@@ -9,12 +9,16 @@ notifications, timestamps, durations and nonterminal-state recomputation still o
 Rating, email-template and SMS-template target stages are refused. Git ingress and
 normalization remain observations, not Task writes.
 
-An authorized administrator must grant **Git Policy Manager** to the owner and a
-different approver. Installation assigns nobody and enables no rules. Project
-administrator access alone is insufficient. Use a least-privileged active internal
-execution user, not uid 1 or a portal account. All three need current company and
-concrete Project/Task access. Visible System Administrators may emergency-disable, not
-activate merely by virtue of that role.
+A Settings administrator assigns **Git Policy Manager** to the owner and a different
+approver. Enable developer mode, open the user's **Access Rights** tab and select **Git
+Policy Manager** under **Extra Rights**. Save and repeat for the other person. This
+group is not in the **Project** access selector. Follow
+[Assign Git Policy Manager](../../addons/project_agile_git_automation/README.rst#assign-git-policy-manager)
+for the steps and its Project Administrator implication. Installation assigns nobody and
+enables no rules. Project administrator access alone is insufficient. Use a
+least-privileged active internal execution user, not uid 1 or a portal account. All
+three need current company and concrete Project/Task access. Visible System
+Administrators may emergency-disable, not activate merely by virtue of that role.
 
 Before live Apply mode, take a consistent database/filestore backup, test isolated
 restoration and assess the installed Task extensions and notification settings. Unknown

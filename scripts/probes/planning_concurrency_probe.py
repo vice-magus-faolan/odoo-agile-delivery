@@ -16,7 +16,7 @@ project = env["project.project"].create(
         "privacy_visibility": "employees",
         "company_id": env.company.id,
         "agile_enabled": True,
-        "agile_key": "CONCURRENCY",
+        "agile_key": "CONCUR",
     }
 )
 team = env["project.agile.team"].create(

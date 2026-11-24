@@ -1,11 +1,17 @@
+import re
+from unittest.mock import patch
+
 from lxml import etree
+from psycopg2 import IntegrityError
 
 from odoo import Command
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
+from odoo.tools import mute_logger
 from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.mail.tests.common import mail_new_test_user
+from odoo.addons.project_agile.models import project_project
 
 
 class TestProjectAgileDomain(TransactionCase):
@@ -50,6 +56,214 @@ class TestProjectAgileDomain(TransactionCase):
                 **values,
             }
         )
+
+    def test_project_key_create_rejects_invalid_length_and_grammar(self):
+        for enabled in (False, True):
+            for key in (
+                "A",
+                "ABCDEFGHIJK",
+                "lower",
+                "1A",
+                "AB_C",
+                "AB-C",
+                " AB",
+                "AB ",
+                "AB\n",
+            ):
+                with (
+                    self.subTest(enabled=enabled, key=key),
+                    self.assertRaises(ValidationError),
+                ):
+                    self.env["project.project"].create(
+                        {
+                            "name": "Invalid prefix",
+                            "agile_enabled": enabled,
+                            "agile_key": key,
+                        }
+                    )
+
+    def test_project_key_write_rejects_invalid_length_and_grammar(self):
+        project = self.env["project.project"].create({"name": "Prefix configuration"})
+        for enabled in (False, True):
+            project.write({"agile_enabled": enabled, "agile_key": "VALID"})
+            for key in (
+                "A",
+                "ABCDEFGHIJK",
+                "lower",
+                "1A",
+                "AB_C",
+                "AB-C",
+                " AB",
+                "AB ",
+                "AB\n",
+            ):
+                with (
+                    self.subTest(enabled=enabled, key=key),
+                    self.assertRaises(ValidationError),
+                ):
+                    project.write({"agile_key": key})
+                self.assertEqual(project.agile_key, "VALID")
+                self.assertEqual(project.agile_enabled, enabled)
+
+    def test_project_key_boundaries_preserve_exact_task_identity(self):
+        for key in ("A2", "A123456789"):
+            with self.subTest(key=key):
+                created = self._create_agile_project("Created at boundary", key)
+                task = self.env["project.task"].create(
+                    {"name": "Boundary work", "project_id": created.id}
+                )
+                self.assertEqual(task.agile_key, f"{key}-1")
+                project = self.env["project.project"].create(
+                    {"name": "Written at boundary"}
+                )
+                # A distinct valid prefix keeps the uniqueness constraint independent.
+                written_key = "B" + key[1:]
+                project.write({"agile_enabled": True, "agile_key": written_key})
+                self.assertEqual(project.agile_key, written_key)
+                with self.assertRaises(ValidationError):
+                    created.write({"agile_key": written_key})
+                self.assertEqual((created.agile_key, task.agile_key), (key, f"{key}-1"))
+                with (
+                    self.assertRaises(IntegrityError),
+                    self.cr.savepoint(),
+                    mute_logger("odoo.sql_db"),
+                ):
+                    self._create_agile_project("Duplicate prefix", key)
+
+    def test_project_key_defaults_and_optional_enablement(self):
+        model = self.env["project.project"]
+        ordinary = model.create({"name": "Ordinary without prefix"})
+        self.assertFalse(ordinary.agile_key)
+        with self.assertRaises(ValidationError):
+            ordinary.write({"agile_enabled": True})
+        for key in ("A", "ABCDEFGHIJK"):
+            with self.subTest(key=key), self.assertRaises(ValidationError):
+                model.with_context(default_agile_key=key).create(
+                    {"name": "Invalid default"}
+                )
+        ordinary.write({"agile_key": "OPTIONAL"})
+        ordinary.write({"agile_enabled": True})
+        self.assertEqual(ordinary.agile_key, "OPTIONAL")
+
+    def test_legacy_project_key_preserves_settings_and_disable_workflow(self):
+        manager = mail_new_test_user(
+            self.env, "legacy_key_manager", groups="project.group_project_manager"
+        )
+        for key in ("L", "LEGACYLONG1A"):
+            with self.subTest(key=key):
+                # Produce historical records under the actual pre-124 grammar.
+                # Strict validation is restored before exercising current writes.
+                with patch.object(
+                    project_project,
+                    "_AGILE_KEY_PATTERN",
+                    re.compile(r"^[A-Z][A-Z0-9]*$"),
+                ):
+                    project = self._create_agile_project("Historical namespace", key)
+                    task = self.env["project.task"].create(
+                        {"name": "Historical work", "project_id": project.id}
+                    )
+                project = project.with_user(manager)
+                project.write({"agile_estimation_method": "fibonacci"})
+                project.write({"agile_enabled": False})
+                self.assertFalse(project.agile_enabled)
+                project.write({"agile_key": key})
+                project.write({"agile_enabled": True, "agile_key": key})
+                self.assertTrue(project.agile_enabled)
+                self.assertEqual((project.agile_key, task.agile_key), (key, f"{key}-1"))
+                with self.assertRaises(ValidationError):
+                    project.write({"agile_key": "RENAMED"})
+                self.assertEqual((project.agile_key, task.agile_key), (key, f"{key}-1"))
+
+    def test_legacy_project_key_noop_preserves_configuration_access(self):
+        with patch.object(
+            project_project, "_AGILE_KEY_PATTERN", re.compile(r"^[A-Z][A-Z0-9]*$")
+        ):
+            project = self._create_agile_project("Historical access", "H")
+        manager = mail_new_test_user(
+            self.env, "legacy_noop_manager", groups="project.group_project_manager"
+        )
+        member = mail_new_test_user(
+            self.env, "legacy_key_member", groups="project_agile.group_agile_member"
+        )
+        project.with_user(manager).write({"agile_key": "H"})
+        for values in ({"agile_key": "H"}, {"agile_enabled": False}):
+            with self.subTest(values=values), self.assertRaises(AccessError):
+                project.with_user(member).write(values)
+        self.assertEqual(project.agile_key, "H")
+        self.assertTrue(project.agile_enabled)
+
+    def test_legacy_project_key_changed_values_still_validate(self):
+        with patch.object(
+            project_project, "_AGILE_KEY_PATTERN", re.compile(r"^[A-Z][A-Z0-9]*$")
+        ):
+            first = self._create_agile_project("Historical first", "B")
+            second = self._create_agile_project("Historical second", "C")
+        for key in ("D", "ABCDEFGHIJK", "lower", "1A", "AB_C"):
+            with self.subTest(key=key), self.assertRaises(ValidationError):
+                first.write({"agile_key": key})
+            self.assertEqual(first.agile_key, "B")
+        # B is unchanged for one row, but a newly assigned invalid key for C.
+        with self.assertRaises(ValidationError):
+            (first | second).write({"agile_key": "B", "name": "Must not be written"})
+        self.env.flush_all()
+        (first | second).invalidate_recordset(["agile_key", "name"])
+        self.assertEqual((first.agile_key, second.agile_key), ("B", "C"))
+        self.assertEqual(
+            (first.name, second.name), ("Historical first", "Historical second")
+        )
+        first.write({"agile_key": "REPAIRED"})
+        self.assertEqual(first.agile_key, "REPAIRED")
+        with self.assertRaises(ValidationError):
+            first.write({"agile_key": False})
+        second.write({"agile_enabled": False, "agile_key": False})
+        self.assertFalse(second.agile_key)
+        with self.assertRaises(ValidationError):
+            second.write({"agile_enabled": True})
+
+    def test_project_key_ingress_uses_native_normalized_values(self):
+        model = self.env["project.project"]
+        for value in (None, False, ""):
+            with self.subTest(value=value):
+                normalized = model.new({"agile_key": value}).agile_key
+                project = model.create(
+                    {"name": "Optional namespace", "agile_key": value}
+                )
+                self.assertEqual(project.agile_key, normalized)
+                project.write({"agile_key": value})
+                self.assertEqual(project.agile_key, normalized)
+        project = self._create_agile_project("Strict normalized namespace", "NORMAL")
+        for value in (42, True):
+            with self.subTest(value=value):
+                with self.assertRaises(ValidationError):
+                    model.create({"name": "Invalid native value", "agile_key": value})
+                with self.assertRaises(ValidationError):
+                    model.with_context(default_agile_key=value).create(
+                        {"name": "Invalid native default"}
+                    )
+                with self.assertRaises(ValidationError):
+                    project.write({"agile_key": value})
+                self.assertEqual(project.agile_key, "NORMAL")
+        explicit = model.with_context(default_agile_key="A").create(
+            {"name": "Explicit overrides default", "agile_key": "EXPLICIT"}
+        )
+        self.assertEqual(explicit.agile_key, "EXPLICIT")
+        for value in (None, False, ""):
+            with self.subTest(required=value), self.assertRaises(ValidationError):
+                project.write({"agile_key": value})
+            self.assertEqual(project.agile_key, "NORMAL")
+
+    def test_invalid_new_namespace_batch_leaves_no_partial_projects(self):
+        model = self.env["project.project"]
+        name = "Invalid batch namespace"
+        with self.assertRaises(ValidationError):
+            model.create(
+                [
+                    {"name": name, "agile_enabled": True, "agile_key": "BATCHOK"},
+                    {"name": name, "agile_enabled": True, "agile_key": "X"},
+                ]
+            )
+        self.env.flush_all()
+        self.assertFalse(model.search_count([("name", "=", name)]))
 
     def test_agile_task_receives_immutable_key(self):
         task = self._create_task("Implement key allocation")

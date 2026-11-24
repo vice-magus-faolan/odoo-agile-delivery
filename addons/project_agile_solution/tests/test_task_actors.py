@@ -162,7 +162,7 @@ class TestTaskActors(TransactionCase):
                 "name": "Foreign company Project",
                 "company_id": company.id,
                 "agile_enabled": True,
-                "agile_key": "FOREIGNACTOR",
+                "agile_key": "FORACTOR",
             }
         )
         self.manager.company_ids = [Command.link(company.id)]

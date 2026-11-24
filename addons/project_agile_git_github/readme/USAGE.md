@@ -34,7 +34,7 @@ mean the key was unknown, invalid, excessive or referred to archived work.
 ## Inspect and recover deliveries
 
 Open **Project > Tasks > Git Repositories**, select the repository and choose
-**Deliveries**. Inspect **Provider Delivery Id**, **Event Type**, **State**,
+**Deliveries**. Inspect **Provider Delivery**, **Event Type**, **State**,
 **Attempt Count**, **Next Retry At**, **Payload Sha256** and **Error Summary**.
 **Replay Mismatch Count** and **Last Replay Mismatch At** identify conflicting
 reuse of a delivery ID.

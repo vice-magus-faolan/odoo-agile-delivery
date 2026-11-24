@@ -95,7 +95,7 @@ if PHASE == "seed":
         {
             "name": "Item policy upgrade client",
             "agile_enabled": True,
-            "agile_key": "UPGRADETYPE",
+            "agile_key": "UPGRTYPE",
             "agile_estimation_method": "fibonacci",
             "agile_default_item_type_id": False,
         }

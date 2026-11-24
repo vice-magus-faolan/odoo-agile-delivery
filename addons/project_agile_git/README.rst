@@ -58,11 +58,11 @@ Administrator access.
 
 1. Enable Agile on the Project and configure its stable task-key prefix.
 2. Open **Project > Tasks > Git Repositories** and create a repository.
-   Enter **Name**, **Provider**, **Provider Repository Id**, **Project**
+   Enter **Name**, **Provider**, **Provider Repository**, **Project**
    and **Canonical Url**. **Company** follows the selected Project.
 3. For GitHub, run ``gh api repos/OWNER/REPO --jq .id`` and enter the
-   returned number in **Provider Repository Id**. Each provider
-   repository can be mapped only once.
+   returned number in **Provider Repository**. Each provider repository
+   can be mapped only once.
 4. Set **Canonical Url** to the HTTPS repository URL on ``github.com``,
    ``gitlab.com`` or ``bitbucket.org``, matching **Provider**, for
    example ``https://github.com/example/delivery``. Fact links are
@@ -111,7 +111,7 @@ Usage
    access rights. The GitHub connector guide explains which source
    fields can establish links.
 3. As a Project administrator, open the repository and choose
-   **Deliveries**. Inspect **Provider Delivery Id**, **Event Type**,
+   **Deliveries**. Inspect **Provider Delivery**, **Event Type**,
    **State**, **Attempt Count**, **Next Retry At** and **Error Summary**
    when facts have not appeared.
 
@@ -135,8 +135,8 @@ mappings. **Observed merged PRs** opens source details. In Tasks search,
 selected environment but none into any visible production mapping in
 that Project; a production mapping is required. Typed names match the
 whole name, ignoring case, so UAT does not match Pre-UAT. The tab and
-filter follow your access rights; the BA's manual **Environments** panel
-stays separate.
+filter follow your access rights; the task's manual **Environments**
+panel stays separate.
 
 A merge is not a deployment or proof that all task code is present. Only
 PRs linked by task keys in their title, body or head branch count: put
@@ -169,7 +169,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

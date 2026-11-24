@@ -57,7 +57,7 @@ permission to administer that repository webhook.
 1. In **Project > Tasks > Git Repositories**, select the repository. Set
    **Provider** to **GitHub**, check **Project** and **Company**, and
    run ``gh api repos/OWNER/REPO --jq .id``. Enter the returned number
-   in **Provider Repository Id**. Keep the repository active and set
+   in **Provider Repository**. Keep the repository active and set
    **Canonical Url** to its ``https://github.com/`` repository URL.
 2. Select **Redacted Excerpt** in **Retention Policy** before sending
    events. **Digest Only** saves delivery metadata but leaves no payload
@@ -150,7 +150,7 @@ Inspect and recover deliveries
 ------------------------------
 
 Open **Project > Tasks > Git Repositories**, select the repository and
-choose **Deliveries**. Inspect **Provider Delivery Id**, **Event Type**,
+choose **Deliveries**. Inspect **Provider Delivery**, **Event Type**,
 **State**, **Attempt Count**, **Next Retry At**, **Payload Sha256** and
 **Error Summary**. **Replay Mismatch Count** and **Last Replay Mismatch
 At** identify conflicting reuse of a delivery ID.
@@ -221,7 +221,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

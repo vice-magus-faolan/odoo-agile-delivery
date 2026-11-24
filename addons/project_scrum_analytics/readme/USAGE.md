@@ -23,7 +23,7 @@ you can access.
    values are snapshots after each event, not daily increments: summing them
    does not give a Sprint total. Use the Sprint report for totals.
 
-As a Project administrator, start and close Sprints through their normal actions.
-Follow the [Scrum completion instructions](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work)
+Follow the [Scrum setup and role guide](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#configuration)
+for Sprint setup and lifecycle permissions, and the [Scrum completion instructions](https://github.com/vice-magus-faolan/odoo-agile-delivery/tree/19.0/addons/project_scrum#start-and-work)
 when recording completed work. If a report seems empty, check filters, Sprint
 scope history, Project visibility and available companies before comparing metrics.

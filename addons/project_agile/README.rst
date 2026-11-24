@@ -69,8 +69,8 @@ access still apply.
 1. As a Project administrator, open the Project form and its
    **Settings** tab. In **Agile**, enable **Agile Enabled**.
 2. Set **Agile Key** to a unique prefix such as ``ENG``, starting with
-   an uppercase letter and containing only uppercase letters and digits.
-   Save the Project.
+   an uppercase letter and containing only uppercase letters and digits,
+   with 2 to 10 characters in total. Save the Project.
 3. Choose **Default Agile Item Type** and **Estimation Method**.
    Enabling Agile defaults a missing choice to active Task; an
    administrator can choose another type or none. For point-using types,
@@ -115,10 +115,13 @@ them.
 New tasks in an enabled Project receive keys such as ``ENG-1`` and the
 default item type when omitted. Explicit choices, including none, are
 preserved. An archived default is not assigned to new work. Enabling
-Agile does not backfill existing tasks. An assigned task key and its
-Project cannot change; copy the task to move work to another Project.
-The Project prefix cannot change after keys have been assigned. Seeded
-item types preserve administrator customizations on module updates.
+Agile assigns keys to existing eligible tasks, including archived work,
+but does not assign their item type. Native task templates and tasks in
+Project templates are excluded until restored. An assigned task key and
+its Project cannot change; copy the task to move work to another
+Project. The Project prefix cannot change after keys have been assigned.
+Seeded item types preserve administrator customizations on module
+updates.
 
 Open an item type form under **Configuration > Agile Item Types** to
 edit or clear **New Description Template**. Story starts with As a / I
@@ -263,7 +266,7 @@ Authors
 Contributors
 ------------
 
-- Jimmy McCann https://github.com/jabez007
+- jabez007 https://github.com/jabez007
 
 Maintainers
 -----------

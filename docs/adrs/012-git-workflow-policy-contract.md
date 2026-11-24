@@ -14,11 +14,11 @@ task ready for their next workflow stage.
 [ADR-011](011-git-facts-and-visibility-contract.md) supplies repository-scoped PR/check
 observations and immutable Agile-key associations, without workflow effects.
 
-`project_agile_git_automation` is optional, LGPL-3, Odoo 19 Community-compatible
-private-suite code, not an OCA-conformity claim. Its sole base dependency is
-`project_agile_git`. No GitHub, Scrum, queue_job, SDK, polling, daemon, outbound
-provider operation, or synchronous webhook task write is required. Existing addons must
-not depend on it. Odoo.sh is the primary expected target, not the sole target.
+`project_agile_git_automation` is optional, LGPL-3, Odoo 19 Community-compatible suite
+code, not an OCA-conformity claim. Its sole base dependency is `project_agile_git`. No
+GitHub, Scrum, queue_job, SDK, polling, daemon, outbound provider operation, or
+synchronous webhook task write is required. Existing addons must not depend on it.
+Odoo.sh is the primary expected target, not the sole target.
 
 Only one typed effect is permitted: `task_stage_transition`, writing exactly
 `{'stage_id': approved_target_stage.id}` through normal Task ORM under an approved
@@ -31,11 +31,16 @@ non-goals.
 
 ## Exact source findings (observed, not inferred)
 
-Originally inspected the Odoo 19 Community container image
+Originally inspected the Odoo 19.0-20260908 Community build in container image
 `odoo@sha256:144175ec0039d52daff1d79f7e51c9281ca3c98b96c830feb49d09764a9f5d7c`
 read-only, alongside ADR-011's pinned official Odoo source at
-`c2957158eb2f7a341a874c3c58884c8a162ef59a`. Runtime files are under
-`/usr/lib/python3/dist-packages/odoo/`:
+`c2957158eb2f7a341a874c3c58884c8a162ef59a`. The historical image build was identified by
+the
+[maintainer image comparison](https://github.com/vice-magus-faolan/odoo-agile-delivery/pull/126#pullrequestreview-6008229186),
+not a fresh image inspection. Runtime files are under
+`/usr/lib/python3/dist-packages/odoo/`. The hashes below describe that inspected build,
+not every later image behind the floating `odoo:19.0` tag in `Dockerfile.verify`. Read
+the actual Odoo build in the verification log.
 
 - `addons/base/models/ir_cron.py`: `user_id` is the Scheduler User;
   `method_direct_trigger` uses a separate cursor; `_commit_progress` commits and returns

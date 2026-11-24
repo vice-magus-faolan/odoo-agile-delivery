@@ -101,7 +101,7 @@ class TestSolutionHardening(TestSolutionRendering):
 
     def test_same_company_visible_project_does_not_authorize_foreign_links(self):
         other_project = self._project(
-            "Second readable initiative", "M8HARDOTHER", self.company
+            "Second readable initiative", "M8HARDOTH", self.company
         )
         other_task = self._spike(project=other_project, item_type="story")
         requirement = self._requirement()

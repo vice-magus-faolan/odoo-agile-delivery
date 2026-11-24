@@ -21,10 +21,9 @@ external runner.
 
 ## Decision
 
-`project_agile_git` remains an LGPL-3 Odoo-compatible private-suite module depending
-only on `project_agile`; core Agile, Scrum, analytics, document bridges, and planning UI
-remain independently installable. `project_agile_git_github` is the optional GitHub
-adapter.
+`project_agile_git` remains an LGPL-3 Odoo-compatible module depending only on
+`project_agile`; core Agile, Scrum, analytics, document bridges, and planning UI remain
+independently installable. `project_agile_git_github` is the optional GitHub adapter.
 
 A repository is one globally unique provider repository identity mapped to one Agile
 project and company. Durable delivery identity is

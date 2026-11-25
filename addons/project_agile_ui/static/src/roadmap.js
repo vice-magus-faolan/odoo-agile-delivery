@@ -1,12 +1,13 @@
 /** @odoo-module **/
 
 import {Component, onWillStart, onWillUnmount, useState} from "@odoo/owl";
-import {DateTime} from "luxon";
 import {registry} from "@web/core/registry";
 import {_t} from "@web/core/l10n/translation";
 import {useService} from "@web/core/utils/hooks";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
 import {Many2XAutocomplete} from "@web/views/fields/relational_utils";
+
+const {DateTime} = luxon;
 
 /** Read-only native date projection; native forms remain the editing boundary. */
 export class AgileRoadmap extends Component {

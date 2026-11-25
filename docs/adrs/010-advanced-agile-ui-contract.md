@@ -245,6 +245,8 @@ plan, not historical Scrum analytics or a dependency scheduler. Opening, filteri
 paging do not change dates, Sprint membership or history. Native forms remain the
 separately authorized editing boundary.
 
+Native date semantics were inspected at
+[Odoo 19 revision `8da213dc6785e097f2558dc2d648b588957786a1`](https://github.com/odoo/odoo/tree/8da213dc6785e097f2558dc2d648b588957786a1/addons/project).
 Project `date_start` and `date` define its planned interval. Work uses its native
 `date_deadline`; Community assignment time (`date_assign`) is not a planned start. If
 the installed edition exposes a readable native `planned_date_begin` Date or Datetime

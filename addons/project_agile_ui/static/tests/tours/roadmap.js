@@ -39,7 +39,11 @@ registry.category("web_tour.tours").add("agile_roadmap", {
     },
     {trigger: ".o_agile_roadmap tr:contains(Roadmap nested work)"},
     {trigger: "#roadmap-team", run: "edit Roadmap team"},
-    {trigger: ".o-autocomplete--dropdown-item:contains(Roadmap team)", run: "click"},
+    {
+      trigger:
+        ".o-autocomplete--dropdown-item:contains(Roadmap team):not(:contains(Other roadmap team))",
+      run: "click",
+    },
     {
       trigger: ".o_agile_roadmap_work_total",
       run() {

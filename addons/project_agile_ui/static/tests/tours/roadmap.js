@@ -10,6 +10,7 @@ registry.category("web_tour.tours").add("agile_roadmap", {
     },
     {trigger: ".o_agile_roadmap li:contains(Roadmap release):contains(Not reached)"},
     {trigger: "#roadmap-to", run: "edit 2099-01-01"},
+    {trigger: ".o_agile_roadmap h1", run: "click"},
     {trigger: ".o_agile_roadmap [role=alert]"},
     {
       trigger: "#roadmap-to",
@@ -21,6 +22,7 @@ registry.category("web_tour.tours").add("agile_roadmap", {
         await actions.edit(start.toISOString().slice(0, 10));
       },
     },
+    {trigger: ".o_agile_roadmap h1", run: "click"},
     {trigger: ".o_agile_roadmap tr:contains(Roadmap nested work)"},
     {trigger: "#roadmap-team", run: "edit Roadmap team"},
     {trigger: ".o-autocomplete--dropdown-item:contains(Roadmap team)", run: "click"},

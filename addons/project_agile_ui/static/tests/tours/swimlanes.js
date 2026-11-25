@@ -25,7 +25,22 @@ registry.category("web_tour.tours").add("agile_swimlanes", {
     let originalIds = [];
     return [
       {
-        trigger: ".o_form_view button[name='action_open_agile_swimlanes']",
+        trigger: ".o_form_view .o-form-buttonbox",
+        async run(actions) {
+          // Optional addons can move this stat button into native overflow.
+          if (
+            !document.querySelector(
+              ".o_form_view button[name='action_open_agile_swimlanes']"
+            )
+          ) {
+            console.info("Opening native Project More menu for Active Sprint board");
+            await actions.click(".o_form_view .o_button_more");
+          }
+        },
+      },
+      {
+        // Native dropdown content is rendered outside the Project form.
+        trigger: "button[name='action_open_agile_swimlanes']",
         run: "click",
       },
       {

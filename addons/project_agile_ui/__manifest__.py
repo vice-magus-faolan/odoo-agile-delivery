@@ -1,7 +1,7 @@
 {
     "name": "Agile Planning UI",
     "summary": "Optional Odoo frontend for authoritative Agile planning",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "author": "McCann Hub",
     "maintainer": "jabez007",
     "website": "https://github.com/vice-magus-faolan/odoo-agile-delivery",
@@ -15,6 +15,9 @@
     ],
     "assets": {
         "web.assets_backend": [
+            "project_agile_ui/static/src/roadmap.js",
+            "project_agile_ui/static/src/roadmap.xml",
+            "project_agile_ui/static/src/roadmap.scss",
             "project_agile_ui/static/src/quick_create.js",
             "project_agile_ui/static/src/planning_board.js",
             "project_agile_ui/static/src/planning_board.xml",
@@ -27,6 +30,7 @@
             "project_agile_ui/static/tests/**/*.test.js",
         ],
         "web.assets_tests": [
+            "project_agile_ui/static/tests/tours/roadmap.js",
             "project_agile_ui/static/tests/tours/milestones.js",
             "project_agile_ui/static/tests/tours/swimlanes.js",
         ],

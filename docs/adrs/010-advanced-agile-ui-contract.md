@@ -236,3 +236,64 @@ added. Native Task create/write/bulk/complete and per-type stage checks retain t
 existing authority and behavior. Ordinary configuration plus a read-only projection
 avoids a second workflow engine; revisit enforcement only with an explicitly different
 policy and concurrency/visibility contract.
+
+## Forward-looking Epic and release roadmap
+
+The Project form offers **Roadmap** through the same optional UI addon. Native Project,
+Task and milestone records remain authoritative. This is a read-only projection of the
+plan, not historical Scrum analytics or a dependency scheduler. Opening, filtering and
+paging do not change dates, Sprint membership or history. Native forms remain the
+separately authorized editing boundary.
+
+Native date semantics were inspected at
+[Odoo 19 revision `8da213dc6785e097f2558dc2d648b588957786a1`](https://github.com/odoo/odoo/tree/8da213dc6785e097f2558dc2d648b588957786a1/addons/project).
+Project `date_start` and `date` define its planned interval. Work uses its native
+`date_deadline`; Community assignment time (`date_assign`) is not a planned start. If
+the installed edition exposes a readable native `planned_date_begin` Date or Datetime
+field, work can show that start and its deadline as an interval. Otherwise it shows
+deadline markers. A missing deadline remains explicitly unscheduled, even when a start
+is available. No date is inherited from a parent or Sprint. Immediate readable parents
+identify nested work without inventing an Epic rollup schedule. Native milestone
+`deadline` and `is_reached` represent release planning and reported attainment; they are
+neither Sprint boundaries nor detected deployments.
+
+Odoo.sh and Enterprise remain the deployment priority, with Community portability. The
+executable baseline is Odoo 19 Community. Native Task lists and deadline calendar
+support ordinary work navigation, but do not combine Project intervals, undated
+hierarchies and release milestones in one read-only projection. Enterprise Gantt is an
+edition-specific scheduling view, not a Community dependency. The roadmap reuses the
+existing OWL client-action architecture and one semantic date table rather than adding a
+Gantt engine. Conditional field detection is not Enterprise or Odoo.sh runtime
+verification.
+
+OCA `web_timeline` 19.0 was evaluated at
+[`929c108a04819a40f2e5e9be2e2c40967cb7a2e9`](https://github.com/OCA/web/tree/929c108a04819a40f2e5e9be2e2c40967cb7a2e9/web_timeline):
+installable version 19.0.1.0.1, Production/Stable, dependent on `web`, AGPL-3, with
+bundled vis-timeline and maintained translations. Its documented create, drag and delete
+interactions and separate integration/licensing obligations are unnecessary for this
+first read-only view. It is evaluated, not adopted. The suite keeps its existing
+dependencies and licenses.
+
+`get_agile_roadmap_snapshot` reuses current-caller Project/team/milestone resolvers and
+keyset pagination. It selects active open non-template work in one authorized Project
+and current-company scope, without requiring Sprint eligibility. Optional type, team and
+milestone filters narrow work; milestones retain their own Project and optional
+milestone selection, independent of work type/team. Related labels are resolved by
+caller-bound searches, not privileged prefetch. Hidden parent context is reported as
+unavailable, never as a named ancestor. Record drilldowns recheck current access and
+Project ownership.
+
+Date windows cover 1–366 inclusive UTC days. Deadline points lie within the window;
+readable native intervals overlap it. The Unscheduled selection finds work and
+milestones without deadlines, regardless of window. Independent work and milestone pages
+return at most 50 records plus one lookahead, with full caller-visible totals. Groups
+describe only the displayed work page. Cursors bind dates, mode, filters, companies,
+page kind and the current anchor version. They describe live positions, not frozen
+membership; native edits may require refreshing the first pages. **All filtered work —
+all dates** opens the ordinary read-only native list without a date or loaded-page
+restriction. It exposes later and unscheduled work under the same filters and rules.
+Native Project milestone navigation remains available.
+
+No persistence, new scheduling state, global frontend patch or third-party framework is
+added. Revisit the renderer only if an approved requirement needs interactive scheduling
+or complete cross-page grouping; do not infer either from this projection.

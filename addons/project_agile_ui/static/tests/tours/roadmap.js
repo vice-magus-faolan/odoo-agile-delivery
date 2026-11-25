@@ -41,8 +41,19 @@ registry.category("web_tour.tours").add("agile_roadmap", {
     {trigger: "#roadmap-team", run: "edit Roadmap team"},
     {trigger: ".o-autocomplete--dropdown-item:contains(Roadmap team)", run: "click"},
     {
-      trigger:
-        ".o_agile_roadmap:not([aria-busy=true]):not(:has(tr:contains(Other team deadline)))",
+      trigger: ".o_agile_roadmap_work_total",
+      run() {
+        const view = document.querySelector(".o_agile_roadmap");
+        const team = document.querySelector("#roadmap-team");
+        if (
+          team.value !== "Roadmap team" ||
+          view.textContent.includes("Other team deadline")
+        ) {
+          throw new Error(
+            `Selected team did not narrow rendered work: ${team.value}; ${view.getAttribute("aria-busy")}`
+          );
+        }
+      },
     },
     {trigger: "#roadmap-group", run: "selectByLabel Agile Team"},
     {trigger: ".o_agile_roadmap th:contains(Roadmap team)"},

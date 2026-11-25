@@ -1,5 +1,16 @@
 import {registry} from "@web/core/registry";
 
+function setThroughDate(value) {
+  // Native date-picker changes are not character-by-character text edits.
+  const input = document.querySelector("#roadmap-to");
+  input.value = value;
+  if (input.value !== value) {
+    throw new Error("The native date input did not accept the selected date");
+  }
+  input.dispatchEvent(new Event("input", {bubbles: true}));
+  input.dispatchEvent(new Event("change", {bubbles: true}));
+}
+
 registry.category("web_tour.tours").add("agile_roadmap", {
   steps: () => [
     {trigger: ".o_form_view button[name=action_open_agile_roadmap]", run: "click"},
@@ -9,20 +20,23 @@ registry.category("web_tour.tours").add("agile_roadmap", {
         ".o_agile_roadmap tr:contains(Roadmap nested work):contains(Roadmap Story parent)",
     },
     {trigger: ".o_agile_roadmap li:contains(Roadmap release):contains(Not reached)"},
-    {trigger: "#roadmap-to", run: "edit 2099-01-01"},
-    {trigger: ".o_agile_roadmap h1", run: "click"},
+    {
+      trigger: "#roadmap-to",
+      run() {
+        setThroughDate("2099-01-01");
+      },
+    },
     {trigger: ".o_agile_roadmap [role=alert]"},
     {
       trigger: "#roadmap-to",
-      async run(actions) {
+      run() {
         const start = new Date(
           `${document.querySelector("#roadmap-from").value}T00:00:00Z`
         );
         start.setUTCDate(start.getUTCDate() + 89);
-        await actions.edit(start.toISOString().slice(0, 10));
+        setThroughDate(start.toISOString().slice(0, 10));
       },
     },
-    {trigger: ".o_agile_roadmap h1", run: "click"},
     {trigger: ".o_agile_roadmap tr:contains(Roadmap nested work)"},
     {trigger: "#roadmap-team", run: "edit Roadmap team"},
     {trigger: ".o-autocomplete--dropdown-item:contains(Roadmap team)", run: "click"},
